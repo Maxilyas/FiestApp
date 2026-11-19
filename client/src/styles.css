@@ -889,6 +889,14 @@ h3 > .icon {
   font-variant-numeric: lining-nums tabular-nums;
 }
 
+/* Le temps qui a départagé deux ex æquo du quiz du jour, sous leurs points
+   (`PointsDeLaLigne`, `JourApp.tsx`) : en petit, pour ne pas peser plus que le
+   score — sur les seules lignes à égalité. Ses deux étages débordent un peu
+   du rang (`margin-block`, comme l'écrin) : la ligne garde la hauteur des
+   autres, elle en faisait 4 px de plus. */
+.lb-score-departage { display: inline-flex; flex-direction: column; align-items: flex-end; margin-block: -3px; }
+.lb-temps { margin-top: 2px; color: var(--muted); font-family: var(--sans); font-size: var(--t-label); font-weight: 500; }
+
 /* Étroite — un petit téléphone, ou le texte agrandi —, une ligne passe sur
    deux étages : le prénom en haut, avec sa marque et son laurier ; le niveau
    et les points dessous, là où ils étaient, à droite. Sur un seul, seul le

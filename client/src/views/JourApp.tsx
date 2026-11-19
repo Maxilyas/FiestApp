@@ -1552,7 +1552,30 @@ export function Classement({ partie, onRetour }: { partie: PartieDuJour; onRetou
 
 /** Le nom d'une ligne pour l'oreille, celui de sa marche au podium aussi : il remplace tout son contenu — le rang et les points doivent y être, comme au classement d'une soirée. */
 const nomDeLaLigne = (l: LigneDuJour) =>
-  `La carte ${deNom(l.nom)}${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${l.points} ${motPoints(l.points)}${l.enCours ? ', en cours' : ''}`
+  `La carte ${deNom(l.nom)}${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${l.points} ${motPoints(l.points)}${
+    l.temps !== undefined ? `, ${tempsDit(l.temps)} en moyenne par bonne réponse` : ''
+  }${l.enCours ? ', en cours' : ''}`
+
+/** Le temps qui départage, pour l'oreille : « 4,1 secondes » — « 4,1 s » se lisait lettre à lettre. */
+const tempsDit = (ms: number) => `${(ms / 1000).toFixed(1).replace('.', ',')} secondes`
+
+/**
+ * Ses points, et dessous, s'il a départagé deux ex æquo, le temps moyen de
+ * ses bonnes réponses (`LigneDuJour.temps`) : à points égaux, le plus rapide
+ * passe devant (le choix du propriétaire du 19 novembre 2026). Sans lui, deux
+ * lignes à 1 400 se suivaient à deux rangs différents, et rien ne disait
+ * pourquoi. Rien d'autre qu'un texte : pas d'icône dessinée dans une ligne de
+ * classement (règle `css.md`, les calques des listes).
+ */
+function PointsDeLaLigne({ ligne: l }: { ligne: LigneDuJour }) {
+  if (l.temps === undefined) return <Score n={l.points} texte={formatNumber(l.points)} />
+  return (
+    <span className="lb-score lb-score-departage">
+      {formatNumber(l.points)}
+      <span className="lb-temps">{secondes(l.temps)}</span>
+    </span>
+  )
+}
 
 /** Son avatar tel qu'il le porte, dans les lignes comme sur le podium. */
 const avatarDeLaLigne = (l: LigneDuJour) => (
@@ -1570,7 +1593,7 @@ function LigneDuClassement({ ligne: l, moi, onOuvrir }: { ligne: LigneDuJour; mo
         {l.enCours && <span className="muted small"> · en cours</span>}
       </span>
       <Niveau niveau={l.niveau} />
-      <Score n={l.points} texte={formatNumber(l.points)} />
+      <PointsDeLaLigne ligne={l} />
     </button>
   )
 }
@@ -1587,7 +1610,12 @@ function PodiumDuJour({ lignes, sienne, onOuvrir }: { lignes: readonly LigneDuJo
         label: nomDeLaLigne(l),
         visage: avatarDeLaLigne(l),
         nom: <NomLaure nom={l.nom} laurier={l.laurier} />,
-        valeur: formatNumber(l.points),
+        valeur: (
+          <>
+            {formatNumber(l.points)}
+            {l.temps !== undefined && <span className="pdc-unite">· {secondes(l.temps)}</span>}
+          </>
+        ),
       }))}
       onOuvrir={onOuvrir}
     />

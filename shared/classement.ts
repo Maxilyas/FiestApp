@@ -20,6 +20,12 @@
 //
 // Pur et partagé : le serveur l'applique au souvenir, au bilan, aux prix et à
 // l'expérience, l'écran commun à ses podiums.
+//
+// Un seul classement départage ses ex æquo : le quiz du jour, au temps de
+// réaction (le choix du propriétaire du 19 novembre 2026, `departage` — le
+// défi de la semaine, lui, se joue en prenant son temps, et n'en a pas). La
+// même règle tient : à valeur et départage égaux, le rang reste partagé, et
+// tous les ex æquo en tête gagnent.
 
 /** Le rang partagé d'une valeur : 1 + le nombre de valeurs strictement meilleures. */
 export function rangPartage(valeur: number, valeurs: Iterable<number>): number {
@@ -61,14 +67,22 @@ export function ordreDAffichage<T>(nom: (t: T) => string, id: (t: T) => string):
   return (a, b) => nom(a).localeCompare(nom(b), 'fr') || comparerIds(id(a), id(b))
 }
 
-/** L'ordre d'un classement : la valeur, de la plus haute à la plus basse, puis l'ordre d'affichage. */
+/**
+ * Ce qui départage deux valeurs égales, quand un classement en a un : le plus
+ * petit passe devant (un temps). Un nombre fini — deux `Infinity` se
+ * soustrairaient en `NaN`, et le tri ne saurait plus rien.
+ */
+export type Departage<T> = (t: T) => number
+
+/** L'ordre d'un classement : la valeur, de la plus haute à la plus basse, puis son départage s'il en a un, puis l'ordre d'affichage. */
 export function ordreDeClassement<T>(
   valeur: (t: T) => number,
   nom: (t: T) => string,
   id: (t: T) => string,
+  departage?: Departage<T>,
 ): (a: T, b: T) => number {
   const affichage = ordreDAffichage(nom, id)
-  return (a, b) => valeur(b) - valeur(a) || affichage(a, b)
+  return (a, b) => valeur(b) - valeur(a) || (departage ? departage(a) - departage(b) : 0) || affichage(a, b)
 }
 
 export interface Classe<T> {
@@ -82,12 +96,14 @@ export function classer<T>(
   valeur: (t: T) => number,
   nom: (t: T) => string,
   id: (t: T) => string,
+  departage?: Departage<T>,
 ): Classe<T>[] {
-  const tries = [...items].sort(ordreDeClassement(valeur, nom, id))
+  const tries = [...items].sort(ordreDeClassement(valeur, nom, id, departage))
   let rang = 0
   return tries.map((item, i) => {
-    // Trié du plus haut au plus bas : le rang ne change qu'avec la valeur.
-    if (i === 0 || valeur(item) !== valeur(tries[i - 1])) rang = i + 1
+    // Trié du plus haut au plus bas : le rang ne change qu'avec la valeur — ou son départage.
+    const avant = tries[i - 1]
+    if (i === 0 || valeur(item) !== valeur(avant) || (departage && departage(item) !== departage(avant))) rang = i + 1
     return { item, rang }
   })
 }

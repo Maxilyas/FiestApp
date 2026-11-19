@@ -472,6 +472,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/jour-partie.test.ts` — joué de bout en bout, minuit passé.
 - `server/test/jour-justesse.test.ts` — juste jusqu'au bout.
 - `server/test/jour-charge.test.ts` — ce qu'une visite coûte à Turso.
+- `server/test/jour-departage.test.ts` — à points égaux, le plus rapide passe devant : le classement, la nuit, le laurier, hier, les jours joués et le mois ; au dixième de seconde ; une annulation qui recompte le temps ; les jours d'avant la règle, qui gardent leurs ex æquo, et sa date posée une fois.
 - `server/test/jour-mois.test.ts` — la partie et le mois.
 - `server/test/jour-nuit.test.ts` — ce que la nuit décerne.
 - `server/test/jour-paliers.test.ts` — ses paliers.

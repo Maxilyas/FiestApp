@@ -514,6 +514,13 @@ export interface LigneDuJour {
   plaque?: string
   points: number
   rang: number
+  /**
+   * À points égaux avec un voisin, ce qui les a départagés : le temps moyen
+   * de ses bonnes réponses, en millisecondes, au dixième de seconde
+   * (`JourStore.departage`) — le plus court passe devant. Absent sans ex
+   * æquo, et sur les jours d'avant la règle.
+   */
+  temps?: number
   /** Sa partie n'est pas finie : ses points peuvent encore monter. */
   enCours?: true
 }
