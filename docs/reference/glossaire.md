@@ -1,6 +1,6 @@
 # Le glossaire
 
-> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 447 termes, du moteur du quiz au Cabinet de curiosités. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
+> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 450 termes, du moteur du quiz au Cabinet de curiosités. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
 
 FiestApp nomme les choses comme l'application les montre : une **soirée**, la **salle**, un **salon**, un **trophée**. Le code garde parfois un nom plus ancien ou plus technique — un compte d'animateur est un **espace** (`accounts`), et son identifiant cloisonne tout le reste — : la dernière colonne le donne, pour qu'on le retrouve d'une recherche. Les termes se rangent sans leur article (« Le Laurier » sous L, « L'Éclat » sous E).
 
@@ -41,7 +41,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Automate | L'adversaire simulé du dé, 🤖, qui joue comme le joueur d'après le modèle du savoir, son score tenu à 2 bonnes réponses de ce qu'on attend de lui | `AUTOMATE` |
 | Une autre | La voisine d'une question tirée de la base — même catégorie, même marche, même sorte —, qui la remplace sans rien écrire | `uneAutreQuestion` |
 | Avatar en grand | L'avatar d'une carte, touché : ouvert en grand, sa peinture, sa finition et son Éclat entiers | `AvatarEnGrand` |
-| Avatar légendaire | Un des trente-deux avatars peints qu'ouvrent des hauts faits répétés, les étapes d'une piste, sur la durée, ou une fête ; il prend la place de l'emoji | `shared/legendaires.ts` |
+| Avatar légendaire | Un des trente-deux avatars peints qu'ouvrent des hauts faits répétés, les étapes d'une piste, sur la durée, ou une fête — et les deux, secrets, qu'un Grand Prix met en jeu ; il prend la place de l'emoji | `shared/legendaires.ts` |
 | Avatar peint | Un avatar qui prend la place de l'emoji — légendaire, Divin, portrait du savoir ou forme de compagnon —, un seul à la fois | `legendairePorte` |
 
 ## B
@@ -203,6 +203,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Face (d'un fait) | Une question de la base qui pose le même fait qu'une autre sous une autre forme : une réponse chiffrée que l'autre écrit dans son intitulé — l'année d'une œuvre quand l'autre en demande l'auteur. Elle entre, liée à ses sœurs ; le tirage ne pose jamais deux faces d'un fait dans une partie, une face vue compte pour vue chez ses sœurs, et la mesure écarte ce que l'une a soufflé à l'autre | `faceDe`, `soeursDe`, `vueDuFait` (`server/src/core/faces.ts`) |
 | Famille (de faits) | Une sorte de faits tirés de Wikidata (tableaux, films, prix Goncourt…), dont un script fait des fiches à rédiger | `FAMILLES`, `server/scripts/faits-wikidata.ts` |
 | Famille (d'une question) | Les questions de la campagne d'une même catégorie et d'une même difficulté estimée ; ou, pour une réponse qui est une année, un autre nombre ou un vrai ou faux, toutes celles de cette forme et de cette difficulté. De la 1 à la 3, une question part de la part que sa famille trouve | `familleDeQuestion`, `mesuresEnFamille` |
+| Fantôme (du Grand Prix) | Le joueur contre qui tout le monde court, le jour de son Grand Prix : ses vraies réponses du quiz du jour et de la campagne, figées au QG, rejouées à son rythme — il saute chaque obstacle à son vrai temps, ce qu'il avait répondu ne se voit qu'à la révélation | `ApercuDuFantome`, `FantomeVu`, `grand_prix_questions` (`server/src/core/grandPrix.ts`) |
 | Faute de trop | La faute qui franchit la ligne d'or et rate l'épreuve : la septième, la huitième au maître | `issueDe` |
 | Fête (un sujet) | Noël, le Nouvel An, Halloween, l'amour ou les anniversaires : un sujet qui ouvre l'onglet « Thèmes », la plus proche d'abord, sans parcours | `fetesDansLOrdre` |
 | Feuille du choix | La feuille « Sur quoi ? » où l'on choisit les catégories ou le sujet d'une série | `FeuilleDuChoix` |
@@ -218,6 +219,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Fin de soirée | Ce que chaque téléphone reçoit à la clôture : sa place, ses points, ce qu'il a gagné, ses liens | `soiree:fin`, `FinDeSoiree` (`shared/fin.ts`) |
 | Fin gardée | La fin de soirée rangée sur le téléphone : elle se rouvre quand on revient sur la page (douze heures), jamais quand on y arrive | `SoireeGardee` (`client/src/state.ts`), `estUnRetour` |
 | Finition | L'habillage de l'avatar d'un profil, de Mat (niveau 1) à Singularité (niveau 50), ouvert par le niveau ; « Auto » porte la plus belle | `NIVEAU_FINITION` |
+| Flot | La rosette du concours hippique, à l'avatar du fantôme battu, que gagne qui le bat au Grand Prix — un par Grand Prix ; celui de la personne fêtée, d'or, son flot d'honneur. Rangé au carnet des fêtes, il compte comme un timbre | `flot:<grand prix>`, `flotsDe`, `Flot` (`client/src/components/GrandPrix.tsx`) |
 | Fond de carte | Ce qu'on voit derrière la carte d'un joueur — ses deux faces — quand on touche son nom ; il se gagne, sort du coffre de la semaine (le trésor), ou s'achète — seuls les fonds des savoirs | `shared/fonds.ts` |
 | Fonds des savoirs | Les douze fonds de carte peints, un par catégorie de questions, les seuls que la boutique vend, tous au même prix | `FONDS_EN_BOUTIQUE`, `PRIX_D_UN_FOND` |
 | Force d'en face | Ce contre quoi la cote bouge : la cote du score d'Automate au dé, la cote figée de l'adversaire contre quelqu'un | `DuelJoue.coteAdverse` |
@@ -237,6 +239,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Gerbe | Ce qui éclate sur le téléphone d'un joueur à profil à chaque bonne réponse, pour lui seul ; les confettis d'office | `shared/gerbes.ts` |
 | Geste (du QG) | Ce que l'administrateur a changé, noté en une phrase au journal des gestes, jamais modifié | `qg_gestes`, `noterLeGeste` |
 | Gluon | Le caractère invisible U+2060 qui empêche de couper « a-t-il » en fin de ligne, sans dépendre d'une police | `espacesFines` |
+| Grand Prix | Le jour d'un joueur, programmé au QG : tout le monde court dix obstacles contre son fantôme ; une barre ou un refus coûtent quatre points, le temps départage. Ni expérience ni confettis : un flot, et parfois un avatar en plus — Pégase | `shared/grandPrix.ts`, `/grand-prix`, `/admin#grand-prix` |
 
 ## H
 
