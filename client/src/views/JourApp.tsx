@@ -181,9 +181,10 @@ export function JourApp() {
   useEffect(charger, [charger])
   // Le thème de son profil habille le quiz du jour, une fois le profil lu.
   const themePorte = profil === undefined ? undefined : (profil?.theme ?? null)
+  const campPorte = profil?.camp ?? null
   useEffect(() => {
-    if (themePorte !== undefined) void porterTheme(themePorte)
-  }, [themePorte])
+    if (themePorte !== undefined) void porterTheme(themePorte, campPorte)
+  }, [themePorte, campPorte])
   // Sa gerbe éclate à ses bonnes réponses, comme en soirée.
   const gerbe = profil === undefined ? undefined : (profil?.gerbe ?? null)
   useEffect(() => {

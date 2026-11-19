@@ -1,6 +1,6 @@
 # La boutique
 
-> Les confettis et ce qu'ils achètent, pour qui joue avec un profil : comment on les gagne et les dépense, le solde qui se relit, puis le catalogue — trente-cinq thèmes, vingt-cinq fonds de carte, vingt-cinq gerbes, cinq compagnons — et l'identité visuelle de FiestApp.
+> Les confettis et ce qu'ils achètent, pour qui joue avec un profil : comment on les gagne et les dépense, le solde qui se relit, puis le catalogue — trente-six thèmes, vingt-cinq fonds de carte, vingt-cinq gerbes, cinq compagnons — et l'identité visuelle de FiestApp.
 
 **Dans cette page** : [gagner des confettis](#gagner-des-confettis) · [les dépenser](#les-dépenser) · [un solde qui se relit](#un-solde-qui-se-relit) · [la boutique et ses rayons](#la-boutique-et-ses-rayons) · [essayer et porter](#essayer-et-porter) · [les plaques de nom](#les-plaques-de-nom) · [les thèmes](#les-thèmes) · [les fonds de carte](#les-fonds-de-carte) · [les gerbes](#les-gerbes) · [les compagnons](#les-compagnons) · [l'identité visuelle](#lidentité-visuelle) · [comment c'est construit](#comment-cest-construit)
 
@@ -121,7 +121,7 @@ Un thème habille **toutes tes pages, sur tout appareil où ton profil est conne
 
 ### Le catalogue
 
-Trente-cinq thèmes : deux offerts à tous les profils, vingt-huit à vendre — dont six de saison — et cinq qui se gagnent. La rareté ne se mesure pas, elle se décrète avec le prix : Commune 150, Peu commune 250, Rare 400, Épique 650, Légendaire 1 000 (`PRIX_DES_THEMES`). Dans la colonne du décor, « clair » dit un fond clair, que la page annonce au navigateur ; « animé », un décor qui bouge et s'arrête si ton téléphone demande moins de mouvement ; « peint », un tableau pour décor.
+Trente-six thèmes : deux offerts à tous les profils, vingt-neuf à vendre — dont six de saison — et cinq qui se gagnent. La rareté ne se mesure pas, elle se décrète avec le prix : Commune 150, Peu commune 250, Rare 400, Épique 650, Légendaire 1 000 (`PRIX_DES_THEMES`). Dans la colonne du décor, « clair » dit un fond clair, que la page annonce au navigateur ; « animé », un décor qui bouge et s'arrête si ton téléphone demande moins de mouvement ; « peint », un tableau pour décor.
 
 | Thème | Rareté | Prix ou condition | Saison | Décor |
 |---|---|---|---|---|
@@ -155,11 +155,14 @@ Trente-cinq thèmes : deux offerts à tous les profils, vingt-huit à vendre —
 | Aurore boréale | Légendaire | 1 000 | — | sombre, animé |
 | Kintsugi | Légendaire | 1 000 | — | sombre, animé |
 | Grand théâtre | Légendaire | 1 000 | — | sombre |
+| Les Deux Bannières | Légendaire | 1 000 | — | sombre, peint, animé |
 | Babel | Légendaire | se gagne : les douze paliers de maître des sentiers du savoir | — | sombre, animé |
 | L'Horloge astronomique | Légendaire | se gagne : cinquante victoires au quiz du jour | — | sombre, peint, animé |
 | Le Ciel du jour | Légendaire | se gagne : trente jours d'affilée au quiz du jour (L'Infatigable · Argent) | — | sombre, peint, animé |
 | Les Très Riches Heures | Légendaire | se gagne : les douze pages du calendrier du quiz du jour | — | clair, peint, animé |
 | Le Sommet | Légendaire | se gagne : une série de vingt en campagne (L'Alpiniste · Or) | — | sombre, peint, animé |
+
+**Les Deux Bannières** (le 19 novembre 2026) : la frontière au crépuscule, deux factions d'un monde de légende face à face — les Clans de la Braise, leurs camps de guerre et leur hure de sanglier, et le Royaume d'Azur, ses tours blanches et son lion dressé —, toutes deux inventées. On porte un camp : dans la loge, pièce « Thème », deux boutons au-dessus de tes thèmes, chacun son emblème — un toucher l'essaie, « Porter » le garde. Les Clans d'office. Ton camp teinte tes pages — la braise et l'orange des braseros, ou la nuit bleue et l'or —, et ta plaque le dit aux autres : une plaque par camp, son emblème et sa marche du podium.
 
 Trois thèmes peints suivent l'heure de Paris, quelle que soit celle du téléphone : les aiguilles de l'Horloge, l'aube, le jour, le crépuscule et la nuit du Ciel du jour, la page du mois des Très Riches Heures.
 

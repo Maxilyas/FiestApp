@@ -76,6 +76,23 @@ export interface Theme {
    * il reste à lui.
    */
   gagne?: { regle: string; par: CeQuiOuvreUnTheme; ou: OuSeGagne }
+  /**
+   * Deux camps face à face, dans un seul thème (les Deux Bannières, le choix
+   * du propriétaire du 19 novembre 2026 : « Deux factions en un seul thème »,
+   * puis « l'option choisir son camp ») : on en porte un, le premier d'office.
+   * Il teinte sa page, et sa plaque le dit aux autres — une plaque par camp
+   * (`PLAQUES`, `shared/plaques.ts`).
+   */
+  camps?: readonly CampDuTheme[]
+}
+
+/** Un camp d'un thème qui en a deux. */
+export interface CampDuTheme {
+  key: string
+  /** Court, sur un bouton : « Les Clans ». */
+  nom: string
+  /** En entier : « Les Clans de la Braise ». */
+  long: string
 }
 
 /**
@@ -206,6 +223,20 @@ export const THEMES: readonly Theme[] = [
   { key: 'aurore', nom: 'Aurore boréale', rarete: 'legendaire', clair: false, humeur: 'Les voiles verts et violets ondulent au-dessus des sapins.' },
   { key: 'kintsugi', nom: 'Kintsugi', rarete: 'legendaire', clair: false, humeur: 'Céramique noire, fêlures réparées à l’or.' },
   { key: 'theatre', nom: 'Grand théâtre', rarete: 'legendaire', clair: false, humeur: 'Rideaux de velours, dorures, et le projecteur sur la question.' },
+  // Le thème du jeu préféré du propriétaire (le 19 novembre 2026) : deux
+  // factions d'un monde de légende, tout entières inventées — ni nom, ni
+  // blason, ni race d'un jeu existant (`retours/2026-11-19/deux-bannieres/`).
+  {
+    key: 'bannieres',
+    nom: 'Les Deux Bannières',
+    rarete: 'legendaire',
+    clair: false,
+    humeur: 'La frontière au crépuscule : les Clans de la Braise d’un côté du gouffre, le Royaume d’Azur de l’autre. Choisis ton camp.',
+    camps: [
+      { key: 'clans', nom: 'Les Clans', long: 'Les Clans de la Braise' },
+      { key: 'royaume', nom: 'Le Royaume', long: 'Le Royaume d’Azur' },
+    ],
+  },
   // ── Gagnés, jamais vendus ── les douze sentiers gravis jusqu'au maître ;
   // et, depuis le 5 octobre 2026, quatre thèmes peints : le quiz du jour, sa
   // série, son calendrier, et la campagne.
@@ -255,6 +286,20 @@ const PAR_CLE = new Map(THEMES.map(t => [t.key, t]))
 
 export function theme(key: unknown): Theme | undefined {
   return typeof key === 'string' ? PAR_CLE.get(key) : undefined
+}
+
+/**
+ * Le camp qu'il porte sous ce thème : celui qu'il a choisi, s'il en est un —
+ * sinon le premier, d'office. Rien pour un thème sans camps.
+ */
+export function campDuTheme(t: Theme | undefined, choisi: unknown): CampDuTheme | null {
+  if (!t?.camps) return null
+  return t.camps.find(c => c.key === choisi) ?? t.camps[0]
+}
+
+/** Un camp que le catalogue connaît : ce que `profiles.camp` peut garder. */
+export function campConnu(cle: unknown): cle is string {
+  return typeof cle === 'string' && THEMES.some(t => t.camps?.some(c => c.key === cle))
 }
 
 /** Ceux que tout profil a, sans rien payer. */

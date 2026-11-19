@@ -6,6 +6,9 @@
 // douze fonds des savoirs, un par catégorie, que la boutique vend. Et le
 // podium (le groupe `podium`) : une marche peinte par thème, sur le croquis
 // de `gabarit-marche.ts`, plus belle à mesure que son thème est dur à obtenir.
+// Et les Deux Bannières (le groupe `bannieres`) : les emblèmes de ses deux
+// camps, la frontière repeinte à leurs couleurs sur l'esquisse de la maquette
+// validée, et une marche par camp.
 //
 //   NODE_USE_ENV_PROXY=1 npx tsx scripts/anime/decors.ts --groupe=calendrier,horloge [--lot]
 //   … --seulement=horloge-cadran            # un essai, une image
@@ -35,6 +38,7 @@ import { dansLaPage, deDataUrl, pagePixels } from './pixels'
 import { FACE, FONDS_DES_MARCHES, GABARIT_DE_LA_MARCHE, croquisDeLaMarche, type FondDUneMarche } from './gabarit-marche'
 import { PAGES } from '../../../shared/calendrier'
 import { THEMES } from '../../../shared/themes'
+import { PLAQUES, themeDeLaPlaque } from '../../../shared/plaques'
 
 const args = process.argv.slice(2)
 const LOT = args.includes('--lot')
@@ -63,8 +67,8 @@ function mettreDeCote(nom: string) {
 // ── Les consignes ─────────────────────────────────────────────────────────
 // En anglais, comme celles des portraits et des légendaires.
 
-type Groupe = 'calendrier' | 'horloge' | 'ciel' | 'heures' | 'sommet' | 'fonds' | 'tresor' | 'savoirs' | 'podium'
-const GROUPES: Groupe[] = ['calendrier', 'horloge', 'ciel', 'heures', 'sommet', 'fonds', 'tresor', 'savoirs', 'podium']
+type Groupe = 'calendrier' | 'horloge' | 'ciel' | 'heures' | 'sommet' | 'fonds' | 'tresor' | 'savoirs' | 'podium' | 'bannieres'
+const GROUPES: Groupe[] = ['calendrier', 'horloge', 'ciel', 'heures', 'sommet', 'fonds', 'tresor', 'savoirs', 'podium', 'bannieres']
 
 interface Travail {
   nom: string
@@ -82,6 +86,13 @@ interface Travail {
   source?: string
   /** Le croquis sur lequel il se peint, sur son fond uni (`gabarit-marche.ts`) : une marche du podium. */
   croquis?: FondDUneMarche
+  /**
+   * Des images qu'il recopie — les emblèmes des deux camps des Deux Bannières,
+   * qu'un drapeau ou un écu doit porter tels quels : nommés en mots, le modèle
+   * en inventait un autre, ou peignait celui d'un jeu existant. Il attend
+   * qu'elles existent, comme sa source ; elles suivent la source ou le croquis.
+   */
+  references?: string[]
 }
 
 /**
@@ -309,6 +320,58 @@ const DRAPEAUX =
   'Painted in a luminous matte painting style, lit by a warm dawn light from the right. Background: a single perfectly flat, uniform chroma-key ' +
   'magenta (#FF00FF) filling the entire canvas edge to edge — no shadow, no glow. Do not use any pink or magenta on the flags. No text. Output ' +
   'one wide image (16:9 aspect ratio).'
+
+// ── Les Deux Bannières ────────────────────────────────────────────────────
+// Deux factions d'un monde de légende, inventées : le propriétaire voulait le
+// thème de son jeu préféré, et ses blasons — ceux de deux factions d'un jeu
+// existant, des marques — ne se recopient pas. Les emblèmes ont été choisis
+// sur une planche de six (le 19 novembre 2026,
+// `retours/2026-11-19/deux-bannieres/`), et chaque image qui les porte les
+// reçoit dessinés (`references`).
+
+/** Un emblème de camp : ce que portent ses bannières, ses écus, sa marche — et, redessiné, sa plaque. */
+const EMBLEME = (sujet: string) =>
+  'A heraldic emblem for one of two rival factions of an epic fantasy world, to be shown on the banners, shields and name plates of a mobile quiz app. ' +
+  'Painted like a richly crafted game emblem — bold, symmetric or near-symmetric, with crisp metallic edges and subtle bevels — but with a strong, simple ' +
+  'silhouette that still reads as a tiny 24-pixel icon. Centered, filling about 80 % of a plain flat off-white (#f4efe6) background, no scene, no frame ' +
+  'around the image, no text, no letters. An original design: it must not resemble any existing emblem, logo or crest from a video game, film or ' +
+  `book. Output one square image (1:1).\n\n${sujet}`
+
+/** Ce que les images des Deux Bannières disent de leurs deux emblèmes, joints dans cet ordre après leur source. */
+const LES_DEUX_EMBLEMES = (premier: string) =>
+  `The ${premier} and the next attached images are the two faction sigils: the first — a black boar head with ivory tusks on a red spiked shield — ` +
+  'is the sigil of the war clans of the Ember; the second — a golden lion rampant on an azure shield — is the sigil of the Azure kingdom. Paint every ' +
+  'red-and-black banner, shield and emblem of the clans with the first, and every blue-and-gold one of the kingdom with the second, faithfully, as ' +
+  'painted heraldry. No other emblem, symbol or crest anywhere — in particular no existing faction emblem from any video game.'
+
+/**
+ * L'esquisse : la frontière de la maquette, celle que le propriétaire a
+ * choisie (« La frontière OK », le 19 novembre 2026), peinte avec les
+ * emblèmes de la maquette — d'autres, depuis remplacés. Elle ne se repeint
+ * pas : la frontière part d'elle, et un second tirage aurait une autre
+ * composition. Une machine neuve la reprend de la maquette gardée, avec les
+ * deux emblèmes choisis (`retours/2026-11-19/deux-bannieres/maquette/` :
+ * `bannieres-esquisse.webp`, `embleme-clans.webp`, `embleme-royaume.webp`,
+ * à recopier dans `export/decors/originaux/` sous leur nom) — sans rien
+ * repayer.
+ */
+const FRONTIERE_ESQUISSE =
+  'Vertical painted backdrop (9:16) for a mobile quiz app theme called « The Two Banners »: an epic high-fantasy world where two rival factions face each ' +
+  'other. The war clans of the Ember: red-rock canyons, fortified war camps of hide tents, spiked wooden palisades, horned totem poles, roaring braziers, ' +
+  'tall red-and-black war banners bearing their sigil. The Azure kingdom: white stone towers with blue slate roofs and golden domes, glowing cathedral ' +
+  'windows, tall blue-and-gold banners bearing their sigil. Composition: the frontier at dusk, the two factions face to face across a deep valley — the ' +
+  'Ember’s canyon cliffs and war camp climbing the left edge, the Azure towers and banners climbing the right edge; at the top, a dramatic sky split ' +
+  'between ember-red clouds on the left and deep azure with the first stars on the right, a huge pale moon in the center; at the bottom, a stone bridge ' +
+  'over the chasm where the torches of both armies meet. The middle of the image is calm, dark, softly lit shadow — mist over a valley — because text ' +
+  'will be written over it: the beauties are along the left and right edges, at the top and at the bottom. Painted in a luminous, richly detailed matte ' +
+  'painting style, dramatic and warm. Every design is original: imitate no existing video game, film, book or card game — no existing faction emblem, no ' +
+  'existing logo, no existing character. No text, no letters, no frame, no border. Output one vertical image (9:16 aspect ratio).'
+
+/** La frontière : l'esquisse, ses blasons repeints aux emblèmes choisis, rien d'autre. */
+const FRONTIERE =
+  'The first attached image is a finished painted backdrop for a mobile quiz app. Repaint it exactly — the same composition, the same places, the same ' +
+  'light, colors and brushwork, the same camps, towers, bridge, moon and sky — changing only the heraldry: the emblems painted on its banners and shields. ' +
+  `${LES_DEUX_EMBLEMES('second')} Keep the middle of the image calm and dark. No text, no letters, no frame, no border. Output one vertical image (9:16 aspect ratio).`
 
 /**
  * Un fond de carte : le prénom et tout le reste s'écrivent par-dessus, à
@@ -540,7 +603,7 @@ const FINITIONS: Record<string, string> = {
  * de la marche et ce qui se tient sur ses deux coins ; sa palette, les
  * couleurs de la plaque du thème (`styles.css`, `.plaque-<clé>`).
  */
-export const MARCHES_A_PEINDRE: { cle: string; fond: FondDUneMarche; sujet: string }[] = [
+export const MARCHES_A_PEINDRE: { cle: string; fond: FondDUneMarche; sujet: string; references?: string[] }[] = [
   {
     cle: 'velours',
     fond: 'vert',
@@ -721,6 +784,21 @@ export const MARCHES_A_PEINDRE: { cle: string; fond: FondDUneMarche; sujet: stri
     sujet:
       'Theme — the Grand theatre: the step is a miniature stage, its front framed by a gilded carved proscenium, crimson velvet curtains drawn and tied on both sides with gold ropes, a row of small glowing footlights along its top edge; on its top corners, golden comedy and tragedy masks on one side, a small gilded opera box with a candelabra on the other. Palette: theatre crimson (#1c0508 in the shadows), velvet red, gold (#e0b34a).',
   },
+  // Les Deux Bannières : une marche par camp, chacune son emblème dessiné (`LES_DEUX_EMBLEMES`), joint après le croquis.
+  {
+    cle: 'bannieres-clans',
+    fond: 'magenta',
+    references: ['embleme-clans', 'embleme-royaume'],
+    sujet:
+      'Theme — The Two Banners, the war clans of the Ember: the front face of the step is a wall of dark riveted iron plates and rough red canyon rock, bound by spiked iron bands, with carved bone and curved tusk ornaments at its two upper corners; on its top corners, a roaring iron brazier and a horned war helm on one side, a tall red-and-black war banner bearing the clans’ sigil — the boar head of the second attached image — beside a hide war drum on the other. Palette: ember red (#c8361e), black iron, bone ivory, ember orange (#f08a3a).',
+  },
+  {
+    cle: 'bannieres-royaume',
+    fond: 'magenta',
+    references: ['embleme-clans', 'embleme-royaume'],
+    sujet:
+      'Theme — The Two Banners, the Azure kingdom: the front face of the step is a wall of white carved stone with fine gold tracery and deep blue enamel inlays, a gilded moulding along its top; on its top corners, a tall blue-and-gold banner bearing the kingdom’s sigil — the golden lion rampant of the third attached image — and a gilded kite shield bearing the same lion on one side, a slender white tower with a golden dome and a glowing lantern on the other. Palette: azure blue (#2f6fd1), gold (#d4a24c), white stone.',
+  },
   {
     cle: 'babel',
     fond: 'magenta',
@@ -753,17 +831,18 @@ export const MARCHES_A_PEINDRE: { cle: string; fond: FondDUneMarche; sujet: stri
   },
 ]
 
-// Une marche par thème du catalogue, et rien de plus : un thème de plus sans
-// sa marche, et son podium n'aurait pas d'image.
+// Une marche par plaque du catalogue — par camp pour les Deux Bannières —,
+// le Velours compris, et rien de plus : un thème de plus sans sa marche, et
+// son podium n'aurait pas d'image.
 {
-  const attendues = THEMES.map(t => t.key).sort().join()
+  const attendues = ['velours', ...PLAQUES.map(p => p.cle)].sort().join()
   const peintes = MARCHES_A_PEINDRE.map(m => m.cle).sort().join()
   if (attendues !== peintes) throw new Error(`MARCHES_A_PEINDRE ne suit pas THEMES (shared/themes.ts) : ${peintes} ≠ ${attendues}`)
 }
 
-/** La finition d'un thème : sa rareté, ou « gagne » pour un thème qui se gagne. */
+/** La finition d'une marche : la rareté de son thème, ou « gagne » pour un thème qui se gagne. */
 const finitionDe = (cle: string) => {
-  const t = THEMES.find(x => x.key === cle)!
+  const t = THEMES.find(x => x.key === themeDeLaPlaque(cle))!
   return FINITIONS[t.gagne ? 'gagne' : t.rarete]
 }
 
@@ -878,12 +957,48 @@ const TRAVAUX: Travail[] = [
   ]),
   ...MARCHES_A_PEINDRE.map(m => ({
     nom: `marche-${m.cle}`,
-    groupe: 'podium' as const,
+    groupe: m.references ? ('bannieres' as const) : ('podium' as const),
     format: '3:4' as const,
     taille: '1K' as const,
     croquis: m.fond,
-    consigne: MARCHE(m.sujet, finitionDe(m.cle), m.fond),
+    references: m.references,
+    // Avec ses emblèmes, le croquis n'est plus la seule image jointe : la consigne dit laquelle il est.
+    consigne: m.references
+      ? MARCHE(m.sujet, finitionDe(m.cle), m.fond).replace('following the attached layout sketch exactly', 'following the first attached image, a layout sketch, exactly') +
+        `\n\n${LES_DEUX_EMBLEMES('second')}`
+      : MARCHE(m.sujet, finitionDe(m.cle), m.fond),
   })),
+  {
+    nom: 'embleme-clans',
+    groupe: 'bannieres',
+    format: '1:1',
+    taille: '1K',
+    consigne: EMBLEME(
+      'The war clans of the Ember (red, black, bone, ember orange): a fierce black boar head seen from the front with two huge ivory tusks, glowing ember eyes, on a ' +
+        'red jagged shield with a black spiked iron edge, tribal and savage.',
+    ),
+  },
+  {
+    nom: 'embleme-royaume',
+    groupe: 'bannieres',
+    format: '1:1',
+    taille: '1K',
+    consigne: EMBLEME(
+      'The Azure kingdom (royal blue, gold, white): a golden lion rampant seen in profile, standing on its hind legs, claws out, tongue and claws red, on an azure ' +
+        'heater shield with a plain thick gold border — classic medieval European heraldry, noble and proud.',
+    ),
+  },
+  // Sans référence : un emblème repeint ne la met pas de côté (`--regenerer`), elle ne se repeindrait pas à l'identique.
+  { nom: 'bannieres-esquisse', groupe: 'bannieres', format: '9:16', taille: '2K', consigne: FRONTIERE_ESQUISSE },
+  {
+    nom: 'bannieres-frontiere',
+    groupe: 'bannieres',
+    format: '9:16',
+    taille: '2K',
+    source: 'bannieres-esquisse',
+    references: ['embleme-clans', 'embleme-royaume'],
+    consigne: FRONTIERE,
+  },
 ]
 
 // Chaque mois du catalogue a sa page à peindre, et rien de plus.
@@ -903,7 +1018,7 @@ const GENERER = groupesVoulus.length > 0 || seulement.length > 0 || args.include
 const travail = (nom: string) => TRAVAUX.find(t => t.nom === nom)
 for (const nom of liste('regenerer')) {
   if (!travail(nom)) throw new Error(`--regenerer=${nom} : aucune image de ce nom`)
-  for (const t of TRAVAUX) if (t.nom === nom || t.source === nom) mettreDeCote(t.nom)
+  for (const t of TRAVAUX) if (t.nom === nom || t.source === nom || t.references?.includes(nom)) mettreDeCote(t.nom)
 }
 for (const nom of liste('repeindre')) {
   if (!travail(nom)) throw new Error(`--repeindre=${nom} : aucune image de ce nom`)
@@ -977,7 +1092,7 @@ const enCours = existsSync(cheminLots) ? JSON.parse(readFileSync(cheminLots, 'ut
 if (enCours.length && !(await attendre(enCours))) process.exit(0)
 
 for (let passe = 1; GENERER && passe <= 3; passe++) {
-  const aFaire = TRAVAUX.filter(t => dansLesGroupes(t) && !existant(t.nom) && (!t.source || existant(t.source)))
+  const aFaire = TRAVAUX.filter(t => dansLesGroupes(t) && !existant(t.nom) && (!t.source || existant(t.source)) && (t.references ?? []).every(r => existant(r)))
   if (!aFaire.length) break
   // Le budget se tient avant de payer : au prix plein, une image coûte
   // environ 0,14 $ (0,07 $ en lot), pensée comprise.
@@ -988,11 +1103,12 @@ for (let passe = 1; GENERER && passe <= 3; passe++) {
   await poserLesCroquis(aFaire.flatMap(t => (t.croquis ? [t.croquis] : [])))
   const demandes = aFaire.map(t => {
     writeFileSync(fichier(`consigne-${t.nom}.txt`), t.consigne + '\n')
+    const references = (t.references ?? []).map(r => enPartie(existant(r)!))
     const parties: Partie[] = t.source
-      ? [enPartie(existant(t.source)!), { text: t.consigne }]
+      ? [enPartie(existant(t.source)!), ...references, { text: t.consigne }]
       : t.croquis
-        ? [enPartie(cheminDuCroquis(t.croquis)), { text: t.consigne }]
-        : [{ text: t.consigne }]
+        ? [enPartie(cheminDuCroquis(t.croquis)), ...references, { text: t.consigne }]
+        : [...references, { text: t.consigne }]
     return { cle: t.nom, parties, format: t.format, taille: t.taille }
   })
   console.log(`Passe ${passe} : ${aFaire.map(t => t.nom).join(', ')}`)
@@ -1301,6 +1417,7 @@ try {
     'ciel-nuit',
     'heures-folio',
     'sommet-aube',
+    'bannieres-frontiere',
     'fond-triomphe',
     'fond-cadran',
     ...FONDS_DU_TRESOR.map(f => `fond-${f.cle}`),
@@ -1484,6 +1601,7 @@ function livrer() {
         ['drapeaux', 'sommet-drapeaux-720'],
       ],
     },
+    { cle: 'bannieres', images: [['frontiere', 'bannieres-frontiere-720']] },
   ]
   for (const t of themes) {
     const feuille = `client/src/themes/${t.cle}.css`

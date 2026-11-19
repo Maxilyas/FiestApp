@@ -4397,11 +4397,12 @@ test('sous chaque thème peint, la colonne du Cabinet a son sol plein : son tabl
   // passaient tous sous les lignes du Cabinet — l'Horloge (« « Je tiens bon » » à 1,92:1 sur ses aiguilles), le Ciel
   // (« Prendre son temps » à 2,09:1), les Heures (la question d'un Pari à 1,58:1 sur la page du mois). Un thème est peint quand
   // sa feuille cite ses décors (`--decor-…`, le bloc que `decors.ts --livrer` réécrit).
+  // Un thème à deux camps se mesure camp par camp (`bannieres-royaume`) : la règle est celle de sa feuille, le sol celui du camp.
   const peints = themesDuClient().filter(t => /--decor-[\w-]+\s*:/.test(t.css))
-  assert.deepEqual(peints.map(t => t.cle).sort(), ['ciel', 'heures', 'horloge', 'sommet'])
+  assert.deepEqual([...new Set(peints.map(t => t.cle.split('-')[0]))].sort(), ['bannieres', 'ciel', 'heures', 'horloge', 'sommet'])
   for (const t of peints) {
     const css = t.css.replace(/\/\*[\s\S]*?\*\//g, '')
-    const regle = new RegExp(`:root\\[data-theme='${t.cle}'\\] \\.cab-page \\{([^}]*)\\}`).exec(css)
+    const regle = new RegExp(`:root\\[data-theme='${t.cle.split('-')[0]}'\\] \\.cab-page \\{([^}]*)\\}`).exec(css)
     assert.ok(regle, `${t.cle} : un sol sous la colonne du Cabinet`)
     const fond = /background(?:-color)?:\s*var\((--[\w-]+)\)/.exec(regle[1])?.[1]
     assert.ok(fond, `${t.cle} : ${regle[1]}`)

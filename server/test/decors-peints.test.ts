@@ -15,6 +15,7 @@ import { demarrer } from './banc'
 import { PAGES } from '../../shared/calendrier'
 import { FONDS_EN_BOUTIQUE } from '../../shared/fonds'
 import { THEMES } from '../../shared/themes'
+import { PLAQUES } from '../../shared/plaques'
 
 const client = (fichier: string) => new URL(`../../client/src/${fichier}`, import.meta.url)
 
@@ -31,6 +32,7 @@ const THEMES_PEINTS: Record<string, string[]> = {
   ciel: ['aube', 'jour', 'crepuscule', 'nuit'],
   heures: ['folio'],
   sommet: ['montagne', 'drapeaux'],
+  bannieres: ['frontiere'],
 }
 
 /**
@@ -156,14 +158,16 @@ test('les douze fonds des savoirs sont peints, dans le même bloc, chacun son vo
 })
 
 test('chaque thème a sa marche du podium peinte, dans le même bloc, et rien d’autre ne la nomme', () => {
-  // Une par thème, Velours compris — la marche de la maison, sous le podium entier : `decors.ts` refuse de partir sans
-  // une marche par thème du catalogue, `plaques.test.ts` relit qui la pose et comment.
+  // Une par plaque, Velours compris — la marche de la maison, sous le podium entier — et une par camp des Deux
+  // Bannières : `decors.ts` refuse de partir sans une marche par plaque du catalogue, `plaques.test.ts` relit qui la
+  // pose et comment.
   const { dedans, dehors } = bloc('styles.css')
   const marches = [...dedans.matchAll(/^(\.[\w.:()-]+) \{ --marche-peinte: url\(([^)]+)\); \}$/gm)]
-  assert.equal(marches.length, THEMES.length, 'une marche par thème')
+  const cles = ['velours', ...PLAQUES.map(p => p.cle)]
+  assert.equal(marches.length, cles.length, 'une marche par plaque')
   for (const [, selecteur, adresse] of marches) {
-    const cle = selecteur === '.podium-du-classement' ? 'velours' : /^\.pdc-marche\.plaque-([a-z]+)$/.exec(selecteur)?.[1]
-    assert.ok(cle && THEMES.some(t => t.key === cle), `${selecteur} : un thème du catalogue`)
+    const cle = selecteur === '.podium-du-classement' ? 'velours' : /^\.pdc-marche\.plaque-([a-z]+(?:-[a-z]+)?)$/.exec(selecteur)?.[1]
+    assert.ok(cle && cles.includes(cle), `${selecteur} : une plaque du catalogue`)
     verifierFichier(adresse, new RegExp(`^marche-${cle}-360\\.`))
   }
   // Écrit à la main, le podium ne lit que la propriété.
@@ -301,6 +305,29 @@ test('le Sommet ne peint qu’une couche en plein écran, et celles qui bougent 
   assert.deepEqual([neige.top, neige.right, neige.bottom, neige.left], ['-240px', '-240px', '0', '0'])
   assert.match(neige.background, / \/ 240px 240px repeat$/)
   assert.match(readFileSync(client('themes/sommet.css'), 'utf8'), /@keyframes sommet-neige \{\s*to \{\s*transform: translate\(-240px, 240px\);/)
+})
+
+test('les Deux Bannières : le tableau sous son voile en une couche, ses braises dans une autre — chaque camp les teinte', () => {
+  // Deux couches fixes, comme le Sommet en a appris le prix (règle `css.md`) : le tableau et son voile peints ensemble,
+  // immobiles ; les braises qui montent, seules à bouger, d'un pas de leur motif.
+  const couches = couchesFixes('bannieres')
+  assert.deepEqual([...couches.keys()].sort(), ['body::after', 'html::before'])
+  const tableau = couches.get('html::before')!
+  assert.match(tableau.background, /^var\(--bannieres-voile\)[^,]*,\s*var\(--decor-frontiere\)/, 'le voile sur le tableau, dans la même couche')
+  assert.equal(tableau.animation, undefined, 'le tableau ne bouge pas')
+  assert.equal(tableau.opacity, undefined)
+  assert.deepEqual(animees(couches), ['body::after'])
+  const braises = couches.get('body::after')!
+  assert.match(braises.animation, /^bannieres-braises /)
+  assert.equal(braises.height, 'calc(100% + 300px)', 'l’écran, plus le pas de son motif')
+  assert.equal(braises['background-size'], '180px 300px')
+  const css = readFileSync(client('themes/bannieres.css'), 'utf8')
+  assert.match(css, /@keyframes bannieres-braises \{\s*from \{\s*transform: translateY\(0\);\s*\}\s*to \{\s*transform: translateY\(-300px\);/)
+  // Le Royaume repeint le voile et les braises sur les mêmes couches : sous lui comme sous les Clans, deux couches.
+  const royaume = /:root\[data-theme='bannieres'\]\[data-camp='royaume'\] \{([^}]*--bannieres-voile[^}]*)\}/.exec(css)
+  assert.ok(royaume, 'le Royaume a son voile')
+  assert.match(royaume[1], /--bannieres-braises: url\(/, 'et ses braises')
+  assert.doesNotMatch(css, /data-camp='royaume'\](?: body| #root)?::(?:before|after)/, 'aucune couche à lui')
 })
 
 test('l’or des Heures scintille dans deux bandes, le long des bords, pas sur tout l’écran', () => {

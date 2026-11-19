@@ -138,7 +138,7 @@ export function SalonApp() {
       // qui l'habille comme ses autres pages, et son compagnon, dans sa niche.
       const moi = await api.joueur.moiLeger()
       if (vivant) {
-        void porterTheme(moi.profile?.theme)
+        void porterTheme(moi.profile?.theme, moi.profile?.camp)
         porterNiche(moi.profile)
       }
       // Sans profil, mais la console ouverte : un compte d'animateur d'avant

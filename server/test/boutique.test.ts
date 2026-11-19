@@ -500,7 +500,8 @@ test('le panier compte ce qu’on essaie et qui s’achète — jamais ce qu’o
 test('l’essai habille la page et la niche, attend dans une barre au-dessus du menu, et quitter la boutique rend tout', async () => {
   // Le thème essayé passe par l'essai de la loge (`essayerTheme`, `finirLEssai`) ; le compagnon, par la niche (`essayerNiche`).
   const code = source('components/LaBoutique.tsx')
-  assert.match(code, /if \(essai\.theme\) void essayerTheme\(essai\.theme\)\s*else finirLEssai\(\)/)
+  // Sous un thème à deux camps, la boutique l'essaie dans le camp qu'il porte (`PublicProfile.camp`).
+  assert.match(code, /if \(essai\.theme\) void essayerTheme\(essai\.theme, profil\.camp \?\? null\)\s*else finirLEssai\(\)/)
   assert.match(code, /useEffect\(\(\) => essayerNiche\(essai\.compagnon \?\? null\), \[essai\.compagnon\]\)/)
   assert.match(code, /\(\) => \(\) => \{\s*finirLEssai\(\)\s*essayerNiche\(null\)\s*\}/)
   // Gardé ou porté, le thème essayé devient le sien sans repasser par l'ancien.

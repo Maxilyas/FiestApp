@@ -38,6 +38,8 @@ import {
   prixDe,
   PRIX_DES_THEMES,
   theme,
+  campConnu,
+  campDuTheme,
   THEMES,
 } from '../../shared/themes'
 import { gainVide, releveVide } from '../../shared/profil'
@@ -53,14 +55,14 @@ Object.assign(globalThis, { React })
 
 // ── Le catalogue, pur ─────────────────────────────────────────────────────
 
-test('trente thèmes en boutique, rangés à l’échelle de rareté — et cinq qui se gagnent', () => {
-  assert.equal(THEMES.length, 35)
-  assert.equal(new Set(THEMES.map(t => t.key)).size, 35, 'une clé par thème')
+test('trente et un thèmes en boutique, rangés à l’échelle de rareté — et cinq qui se gagnent', () => {
+  assert.equal(THEMES.length, 36)
+  assert.equal(new Set(THEMES.map(t => t.key)).size, 36, 'une clé par thème')
   const de = (rarete: string) => THEMES.filter(t => t.rarete === rarete && !t.gagne).map(t => t.key)
   assert.deepEqual(de('offert'), ['velours', 'ivoire'], 'deux offerts à tous')
   assert.deepEqual(
     ['commune', 'peucommune', 'rare', 'epique', 'legendaire'].map(r => de(r).length),
-    [5, 7, 8, 5, 3],
+    [5, 7, 8, 5, 4],
   )
   // Babel ne se vend pas : il se gagne aux douze paliers de maître des
   // sentiers ; les quatre thèmes peints, au quiz du jour et en campagne.
@@ -83,6 +85,26 @@ test('trente thèmes en boutique, rangés à l’échelle de rareté — et cinq
   for (let i = 1; i < THEMES.length; i++) assert.ok(prixDe(THEMES[i]) >= prixDe(THEMES[i - 1]), THEMES[i].key)
   assert.equal(theme('inconnu'), undefined)
   assert.equal(theme(42), undefined)
+})
+
+test('les Deux Bannières ont deux camps : on porte le sien, le premier d’office', () => {
+  // Le seul thème à camps (le choix du propriétaire du 19 novembre 2026 : « l'option choisir son camp »).
+  assert.deepEqual(
+    THEMES.filter(t => t.camps).map(t => [t.key, t.camps!.map(c => c.key)]),
+    [['bannieres', ['clans', 'royaume']]],
+  )
+  const bannieres = theme('bannieres')
+  assert.equal(bannieres?.rarete, 'legendaire')
+  assert.equal(enBoutique(bannieres!, '2026-11-19'), true, 'en boutique toute l’année')
+  // Sans choix, ou un camp qui n'est pas le sien : le premier. Un thème sans camps n'en a aucun.
+  assert.equal(campDuTheme(bannieres, null)?.key, 'clans')
+  assert.equal(campDuTheme(bannieres, 'royaume')?.key, 'royaume')
+  assert.equal(campDuTheme(bannieres, 'inconnu')?.key, 'clans')
+  assert.equal(campDuTheme(theme('sommet'), 'royaume'), null)
+  // Ce que la colonne garde : un camp du catalogue, rien d'autre.
+  assert.equal(campConnu('royaume'), true)
+  assert.equal(campConnu('bannieres'), false)
+  assert.equal(campConnu(42), false)
 })
 
 test('un thème de saison n’est en boutique que pendant sa saison — le Nouvel An enjambe l’année', () => {

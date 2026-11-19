@@ -23,6 +23,8 @@ const FEUILLES: Record<string, () => Promise<unknown>> = import.meta.env ? impor
 
 /** Le dernier thème porté sur ce téléphone : posé dès le démarrage, sans attendre le serveur. */
 const CLE = 'quizz.theme-joueur'
+/** Son camp, sous un thème qui en a deux (les Deux Bannières) : retenu de même. */
+const CLE_DU_CAMP = 'quizz.theme-camp'
 
 /** La couleur de la barre du navigateur que pose la page, celle de Velours (`index.html`). */
 let barreDeVelours: string | null = null
@@ -32,6 +34,12 @@ let demande = 0
 let lus = 0
 /** Le thème du profil, posé sur la page — null : Velours. */
 let porte: string | null = null
+/**
+ * Son camp (`Theme.camps`) — null : le premier, d'office. Posé sur la page
+ * avec le thème (`data-camp`), quel qu'il soit : seule la feuille d'un thème
+ * à deux camps le lit, et ce module ne connaît pas le catalogue.
+ */
+let campPorte: string | null = null
 /** L'habit de l'écran commun, le temps d'un aperçu (`commeLEcranCommun`) : il passe devant le thème du profil. */
 let apercu: 'velours' | 'ivoire' | null = null
 /**
@@ -39,6 +47,8 @@ let apercu: 'velours' | 'ivoire' | null = null
  * devant le thème porté ; `undefined` : aucun essai.
  */
 let essai: string | null | undefined
+/** Le camp de l'essai : celui qu'on essaie, sinon le sien. */
+let campEssaye: string | null = null
 /** Le dernier essai demandé : une feuille arrivée en retard ne remplace pas celui qu'on vient de toucher. */
 let essaiDemande = 0
 
@@ -67,11 +77,16 @@ function teinterLaBarre(cle: string | null) {
   if (teinte) meta.setAttribute('content', teinte)
 }
 
-/** L'attribut que lisent les feuilles des thèmes, et la barre du navigateur qui suit. */
-function habiller(cible: string | null) {
+/** Un camp tel qu'il se pose : une clé de lettres, ou rien. */
+const campValide = (camp: unknown): string | null => (typeof camp === 'string' && /^[a-z]+$/.test(camp) ? camp : null)
+
+/** Les attributs que lisent les feuilles des thèmes — le thème, son camp —, et la barre du navigateur qui suit. */
+function habiller(cible: string | null, camp: string | null = null) {
   const racine = document.documentElement
   if (cible) racine.dataset.theme = cible
   else delete racine.dataset.theme
+  if (cible && camp) racine.dataset.camp = camp
+  else delete racine.dataset.camp
   teinterLaBarre(cible)
   suivreLHeure(cible)
 }
@@ -199,7 +214,7 @@ function suivreLHeure(cible: string | null) {
  * retire l'attribut. Une feuille qui ne vient pas (un déploiement l'a
  * remplacée) laisse la page comme elle était.
  */
-async function poser(cle: string | null): Promise<void> {
+async function poser(cle: string | null, camp: string | null = null): Promise<void> {
   const numero = ++demande
   const cible = cle && cle !== 'velours' && connu(cle) ? cle : null
   if (cible && cible !== 'ivoire') {
@@ -211,8 +226,9 @@ async function poser(cle: string | null): Promise<void> {
   }
   if (numero !== demande) return
   porte = cible
+  campPorte = campValide(camp)
   // Un aperçu de l'écran commun ouvert garde son habit, un essai le sien : le thème attend leur fin.
-  if (apercu === null && essai === undefined) habiller(cible)
+  if (apercu === null && essai === undefined) habiller(cible, campPorte)
 }
 
 /**
@@ -220,7 +236,7 @@ async function poser(cle: string | null): Promise<void> {
  * — rien n'est enregistré ni retenu pour le prochain démarrage, et la carte,
  * à fond, garde ses couleurs (`fonds.ts`). `finirLEssai` rend le thème porté.
  */
-export async function essayerTheme(cle: string | null): Promise<void> {
+export async function essayerTheme(cle: string | null, camp: string | null = null): Promise<void> {
   const numero = ++essaiDemande
   const cible = cle && cle !== 'velours' && connu(cle) ? cle : null
   if (cible && cible !== 'ivoire') {
@@ -232,7 +248,8 @@ export async function essayerTheme(cle: string | null): Promise<void> {
   }
   if (numero !== essaiDemande) return
   essai = cible
-  if (apercu === null) habiller(cible)
+  campEssaye = campValide(camp)
+  if (apercu === null) habiller(cible, campEssaye)
 }
 
 /**
@@ -245,15 +262,11 @@ export function finirLEssai(adopte = false): void {
   if (essai === undefined) return
   if (adopte) {
     porte = essai
-    try {
-      if (porte) localStorage.setItem(CLE, porte)
-      else localStorage.removeItem(CLE)
-    } catch {
-      // Stockage indisponible : le profil lu au prochain démarrage le redira.
-    }
+    campPorte = campEssaye
+    retenir(porte, campPorte)
   }
   essai = undefined
-  if (apercu === null) habiller(porte)
+  if (apercu === null) habiller(porte, campPorte)
 }
 
 /**
@@ -267,24 +280,32 @@ export function commeLEcranCommun(habit: 'velours' | 'ivoire'): () => void {
   habiller(habit === 'ivoire' ? 'ivoire' : null)
   return () => {
     apercu = null
-    habiller(essai !== undefined ? essai : porte)
+    habiller(essai !== undefined ? essai : porte, essai !== undefined ? campEssaye : campPorte)
+  }
+}
+
+/** Retient ici le thème et son camp, pour le prochain démarrage. */
+function retenir(cle: string | null | undefined, camp: string | null | undefined) {
+  try {
+    if (cle && cle !== 'velours') localStorage.setItem(CLE, cle)
+    else localStorage.removeItem(CLE)
+    if (cle && cle !== 'velours' && campValide(camp)) localStorage.setItem(CLE_DU_CAMP, camp!)
+    else localStorage.removeItem(CLE_DU_CAMP)
+  } catch {
+    // Stockage indisponible : le thème vaut pour cette page, et le prochain
+    // démarrage attendra le serveur.
   }
 }
 
 /**
  * Le thème que le serveur dit porté par le profil connecté ici — null :
- * Velours, et un invité sans profil. Retenu ici pour le prochain démarrage.
+ * Velours, et un invité sans profil —, et son camp (`PublicProfile.camp`).
+ * Retenu ici pour le prochain démarrage.
  */
-export function porterTheme(cle: string | null | undefined): Promise<void> {
+export function porterTheme(cle: string | null | undefined, camp?: string | null): Promise<void> {
   lus++
-  try {
-    if (cle && cle !== 'velours') localStorage.setItem(CLE, cle)
-    else localStorage.removeItem(CLE)
-  } catch {
-    // Stockage indisponible : le thème vaut pour cette page, et le prochain
-    // démarrage attendra le serveur.
-  }
-  return poser(cle ?? null)
+  retenir(cle, camp)
+  return poser(cle ?? null, camp ?? null)
 }
 
 /**
@@ -294,12 +315,14 @@ export function porterTheme(cle: string | null | undefined): Promise<void> {
  */
 export function poserThemeRetenu(): void {
   let cle: string | null = null
+  let camp: string | null = null
   try {
     cle = localStorage.getItem(CLE)
+    camp = localStorage.getItem(CLE_DU_CAMP)
   } catch {
     return
   }
-  if (cle) void poser(cle)
+  if (cle) void poser(cle, camp)
 }
 
 /**
@@ -318,9 +341,9 @@ export async function confirmerTheme(): Promise<void> {
   try {
     const res = await fetch(DEPART.theme, { credentials: 'same-origin', signal: abandon.signal })
     if (!res.ok) return
-    const { theme } = (await res.json()) as { theme?: unknown }
+    const { theme, camp } = (await res.json()) as { theme?: unknown; camp?: unknown }
     if (lus !== avant) return
-    await porterTheme(typeof theme === 'string' ? theme : null)
+    await porterTheme(typeof theme === 'string' ? theme : null, campValide(camp))
   } catch {
     // Réseau coupé, réponse illisible : l'habillage reste celui du démarrage.
   } finally {

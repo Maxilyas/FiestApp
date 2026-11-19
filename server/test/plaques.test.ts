@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs'
 import Database from 'better-sqlite3'
 import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, relireJusqua, type Banc } from './banc'
 import { contraste, teinte, themesDuClient } from './teintes'
-import { AUCUNE_PLAQUE, choixDePlaque, plaqueDuTheme, plaquePortee, plaquesOuvertes } from '../../shared/plaques'
+import { AUCUNE_PLAQUE, PLAQUES, choixDePlaque, nomDeLaPlaque, plaqueAvecSonCamp, plaqueDuTheme, plaquePortee, plaquesOuvertes, themeDeLaPlaque } from '../../shared/plaques'
 import { THEMES } from '../../shared/themes'
 import { avecLEssai, essayer, lignesDeLEssai } from '../../shared/loge'
 import { jourDe } from '../../shared/jour'
@@ -86,8 +86,10 @@ test('la classe d’une plaque ne prend qu’une clé de thème ; le podium, les
   assert.equal(classeDeLaPlaque('kintsugi'), ' plaque plaque-kintsugi')
   assert.equal(classeDeLaPlaque(null), '')
   assert.equal(classeDeLaPlaque(undefined), '')
-  // Ce qui n'a pas la forme d'une clé n'entre pas dans une classe.
-  for (const k of ['', 'a b', 'x"y', 'Kintsugi', 'plaque me', 'a-b']) {
+  // La plaque d'un camp : la clé du thème, un tiret, celle du camp (`bannieres-royaume`).
+  assert.equal(classeDeLaPlaque('bannieres-royaume'), ' plaque plaque-bannieres-royaume')
+  // Ce qui n'a pas la forme d'une clé n'entre pas dans une classe — pas plus d'un camp.
+  for (const k of ['', 'a b', 'x"y', 'Kintsugi', 'plaque me', 'a-b-c', '-a', 'a-', 'a--b']) {
     assert.equal(classeDeLaPlaque(k), '', k)
     assert.equal(cleDeLaPlaque(k), null, k)
   }
@@ -147,9 +149,10 @@ test('l’écrin et le podium rendus : la tuile à ses couleurs ou sa place vide
 })
 
 test('la feuille : chaque plaque porte les couleurs de son thème, lisibles, et son motif', () => {
-  const regles = new Map([...CSS.matchAll(/^\.plaque-([a-z]+) \{([^}]*--p-bg[^}]*)\}/gm)].map(m => [m[1], m[2]] as [string, string]))
-  const attendues = THEMES.filter(t => t.key !== 'velours').map(t => t.key)
-  assert.deepEqual([...regles.keys()].sort(), [...attendues].sort(), 'une règle de couleurs par thème, et aucune pour un thème qui n’existe pas')
+  const regles = new Map([...CSS.matchAll(/^\.plaque-([a-z]+(?:-[a-z]+)?) \{([^}]*--p-bg[^}]*)\}/gm)].map(m => [m[1], m[2]] as [string, string]))
+  // Une par thème — une par camp d'un thème qui en a deux, chacune aux jetons de son camp (`PLAQUES`).
+  const attendues = PLAQUES.map(p => p.cle)
+  assert.deepEqual([...regles.keys()].sort(), [...attendues].sort(), 'une règle de couleurs par plaque, et aucune pour un thème qui n’existe pas')
 
   const themes = new Map(themesDuClient().map(t => [t.cle, t.jetons]))
   for (const cle of attendues) {
@@ -177,10 +180,10 @@ test('chaque plaque a son emblème, en deux tons qui se lisent sur tout thème e
   // Écrits par leur script, jamais à la main : la feuille est celle qu'il écrirait.
   assert.equal(feuilleAJour(CSS), CSS, 'npx tsx scripts/emblemes-des-plaques.ts --ecrire')
   const bloc = CSS.slice(CSS.indexOf(DEBUT), CSS.indexOf(FIN))
-  const attendues = THEMES.filter(t => t.key !== 'velours').map(t => t.key)
+  const attendues = PLAQUES.map(p => p.cle)
   assert.deepEqual(Object.keys(EMBLEMES).sort(), [...attendues].sort(), 'un dessin par plaque, et aucun pour un thème qui n’existe pas')
   const tons = new Map(
-    [...bloc.matchAll(/^\.plaque-([a-z]+) \{ --p-clair: (#[0-9a-f]{6}); --p-sombre: (#[0-9a-f]{6}); --p-embleme: url\("data:image\/svg\+xml,[^"]+"\); \}$/gm)].map(
+    [...bloc.matchAll(/^\.plaque-([a-z]+(?:-[a-z]+)?) \{ --p-clair: (#[0-9a-f]{6}); --p-sombre: (#[0-9a-f]{6}); --p-embleme: url\("data:image\/svg\+xml,[^"]+"\); \}$/gm)].map(
       m => [m[1], { clair: m[2], sombre: m[3] }] as const,
     ),
   )
@@ -195,7 +198,7 @@ test('chaque plaque a son emblème, en deux tons qui se lisent sur tout thème e
   for (const [cle, { clair, sombre }] of tons) {
     assert.ok(auPire(clair, fonds.sombres) >= CONTRASTE_D_UN_EMBLEME, `${cle} : son clair sur les thèmes sombres`)
     assert.ok(auPire(sombre, fonds.clairs) >= CONTRASTE_D_UN_EMBLEME, `${cle} : son sombre sur les thèmes clairs`)
-    const surElle = clairs.get(cle) ? sombre : clair
+    const surElle = clairs.get(themeDeLaPlaque(cle)) ? sombre : clair
     assert.ok(auPire(surElle, [couleurs.get(cle)!.bg]) >= CONTRASTE_D_UN_EMBLEME, `${cle} : son emblème sur sa plaque`)
   }
   // Le trait sous le prénom est parti avec la ligne entière : plus rien ne le règle (`.plaque-apercu` est la ligne de la loge).
@@ -253,9 +256,10 @@ test('le podium : chaque marche, une peinture de son thème posée par le gabari
   // Chaque thème a sa marche dans le bloc de la chaîne ; qui n'a pas de plaque, la marche de la maison, le Velours,
   // posée sous le podium entier — une plaque encore sans peinture la reçoit aussi.
   const bloc = CSS.slice(CSS.indexOf(DEBUT_DES_DECORS), CSS.indexOf(FIN_DES_DECORS))
-  for (const t of THEMES) {
-    const selecteur = t.key === 'velours' ? '.podium-du-classement' : `.pdc-marche.plaque-${t.key}`
-    assert.match(bloc, new RegExp(`^${selecteur.replace(/\./g, '\\.')} \\{ --marche-peinte: url\\(/decors/marche-${t.key}-360\\.[0-9a-f]{10}\\.webp\\); \\}$`, 'm'), `${t.key} : sa marche`)
+  // Une par plaque : par camp pour les Deux Bannières.
+  for (const cle of ['velours', ...PLAQUES.map(p => p.cle)]) {
+    const selecteur = cle === 'velours' ? '.podium-du-classement' : `.pdc-marche.plaque-${cle}`
+    assert.match(bloc, new RegExp(`^${selecteur.replace(/\./g, '\\.')} \\{ --marche-peinte: url\\(/decors/marche-${cle}-360\\.[0-9a-f]{10}\\.webp\\); \\}$`, 'm'), `${cle} : sa marche`)
   }
   // La peinture se pose par le gabarit, jamais par ce qu'une image a peint : sa face avant à la largeur de la marche, son
   // dessus au haut de la marche — ce qui est posé sur ses coins monte derrière l'avatar, devant elle.
@@ -317,11 +321,87 @@ test('la loge : la plaque s’essaie comme le reste, et se compare à son choix'
   const boutique = lu('components/Boutique.tsx')
   assert.match(boutique, /<MaPlaque profil=\{profil\} essai=\{essai\} essayer=\{essayer\} neufs=\{neufs\} \/>/)
   assert.match(boutique, /\{vue === 'themes' \? \([\s\S]*?\) : \(\s*<MaPlaque /)
-  assert.match(lu('components/Presentoir.tsx'), /plaqueDuTheme\(t\.key\) && \([\s\S]{0,200}<LigneDePlaque profil=\{profil\} plaque=\{t\.key\} \/>/)
+  assert.match(lu('components/Presentoir.tsx'), /plaqueDuTheme\(t\.key\) && \([\s\S]{0,200}<LigneDePlaque profil=\{profil\} plaque=\{plaqueAvecSonCamp\(t\.key, profil\.camp\)\} \/>/)
   // Un toucher essaie, rien ne s'enregistre d'ici.
   const piece = lu('components/MaPlaque.tsx')
   assert.match(piece, /onClick=\{\(\) => essayer\(\{ plaque: c\.cle \}\)\}/)
   assert.doesNotMatch(piece, /enregistrer|api\./)
+})
+
+test('les Deux Bannières : une plaque par camp, qui suit celui qu’il porte — et le camp s’essaie dans la loge', () => {
+  // Le catalogue : la plaque de chaque camp, à la place de celle du thème.
+  assert.deepEqual(
+    PLAQUES.filter(p => p.theme === 'bannieres').map(p => [p.cle, p.camp]),
+    [
+      ['bannieres-clans', 'clans'],
+      ['bannieres-royaume', 'royaume'],
+    ],
+  )
+  assert.ok(!PLAQUES.some(p => p.cle === 'bannieres'), 'pas de plaque du thème sans son camp')
+  // Le choix garde la clé du thème ; ce que les autres voient porte son camp — les Clans d'office.
+  assert.equal(plaqueAvecSonCamp('bannieres', null), 'bannieres-clans')
+  assert.equal(plaqueAvecSonCamp('bannieres', 'royaume'), 'bannieres-royaume')
+  assert.equal(plaqueAvecSonCamp('kintsugi', 'royaume'), 'kintsugi', 'un thème sans camps garde sa plaque')
+  assert.equal(plaqueAvecSonCamp(null, 'royaume'), null)
+  assert.equal(themeDeLaPlaque('bannieres-royaume'), 'bannieres')
+  assert.equal(themeDeLaPlaque('kintsugi'), 'kintsugi')
+  assert.equal(nomDeLaPlaque('bannieres-royaume'), 'Les Deux Bannières · Le Royaume')
+  assert.equal(nomDeLaPlaque('kintsugi'), 'Kintsugi')
+
+  // La loge : un camp s'essaie ; celui qu'il porte — les Clans sans choix — sort de l'essai.
+  const porte = { avatar: '🦊', legendaire: null, finitionChoisie: 'auto', titre: null, vitrineChoisie: null, fond: null, theme: 'bannieres', gerbe: 'confettis', bordureChoisie: 'auto', camp: null } as const
+  assert.deepEqual(essayer({}, { camp: 'royaume' }, porte), { camp: 'royaume' })
+  assert.deepEqual(essayer({}, { camp: 'clans' }, porte), {}, 'les Clans, d’office')
+  assert.deepEqual(essayer({ camp: 'royaume' }, { camp: 'royaume' }, { ...porte, camp: 'royaume' }), {})
+  assert.deepEqual(
+    lignesDeLEssai({ camp: 'royaume' }, { niveau: 1 }).map(l => [l.piece, l.nom, l.detail]),
+    [['theme', 'Le Royaume d’Azur', 'Camp']],
+  )
+  assert.equal(avecLEssai({ ...porte, finition: 'mat', niveau: 1 }, { camp: 'royaume' }).camp, 'royaume')
+  // Ses deux boutons ne se montrent que sous un thème à camps, et un toucher essaie : rien ne s'enregistre d'ici.
+  const boutique = lu('components/Boutique.tsx')
+  assert.match(boutique, /function ChoixDuCamp[\s\S]*?if \(!t\?\.camps\) return null[\s\S]*?role="radiogroup" aria-label="Ton camp"[\s\S]*?onClick=\{\(\) => essayer\(\{ camp: c\.key \}\)\}/)
+  // La loge habille la page du camp essayé, et « Porter » le garde avec le thème.
+  const loge = lu('components/Loge.tsx')
+  assert.match(loge, /essayerTheme\(essai\.theme !== undefined \? essai\.theme : \(profil\.theme \?\? null\), essai\.camp !== undefined \? essai\.camp : \(profil\.camp \?\? null\)\)/)
+  assert.match(loge, /if \(essai\.theme !== undefined \|\| essai\.camp !== undefined\) finirLEssai\(true\)/)
+})
+
+test('au banc : le camp se choisit, sa plaque le dit, la page le reçoit — et il se garde', async () => {
+  const banc = await demarrer()
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
+    const porter = (corps: Record<string, unknown>) => ecrire(banc.url, '/api/joueur/moi', corps, lea, 'PUT')
+    const profil = async () => (await lire(banc, lea, '/api/joueur/moi?leger')).corps.profile
+    base(banc, db => {
+      const id = (db.prepare('SELECT id FROM profiles WHERE login = ?').get('lea') as { id: string }).id
+      db.prepare('INSERT INTO profile_achats (profile_id, theme, prix, created_at) VALUES (?, ?, 1000, 1)').run(id, 'bannieres')
+    })
+    // Le thème porté, sans camp : les Clans, d'office — sa plaque le dit aux autres.
+    assert.equal((await porter({ theme: 'bannieres' })).status, 200)
+    assert.deepEqual([(await profil()).camp, (await profil()).plaque], [null, 'bannieres-clans'])
+    // Le Royaume : sa plaque change de camp, et la page qui ne lit pas le profil l'apprend avec le thème.
+    assert.equal((await porter({ camp: 'royaume' })).status, 200)
+    assert.deepEqual([(await profil()).camp, (await profil()).plaque], ['royaume', 'bannieres-royaume'])
+    assert.deepEqual((await lire(banc, lea, '/api/joueur/theme')).corps, { theme: 'bannieres', camp: 'royaume' })
+    // Un camp qui n'existe pas se refuse en clair, et ne change rien.
+    for (const k of ['horde', 'bannieres', 42]) {
+      const refus = await porter({ camp: k })
+      assert.equal(refus.status, 400, String(k))
+      assert.match(((await refus.json()) as any).error, /Ce camp n’existe pas/)
+    }
+    assert.equal((await profil()).camp, 'royaume')
+    // Sous un autre thème, sa plaque des Deux Bannières choisie garde son camp ; et tout passe le réveil.
+    assert.equal((await porter({ theme: 'ivoire', plaque: 'bannieres' })).status, 200)
+    assert.equal((await profil()).plaque, 'bannieres-royaume')
+    await banc.redemarrer()
+    assert.deepEqual([(await profil()).camp, (await profil()).plaque, (await profil()).plaqueChoisie], ['royaume', 'bannieres-royaume', 'bannieres'])
+    // Revenir aux Clans d'office : null.
+    assert.equal((await porter({ camp: null })).status, 200)
+    assert.equal((await profil()).plaque, 'bannieres-clans')
+  } finally {
+    await banc.close()
+  }
 })
 
 test('l’onglet « Ma plaque » : sa ligne une fois, puis une petite plaque par choix, qui prend les couleurs de la sienne', async () => {
@@ -552,12 +632,12 @@ test('la grande plaque des duels se lit sur tout ce qu’elle pose : le semis, l
   const socle = regle('.duels-face-joueur.plaque')
   assert.ok(dosage > 0 && reflet > 0, `${dosage} · ${reflet}`)
 
-  const tons = new Map([...CSS.matchAll(/\.plaque-([a-z]+) \{ --p-clair: (#[0-9a-f]{6}); --p-sombre: (#[0-9a-f]{6});/g)].map(m => [m[1], [m[2], m[3]]]))
+  const tons = new Map([...CSS.matchAll(/\.plaque-([a-z]+(?:-[a-z]+)?) \{ --p-clair: (#[0-9a-f]{6}); --p-sombre: (#[0-9a-f]{6});/g)].map(m => [m[1], [m[2], m[3]]]))
   const rgb = (h: string) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))
   const melange = (a: string, b: string, t: number) => '#' + rgb(a).map((v, i) => Math.round(v + (rgb(b)[i] - v) * t).toString(16).padStart(2, '0')).join('')
   const auPireSur = (couleur: string, fonds: string[]) => Math.min(...fonds.map(f => contraste(couleur, f)))
   const plaques = couleursDesPlaques(CSS)
-  assert.equal(plaques.size, THEMES.length - 1)
+  assert.equal(plaques.size, PLAQUES.length)
   for (const [cle, c] of plaques) {
     const [clair, sombre] = tons.get(cle) ?? assert.fail(`${cle} : ses deux tons`)
     // La carte : son reflet en haut, le semis de ses deux tons par-dessus. L'encre y écrit « Toi » ; l'or, le « ? », le

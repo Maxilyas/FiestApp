@@ -302,8 +302,8 @@ function SalleDuJoueur() {
   // présentée : avant, on ne sait pas encore qui le tient, et le thème
   // retenu au démarrage attend le verdict. Sans profil, Velours.
   useEffect(() => {
-    if (presente) void porterTheme(profil?.theme)
-  }, [presente, profil?.theme])
+    if (presente) void porterTheme(profil?.theme, profil?.camp)
+  }, [presente, profil?.theme, profil?.camp])
   // Sa gerbe, à ses bonnes réponses : celle de son profil, aucune sans profil.
   useEffect(() => {
     if (presente) porterGerbe(profil?.gerbe)

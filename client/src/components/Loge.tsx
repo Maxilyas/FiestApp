@@ -158,10 +158,11 @@ export function Loge({
 
   // Le thème essayé habille toute la page — la carte, à fond, garde ses
   // couleurs ; la loge quittée, la page reprend le sien.
+  // Un camp essayé habille la page de même, sous le thème essayé ou le sien.
   useEffect(() => {
-    if (essai.theme === undefined) finirLEssai()
-    else void essayerTheme(essai.theme)
-  }, [essai.theme])
+    if (essai.theme === undefined && essai.camp === undefined) finirLEssai()
+    else void essayerTheme(essai.theme !== undefined ? essai.theme : (profil.theme ?? null), essai.camp !== undefined ? essai.camp : (profil.camp ?? null))
+  }, [essai.theme, essai.camp, profil.theme, profil.camp])
   useEffect(() => () => finirLEssai(), [])
 
   // Un toucher pendant l'enregistrement ne change rien : l'essai qui part est celui qu'on porte.
@@ -172,8 +173,8 @@ export function Loge({
   const porter = async (): Promise<boolean> => {
     if (essaiVide(essai)) return true
     if (busy || !(await enregistrer(essai))) return false
-    // Le thème essayé devient le thème porté, sans repasser par l'ancien.
-    if (essai.theme !== undefined) finirLEssai(true)
+    // Le thème essayé — ou son camp — devient le thème porté, sans repasser par l'ancien.
+    if (essai.theme !== undefined || essai.camp !== undefined) finirLEssai(true)
     setEssai({})
     return true
   }

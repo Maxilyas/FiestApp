@@ -5,6 +5,7 @@
 // copie qui vieillirait seule.
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
+import { theme } from '../../shared/themes'
 
 /** Un thème : ses variables telles qu'écrites, `var(--autre)` compris. */
 export type Jetons = Map<string, string>
@@ -27,7 +28,8 @@ export const IVOIRE: Jetons = new Map([...VELOURS, ...jetonsDuBloc(CSS, ":root[d
 
 /**
  * Chaque thème qu'un profil peut porter : les deux offerts, puis chaque
- * feuille de `client/src/themes/`, posée sur le Velours comme la page la pose.
+ * feuille de `client/src/themes/`, posée sur le Velours comme la page la pose
+ * — et chaque camp d'un thème qui en a deux (`bannieres-royaume`).
  */
 export function themesDuClient(): { cle: string; jetons: Jetons; css: string }[] {
   const dossier = new URL('themes/', CLIENT)
@@ -37,10 +39,18 @@ export function themesDuClient(): { cle: string; jetons: Jetons; css: string }[]
     ...readdirSync(dossier)
       .filter(f => f.endsWith('.css'))
       .sort()
-      .map(f => {
+      .flatMap(f => {
         const cle = f.replace(/\.css$/, '')
         const css = readFileSync(new URL(f, dossier), 'utf8')
-        return { cle, css, jetons: new Map([...VELOURS, ...jetonsDuBloc(css, `:root[data-theme='${cle}'] {`)]) }
+        const jetons = new Map([...VELOURS, ...jetonsDuBloc(css, `:root[data-theme='${cle}'] {`)])
+        // Un thème à deux camps (les Deux Bannières) se mesure camp par camp :
+        // le premier, d'office, sur les jetons du thème ; les autres, sous
+        // `data-camp`, par-dessus eux — comme la page les pose.
+        const camps = (theme(cle)?.camps ?? []).map((c, i) => {
+          const bloc = `:root[data-theme='${cle}'][data-camp='${c.key}'] {`
+          return { cle: `${cle}-${c.key}`, css, jetons: i === 0 || !css.includes(bloc) ? jetons : new Map([...jetons, ...jetonsDuBloc(css, bloc)]) }
+        })
+        return [{ cle, css, jetons }, ...camps]
       }),
   ]
 }

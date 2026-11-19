@@ -16,9 +16,13 @@ import type { ReactNode } from 'react'
 // le prénom plus bas : une mosaïque là où l'œil arrive, et un trait qui disait
 // peu.
 
-/** La clé d'une plaque, si elle a la forme d'une clé de thème : une feuille d'un client d'avant ne connaît pas la sienne. */
+/**
+ * La clé d'une plaque, si elle a la forme d'une clé de thème — suivie de son
+ * camp, pour un thème qui en a deux (`bannieres-royaume`) : une feuille d'un
+ * client d'avant ne connaît pas la sienne.
+ */
 export function cleDeLaPlaque(plaque: string | null | undefined): string | null {
-  return plaque && /^[a-z]+$/.test(plaque) ? plaque : null
+  return plaque && /^[a-z]+(?:-[a-z]+)?$/.test(plaque) ? plaque : null
 }
 
 /** Les classes qu'une plaque ajoute à ce qu'elle habille — rien sans plaque. */

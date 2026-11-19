@@ -64,7 +64,7 @@ import {
 } from '../../../shared/hautsfaits'
 import { fond, fondsOuverts, FONDS_EN_BOUTIQUE, PRIX_D_UN_FOND, type CleDeFond } from '../../../shared/fonds'
 import { AUCUNE_GERBE, GERBE_PAR_DEFAUT, gerbe, gerbeOuverte, gerbesOuvertes, type CleDeGerbe } from '../../../shared/gerbes'
-import { AUCUNE_PLAQUE, choixDePlaque, plaqueDuTheme, plaquePortee } from '../../../shared/plaques'
+import { AUCUNE_PLAQUE, choixDePlaque, plaqueAvecSonCamp, plaqueDuTheme, plaquePortee } from '../../../shared/plaques'
 import {
   ceQueDonnentLesConfettis,
   confettisDeSoiree,
@@ -73,6 +73,7 @@ import {
   prixDe,
   theme as themeDuCatalogue,
   themeGagne,
+  campConnu,
   THEMES,
   type BoutiqueDuProfil,
   type ConfettisDeLaFin,
@@ -311,6 +312,13 @@ export interface ProfileRec {
    * crue, comme le thème : un achat ne se reprend jamais.
    */
   plaque: string | null
+  /**
+   * Son camp sous un thème qui en a deux (`Theme.camps`, les Deux
+   * Bannières) : null, le premier, d'office. Il teinte son thème, et sa
+   * plaque des Deux Bannières le dit aux autres (`plaqueAvecSonCamp`). Gardé
+   * même sous un autre thème : il le retrouve en revenant.
+   */
+  camp: string | null
   /**
    * Son envie : l'article de la boutique pour lequel il économise, tel qu'il
    * s'écrit (`theme:aurore`, `shared/envie.ts`) — null : aucune. Relue à
@@ -1804,6 +1812,8 @@ export class ProfileStore {
     await ajouterColonne(this.client, 'profiles', 'sceau', 'TEXT')
     // La plaque de son nom : null, celle du thème qu'il porte ; `aucune` ; ou la clé d'un thème à lui.
     await ajouterColonne(this.client, 'profiles', 'plaque', 'TEXT')
+    // Son camp sous un thème qui en a deux : null, le premier, d'office.
+    await ajouterColonne(this.client, 'profiles', 'camp', 'TEXT')
     // Ce qu'il règle de chacun, dans sa niche : son nom, et la forme qu'il y
     // montre quand ce n'est pas la plus haute (null : la plus haute, qui suit
     // sa croissance).
@@ -2212,7 +2222,7 @@ export class ProfileStore {
    * l'attend pas.
    */
   plaqueDe(p: ProfileRec): string | null {
-    return plaquePortee(p.plaque, this.themePorte(p))
+    return plaqueAvecSonCamp(plaquePortee(p.plaque, this.themePorte(p)), p.camp)
   }
 
   /**
@@ -4105,6 +4115,7 @@ export class ProfileStore {
       // Toujours dites, même sans plaque : la page fond ce profil dans celui qu'elle tient.
       plaque: this.plaqueDe(p),
       plaqueChoisie: choixDePlaque(p.plaque),
+      camp: p.camp,
     }
   }
 
@@ -4462,6 +4473,7 @@ export class ProfileStore {
       niche: null,
       sceau: null,
       plaque: null,
+      camp: null,
       envie: null,
       passwordHash: await hashPassword(input.password),
       recoveryHash: await hashPassword(normalizeRecovery(recovery)),
@@ -4527,6 +4539,7 @@ export class ProfileStore {
       niche: null,
       sceau: null,
       plaque: null,
+      camp: null,
       envie: null,
       passwordHash: compte.passwordHash,
       recoveryHash: await hashPassword(normalizeRecovery(newRecoveryCode())),
@@ -4666,6 +4679,8 @@ export class ProfileStore {
       sceau?: unknown
       /** La plaque de son nom aux classements : `auto` (ou null), `aucune`, ou la clé d'un thème à lui. */
       plaque?: unknown
+      /** Son camp sous un thème qui en a deux (`Theme.camps`) : null, le premier, d'office. */
+      camp?: unknown
       /** L'avatar sur lequel il dépense un Éclat en réserve (`donnerUnEclat`) : définitif. */
       eclatDeReserve?: unknown
       /** La matière qu'il taille avec un Éclat en réserve dans un avatar déjà éclaté (`{ cle, matiere }`, `shared/matieres.ts`) : définitif. */
@@ -4676,7 +4691,7 @@ export class ProfileStore {
     // Seules les colonnes demandées s'écrivent : la mémoire ne suit qu'après
     // coup, et un prénom changé sur le téléphone pendant que la tablette
     // change l'emoji ne doit pas revenir en arrière.
-    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine' | 'fond' | 'theme' | 'gerbe' | 'bordure' | 'niche' | 'sceau' | 'plaque'>> = {}
+    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine' | 'fond' | 'theme' | 'gerbe' | 'bordure' | 'niche' | 'sceau' | 'plaque' | 'camp'>> = {}
     if (patch.name !== undefined) {
       const name = cleanName(patch.name)
       if (!name) throw new Error('Il faut un prénom')
@@ -4785,6 +4800,13 @@ export class ProfileStore {
         await this.verifierQuIlALeTheme(id, choisi)
         champs.plaque = choisi.key
       }
+    }
+    // Son camp : l'un de ceux du catalogue, qu'il ait le thème ou pas encore
+    // — un réglage, que le thème et la plaque, vérifiés, sont seuls à montrer.
+    if (patch.camp !== undefined) {
+      if (patch.camp === null || patch.camp === '') champs.camp = null
+      else if (campConnu(patch.camp)) champs.camp = patch.camp
+      else throw new Error('Ce camp n’existe pas')
     }
     // Une gerbe : seulement l'une de celles qu'il a gagnées ; null, celle de
     // tous ; et qui n'en veut aucune le dit (`AUCUNE_GERBE`).
@@ -7086,6 +7108,7 @@ export class ProfileStore {
       niche: typeof r.niche === 'string' && r.niche ? r.niche : null,
       sceau: r.sceau === 'cache' ? 'cache' : null,
       plaque: typeof r.plaque === 'string' && r.plaque ? r.plaque : null,
+      camp: campConnu(r.camp) ? r.camp : null,
       envie: typeof r.envie === 'string' && r.envie ? r.envie : null,
       passwordHash: String(r.password_hash),
       recoveryHash: String(r.recovery_hash),
