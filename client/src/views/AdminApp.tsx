@@ -25,6 +25,7 @@ import { QgMaintenance } from '../components/QgMaintenance'
 import { QgAnnonces } from '../components/QgAnnonces'
 import { QgJoueurs } from '../components/QgJoueurs'
 import { QgAffiches } from '../components/QgAffiches'
+import { QgGrandPrix } from '../components/QgGrandPrix'
 import { QgQuestions } from '../components/QgQuestions'
 import { QgReserves } from '../components/QgReserves'
 import { FicheDuJoueurAuQg } from '../components/QgFicheJoueur'
@@ -95,6 +96,7 @@ type Ecran =
   | 'signalements'
   | 'annonces'
   | 'affiches'
+  | 'grand-prix'
   | 'base'
   | 'direct'
   | 'alertes'
@@ -102,7 +104,7 @@ type Ecran =
   | 'telephones'
   | 'questions'
   | 'reserves'
-const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'animateurs', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves']
+const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'animateurs', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'grand-prix', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves']
 /** Les ancres de la page d'avant, qu'un favori garde encore. */
 const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
 /** Une page d'avant devenue l'onglet d'une autre : « Les salons », l'onglet des animateurs depuis le 4 novembre 2026, s'y ouvre. */
@@ -143,6 +145,7 @@ const TITRE: Record<Ecran, string> = {
   signalements: 'Les signalements',
   annonces: 'Les annonces',
   affiches: 'Les nouveautés',
+  'grand-prix': 'Le Grand Prix',
   base: 'La base et le miroir',
   direct: 'En direct',
   alertes: 'Les alertes et les incidents',
@@ -239,6 +242,8 @@ const PAGES_DU_QG: { groupe: string; pages: PageDuRail[] }[] = [
     pages: [
       { ecran: 'annonces', nom: 'Annonces', icone: 'megaphone', description: 'Un mot à tous, des confettis', mots: 'message écrire' },
       { ecran: 'affiches', nom: 'Nouveautés', icone: 'sparkles', description: 'Une affiche, « Nouveau » sur un bouton', mots: 'affiche' },
+      // Le jour d'un joueur : on court contre son fantôme (`shared/grandPrix.ts`).
+      { ecran: 'grand-prix', nom: 'Grand Prix', icone: 'award', description: 'Le jour d’un joueur : courir contre son fantôme', mots: 'anniversaire fête fantôme flot cheval' },
     ],
   },
 ]
@@ -782,6 +787,7 @@ export function AdminApp() {
         )}
         {/* L'état de la maintenance : une page fermée, l'affiche le dit avant de la poser. */}
         {ecran === 'affiches' && <QgAffiches maintenance={maintenance} />}
+        {ecran === 'grand-prix' && <QgGrandPrix />}
         {/* Les modes côte à côte, et le gabarit de chaque page de mode : la période de la barre, la vue d'ensemble déjà lue. */}
         {ecran === 'activite' && <QgActivite periode={periodeDeLaPage} />}
         {/* Le direct de la page des soirées est celui du QG, relu toutes les dix secondes ; relu aussitôt après un geste. */}
@@ -965,6 +971,7 @@ const GESTES_DE_LA_PALETTE: { nom: string; icone: IconName; ecran: Ecran; mots: 
   { nom: 'Afficher un bandeau…', icone: 'alert', ecran: 'maintenance', mots: 'maintenance message panne' },
   { nom: 'Écrire une annonce à tous…', icone: 'megaphone', ecran: 'annonces', mots: 'message confettis' },
   { nom: 'Poser une affiche…', icone: 'sparkles', ecran: 'affiches', mots: 'nouveauté nouveau' },
+  { nom: 'Programmer un Grand Prix…', icone: 'award', ecran: 'grand-prix', mots: 'anniversaire fête fantôme' },
   { nom: 'Offrir des confettis à un joueur…', icone: 'search', ecran: 'profils', mots: 'don cadeau profil' },
   { nom: 'Régler le seuil d’une alerte…', icone: 'bell', ecran: 'alertes', mots: 'seuil téléphone règle' },
   { nom: 'Verser des questions dans la réserve…', icone: 'book', ecran: 'reserves', mots: 'réserve quiz du jour stock' },

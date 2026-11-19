@@ -34,6 +34,8 @@ export const RESERVED_SLUGS = new Set([
   'cabinet',
   // Le classement des collectionneurs, de même.
   'collectionneurs',
+  // Le Grand Prix d'un jour (`shared/grandPrix.ts`).
+  'grand-prix',
   'deconnexion',
   'stats',
   'souvenir',

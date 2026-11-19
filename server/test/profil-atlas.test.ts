@@ -13,7 +13,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import React from 'react'
 import { BRANCHES, ouvertsDansLaBranche } from '../../shared/branches'
-import { LEGENDAIRES } from '../../shared/legendaires'
+import { LEGENDAIRES, legendairesVisibles } from '../../shared/legendaires'
 import { DIVINS } from '../../shared/divins'
 import { COMPAGNONS, COMPAGNONS_DE_LA_BOUTIQUE, METAMORPHOSES } from '../../shared/compagnons'
 import { GERBES } from '../../shared/gerbes'
@@ -107,14 +107,16 @@ test('le savoir dans l’album : chaque portrait sur la page de sa rareté — t
   // la métamorphose de chacun, légendaire.
   const html = await album('commune')
   assert.match(html, /aria-label="Rare, 1 sur 37"/)
-  assert.match(html, new RegExp(`aria-label="Légendaire, 1 sur ${LEGENDAIRES.length + BRANCHES.length + COMPAGNONS.length + METAMORPHOSES.length}"`))
+  // Les légendaires secrets d'un Grand Prix ne se comptent qu'à qui les a (`legendairesVisibles`) : il n'en a aucun.
+  assert.match(html, new RegExp(`aria-label="Légendaire, 1 sur ${legendairesVisibles([LEGENDAIRES[0].key]).length + BRANCHES.length + COMPAGNONS.length + METAMORPHOSES.length}"`))
   assert.equal(ouvertsDansLaBranche(avancee, paliers), 3)
 })
 
 test('les légendaires et les Divins dans l’album, le compte en tête — un Divin voilé ne dit rien de lui', async () => {
   const html = await album('legendaire')
   // Ses légendaires, la forme ultime de chaque sentier et de chaque compagnon, et la métamorphose de chacun.
-  const legendaires = LEGENDAIRES.length + BRANCHES.length + COMPAGNONS.length + METAMORPHOSES.length
+  // Les secrets d'un Grand Prix se taisent à qui ne les a pas (`legendairesVisibles`).
+  const legendaires = legendairesVisibles([LEGENDAIRES[0].key]).length + BRANCHES.length + COMPAGNONS.length + METAMORPHOSES.length
   assert.match(html, new RegExp(`<b>Légendaire · 1 sur ${legendaires}\\.</b>`))
   const cases = casesDeLAlbum(html)
   assert.equal(cases.length, legendaires)

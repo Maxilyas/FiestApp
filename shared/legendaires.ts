@@ -59,6 +59,7 @@ import { portrait } from './branches'
 import { formeDeCompagnon } from './compagnons'
 import { CABINET_EN_PRODUCTION } from './cabinet/ouverture'
 import type { CleDeSaison } from './saisons'
+import { cleDuPrix } from './grandPrix'
 
 /**
  * Ce qui débloque un légendaire : un haut fait qui se regagne, décroché
@@ -86,6 +87,15 @@ export interface Legendaire {
   ton: 'eclat' | 'ombre'
   /** Un légendaire de saison : il ne se gagne qu'à sa période. */
   saison?: CleDeSaison
+  /**
+   * Un avatar en plus d'un Grand Prix (`shared/grandPrix.ts`, le 19 novembre
+   * 2026) : il ne se gagne que le jour de ce Grand Prix, à qui bat le
+   * fantôme — ou à la personne fêtée, pour sa version à elle. Passé ce jour,
+   * personne ne peut plus le gagner : l'album, la loge et tout ce qui dit
+   * « à gagner » le taisent à qui ne l'a pas (`legendairesVisibles`), comme un
+   * trophée qu'on ne peut plus gagner — jamais à qui l'a.
+   */
+  secret?: true
 }
 
 /** La clé que l'Expédition range sur le profil quand il garde ce légendaire au bout de l'acte 3 : `expedition:kraken`. */
@@ -214,7 +224,7 @@ const avecLeCabinet = (legendaires: Legendaire[]): Legendaire[] =>
  * plus proche » n'en font rien : on les a, ou non. Un préfixe de plus s'ajoute
  * ici, et partout il est écarté d'un coup.
  */
-export const PREFIXES_DES_VOIES_RANGEES = ['saison:', 'expedition:', 'cabinet:', 'timbre:'] as const
+export const PREFIXES_DES_VOIES_RANGEES = ['saison:', 'expedition:', 'cabinet:', 'timbre:', 'flot:', 'grandprix:'] as const
 
 /**
  * Les tombes muettes : les paliers d'un trophée parti du catalogue, dont des
@@ -501,7 +511,39 @@ export const LEGENDAIRES: Legendaire[] = avecLeCabinet(avecLExpedition([
     condition: { hautFait: cleDuCabinet(LEGENDAIRE_DES_DEFIS), fois: 1 },
     ton: 'eclat',
   },
+  {
+    // L'avatar en plus du premier Grand Prix (le 19 novembre 2026) : sa seule voie, le Grand Prix la range à qui bat le
+    // fantôme ce jour-là (`cleDuPrix`). Ni joker, ni gardien, ni sceau : il ne se gagne qu'une fois, et qu'un jour.
+    key: 'lg:pegase',
+    nom: 'Pégase',
+    legende: 'Un cheval d’étoiles, pour qui a battu un fantôme au Grand Prix.',
+    condition: { hautFait: cleDuPrix('lg:pegase'), fois: 1 },
+    ton: 'eclat',
+    secret: true,
+  },
+  {
+    // Sa version à la personne fêtée, le jour de son Grand Prix : la même voie, rangée chez elle seule.
+    key: 'lg:pegase-couronne',
+    nom: 'Pégase couronné',
+    legende: 'Le cheval d’étoiles de la personne fêtée, le jour de son Grand Prix.',
+    condition: { hautFait: cleDuPrix('lg:pegase-couronne'), fois: 1 },
+    ton: 'eclat',
+    secret: true,
+  },
 ]))
+
+/** Les avatars en plus qu'un Grand Prix peut mettre en jeu : les légendaires secrets, dans l'ordre du catalogue. */
+export const PRIX_DES_GRANDS_PRIX: readonly string[] = LEGENDAIRES.filter(l => l.secret).map(l => l.key)
+
+/**
+ * Les légendaires qu'un profil voit dans l'album, la loge et tout ce qui dit
+ * « à gagner » : tous, sauf les secrets qu'il n'a pas — un avatar de Grand
+ * Prix ne se gagne plus une fois son jour passé, et ne se promet à personne.
+ */
+export function legendairesVisibles(siens: Iterable<string>): Legendaire[] {
+  const a = new Set(siens)
+  return LEGENDAIRES.filter(l => !l.secret || a.has(l.key))
+}
 
 const PAR_CLE = new Map(LEGENDAIRES.map(l => [l.key, l]))
 

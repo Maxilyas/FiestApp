@@ -17,6 +17,7 @@
 // hauts faits et une mémoire — du prestige et de la durée, jamais de la
 // performance.
 
+import type { GrandPrixDAccueil } from './grandPrix'
 import type { QuestionAPoser } from './annonces'
 import type { DefisTenus } from './cabinet/sceaux'
 import type { ResumeDuCollectionneur } from './collectionneurs'
@@ -1336,7 +1337,8 @@ export interface PublicProfileDetail extends PublicProfile {
    * et le jour du quiz du jour, qui dit les fêtes passées, en cours et à
    * venir. Absent d'un serveur d'avant.
    */
-  carnet?: { timbres: string[]; jour: string }
+  /** `flots` : ses flots des Grands Prix (`flotsDe`), un par Grand Prix ; absent d'un serveur d'avant. */
+  carnet?: { timbres: string[]; flots?: string[]; jour: string }
   /** Ses titres de champion du mois (`mois:2026-10`), du plus récent au plus ancien : ils se portent comme un titre. */
   titresDates?: string[]
   /** Ses défis du Cabinet tenus à l'Or (`cabinet:defi:cagnotte:3`), dans l'ordre des cartes : leur nom se porte comme un titre. */
@@ -1419,6 +1421,12 @@ export type ProfilDAccueil = PublicProfile &
      * chaque page. Lues dans le lot de ses dons. Absentes s'il n'y en a pas.
      */
     affiches?: AfficheDAccueil[]
+    /**
+     * Le Grand Prix du jour (`shared/grandPrix.ts`), quand le QG en a
+     * programmé un : il prend la place de l'affiche d'une nouveauté. Absent
+     * les autres jours — presque tous.
+     */
+    grandPrix?: GrandPrixDAccueil
   }
 
 /** Un prix de soirée dans la collection d'un profil : zéro fois, il manque encore. */

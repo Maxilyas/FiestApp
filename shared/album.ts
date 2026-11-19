@@ -53,6 +53,7 @@ import {
 import { CABINET_EN_PRODUCTION } from './cabinet/ouverture'
 import { NOM_PALIER, clePalier, hautFait, origineDe, regleDuPalier } from './hautsfaits'
 import { saison } from './saisons'
+import { PREFIXE_D_UN_PRIX } from './grandPrix'
 import { recompensesDe } from './proches'
 import { formatNumber } from './typographie'
 import { COMPAGNONS, JUSTES_DES_FORMES, PRIX_D_UN_COMPAGNON, avecLui, compagnonDe, formeDeCompagnon, formesOuvertes } from './compagnons'
@@ -85,7 +86,7 @@ export type SorteDAvatar = 'legendaire' | 'divin' | 'portrait' | 'compagnon' | '
  * au Cabinet de curiosités. La pastille de sa case, et l'icône de chacune de
  * ses voies.
  */
-export type LieuDAvatar = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'niveau' | 'saison' | 'boutique' | 'niche' | 'eclat' | 'expedition' | 'cabinet'
+export type LieuDAvatar = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'niveau' | 'saison' | 'boutique' | 'niche' | 'eclat' | 'expedition' | 'cabinet' | 'grand-prix'
 
 export interface AvatarDeLAlbum {
   /** `lg:phenix`, `dv:seraphin`, `br:cerf`, `cp:loup-jeune`, ou l'emoji de collection lui-même. */
@@ -115,6 +116,8 @@ function lieuDuHautFait(cle: string): LieuDAvatar {
   if (legendaireDuCabinet(cle)) return 'cabinet'
   // Le Djinn, que les dix défis tenus à l'Or font ranger au Cabinet : pas un gardien, mais sa voie est là.
   if (cle === cleDuCabinet(LEGENDAIRE_DES_DEFIS)) return 'cabinet'
+  // L'avatar en plus d'un Grand Prix (`shared/grandPrix.ts`) : rangé à qui a battu le fantôme, ce jour-là.
+  if (cle.startsWith(PREFIXE_D_UN_PRIX)) return 'grand-prix'
   const h = hautFait(cle)
   return (h && origineDe(h)) ?? 'soiree'
 }
@@ -212,6 +215,7 @@ const DANS: Record<LieuDAvatar, string> = {
   eclat: 'par l’Éclat',
   expedition: 'en expédition',
   cabinet: 'au Cabinet',
+  'grand-prix': 'au Grand Prix',
 }
 
 /** « a, b et c », « a ou b » : une liste dite, son dernier lien devant le dernier. */
@@ -267,6 +271,17 @@ export function avatarsALui(p: ProfilDeLAlbum): Set<string> {
   ])
 }
 
+/**
+ * Un légendaire secret qu'il n'a pas — l'avatar en plus d'un Grand Prix,
+ * qui ne se gagnait qu'un jour (`Legendaire.secret`) : l'album, la loge et
+ * leurs comptes le taisent, comme un trophée qu'on ne peut plus gagner ; à
+ * qui l'a, il se montre comme les autres. Il reste dans l'album lui-même
+ * (`avatarDeLAlbum`) : sa valeur au classement des collections s'y lit.
+ */
+function taitA(a: AvatarDeLAlbum, siens: ReadonlySet<string>): boolean {
+  return a.sorte === 'legendaire' && !siens.has(a.cle) && !!legendaire(a.cle)?.secret
+}
+
 export interface PageDeLAlbum {
   rarete: RareteDAvatar
   /** Ce qu'il a, puis ce qui reste, chacun dans l'ordre du catalogue — ce qu'on a d'abord, comme la maquette. */
@@ -283,7 +298,7 @@ export interface PageDeLAlbum {
 export function pagesDeLAlbum(p: ProfilDeLAlbum, cabinet: boolean = CABINET_EN_PRODUCTION): PageDeLAlbum[] {
   const siens = avatarsALui(p)
   return RARETES_D_AVATAR.map(rarete => {
-    const tous = albumSous(cabinet).liste.filter(a => a.rarete === rarete).map(a => ({ avatar: a, aLui: siens.has(a.cle) }))
+    const tous = albumSous(cabinet).liste.filter(a => a.rarete === rarete && !taitA(a, siens)).map(a => ({ avatar: a, aLui: siens.has(a.cle) }))
     const aLui = tous.filter(a => a.aLui)
     return { rarete, avatars: [...aLui, ...tous.filter(a => !a.aLui)], acquis: aLui.length, total: tous.length }
   })
@@ -304,7 +319,8 @@ export function sesPagesDeLAlbum(p: ProfilDeLAlbum): { rarete: RareteDAvatar; av
 /** Tout l'album, compté : la ligne de « Ma collection », et sa part du total. */
 export function compteDeLAlbum(p: ProfilDeLAlbum): { acquis: number; total: number } {
   const siens = avatarsALui(p)
-  return { acquis: AVATARS_DE_L_ALBUM.filter(a => siens.has(a.cle)).length, total: AVATARS_DE_L_ALBUM.length }
+  const visibles = AVATARS_DE_L_ALBUM.filter(a => !taitA(a, siens))
+  return { acquis: visibles.filter(a => siens.has(a.cle)).length, total: visibles.length }
 }
 
 /**
@@ -326,7 +342,7 @@ export function pageDuDebut(p: ProfilDeLAlbum & Pick<PublicProfileDetail, 'legen
  */
 export function pageDuProchain(p: ProfilDeLAlbum, sorte: SorteDAvatar): RareteDAvatar | null {
   const siens = avatarsALui(p)
-  const reste = AVATARS_DE_L_ALBUM.filter(a => a.sorte === sorte && !siens.has(a.cle))
+  const reste = AVATARS_DE_L_ALBUM.filter(a => a.sorte === sorte && !siens.has(a.cle) && !taitA(a, siens))
   return RARETES_D_AVATAR.find(r => reste.some(a => a.rarete === r)) ?? null
 }
 
@@ -368,6 +384,7 @@ const OU: Record<LieuDAvatar, string> = {
   eclat: 'Par l’Éclat',
   expedition: 'En expédition',
   cabinet: 'Au Cabinet',
+  'grand-prix': 'Au Grand Prix',
 }
 
 const compte = (acquis: number, requis: number, avant = '') => ({ acquis, requis, dit: `${avant}${formatNumber(acquis)} sur ${formatNumber(requis)}` })
@@ -407,6 +424,10 @@ function etapeDuHautFait(c: SimpleCondition, recompenses: ReadonlyMap<string, nu
       tenue: tenu,
       progres: null,
     }
+  }
+  if (lieu === 'grand-prix') {
+    // Il ne se gagnait qu'un jour : seul celui qui l'a voit sa fiche, et sa voie se dit tenue.
+    return { lieu, titre: `${OU['grand-prix']} : battre le fantôme, le jour venu`, regle: 'Il ne se gagnait que le jour de son Grand Prix', tenue: tenu, progres: null }
   }
   if (lieu === 'cabinet') {
     // Pas de jauge non plus : une traversée se gagne ou non, et il y garde un acte ou non — une fois suffit. Le Djinn

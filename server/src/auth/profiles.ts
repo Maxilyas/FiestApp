@@ -81,6 +81,7 @@ import {
 import { ecrireEnvie, envieTenue, lireEnvie, refusDeLEnvie, type CeQuIlADeLaBoutique, type Envie as EnvieDeLaBoutique } from '../../../shared/envie'
 import { cleDeSaison, saison, type Saison } from '../../../shared/saisons'
 import { etiquetteDuTimbre, timbreDe, timbresDe } from '../../../shared/timbres'
+import { PREFIXE_D_UN_PRIX, flotDe, flotsDe } from '../../../shared/grandPrix'
 import { lireLOrigine, type OrigineLue } from '../../../shared/origines'
 import type { SegmentDesAnnonces } from '../../../shared/qgAnimateurs'
 import { NOMS_DES_DEFIS, PREFIXE_DES_DEFIS, RANGS_DITS, confettisDesDefis, defisAuMoins, defisTenus, nomDuTitreDuDefi, rangDeLaCle, titresDesDefis, type DefisTenus } from '../../../shared/cabinet/sceaux'
@@ -420,6 +421,12 @@ const COLONNES_D_UNE_SOIREE_DU_QG = `profile_id, created_at, space_id, soiree_id
   CASE WHEN json_valid(detail) THEN json_extract(detail, '$.releve.justes') END AS justes`
 
 /** Une soirée d'un profil, telle que le QG la compte (`COLONNES_D_UNE_SOIREE_DU_QG`). */
+/** Ses flots des Grands Prix pour le carnet, seulement s'il en a : la plupart des profils n'en auront jamais. */
+function flotsDuCarnet(recompenses: ReadonlyMap<string, number>): { flots?: string[] } {
+  const flots = flotsDe(recompenses)
+  return flots.length > 0 ? { flots } : {}
+}
+
 const soireeDuQg = (r: Row): SoireeDUnProfil => ({
   qui: String(r.profile_id),
   quand: Number(r.created_at),
@@ -925,6 +932,12 @@ function etiquetteDe(cle: string): { emoji: string; title: string } {
   // Le timbre d'une fête, de même (`shared/timbres.ts`).
   const t = timbreDe(cle)
   if (t) return etiquetteDuTimbre(t.saison, t.millesime)
+  // Ce qu'un Grand Prix range (`shared/grandPrix.ts`) : un flot, l'avatar en plus. Le nom du Grand Prix vit avec lui
+  // (`grand_prix`), et le carnet le relit de là : la ligne garde un nom qui se lit seul.
+  const f = flotDe(cle)
+  if (f) return { emoji: '🎀', title: f.honneur ? 'Le flot d’honneur d’un Grand Prix' : 'Le flot d’un Grand Prix' }
+  const prix = cle.startsWith(PREFIXE_D_UN_PRIX) ? legendaire(`lg:${cle.slice(PREFIXE_D_UN_PRIX.length)}`) : undefined
+  if (prix) return { emoji: '🏇', title: `Le Grand Prix : ${prix.nom}` }
   return { emoji: '✨', title: cle }
 }
 
@@ -4187,7 +4200,8 @@ export class ProfileStore {
         joursCeMois,
       },
       // Son carnet des fêtes : ses timbres, de mémoire, et le jour du quiz du jour, qui dit les fêtes passées et à venir.
-      ...(this.moisDuJour && { carnet: { timbres: timbresDe(this.recompensesOf(p.id)), jour: this.moisDuJour() } }),
+      // Ses flots des Grands Prix à côté : leur page du carnet les relit au magasin du Grand Prix, seulement s'il en a.
+      ...(this.moisDuJour && { carnet: { timbres: timbresDe(this.recompensesOf(p.id)), ...flotsDuCarnet(this.recompensesOf(p.id)), jour: this.moisDuJour() } }),
     }
   }
 
@@ -4314,7 +4328,8 @@ export class ProfileStore {
       fonds: this.fondsOuvertsDe(p, autres.jour, maitres),
       gerbes: gerbesOuvertes(recompenses, this.tresorsOf(id)),
       finitions: finitionsOuvertes(niveau),
-      timbres: timbresDe(recompenses).length,
+      // Les flots des Grands Prix valent un timbre chacun (le choix du propriétaire, le 19 novembre 2026).
+      timbres: timbresDe(recompenses).length + flotsDe(recompenses).length,
     }
   }
 

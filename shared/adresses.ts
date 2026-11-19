@@ -42,6 +42,7 @@ export type AccountPage =
   | 'duels'
   | 'cabinet'
   | 'collectionneurs'
+  | 'grand-prix'
 
 export type Route =
   | { kind: 'landing' }
@@ -50,7 +51,7 @@ export type Route =
   | { kind: 'public'; slug: string; page: PublicPage; archiveId: string | null }
   | { kind: 'unknown' }
 
-export const ACCOUNT_PAGES: AccountPage[] = ['host', 'edit', 'connexion', 'activer', 'compte', 'admin', 'profil', 'jour', 'salon', 'tele', 'boutique', 'campagne', 'duels', 'cabinet', 'collectionneurs']
+export const ACCOUNT_PAGES: AccountPage[] = ['host', 'edit', 'connexion', 'activer', 'compte', 'admin', 'profil', 'jour', 'salon', 'tele', 'boutique', 'campagne', 'duels', 'cabinet', 'collectionneurs', 'grand-prix']
 const PUBLIC_PAGES: PublicPage[] = ['souvenir', 'stats', 'bilan', 'bilan/fiches', 'soirees']
 const ARCHIVE_ID = /^[\w-]{1,64}$/
 

@@ -10,6 +10,7 @@
 // Tout ici est une dérivation pure : on l'appelle directement, avec les
 // lignes qu'une soirée aurait écrites.
 import { test } from 'node:test'
+import { cleDuPrix } from '../../shared/grandPrix'
 import assert from 'node:assert/strict'
 import type { AnswerRow } from '../src/core/answers'
 import type { ScoreEntry } from '../src/core/scores'
@@ -354,8 +355,10 @@ test('un légendaire se débloque sur ses hauts faits, et se voit venir', () => 
 
 test('chaque légendaire a sa légende, et se gagne par un haut fait qui existe', () => {
   const cles = new Set([...HAUTS_FAITS_REGAGNABLES, ...HAUTS_FAITS_DE_CARRIERE].map(h => h.key))
-  // Vingt-six, puis les cinq des fêtes du 1er novembre 2026, et le Djinn des défis du Cabinet, le même jour.
-  assert.equal(LEGENDAIRES.length, 32)
+  // Vingt-six, puis les cinq des fêtes du 1er novembre 2026, et le Djinn des défis du Cabinet, le même jour ; puis les
+  // deux avatars en plus du premier Grand Prix, le 19 novembre 2026, secrets.
+  assert.equal(LEGENDAIRES.length, 34)
+  assert.deepEqual(LEGENDAIRES.filter(l => l.secret).map(l => l.key), ['lg:pegase', 'lg:pegase-couronne'])
   for (const l of LEGENDAIRES) {
     assert.ok(l.nom && l.legende, `${l.key} a un nom et une légende`)
     // Un légendaire de saison se gagne par sa saison, et par elle seule : sa récompense de saison, ou l'expédition
@@ -373,6 +376,11 @@ test('chaque légendaire a sa légende, et se gagne par un haut fait qui existe'
     // haut fait du catalogue : `legendaires.test.ts` la vérifie, figée ;
     // celle du Cabinet, une ligne rangée au réveil d'un gardien
     // (`cabinet-gardiens.test.ts`). Toute autre, un haut fait qui existe.
+    // Un secret d'un Grand Prix n'a qu'une voie, la ligne que le Grand Prix range (`cleDuPrix`) : rien d'autre ne le donne.
+    if (l.secret) {
+      assert.deepEqual(voiesDe(l), [{ hautFait: cleDuPrix(l.key), fois: 1 }], `${l.key} : sa seule voie, le Grand Prix`)
+      continue
+    }
     for (const voie of voiesDe(l).filter(v => !estUneVoieDExpedition(v) && !estUneVoieDuCabinet(v))) {
       for (const c of partiesDe(voie)) assert.ok(cles.has(c.hautFait), `${l.key} se gagne par ${c.hautFait}, qui existe`)
     }

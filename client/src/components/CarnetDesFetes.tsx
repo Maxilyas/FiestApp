@@ -1,8 +1,48 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Timbre } from './Timbre'
+import { Flot } from './GrandPrix'
+import { api } from '../api'
 import { carnetDesFetes, jourDit, periodeDite, type CaseDuCarnet } from '../../../shared/timbres'
+import { jourEnToutesLettres } from '../../../shared/jour'
+import type { FlotDuCarnet } from '../../../shared/grandPrix'
 import { espacesFines } from '../format'
 import type { PublicProfileDetail } from '../../../shared/profil'
+
+/**
+ * Ses flots des Grands Prix, sous ses timbres : un par Grand Prix où il a
+ * battu le fantôme — l'avatar du fantôme au cœur, tel qu'il le portait ce
+ * jour-là —, et le flot d'honneur d'or du jour où le fantôme, c'était lui.
+ * Lus au magasin du Grand Prix à l'ouverture de la ligne, seulement s'il en a :
+ * le profil ne porte que leurs clés, qui suffisent au compte.
+ */
+function FlotsDesGrandsPrix() {
+  const [flots, setFlots] = useState<FlotDuCarnet[] | null>(null)
+  const [perdu, setPerdu] = useState(false)
+  useEffect(() => {
+    api.grandPrix.carnet().then(
+      r => setFlots(r.flots),
+      () => setPerdu(true),
+    )
+  }, [])
+  if (perdu) return <p className="muted small">Tes flots ne se lisent pas pour l’instant : réessaie dans un moment.</p>
+  if (!flots) return <p className="muted small">Tes flots…</p>
+  if (flots.length === 0) return null
+  return (
+    <ul className="timbres-grille" aria-label={`${flots.length} flot${flots.length > 1 ? 's' : ''} de Grand Prix`}>
+      {flots.map(f => (
+        <li key={f.grandPrix.id} className="timbres-case">
+          <Flot ruban={f.grandPrix.ruban} honneur={f.honneur} fantome={f.grandPrix.fantome} nom={`${f.honneur ? 'Le flot d’honneur' : 'Le flot'} : ${f.grandPrix.titre}`} taille={84} />
+          <span className="timbres-legende timbres-legende-gagne">{espacesFines(f.grandPrix.titre)}</span>
+          <span className="timbres-legende">
+            {espacesFines(
+              `${jourEnToutesLettres(f.grandPrix.jour, true)} · ${f.honneur ? 'ton jour' : f.rang === 1 ? '1ʳᵉ place' : f.rang ? `${f.rang}ᵉ place` : 'battu'}`,
+            )}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
 
 // « Le carnet des fêtes », dans « Ma collection » : une page par année, ses
 // fêtes dans l'ordre de l'année, chacune son timbre — la maquette validée le
@@ -54,6 +94,12 @@ export function CarnetDesFetes({ profil }: { profil: PublicProfileDetail }) {
           </li>
         ))}
       </ul>
+      {(carnet.flots?.length ?? 0) > 0 && (
+        <>
+          <h4 className="carnet-flots-titre">Tes Grands Prix</h4>
+          <FlotsDesGrandsPrix />
+        </>
+      )}
     </>
   )
 }

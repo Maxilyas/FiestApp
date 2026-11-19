@@ -101,8 +101,9 @@ test('chaque thème qui se gagne, chaque gerbe et chaque légendaire sont sur la
     assert.equal(surLesPistes + surLesTrophees, 'tresor' in g.par || 'fete' in g.par || 'defis' in g.par ? 0 : 1, g.key)
   }
   // Les légendaires : chaque partie de chaque voie dit ce qu'elle ouvre — hors des voies rangées (les saisons,
-  // l'expédition, le Cabinet, et le timbre d'une fête depuis le 1er novembre 2026), qui n'ont pas de piste : on les a, ou non.
-  assert.deepEqual([...PREFIXES_DES_VOIES_RANGEES], ['saison:', 'expedition:', 'cabinet:', 'timbre:'])
+  // l'expédition, le Cabinet, le timbre d'une fête depuis le 1er novembre 2026, et depuis le 19 novembre le flot et
+  // l'avatar en plus d'un Grand Prix), qui n'ont pas de piste : on les a, ou non.
+  assert.deepEqual([...PREFIXES_DES_VOIES_RANGEES], ['saison:', 'expedition:', 'cabinet:', 'timbre:', 'flot:', 'grandprix:'])
   for (const l of LEGENDAIRES) {
     for (const voie of voiesDe(l)) {
       for (const c of partiesDe(voie)) {

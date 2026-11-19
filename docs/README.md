@@ -32,6 +32,7 @@ Ce que fait FiestApp, mode par mode, pour tout le monde — le code n'y vient qu
 - [Les sentiers du savoir](produit/les-sentiers-du-savoir.md) — les branches, les paliers, les vies, les portraits à gagner
 - [Les duels](produit/les-duels.md) — la cote, les ligues, Automate, les défis entre amis
 - [Le Cabinet de curiosités](produit/le-cabinet.md) — à la place de l'ancienne Expédition depuis le 31 octobre 2026 : une traversée en trois actes, trois cartes choisies parmi dix, dix petits jeux, trois gardiens légendaires, et l'un d'eux à gagner
+- [Le Grand Prix](produit/le-grand-prix.md) — le jour d'un joueur : tout le monde court contre son fantôme, ses vraies réponses rejouées ; un flot à gagner, et Pégase
 - [Le profil](produit/le-profil.md) — l'accueil, la loge, la collection, la carrière, la carte d'un joueur, la sécurité du profil
 - [Les récompenses](produit/les-recompenses.md) — l'expérience, les niveaux, les trophées et leurs pistes, les légendaires, les Divins, les écussons
 - [La boutique](produit/la-boutique.md) — les confettis, ce qu'ils achètent, et le catalogue : thèmes, fonds, gerbes, compagnons

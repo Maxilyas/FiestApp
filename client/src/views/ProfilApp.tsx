@@ -36,6 +36,7 @@ import { laNiche } from '../components/NicheHost'
 import { relireLesMissions } from '../missions'
 import { boutonsDesPages, cabinetIci } from '../maintenance'
 import { AfficheDeLaNouveaute, PastilleNouveau } from '../components/AfficheDeLaNouveaute'
+import { BandeauDuGrandPrix, FeteDuGrandPrix, feteVue } from '../components/GrandPrix'
 import { ceQueMontreLAccueil, type PageALAffiche } from '../../../shared/affiches'
 import { estUnePageEnMaintenance } from '../../../shared/maintenance'
 import { TITRE_DES_COLLECTIONNEURS } from '../titres'
@@ -133,6 +134,8 @@ export function ProfilApp() {
    * le relu de l'accueil.
    */
   const [affichesRangees, setAffichesRangees] = useState<ReadonlySet<string>>(() => new Set())
+  // La carte de la fêtée rangée pendant la visite : le stockage la retient aussi, sous try/catch (`feteVue`).
+  const [feteRangee, setFeteRangee] = useState(false)
   /** « Créer mon profil » depuis une fin de soirée : la création, préremplie. */
   const [creation] = useState(lireCreation)
   /** Où aller une fois connecté : le quiz du jour qu'un ami a envoyé (`?next=/jour`). */
@@ -604,6 +607,8 @@ export function ProfilApp() {
       page => pageOuverte(page, etats),
       affichesRangees,
     )
+    // Le Grand Prix du jour, quand il y en a un : il prend la place de l'affiche (`shared/grandPrix.ts`).
+    const grandPrix = 'grandPrix' in profil ? profil.grandPrix : undefined
     const rangerLAffiche = (id: string) => {
       setAffichesRangees(r => new Set([...r, id]))
       // Pas écrite — le réseau, un serveur qui redort —, elle reviendra au prochain accueil : rien d'autre ne se perd.
@@ -639,12 +644,14 @@ export function ProfilApp() {
         />
         {/* L'affiche d'une nouveauté, tant qu'il n'est pas allé sur sa page ni ne l'a rangée : au-dessus de « À la une »,
             ce qui sort passe avant ce qui se vend (le souhait du propriétaire du 1er novembre 2026, le Cabinet en tête). */}
-        {grande && <AfficheDeLaNouveaute key={grande.id} affiche={grande} onRanger={() => rangerLAffiche(grande.id)} />}
+        {/* Le jour d'un Grand Prix, il prend la place de l'affiche ; la personne fêtée lit d'abord sa carte, une fois. */}
+        {grandPrix?.fete && !feteVue(grandPrix.id) && !feteRangee && <FeteDuGrandPrix gp={grandPrix} onFermer={() => setFeteRangee(true)} />}
+        {grandPrix ? <BandeauDuGrandPrix gp={grandPrix} /> : grande && <AfficheDeLaNouveaute key={grande.id} affiche={grande} onRanger={() => rangerLAffiche(grande.id)} />}
         {/* « À la une » et les missions du jour, sous soi : un bandeau fin et une ligne, au-dessus des gros boutons (la maquette C). */}
         {leHaut === 'perdu' ? null : leHaut ? (
-          <leHaut.HautDeLAccueil boutique={'boutique' in profil ? profil.boutique : undefined} aLaUne={!grande} />
+          <leHaut.HautDeLAccueil boutique={'boutique' in profil ? profil.boutique : undefined} aLaUne={!grande && !grandPrix} />
         ) : (
-          <div className={'haut-en-chemin' + (grande ? ' sans-une' : '')} aria-hidden="true" />
+          <div className={'haut-en-chemin' + (grande || grandPrix ? ' sans-une' : '')} aria-hidden="true" />
         )}
         <AccueilJouer
           enCours={enCours}

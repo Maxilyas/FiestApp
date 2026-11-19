@@ -60,10 +60,11 @@ test('/admin : le QG — la vue d’ensemble d’abord, son journal et son serve
   // (`qg-telephones.test.ts`), et le Cabinet de curiosités, après la campagne (`qg-cabinet.test.ts`) ; l'activité devenue
   // les modes côte à côte au lot 5, à la même adresse (`qg-modes.test.ts`) ; les questions jouées et les réserves, sous
   // « Contenu », avant les signalements (`qg-contenu.test.ts`) ; les animateurs à la place des salons, sous « Audience » — les
-  // salons en sont l'onglet (`qg-animateurs.test.ts`) ; les ancres d'avant y mènent encore, `#salons` compris.
+  // salons en sont l'onglet (`qg-animateurs.test.ts`) ; les ancres d'avant y mènent encore, `#salons` compris. Le Grand
+  // Prix, après les nouveautés, le 19 novembre 2026 (`grand-prix.test.ts`, `journal.test.ts`).
   assert.match(
     page,
-    /const ECRANS: readonly Ecran\[\] = \['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'animateurs', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves'\]/,
+    /const ECRANS: readonly Ecran\[\] = \['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'animateurs', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'grand-prix', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves'\]/,
   )
   assert.match(page, /const ANCIENNES: Record<string, Ecran> = \{ 'les-profils': 'profils', 'quiz-du-jour': 'jour' \}/)
   // « Les salons » est devenu l'onglet des animateurs : son adresse d'avant ouvre cet onglet, pas le carnet.

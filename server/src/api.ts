@@ -44,6 +44,8 @@ import type { Missions } from './core/missions'
 import { mountSoins } from './soins'
 import type { Soins } from './core/soins'
 import type { JourStore } from './core/jour'
+import type { GrandPrixStore } from './core/grandPrix'
+import { mountGrandPrix } from './grandPrix'
 import type { RappelStore } from './core/rappels'
 import { lireModeles } from './core/seed'
 import { lirePourQui, personnaliser } from '../../shared/modeles'
@@ -92,6 +94,7 @@ interface ApiDeps {
   profilChange: (profileId: string) => void
   /** Le quiz du jour : sa réserve, ses parties, ses classements. */
   jour: JourStore
+  grandPrix: GrandPrixStore
   /** Le rappel du soir du quiz du jour : les téléphones abonnés. */
   rappels: RappelStore
   /** La campagne solo : ses séries, pour les profils. */
@@ -171,6 +174,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
     maintenant: deps.maintenant,
     campagne: deps.campagne,
     collectionneurs: deps.collectionneurs,
+    // Le Grand Prix du jour, sur l'accueil à la place de l'affiche d'une nouveauté.
+    grandPrix: deps.grandPrix,
     // Le bouton du Cabinet sur l'accueil dit son musée, là où le Cabinet répond : ailleurs, l'accueil n'a pas de bouton pour lui.
     ...(deps.cabinet.ouvert && { cabinet: deps.cabinet.magasin }),
   })
@@ -178,6 +183,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
   mountJour(app, { jour: deps.jour, profiles: deps.profiles, maintenant: deps.maintenant, rappels: deps.rappels })
   // La campagne aussi : seul, avec son profil.
   mountCampagne(app, { campagne: deps.campagne, profiles: deps.profiles })
+  // Le Grand Prix d'un jour, avec son profil ; et son réglage au QG, derrière la porte de l'administration, posée plus haut.
+  mountGrandPrix(app, { grandPrix: deps.grandPrix, profiles: deps.profiles })
   // Le classement des collectionneurs, avec son profil aussi : la mémoire du relevé, et sa fiche de l'instant.
   mountCollectionneurs(app, { collectionneurs: deps.collectionneurs, profiles: deps.profiles })
   // L'Expédition, un mode d'avant (remplacée par le Cabinet le 31 octobre 2026, retirée du dépôt le 16 novembre) : ses

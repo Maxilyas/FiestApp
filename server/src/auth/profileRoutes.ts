@@ -1,3 +1,4 @@
+import type { GrandPrixStore } from '../core/grandPrix'
 import express, { type Express } from 'express'
 import { wrap } from '../core/http'
 import type { ProfileRec, ProfileStore } from './profiles'
@@ -70,6 +71,8 @@ interface ProfileApiDeps {
    * Absent là où le Cabinet est fermé : le bouton ne s'y montre pas.
    */
   cabinet?: Pick<CabinetStore, 'accueil'>
+  /** Le Grand Prix du jour, pour l'accueil : rien de la mémoire les jours où rien ne court (`core/grandPrix.ts`). */
+  grandPrix?: Pick<GrandPrixStore, 'accueilDe'>
   /**
    * Sa place parmi les collectionneurs, pour le gros bouton de sa page
    * (`Collectionneurs.resume`) : de mémoire seule, au dernier relevé — rien
@@ -260,6 +263,12 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     } catch (e) {
       console.error('[profil] traversée de l’accueil illisible :', e)
     }
+    // Le Grand Prix du jour, s'il y en a un : de la mémoire les jours où rien ne court, son bilan gardé un instant sinon.
+    // Ce qui y tomberait n'ôte que lui.
+    const grandPrix = await (deps.grandPrix?.accueilDe(rec.id) ?? Promise.resolve(null)).catch(e => {
+      console.error('[profil] Grand Prix de l’accueil illisible :', e)
+      return null
+    })
     // La fête du jour, et son timbre de l'année : de la mémoire de ses récompenses, comme le quiz du jour dit la sienne.
     const periode = periodeDu(aujourdhui)
     const fete = periode && {
@@ -278,6 +287,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       ...(fete && { fete }),
       ...(annonces.length > 0 && { annonces }),
       ...(affiches.length > 0 && { affiches }),
+      ...(grandPrix && { grandPrix }),
     }
   }
 

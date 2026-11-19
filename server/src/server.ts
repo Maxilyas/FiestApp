@@ -63,6 +63,7 @@ import { animateursDuQg } from './animateursDuQg'
 import { MemoireDuQg } from './core/memoireDuQg'
 import { EffetsDuQg } from './effetsDuQg'
 import { JourStore } from './core/jour'
+import { GrandPrixStore } from './core/grandPrix'
 import { RappelStore } from './core/rappels'
 import { erreurDeRequete, repondreErreur } from './core/http'
 import { ecrireAttente, ecrireLeService, espaceDeLEntree, fermerLeCabinet, pageDEntree, prechargerDonnees } from './core/page'
@@ -526,6 +527,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     maintenant: maintenantDuJour,
     ...(opts.fraicheurDesLecturesMs !== undefined && { fraicheurDesLecturesMs: opts.fraicheurDesLecturesMs }),
   })
+  // Le Grand Prix (`core/grandPrix.ts`) : un jour, le fantôme d'un joueur à battre, à l'horloge du quiz du jour.
+  const grandPrix = new GrandPrixStore(opts.quizDbUrl, opts.quizDbToken, { profiles, maintenant: maintenantDuJour })
   // Le bandeau rouge, les pages en maintenance et celles bientôt disponibles,
   // posés au QG : chaque page servie et chaque route qui commence une partie
   // les lisent en mémoire, testeurs compris.
@@ -736,6 +739,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     restaurer(),
     profiles.init(),
     jour.init(),
+    grandPrix.init(),
     rappels.init(),
     (async () => {
       await store.init(defaultSpace)
@@ -1031,6 +1035,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     const salon = auth.byProfile(profileId)
     if (salon) await auth.linkProfile(salon.id, null)
     await jour.oublierProfil(profileId)
+    await grandPrix.oublierProfil(profileId)
     await rappels.oublierProfil(profileId)
     // Le Cabinet avant la campagne : ses gestes se trouvent par les séries du profil, que la campagne efface.
     await cabinet.oublierProfil(profileId)
@@ -1462,6 +1467,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     auth,
     profiles,
     jour,
+    grandPrix,
     rappels,
     campagne,
     collectionneurs,
@@ -1820,6 +1826,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
           archives.close()
           auth.close()
           jour.close()
+          grandPrix.close()
           rappels.close()
           alertes.close()
           regles.close()
