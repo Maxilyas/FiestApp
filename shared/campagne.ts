@@ -948,7 +948,9 @@ export interface DuelEntreAmis {
   /**
    * Un duel classé (`shared/duels.ts`) : qui a été défié — `toi` quand c'est
    * lui qui regarde —, sa ligue et ce qu'il porte comme l'auteur, et, joué
-   * des deux côtés, ce qu'il a fait à sa cote.
+   * des deux côtés, ce qu'il a fait à sa cote. L'un et l'autre, avec ce
+   * qu'ils portent, la plaque de leur nom (`SonApparence.plaque`) : leurs
+   * cartes s'en habillent, et leurs socles au verdict.
    */
   contre?: { nom: string; avatar: string; toi?: true; ligue?: CleDeLigue } & SonApparence
   ecart?: number
@@ -1023,6 +1025,13 @@ export interface SonApparence {
   eclat?: EclatPorte
   /** La bordure de ligue qu'il porte, là où ses duels sont lus avec lui (`bordurePortee`). */
   bordure?: BordureDeLigue
+  /**
+   * La plaque de son nom — la clé d'un thème, absente sans plaque
+   * (`ProfileStore.plaqueDe`) : son avatar se pose dans son écrin, partout où
+   * il se montre hors d'une soirée (`Plaque.tsx`). Jamais d'un masqué, ni
+   * d'Automate.
+   */
+  plaque?: string
 }
 
 export interface AmiDeCampagne extends SonApparence {

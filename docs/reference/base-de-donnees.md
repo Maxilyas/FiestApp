@@ -647,7 +647,7 @@ La question bonus de chaque jour (le 8 novembre 2026) : la question du public, t
 
 La partie de chaque profil, chaque jour.
 
-- **Colonnes clés** : `profile_id` et `jour` (la clé), `commencee_le`, `question`, `servie_le`, `points`, `justes`, `finie_le`, `xp`, `xp_serie` (le bonus de série, payé dès le début) ; sa question bonus, depuis le 8 novembre 2026 : `bonus_servie_le` (montrée : son chrono part), `bonus_le` (jouée — trouvée, ratée ou laissée au temps), `bonus_choix`, `bonus_juste` (ses confettis s'en relisent), `xp_bonus` (son expérience, figée), `bonus_vote` (son pouce : `1`, `-1`).
+- **Colonnes clés** : `profile_id` et `jour` (la clé), `commencee_le`, `question`, `servie_le`, `points`, `justes`, `finie_le`, `xp`, `xp_serie` (le bonus de série, payé dès le début) ; son départage, depuis le 19 novembre 2026 : `temps_des_justes` (le temps de ses bonnes réponses chronométrées d'une question qui compte, en ms) et `justes_chronometrees` (leur nombre) — leur moyenne départage les ex æquo (`tempsMoyen`), écrits avec les points, recomptés avec eux à une annulation, relus de `jour_reponses` au premier démarrage pour les parties de son mois (`poserLeDepartage`) ; sa question bonus, depuis le 8 novembre 2026 : `bonus_servie_le` (montrée : son chrono part), `bonus_le` (jouée — trouvée, ratée ou laissée au temps), `bonus_choix`, `bonus_juste` (ses confettis s'en relisent), `xp_bonus` (son expérience, figée), `bonus_vote` (son pouce : `1`, `-1`).
 - **Espace** : non.
 - **Écrite par** : `JourStore`.
 - **Lue par** : `JourStore` (classements, séries, carrière, QG).
@@ -727,7 +727,7 @@ Les profils masqués du classement du quiz du jour.
 
 Les drapeaux du quiz du jour.
 
-- **Colonnes clés** : `cle`, `valeur` — `amorcee` (la réserve a pris les quiz livrés), `relecture_des_jours` (la `VERSION_DES_JOURS` déjà relue), `mois_clos:AAAA-MM`.
+- **Colonnes clés** : `cle`, `valeur` — `amorcee` (la réserve a pris les quiz livrés), `relecture_des_jours` (la `VERSION_DES_JOURS` déjà relue), `mois_clos:AAAA-MM`, `departage_au_temps` (le premier jour départagé au temps, écrit une fois au premier démarrage qui connaît la règle : les jours d'avant gardent leurs ex æquo).
 - **Espace** : non.
 - **Écrite par** : `JourStore`.
 - **Lue par** : `JourStore`.

@@ -11,7 +11,8 @@ import { placeDuJour } from '../../../shared/course'
 import { showToast, useAppState } from '../state'
 import { QuizPlayer, type Envoi } from '../games/quiz/PlayerView'
 import { Avatar, AvatarsEnLigne, Dessin } from '../components/Avatar'
-import { MotifDeLaPlaque, classeDeLaPlaque } from '../components/Plaque'
+import { Ecrin } from '../components/Plaque'
+import { PodiumDuClassement, surLePodium } from '../components/PodiumDuClassement'
 import { Flamme, Icon } from '../components/Icon'
 import { Niveau } from '../components/Niveau'
 import { Laurier, NomLaure, texteDuLaurier } from '../components/Laurier'
@@ -1523,8 +1524,10 @@ export function Classement({ partie, onRetour }: { partie: PartieDuJour; onRetou
                     classement.fige ? 'figé' : periode === 'mois' ? 'le total du mois' : 'se fige à minuit'
                   }`}
             </p>
+            {/* Les trois premiers montent sur le podium ; la liste reprend à la quatrième place. */}
+            <PodiumDuJour lignes={surLePodium(classement.lignes).podium} sienne={classement.sienne} onOuvrir={setCarte} />
             <div className="leaderboard">
-              {classement.lignes.map(l => (
+              {surLePodium(classement.lignes).liste.map(l => (
                 <LigneDuClassement key={l.profileId} ligne={l} moi={l.profileId === classement.sienne} onOuvrir={setCarte} />
               ))}
               {classement.moi && (
@@ -1547,26 +1550,75 @@ export function Classement({ partie, onRetour }: { partie: PartieDuJour; onRetou
   )
 }
 
+/** Le nom d'une ligne pour l'oreille, celui de sa marche au podium aussi : il remplace tout son contenu — le rang et les points doivent y être, comme au classement d'une soirée. */
+const nomDeLaLigne = (l: LigneDuJour) =>
+  `La carte ${deNom(l.nom)}${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${l.points} ${motPoints(l.points)}${
+    l.temps !== undefined ? `, ${tempsDit(l.temps)} en moyenne par bonne réponse` : ''
+  }${l.enCours ? ', en cours' : ''}`
+
+/** Le temps qui départage, pour l'oreille : « 4,1 secondes » — « 4,1 s » se lisait lettre à lettre. */
+const tempsDit = (ms: number) => `${(ms / 1000).toFixed(1).replace('.', ',')} secondes`
+
+/**
+ * Ses points, et dessous, s'il a départagé deux ex æquo, le temps moyen de
+ * ses bonnes réponses (`LigneDuJour.temps`) : à points égaux, le plus rapide
+ * passe devant (le choix du propriétaire du 19 novembre 2026). Sans lui, deux
+ * lignes à 1 400 se suivaient à deux rangs différents, et rien ne disait
+ * pourquoi. Rien d'autre qu'un texte : pas d'icône dessinée dans une ligne de
+ * classement (règle `css.md`, les calques des listes).
+ */
+function PointsDeLaLigne({ ligne: l }: { ligne: LigneDuJour }) {
+  if (l.temps === undefined) return <Score n={l.points} texte={formatNumber(l.points)} />
+  return (
+    <span className="lb-score lb-score-departage">
+      {formatNumber(l.points)}
+      <span className="lb-temps">{secondes(l.temps)}</span>
+    </span>
+  )
+}
+
+/** Son avatar tel qu'il le porte, dans les lignes comme sur le podium. */
+const avatarDeLaLigne = (l: LigneDuJour) => (
+  <Avatar className="lb-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} sceau={l.sceau} eclat={l.eclat} bordure={l.bordure} />
+)
+
 function LigneDuClassement({ ligne: l, moi, onOuvrir }: { ligne: LigneDuJour; moi: boolean; onOuvrir: (profileId: string) => void }) {
   return (
-    <button
-      type="button"
-      className={'lb-row lb-ouvrable' + (moi ? ' me' : '') + classeDeLaPlaque(l.plaque)}
-      // Le nom du bouton remplace tout son contenu : le rang et les points
-      // doivent y être, comme au classement d'une soirée.
-      aria-label={`La carte ${deNom(l.nom)}${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${l.points} ${motPoints(l.points)}${l.enCours ? ', en cours' : ''}`}
-      onClick={() => onOuvrir(l.profileId)}
-    >
+    <button type="button" className={'lb-row lb-ouvrable' + (moi ? ' me' : '')} aria-label={nomDeLaLigne(l)} onClick={() => onOuvrir(l.profileId)}>
       <Rank n={l.rang} />
-      <Avatar className="lb-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} sceau={l.sceau} eclat={l.eclat} bordure={l.bordure} />
+      {/* Son avatar dans son écrin, aux couleurs de sa plaque (`Plaque.tsx`). */}
+      <Ecrin plaque={l.plaque}>{avatarDeLaLigne(l)}</Ecrin>
       <span className="lb-name">
         <NomLaure nom={l.nom} laurier={l.laurier} />
         {l.enCours && <span className="muted small"> · en cours</span>}
       </span>
-      <MotifDeLaPlaque plaque={l.plaque} />
       <Niveau niveau={l.niveau} />
-      <Score n={l.points} texte={formatNumber(l.points)} />
+      <PointsDeLaLigne ligne={l} />
     </button>
+  )
+}
+
+/** Les trois premiers d'une période sur leur marche (`PodiumDuClassement`), la liste reprenant dessous. */
+function PodiumDuJour({ lignes, sienne, onOuvrir }: { lignes: readonly LigneDuJour[]; sienne?: string; onOuvrir: (profileId: string) => void }) {
+  return (
+    <PodiumDuClassement
+      marches={lignes.map(l => ({
+        profileId: l.profileId,
+        rang: l.rang,
+        plaque: l.plaque,
+        moi: l.profileId === sienne,
+        label: nomDeLaLigne(l),
+        visage: avatarDeLaLigne(l),
+        nom: <NomLaure nom={l.nom} laurier={l.laurier} />,
+        valeur: (
+          <>
+            {formatNumber(l.points)}
+            {l.temps !== undefined && <span className="pdc-unite">· {secondes(l.temps)}</span>}
+          </>
+        ),
+      }))}
+      onOuvrir={onOuvrir}
+    />
   )
 }
 

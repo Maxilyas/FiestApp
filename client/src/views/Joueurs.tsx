@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { api, motifDe } from '../api'
 import { Avatar } from '../components/Avatar'
+import { Ecrin } from '../components/Plaque'
 import { Icon } from '../components/Icon'
 import { BlasonDeLigue } from '../components/Blason'
 import { deNom, espacesFines } from '../format'
@@ -47,10 +48,13 @@ export function LigneDeJoueur({
   const dit = detail ? (j.ligue && j.cote !== undefined ? `${detail} · ${sonRang(j)}` : detail) : sonRang(j)
   const contenu = (
     <>
-      {/* Ce qu'il porte, comme au classement : l'emoji seul lui donnait un autre visage. */}
-      <span className={'duel-ami-avatar' + (enLigne ? ' en-ligne' : '')} aria-hidden="true">
-        <Avatar avatar={j.avatar} finition={j.finition} legendaire={j.legendaire} sceau={j.sceau} eclat={j.eclat} bordure={j.bordure} />
-      </span>
+      {/* Ce qu'il porte, comme au classement : l'emoji seul lui donnait un autre visage — dans son écrin, aux couleurs de sa
+          plaque (`Plaque.tsx`). */}
+      <Ecrin plaque={j.plaque}>
+        <span className={'duel-ami-avatar' + (enLigne ? ' en-ligne' : '')} aria-hidden="true">
+          <Avatar avatar={j.avatar} finition={j.finition} legendaire={j.legendaire} sceau={j.sceau} eclat={j.eclat} bordure={j.bordure} />
+        </span>
+      </Ecrin>
       <span className="ligne-joueur-nom">
         <b>{j.nom}</b>
         <span className="muted small">{espacesFines(dit)}</span>

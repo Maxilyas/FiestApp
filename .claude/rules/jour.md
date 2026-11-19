@@ -7,7 +7,7 @@ paths:
   - "client/src/{insister,focus}.ts"
   - "client/src/components/{Jour,Calendrier,Laurier,Corrige,SerieCorrigee,LaPlume,QuestionBonus,SignalerLaQuestion,QgQuestionsDuPublic}.tsx"
   - "client/src/components/calendrier-peint.ts"
-  - "server/test/{coffre-du-mois,jour,jour-charge,jour-justesse,jour-mois,jour-nuit,jour-paliers,jour-partie,jour-telephone,laurier,soiree-et-jour,corrige,jour-propositions,jour-question-du-public,jour-question-bonus,signalement-en-points}.test.ts"
+  - "server/test/{coffre-du-mois,jour,jour-charge,jour-departage,jour-justesse,jour-mois,jour-nuit,jour-paliers,jour-partie,jour-telephone,laurier,soiree-et-jour,corrige,jour-propositions,jour-question-du-public,jour-question-bonus,signalement-en-points}.test.ts"
   - "server/scripts/{rendu-jour,rendu-plume}.ts"
 ---
 
@@ -22,6 +22,40 @@ paths:
 - `client/src/components/QuestionBonus.tsx` — la question bonus (le choix du propriétaire du 8 novembre 2026, « 1 + 2 + 4 », `shared/propositions.ts`) : la question du public ne se mêle plus aux dix — on la jouait à la course sans voir qu'un joueur l'avait écrite, et l'administrateur qui l'avait relue la jouait en en sachant la réponse. Tirée avec le jour, à part (`jour_bonus`, `Tirage.bonus`, `questionBonus` : réponses mélangées, `DUREE_DE_LA_QUESTION_BONUS`), elle se joue après les dix, sa partie finie (`servirLeBonus`, `repondreAuBonus`, `expirerLeBonus` dans `aJour` — `POST /api/jour/bonus`, `/repondre` ; chaque réponse rend le bonus seul, `BonusDuJour`, jamais la partie : servir ne relit pas la fin, sinon son chrono courrait pendant les lectures), hors des points, du classement et des étoiles ; trouvée, ses confettis relus de sa colonne (`bonus_juste`, `CONFETTIS_D_UNE_PARTIE`, dans les trois lectures des confettis) et son expérience figée (`xp_bonus`, dans `lecturesDeLExperience` et la carrière). Son auteur et l'administrateur qui l'a relue ne la jouent pas (`neLaJouePas`, `tienne`, `relue` : `jour_reserve.relecteur`, le profil que tient la console qui l'accepte). Le pouce (`voterPourLeBonus`, `bonus_vote`, jusqu'à minuit) ; le défi de l'auteur, jugé le jour clos (`BIEN_DOSEE`, la troisième part de `CONFETTIS_DES_PROPOSITIONS`, `dosageDe`), et son bilan le lendemain (`IssueDUneProposition` `bilan`, à la place de la carte du jour) ; ce que la salle en fait au QG (`salleDuBonus` : `PropositionAuQg.salle`, `SuiviDuJour.bonus`) et dans « Tes questions ». À l'écran : l'annonce avant les dix (`AnnonceDuBonus`), l'écran qui la présente juste après elles (`EcranDuBonus`, « Plus tard » mène au résultat), sa question et sa révélation dans le parchemin (`QuestionDuBonusEnJeu`, `RevelationDuBonusVue` — la niche y réagit, `niche-reactions.test.ts`), sa carte sur la fin et le jour joué (`CarteDuBonus`), la correction au bout (`BonusCorrige`) ; jamais `.card` : chaque thème en repeint le verre (`jour-question-bonus.test.ts`). Annulée pour tous par le QG, le jour même (`annulerLeBonus`, le 9 novembre 2026) : son instant dans `jour_bonus.question` (`annulee`), le tirage gardé remis à jour sous le verrou `#tirage`, puis chacun de ceux qui l'ont vue servie défait sous son verrou (`bonus_juste`, `xp_bonus` remis à zéro, `ecrireXp`) ; elle ne se sert, ne s'écrit ni ne se note plus (`BonusDuJour.etat` `annulee`, `annulee`), sa révélation dit encore qui l'avait trouvée (son choix), et `ANNULEE_POUR_TOUS` la retire à son auteur — son jour, La Plume, `BIEN_DOSEE`
 
 ## Les pièges
+
+- **À points égaux, le plus rapide passe devant — partout où se lit un rang
+  du jour ou du mois** (le choix du propriétaire du 19 novembre 2026 : « que
+  le temps de réaction soit compté pour départager les ex æquo » ; pas au défi
+  de la semaine, « car justement c'est de prendre son temps »). Le bonus de
+  rapidité ne départageait personne : plein pendant le temps de lecture, il
+  touchait 81 % des bonnes réponses entier, les scores tombaient sur des
+  multiples de 200, et sur cinquante-quatre jours, neuf avaient plusieurs
+  premiers (le relevé en lecture seule de la production, ce jour-là). Le
+  départage est le temps moyen des bonnes réponses chronométrées d'une
+  question qui compte (`tempsMoyen`, au dixième : `DIXIEME_MS`), tenu sur la
+  partie à côté des points (`jour_parties.temps_des_justes`,
+  `justes_chronometrees`) — écrit par `enregistrer` dans la même ligne,
+  recompté par `recompter` à une annulation (`brutDe`), suivi en mémoire par
+  `suivreAuClassement`. Il passe à `classer` (`shared/classement.ts`,
+  `departage`) dans chaque lecture d'un rang : la vue de la partie, le
+  classement (`lignes`, qui met `temps` sur les seules lignes à points égaux
+  avec une voisine), la nuit (`clore` : podium, laurier, victoires), hier
+  (`sonJour`), ses jours joués (`joursJoues`, sur `pointsGardes` qui garde le
+  temps de chacun), le mois et ses coffres (`poserLesCoffresDuMois`). **Un
+  rang de plus se lit par `this.departage(periode)`** — oublié, il
+  couronnerait les ex æquo que la nuit a départagés. Les seuils restent aux
+  points — L'Élite au premier quart, le Phénix à la moitié basse, le `RANK()`
+  de `lecturesDesStats` — : à points égaux, on est dans le même quart, et un
+  seuil départagé aurait recompté les jours d'avant. « Le plus proche
+  devant » (`devant`) aussi : un ex æquo plus rapide n'est pas « à 0 pt ».
+  **Rien d'avant la règle ne se départage** (`departageDepuis`, la clé
+  `departage_au_temps` de `jour_meta`, posée au premier démarrage qui la
+  connaît, avec le temps des parties de son mois relu de `jour_reponses` dans
+  le même lot — `poserLeDepartage`) : leur podium a été payé à tous, et leur
+  classement départagé après coup aurait montré deuxième un joueur qui porte
+  le laurier de ce jour-là ; le mois de ce jour, pas encore clos, se
+  départage en entier. Les parties plus anciennes que ce mois ont un temps à
+  zéro, que rien ne lit (`jour-departage.test.ts`).
 
 - **La question bonus vit à part des dix** (`jour_bonus`, jamais dans
   `jour_tirages.questions`) : tant de lectures parcourent les dix — leurs

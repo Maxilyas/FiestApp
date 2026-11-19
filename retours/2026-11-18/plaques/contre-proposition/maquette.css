@@ -1,0 +1,16 @@
+/* Contre-proposition du 18 novembre 2026 : la plaque du nom, une seule forme partout.
+   Posée par-dessus les vraies lignes (`.lb-row.plaque`), la classe `vitrine` ôtée : la ligne, le rang,
+   le niveau et le score restent ceux de tous. */
+.lb-row.mq > .lb-name { flex: 0 1 auto; display: flex; align-items: center; gap: 6px; min-width: 0; margin: 0 auto 0 0; padding: 0; overflow: visible; }
+.lb-row.mq > .lb-name::after { content: none !important; }
+.lb-row.mq > .plaque-embleme { display: none !important; }
+.lb-row.mq .nom-laure { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.lb-row.mq .nom-laure > :not(.mq-plaque) { flex: none; }
+/* La plaque mord de 3 px sur l'écart de la ligne, de chaque côté : elle ne coûte au prénom que 12 px. */
+.mq-plaque { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: calc(100% + 6px); margin: 0 -3px; }
+.mq-plaque > .mq-texte { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mq-plaque > .mq-embleme { flex: none; width: 16px; height: 16px; background: var(--p-embleme) center / contain no-repeat; }
+/* Pour tous : fine, à plat — son fond, son filet, son encre. */
+.mq-plaque { padding: 2px 8px; border: 1px solid var(--p-trait); border-radius: 7px; background: var(--p-bg); color: var(--p-ink); font-weight: 500; line-height: 1.3; }
+/* Au podium, la même, gravée : son double filet, son relief, et son emblème quand la ligne a la place. */
+.mq-podium .mq-plaque { padding: 4px 9px; font-weight: 600; background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.1)), var(--p-bg); box-shadow: inset 0 0 0 2px var(--p-bg), inset 0 0 0 3px var(--p-trait); }

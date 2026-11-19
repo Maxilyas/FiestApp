@@ -1,6 +1,6 @@
 import { Avatar } from './Avatar'
 import { NomLaure } from './Laurier'
-import { MotifDeLaPlaque, classeDeLaPlaque } from './Plaque'
+import { Ecrin, EmblemeDeLaPlaque, classeDeLaPlaque } from './Plaque'
 import { AUCUNE_PLAQUE, plaquePortee, plaquesOuvertes } from '../../../shared/plaques'
 import { theme } from '../../../shared/themes'
 import { bordurePortee } from '../../../shared/duels'
@@ -12,25 +12,27 @@ import type { PropsDUnePiece } from './choix'
 // La plaque de son nom, là où elle se choisit et là où elle se vend : dans
 // la pièce « Thème » de la loge (`MaPlaque`, derrière l'onglet « Ma
 // plaque »), et sur la fiche d'un thème à la boutique (`LigneDePlaque`).
-// Sa ligne telle qu'un classement la montrerait — son avatar, son prénom, la
-// plaque : on choisit ce qu'on voit, pas un nom dans une liste.
+// Sa ligne telle que les classements la montrent — son avatar dans l'écrin de
+// la plaque, son prénom : on choisit ce qu'on voit, pas un nom dans une liste.
 
 type SaLigne = Pick<PublicProfileDetail, 'name' | 'laurier' | 'avatar' | 'finition' | 'legendaire' | 'eclats' | 'eclatsEteints' | 'matieres' | 'matieresPortees' | 'scelles' | 'sceauMasque' | 'bordureChoisie' | 'bordures'>
 
-/** Ce que sa ligne montre avant la plaque : son avatar, tel qu'il le porte, et son prénom. */
-function SonNom({ profil }: { profil: SaLigne }) {
+/** Ce que sa ligne montre : son avatar, tel qu'il le porte, dans l'écrin de la plaque — sans plaque, la place vide —, et son prénom. */
+function SonNom({ profil, plaque }: { profil: SaLigne; plaque: string | null }) {
   return (
     <>
-      <Avatar
-        className="lb-avatar"
-        avatar={profil.avatar}
-        finition={profil.finition}
-        // Un profil d'un serveur d'avant, sans ses Éclats : rien ne brille, la ligne se montre quand même.
-        eclat={profil.eclats ? eclatChez(profil, cibleEclat(profil.legendaire ?? undefined, profil.avatar)) : false}
-        legendaire={profil.legendaire ?? undefined}
-        sceau={sceauVisible(profil)}
-        bordure={bordurePortee(profil.bordureChoisie ?? 'auto', profil.bordures)}
-      />
+      <Ecrin plaque={plaque}>
+        <Avatar
+          className="lb-avatar"
+          avatar={profil.avatar}
+          finition={profil.finition}
+          // Un profil d'un serveur d'avant, sans ses Éclats : rien ne brille, la ligne se montre quand même.
+          eclat={profil.eclats ? eclatChez(profil, cibleEclat(profil.legendaire ?? undefined, profil.avatar)) : false}
+          legendaire={profil.legendaire ?? undefined}
+          sceau={sceauVisible(profil)}
+          bordure={bordurePortee(profil.bordureChoisie ?? 'auto', profil.bordures)}
+        />
+      </Ecrin>
       <span className="lb-name">
         <NomLaure nom={profil.name} laurier={profil.laurier} />
       </span>
@@ -41,18 +43,17 @@ function SonNom({ profil }: { profil: SaLigne }) {
 /**
  * Sa ligne sous une plaque, à regarder seulement : la fiche d'un thème de la
  * boutique dit ainsi ce que les autres verront de lui, et la loge ce qu'ils
- * voient avec la plaque qu'il essaie — sans plaque (`null`), la ligne de
- * tous.
+ * voient avec la plaque qu'il essaie — son avatar dans son écrin ; sans
+ * plaque (`null`), la ligne de tous.
  */
 export function LigneDePlaque({ profil, plaque }: { profil: SaLigne; plaque: string | null }) {
   return (
     <div
-      className={'lb-row plaque-apercu' + classeDeLaPlaque(plaque)}
+      className="lb-row plaque-apercu"
       role="img"
       aria-label={plaque ? `Ta ligne aux classements, sous la plaque ${theme(plaque)?.nom ?? ''}` : 'Ta ligne aux classements, sans plaque'}
     >
-      <SonNom profil={profil} />
-      <MotifDeLaPlaque plaque={plaque} />
+      <SonNom profil={profil} plaque={plaque} />
     </div>
   )
 }
@@ -79,12 +80,11 @@ export function plaquesDeLaLoge(profil: PublicProfileDetail, essai: PropsDUnePie
 }
 
 /**
- * L'échantillon d'une plaque : un bout de sa ligne, à ses couleurs — son
- * fond, son trait, un texte à son encre (son nom, dans la grille), son motif
- * après lui. Ce n'est pas
- * une ligne de classement (`.lb-row`) : la règle des plaques ne la peint pas,
- * la classe de la plaque (`.plaque-<clé>`) ne lui donne que ses jetons
- * (`--p-bg`, `--p-ink`, `--p-trait`, `--p-motif`), qu'elle lit elle-même
+ * L'échantillon d'une plaque : un bout de sa plaque, à ses couleurs — son
+ * fond, son trait, un texte à son encre (son nom, dans la grille), son emblème
+ * après lui. Ce n'est ni un écrin ni une ligne de classement : la classe de la
+ * plaque (`.plaque-<clé>`) ne lui donne que ses jetons
+ * (`--p-bg`, `--p-ink`, `--p-trait`, `--p-embleme`), qu'elle lit elle-même
  * (`.loge-plaque-echantillon`). Sans plaque, le sol et l'encre de la page :
  * la ligne de tous.
  */
@@ -92,7 +92,7 @@ export function EchantillonDePlaque({ plaque, texte }: { plaque: string | null; 
   return (
     <span className={'loge-plaque-echantillon' + classeDeLaPlaque(plaque)} aria-hidden="true">
       {texte && <span className="loge-plaque-texte">{texte}</span>}
-      <MotifDeLaPlaque plaque={plaque} />
+      <EmblemeDeLaPlaque plaque={plaque} />
     </span>
   )
 }
@@ -100,7 +100,7 @@ export function EchantillonDePlaque({ plaque, texte }: { plaque: string | null; 
 /**
  * « Ma plaque », le second onglet de la pièce « Thème » : sa ligne de
  * classement une seule fois, sous la plaque que la page montre, puis chaque
- * choix en vignette, une petite plaque qui porte son nom à son encre — son
+ * choix en vignette, une petite plaque qui porte son nom à son encre, et son emblème — son
  * prénom, la ligne au-dessus le montre déjà ; son nom sous elle prenait une
  * ligne de plus, deux pour « Comme mon thème » — : « Comme mon thème »,
  * d'office, « Aucune », puis la

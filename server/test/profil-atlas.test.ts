@@ -354,7 +354,7 @@ test('la loge, sur le thème : ses thèmes et sa plaque en deux onglets, deux li
   assert.match(html, /<div class="onglets loge-theme-onglets" role="tablist" aria-label="Thème ou plaque">/)
   assert.ok(html.indexOf('loge-theme-onglets') < html.indexOf('loge-vignettes'), 'les onglets avant les vignettes')
   assert.match(html, /Mes thèmes<span class="loge-theme-compte"><span class="sr-only">, <\/span>2<\/span>/)
-  assert.match(html, /<span class="loge-plaque-echantillon[^"]*" aria-hidden="true">(<span class="plaque-motif" aria-hidden="true"><\/span>)?<\/span>Ma plaque<svg class="icon loge-theme-oeil"[^>]*>.*?<\/svg><span class="sr-only">, [^<]*, les autres la voient<\/span>/)
+  assert.match(html, /<span class="loge-plaque-echantillon[^"]*" aria-hidden="true">(<span class="plaque-embleme" aria-hidden="true"><\/span>)?<\/span>Ma plaque<svg class="icon loge-theme-oeil"[^>]*>.*?<\/svg><span class="sr-only">, [^<]*, les autres la voient<\/span>/)
   // Ce qui s'achète au rayon des thèmes de la boutique, ce qui se gagne dans la collection : sur une ligne, au pied.
   assert.match(html, /<div class="loge-pied"><a class="loge-a-gagner loge-vers-boutique" href="\/boutique#themes"><svg[^>]*>.*?<\/svg>\d+ à la boutique<\/a><a class="loge-a-gagner" href="#collection-themes">5 thèmes à gagner\s:\soù\s\?<svg/)
   // Seulement ceux qu'il a, dans leurs vignettes : les autres se montrent dans la collection.

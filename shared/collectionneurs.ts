@@ -197,6 +197,8 @@ export interface FicheDeCollectionneur extends ReleveDeCollection, ApparenceDeLA
   bordure?: BordureDeLigue | null
   /** Sa ligue aux duels : le cadre de sa carte. */
   ligue?: CleDeLigue
+  /** La plaque de son nom (`ProfileStore.plaqueDe`), posée à la lecture : son avatar dans son écrin, sa marche du podium à ses couleurs. */
+  plaque?: string
   carats: number
   familles: Record<FamilleDeCarats, number>
   /** Les comptes de son style : sa vitrine, le face-à-face. */

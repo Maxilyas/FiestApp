@@ -174,3 +174,80 @@ test('chaque ligne dit ses places depuis lundi ; « À ta portée » : les joueu
     await banc.close()
   }
 })
+
+// Le retour du propriétaire du 18 novembre 2026 : « quand deux personnes ont le
+// même score, il n'apparaît pas dans le classement ». Le classement entier les
+// montrait bien tous deux ; « À ta portée » non. Elle ne prenait que les cotes
+// strictement au-dessus de la sienne, puis, dessous, son voisin suivant :
+// classé avant lui par son prénom, celui qui avait la même cote n'était ni
+// l'un ni l'autre — de deux ex æquo, l'un voyait l'autre, l'autre non ; et deux
+// ex æquo en tête ne se voyaient ni l'un ni l'autre. Une cote égale est à sa
+// portée : un duel gagné le fait passer devant.
+test('deux joueurs à la même cote se voient l’un l’autre « À ta portée », au milieu comme en tête', async () => {
+  const horloge = { t: DEBUT }
+  const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: BASE })
+  try {
+    const cookies = Object.fromEntries(
+      await Promise.all((['hugo', 'lea', 'zoe', 'neo'] as const).map(async l => [l, await inscrireProfil(banc.url, l, l === 'lea' ? 'Léa' : l === 'zoe' ? 'Zoé' : l === 'neo' ? 'Néo' : 'Hugo', '🦊')] as const)),
+    )
+    const [deHugo, deLea, deZoe, deNeo] = ['hugo', 'lea', 'zoe', 'neo'].map(l => idDe(banc, l))
+    const hier = horloge.t - JOUR_MS
+    // Hugo devant, Léa et Zoé à égalité — les mêmes duels, au même résultat —, Néo derrière.
+    duelsJoues(banc, deHugo, 4, 12, 8, hier)
+    duelsJoues(banc, deLea, 2, 12, 8, hier)
+    duelsJoues(banc, deZoe, 2, 12, 8, hier)
+    duelsJoues(banc, deNeo, 1, 0, 1, hier)
+    const classement = async (qui: string) => (await lire(banc, cookies[qui], '/api/duels')).corps.classement
+    const pourLea = await classement('lea')
+    assert.deepEqual(
+      pourLea.lignes.map((l: any) => [l.nom, l.rang]),
+      [
+        ['Hugo', 1],
+        ['Léa', 2],
+        ['Zoé', 2],
+        ['Néo', 4],
+      ],
+      'le classement entier les montre tous deux, au même rang',
+    )
+    // Chacune voit l'autre à sa portée, la plus proche d'abord — avant Hugo —, et son voisin d'en dessous est Néo.
+    for (const [qui, autre] of [
+      ['lea', 'Zoé'],
+      ['zoe', 'Léa'],
+    ] as const) {
+      const c = await classement(qui)
+      assert.deepEqual(
+        c.aPortee.map((l: any) => l.nom),
+        [autre, 'Hugo'],
+        `${qui} voit ${autre}`,
+      )
+      assert.equal(c.enTete, undefined)
+      assert.deepEqual(
+        c.autour.map((l: any) => l.nom).slice(-1),
+        ['Néo'],
+        `${qui} : son voisin d'en dessous, jamais l'ex æquo déjà à sa portée`,
+      )
+    }
+
+    // Deux ex æquo en tête : chacun voit l'autre, et n'est pas seul en tête.
+    duelsJoues(banc, deLea, 3, 12, 8, horloge.t - 3_600_000)
+    duelsJoues(banc, deZoe, 3, 12, 8, horloge.t - 3_600_000)
+    const enTete = await classement('lea')
+    assert.deepEqual(
+      enTete.lignes.slice(0, 2).map((l: any) => [l.nom, l.rang]),
+      [
+        ['Léa', 1],
+        ['Zoé', 1],
+      ],
+    )
+    for (const [qui, autre] of [
+      ['lea', 'Zoé'],
+      ['zoe', 'Léa'],
+    ] as const) {
+      const c = await classement(qui)
+      assert.equal(c.aPortee[0].nom, autre, `${qui} voit ${autre}`)
+      assert.equal(c.enTete, undefined, 'à égalité, personne n’est seul en tête')
+    }
+  } finally {
+    await banc.close()
+  }
+})

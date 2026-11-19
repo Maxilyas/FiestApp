@@ -2,8 +2,9 @@
 // que ses épreuves le lancent et le lisent : `cabinet-calibrage.test.ts` (ce
 // qu'il joue du code) et le modèle corrigé après la tablée du 25 octobre 2026 —
 // ce que le joueur sait (`cabinet-calibrage-modele.test.ts`), ses cartes-bonus
-// (`cabinet-calibrage-cartes.test.ts`), ses parties et le musée
-// (`cabinet-calibrage-parties.test.ts`). Chaque épreuve lance un calibrage à
+// (`cabinet-calibrage-cartes.test.ts`), ses parties
+// (`cabinet-calibrage-parties.test.ts`) et le musée
+// (`cabinet-calibrer-le-musee.test.ts`). Chaque épreuve lance un calibrage à
 // part, du calcul pur : un seul fichier d'épreuves en durait plus d'une minute,
 // puis le modèle 117 s à huit fichiers à la fois (le 1er novembre 2026). Coupés
 // sur leurs thèmes, ils tiennent chacun loin des deux minutes qu'un fichier a

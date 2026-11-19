@@ -36,7 +36,16 @@ paths:
   chargeant — les catégories du nouveau Filet, une seconde et demie —,
   quatorze fois dans `cabinet-calibrage.test.ts`, passé de 51 à 75 s. Ce
   qu'un tel script ne joue pas toujours, il le calcule à son premier usage
-  (`themesDuContenu`).
+  (`themesDuContenu`). **Un fichier de plus décale d'une tranche tous ceux
+  qui le suivent** (la CI les répartit par leur rang, `--tranche`) : coupé le
+  18 novembre 2026, `cabinet-calibrage-parties.test.ts` a donné un fichier
+  rangé juste avant `cabinet-calibrage.test.ts`, le plus lourd des
+  calibrages, qui est tombé dans la tranche de
+  `cabinet-calibrage-cartes.test.ts`, lancé avec lui — et celui-ci, 24 s
+  seul, a passé ses deux minutes. Le fichier coupé a pris un nom qui le range
+  après (`cabinet-calibrer-le-musee`). Un fichier lourd de plus regarde où
+  tombent les autres (`node scripts/tests.mjs --tranche=1/4 --liste`, chaque
+  tranche) : deux calibrages du Cabinet lourds dans la même, c'est le risque.
 - **Une épreuve qui attend un tirage du serveur tire jusqu'à l'avoir**,
   jamais un nombre fixe de fois, et compte sa chance avant de l'écrire.
   « Une traversée ne promet au Filet qu'une catégorie où il a de quoi

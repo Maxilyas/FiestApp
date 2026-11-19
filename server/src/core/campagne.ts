@@ -4331,7 +4331,7 @@ export class CampagneStore {
     const [[p], t] = await Promise.all([this.profils ? this.profils.byIds([autre]) : Promise.resolve([null]), this.tentativeDuDuel(autre, duel.code)])
     if (!t) return null
     const nomme = p && this.profils && !this.masque?.(p.id)
-    // Ce qu'il porte avec : son légendaire sur la carte du verdict, pas l'emoji d'en dessous.
+    // Ce qu'il porte avec : son légendaire sur la carte du verdict, pas l'emoji d'en dessous ; et sa plaque, son socle (`sonApparence`).
     return nomme
       ? { nom: p.name, avatar: this.profils!.avatarPorte(p), ...sonApparence(this.profils!, p), justes: t.justes, profileId: p.id }
       : { nom: 'Un joueur', avatar: '🎲', justes: t.justes }
@@ -5997,8 +5997,10 @@ export class CampagneStore {
       lignes: montrees.map(ligne),
       ...(sienne && !montrees.includes(sienne) && { moi: ligne(sienne) }),
       ...(sienne && { sienne: sienne.item.profil.id }),
-      // Sa ligne entre ses deux voisins : l'onglet du classement les montre, même au-delà des lignes envoyées.
-      ...(sienne && { autour: classes.slice(Math.max(0, i - 1), i + 2).map(ligne) }),
+      // Sa ligne entre ses deux voisins : l'onglet du classement les montre, même au-delà des lignes envoyées. Celui
+      // d'en dessous est le premier dont la cote est plus basse : un ex æquo rangé après lui par son prénom est déjà
+      // à sa portée (`aSaPortee`), et l'onglet le montrait deux fois.
+      ...(sienne && { autour: autourDe(classes, i).map(ligne) }),
       ...(sienne && sonLundi !== undefined && { progression: sonLundi - sienne.rang }),
       ...(pour && aSaPortee(classes, pour, cotes.get(pour)?.cote ?? COTE_DE_DEPART, !!sienne, ligne)),
     }
@@ -8654,10 +8656,17 @@ function duelsRacontes(duels: readonly DuelJoue[], adversaires: readonly Record<
 
 /**
  * Ceux qu'il peut aller chercher (`ClassementDesDuels.aPortee`) : les joueurs
- * classés juste au-dessus de sa cote, le plus proche d'abord — une cote égale
- * n'est pas devant lui (invariant 15) ; classé ou pas, de sa cote à lui. Sans
- * personne au-dessus, ceux qui le suivent : en tête du classement, ceux qui
- * le talonnent (`enTete`). `classes` : du plus haut au plus bas.
+ * classés à sa cote ou juste au-dessus, le plus proche d'abord ; classé ou
+ * pas, de sa cote à lui. Une cote égale n'est pas devant lui (invariant 15),
+ * mais elle est à sa portée : un duel gagné le fait passer devant. Jusqu'au
+ * 18 novembre 2026, seules les cotes strictement plus hautes y entraient, et
+ * son voisin suivant dessous : un ex æquo rangé avant lui par son prénom
+ * n'était ni l'un ni l'autre — de deux ex æquo, l'un ne voyait pas l'autre,
+ * et deux ex æquo en tête ne se voyaient pas (« quand deux personnes ont le
+ * même score, il n'apparaît pas dans le classement », le propriétaire). Sans
+ * personne à sa hauteur ni au-dessus, ceux qui le suivent : en tête du
+ * classement, seul, ceux qui le talonnent (`enTete`). `classes` : du plus haut
+ * au plus bas.
  */
 function aSaPortee<C extends { item: { profil: ProfileRec; releve: ReleveDesDuels } }>(
   classes: readonly C[],
@@ -8667,11 +8676,22 @@ function aSaPortee<C extends { item: { profil: ProfileRec; releve: ReleveDesDuel
   ligne: (c: C) => LigneDesDuels,
 ): Pick<ClassementDesDuels, 'aPortee' | 'enTete'> {
   const autres = classes.filter(c => c.item.profil.id !== pour)
-  const dessus = autres.filter(c => c.item.releve.cote > cote).slice(-JOUEURS_A_PORTEE).reverse()
+  const dessus = autres.filter(c => c.item.releve.cote >= cote).slice(-JOUEURS_A_PORTEE).reverse()
   if (dessus.length > 0) return { aPortee: dessus.map(ligne) }
   const dessous = autres.filter(c => c.item.releve.cote < cote).slice(0, JOUEURS_A_PORTEE)
   if (dessous.length === 0) return {}
   return { aPortee: dessous.map(ligne), ...(classe && { enTete: true as const }) }
+}
+
+/**
+ * Sa ligne entre ses deux voisins (`ClassementDesDuels.autour`) : celui d'avant,
+ * lui, puis le premier dont la cote est plus basse que la sienne — un ex æquo
+ * rangé après lui est à sa portée (`aSaPortee`), pas en dessous.
+ */
+function autourDe<C extends { item: { releve: ReleveDesDuels } }>(classes: readonly C[], i: number): C[] {
+  const cote = classes[i].item.releve.cote
+  const dessous = classes.slice(i + 1).find(c => c.item.releve.cote < cote)
+  return [...(i > 0 ? [classes[i - 1]] : []), classes[i], ...(dessous ? [dessous] : [])]
 }
 
 /** Un adversaire qu'on ne nomme plus — masqué, ou parti —, comme ses duels en cours le disent. */
@@ -9296,17 +9316,29 @@ export function sujetsDeLaQuestion(q: QuestionDeLaBase): readonly string[] {
 }
 
 /**
- * Ce qu'un joueur porte, sur une ligne d'ami, de recherche ou de défi reçu,
- * comme au classement (`SonApparence`) : l'emoji seul lui donnait deux
- * visages sur la même page.
+ * Ce qu'un joueur porte, sur une ligne d'ami, de recherche, de défi reçu, d'un
+ * duel en cours ou joué, comme au classement (`SonApparence`) : l'emoji seul
+ * lui donnait deux visages sur la même page. Et la plaque de son nom, de
+ * mémoire (`plaqueDe`) — son écrin partout où il se montre, sa carte et son
+ * socle aux écrans d'un duel (le choix du propriétaire du 18 novembre 2026,
+ * `retours/2026-11-18/plaques/`) ; rien sans plaque. Jamais d'un masqué : qui
+ * l'appelle ne le nomme pas non plus.
  */
-function sonApparence(p: Pick<ProfileStore, 'apparenceDe'>, x: ProfileRec, releve?: ReleveDesDuels): SonApparence {
+function sonApparence(p: Pick<ProfileStore, 'apparenceDe'> & Partial<Pick<ProfileStore, 'plaqueDe'>>, x: ProfileRec, releve?: ReleveDesDuels): SonApparence {
   const { finition, eclat, legendaire, sceau } = p.apparenceDe(x)
   // Sa bordure de ligue, quand ses duels sont lus avec lui — jamais sous un
   // Divin, qui a sa propre lumière.
   const bordure = legendaire && divin(legendaire) ? null : bordurePortee(x.bordure, releve?.bordures)
+  const plaque = p.plaqueDe?.(x)
   // Mat, c'est l'avatar sans rien autour : sa ligne n'a rien de plus à dire.
-  return { ...(finition !== 'mat' && { finition }), ...(legendaire && { legendaire }), ...(sceau && { sceau }), ...(eclat && { eclat }), ...(bordure && { bordure }) }
+  return {
+    ...(finition !== 'mat' && { finition }),
+    ...(legendaire && { legendaire }),
+    ...(sceau && { sceau }),
+    ...(eclat && { eclat }),
+    ...(bordure && { bordure }),
+    ...(plaque && { plaque }),
+  }
 }
 
 /** Les amis qu'une page désigne : des identifiants, pas plus qu'elle n'en montre — le reste ne désigne personne. */

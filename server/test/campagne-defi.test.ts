@@ -265,10 +265,13 @@ test('toucher un nom du classement du défi ouvre sa carte — même sans quiz d
     const admin = await connexionAnimateur(banc.url)
     assert.equal((await poster(banc, admin, '/api/admin/jour/masquer', { profileId: deHugo, masque: true })).status, 200)
     assert.equal((await lire(banc, lea, `/api/joueur/carte/${deHugo}`)).status, 404)
-    // Chaque ligne d'un classement de défi est un bouton qui l'ouvre — de la semaine comme entre amis.
+    // Chaque ligne d'un classement de défi est un bouton qui l'ouvre — de la semaine comme entre amis —, et chaque marche
+    // de son podium (`ClassementDuDefi`, depuis le 18 novembre 2026).
     const client = (f: string) => readFileSync(path.join(SERVEUR, '..', 'client', 'src', f), 'utf8')
-    assert.match(client('views/Defi.tsx'), /<LigneDuDefiVue key=\{l\.profileId\} ligne=\{l\} moi=\{l\.profileId === defi\.sienne\} onOuvrir=\{ouvrir\} \/>/)
-    assert.match(client('views/Duel.tsx'), /<LigneDuDefiVue key=\{l\.profileId\} ligne=\{l\} moi=\{l\.profileId === duel\.sienne\} onOuvrir=\{ouvrirLaCarte\} \/>/)
+    assert.match(client('views/Defi.tsx'), /<ClassementDuDefi lignes=\{defi\.lignes\} sienne=\{defi\.sienne\} moi=\{defi\.moi\} onOuvrir=\{ouvrir\} \/>/)
+    assert.match(client('views/Duel.tsx'), /<ClassementDuDefi lignes=\{duel\.lignes\} sienne=\{duel\.sienne\} moi=\{duel\.moi\} onOuvrir=\{ouvrirLaCarte\} \/>/)
+    assert.match(client('views/Defi.tsx'), /<LigneDuDefiVue key=\{l\.profileId\} ligne=\{l\} moi=\{l\.profileId === sienne\} onOuvrir=\{onOuvrir\} \/>/)
+    assert.match(client('views/Defi.tsx'), /<PodiumDuClassement\s+marches=\{podium\.map\([\s\S]*?\)\}\s+onOuvrir=\{onOuvrir\}\s+\/>/)
     // La carte s'ouvre à son adresse par le crochet que partagent les classements, les duels et les amis (`CarteDUnProfil`).
     assert.match(client('views/Defi.tsx'), /const \{ ouvrir, carte \} = useCarteDUnProfil\(\)/)
     assert.match(client('components/CarteDUnProfil.tsx'), /adresse=\{`\/api\/joueur\/carte\/\$\{encodeURIComponent\(carte\)\}`\}/)
