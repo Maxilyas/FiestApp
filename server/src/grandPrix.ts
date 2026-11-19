@@ -5,7 +5,7 @@ import { wrap } from './core/http'
 import { noterLeGeste } from './core/journalDesGestes'
 import { readPlayerToken } from './auth/http'
 import { PRIX_DES_GRANDS_PRIX, legendaire } from '../../shared/legendaires'
-import { RUBANS } from '../../shared/grandPrix'
+import { RUBANS, type CleDeRuban, type PageDesGrandsPrix } from '../../shared/grandPrix'
 
 /**
  * Les routes du Grand Prix (`core/grandPrix.ts`) : courir, pour les profils —
@@ -78,10 +78,10 @@ export function mountGrandPrix(app: Express, deps: { grandPrix: GrandPrixStore; 
 
   // ── Le QG ──────────────────────────────────────────────────────────────
 
-  const page = async () => ({
+  const page = async (): Promise<PageDesGrandsPrix> => ({
     grandsPrix: await deps.grandPrix.auQg(),
     prix: PRIX_DES_GRANDS_PRIX.map(cle => ({ cle, nom: legendaire(cle)?.nom ?? cle })),
-    rubans: Object.entries(RUBANS).map(([cle, r]) => ({ cle, nom: r.nom, rond: r.rond, pli: r.pli })),
+    rubans: (Object.keys(RUBANS) as CleDeRuban[]).map(cle => ({ cle, nom: RUBANS[cle].nom, rond: RUBANS[cle].rond, pli: RUBANS[cle].pli })),
   })
 
   app.get(

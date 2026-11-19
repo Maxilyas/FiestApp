@@ -384,6 +384,54 @@ export interface GrandPrixDAccueil {
   mot: string | null
   /** L'avatar en plus dans sa version à elle, pour la fêtée seule. */
   prixFete: string | null
+  nomDuPrixFete: string | null
   /** L'avatar en plus que gagnent les autres. */
   prix: string | null
 }
+
+/** Un flot du carnet des Grands Prix, dans « Ma collection » : le Grand Prix — l'avatar du fantôme tel qu'il le portait ce jour-là —, et sa course. */
+export interface FlotDuCarnet {
+  grandPrix: GrandPrixVu
+  /** Le flot d'honneur : il était la personne fêtée, le fantôme. */
+  honneur: boolean
+  /** Sa meilleure course victorieuse ; null pour un flot d'honneur. */
+  points: number | null
+  tempsMs: number | null
+  /** Son rang d'arrivée parmi ceux qui ont battu le fantôme ; null pour un flot d'honneur. */
+  rang: number | null
+  /** Ceux qui ont couru ce Grand Prix. */
+  sur: number
+}
+
+/** Un Grand Prix au QG : ce qu'il est, et ce qui s'y est couru. */
+export interface GrandPrixAuQg {
+  id: string
+  fantome: { id: string; nom: string; avatar: string } | null
+  jour: string
+  titre: string
+  ruban: CleDeRuban
+  mot: string | null
+  prix: string | null
+  prixFete: string | null
+  vivier: { jour: number; campagne: number }
+  coureurs: number
+  departs: number
+  vainqueurs: number
+}
+
+/** La page du Grand Prix au QG : les Grands Prix, et ce qu'on peut y mettre en jeu. */
+export interface PageDesGrandsPrix {
+  grandsPrix: GrandPrixAuQg[]
+  prix: { cle: string; nom: string }[]
+  rubans: { cle: CleDeRuban; nom: string; rond: string; pli: string }[]
+}
+
+/** Ce que le QG lit d'un fantôme avant de le programmer : de quoi courir. */
+export interface ApercuDuFantome {
+  id: string
+  nom: string
+  jour: number
+  campagne: number
+  pret: boolean
+}
+

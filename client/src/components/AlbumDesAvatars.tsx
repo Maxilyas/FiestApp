@@ -67,6 +67,8 @@ const ICONE_DU_LIEU: Record<LieuDAvatar, IconName> = {
   expedition: 'flag',
   // L'arche du gros bouton de l'accueil : le même lieu, la même icône.
   cabinet: 'landmark',
+  // La rosette : le flot qu'on remporte avec lui.
+  'grand-prix': 'award',
 }
 
 /** La légende des pastilles, sous la grille : un emoji dit son niveau en toutes lettres, il n'y est pas. */

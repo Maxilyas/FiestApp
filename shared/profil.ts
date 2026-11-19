@@ -17,6 +17,7 @@
 // hauts faits et une mémoire — du prestige et de la durée, jamais de la
 // performance.
 
+import type { GrandPrixDAccueil } from './grandPrix'
 import type { QuestionAPoser } from './annonces'
 import type { DefisTenus } from './cabinet/sceaux'
 import type { ResumeDuCollectionneur } from './collectionneurs'
@@ -1419,6 +1420,12 @@ export type ProfilDAccueil = PublicProfile &
      * chaque page. Lues dans le lot de ses dons. Absentes s'il n'y en a pas.
      */
     affiches?: AfficheDAccueil[]
+    /**
+     * Le Grand Prix du jour (`shared/grandPrix.ts`), quand le QG en a
+     * programmé un : il prend la place de l'affiche d'une nouveauté. Absent
+     * les autres jours — presque tous.
+     */
+    grandPrix?: GrandPrixDAccueil
   }
 
 /** Un prix de soirée dans la collection d'un profil : zéro fois, il manque encore. */

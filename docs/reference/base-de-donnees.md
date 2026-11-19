@@ -1057,6 +1057,48 @@ cadre doré.
 - **Lue par** : `CabinetStore`, dans son lot froid (le musée, le solde) ; dans l'instruction d'un achat ou d'une dorure, le solde — la somme des prix payés, par la clé du profil ; dans l'instruction qui fige la visite après une dépense, la ligne qu'elle vient d'écrire, à son heure, par la clé de l'œuvre (`depenseEcrite`) . `CampagneStore.statsDe` les lisait aussi, du 26 octobre au 1er novembre 2026, pour les salles complètes de L'Explorateur, qui compte depuis les traversées gagnées (`cabinet_traversees`).
 - **Effacée par** : la suppression du profil (`CabinetStore.oublierProfil`).
 
+**Le Grand Prix** — un jour d'événement, programmé au QG : on court dix obstacles contre le fantôme d'un joueur, ses vraies réponses rejouées (`server/src/core/grandPrix.ts`, `shared/grandPrix.ts`).
+
+### `grand_prix`
+
+Un Grand Prix : un fantôme, un jour, et ce que le QG en a dit.
+
+- **Colonnes clés** : `id` (la clé), `fantome` (le profil dont le fantôme court), `jour` (indexé ; un seul Grand Prix par jour), `titre`, `ruban` (la couleur du flot, `RUBANS`), `mot` (pour la personne fêtée seule), `prix` et `prix_fete` (un avatar de `PRIX_DES_GRANDS_PRIX`, ou rien), `apparence` (l'avatar du fantôme figé le jour venu : un flot garde le visage de son jour), `cree_le`, `modifie_le`, `retire_le`.
+- **Espace** : non.
+- **Écrite par** : `GrandPrixStore.programmer` (le QG ; reprogrammé tant que son jour n'est pas venu), `retirer` (avant son jour seulement : `retire_le`), `ouvrirLeJour` (`apparence`, une fois).
+- **Lue par** : `GrandPrixStore`, tout entière au démarrage, puis de mémoire.
+- **Effacée par** : rien : un Grand Prix couru reste, avec ses flots.
+
+### `grand_prix_questions`
+
+Le vivier du fantôme, figé à la programmation : chaque question telle qu'il l'a lue, et sa réponse — rien ne se relit au quiz du jour ni à la campagne le jour de la course.
+
+- **Colonnes clés** : `grand_prix_id` et `rang` (la clé), `source` (`jour` ou `campagne`), `question` (le JSON de la question, sa bonne réponse comprise — elle ne part au téléphone qu'à la révélation), `choix`, `juste`, `ms` (le temps qu'il a mis, ou NULL), `mesure` (`reelle` : son temps mesuré au quiz du jour ; `rythme` : un temps tiré de ses temps du jour au même verdict, pour la campagne qui n'en garde pas).
+- **Espace** : non.
+- **Écrite par** : `GrandPrixStore.programmer`, d'un lot (300 questions au plus par source), réécrite à chaque reprogrammation.
+- **Lue par** : `GrandPrixStore` (le parcours d'une course, chaque révélation).
+- **Effacée par** : la reprogrammation d'un Grand Prix pas encore couru, qui la réécrit.
+
+### `grand_prix_courses`
+
+Une course : ses dix obstacles, où elle en est, et ce qu'elle a valu.
+
+- **Colonnes clés** : `id` (la clé), `grand_prix_id` et `profile_id` (indexés ensemble ; `profile_id` et `battu` aussi, pour le carnet), `obstacles` (le JSON des rangs du vivier), `position`, `servie_le` (quand l'obstacle en cours s'est montré : son chrono part de là, à l'horloge du serveur), `commencee_le`, `finie_le`, `points`, `temps_ms`, `battu` (1 s'il a battu le fantôme), `essai` (l'essai de l'administrateur au QG : hors classement, sans flot), `abandonnee`.
+- **Espace** : non.
+- **Écrite par** : `GrandPrixStore` (`depart`, `suivante`, chaque saut, l'expiration d'un obstacle laissé au temps relevée à la lecture suivante, `abandon`).
+- **Lue par** : `GrandPrixStore` (la course, le classement du jour, le bilan du fantôme, le carnet).
+- **Effacée par** : la suppression du profil (`GrandPrixStore.oublierProfil`).
+
+### `grand_prix_reponses`
+
+Ses sauts, un par obstacle : le journal d'où la course se relit.
+
+- **Colonnes clés** : `course_id` et `position` (la clé : une réponse renvoyée ne s'écrit pas deux fois), `rang`, `choix` (NULL : un refus, l'obstacle laissé au temps), `juste`, `ms`, `repondue_le`.
+- **Espace** : non.
+- **Écrite par** : `GrandPrixStore` (un saut ; un refus, à l'expiration).
+- **Lue par** : `GrandPrixStore` (la course en route, sa grille à l'arrivée).
+- **Effacée par** : la suppression du profil (`GrandPrixStore.oublierProfil`), avec ses courses.
+
 **Le QG** — ce que l'administrateur a fait, et la santé du serveur.
 
 ### `qg_gestes`

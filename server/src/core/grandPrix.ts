@@ -26,7 +26,7 @@ import { jourDe, jourValide } from '../../../shared/jour'
 import { apparenceDeLAvatar, type ApparenceDeLAvatar } from '../../../shared/profil'
 import { tronquer } from '../../../shared/avatars'
 import { sqlDansLaBase } from '../../../shared/horsDeLaBase'
-import { PRIX_DES_GRANDS_PRIX } from '../../../shared/legendaires'
+import { PRIX_DES_GRANDS_PRIX, legendaire } from '../../../shared/legendaires'
 import {
   DUREE_D_UN_OBSTACLE_S,
   MOT_DU_GRAND_PRIX_MAX,
@@ -49,6 +49,9 @@ import {
   type EtatDuGrandPrix,
   type FantomeVu,
   type FinDeCourse,
+  type FlotDuCarnet,
+  type GrandPrixAuQg,
+  type ApercuDuFantome,
   type GrandPrixDAccueil,
   type GrandPrixVu,
   type ObstacleVu,
@@ -150,31 +153,6 @@ export interface DemandeDeGrandPrix {
   mot?: unknown
   prix?: unknown
   prixFete?: unknown
-}
-
-/** Un Grand Prix au QG : ce qu'il est, et ce qui s'y est couru. */
-export interface GrandPrixAuQg {
-  id: string
-  fantome: { id: string; nom: string; avatar: string } | null
-  jour: string
-  titre: string
-  ruban: CleDeRuban
-  mot: string | null
-  prix: string | null
-  prixFete: string | null
-  vivier: { jour: number; campagne: number }
-  coureurs: number
-  departs: number
-  vainqueurs: number
-}
-
-/** Ce que le QG lit d'un fantôme avant de le programmer : de quoi courir. */
-export interface ApercuDuFantome {
-  id: string
-  nom: string
-  jour: number
-  campagne: number
-  pret: boolean
 }
 
 /** Il faut au moins un parcours entier, et un peu de choix : deux parcours. */
@@ -595,7 +573,7 @@ export class GrandPrixStore {
     const { jour: duJour, campagne } = await this.lireLeFantome(p.id)
     const vivier = [...duJour, ...campagne]
     if (vivier.length < QUESTIONS_POUR_COURIR) {
-      throw new Error(`${p.name} n’a pas encore assez joué pour courir : il faut ${QUESTIONS_POUR_COURIR} réponses, il en a ${vivier.length}.`)
+      throw new Error(`${p.name} n’a pas encore assez joué pour courir : ${vivier.length} réponses sur les ${QUESTIONS_POUR_COURIR} qu’il faut.`)
     }
     const g: GrandPrixRec = {
       id: id ?? randomUUID(),
@@ -714,6 +692,8 @@ export class GrandPrixStore {
       fete,
       mot: fete ? g.mot : null,
       prixFete: fete ? g.prixFete : null,
+      // Son nom, pour la feuille de la fêtée : l'accueil ne télécharge pas le catalogue des légendaires.
+      nomDuPrixFete: fete && g.prixFete ? (legendaire(g.prixFete)?.nom ?? null) : null,
       prix: g.prix,
     }
   }
@@ -1106,7 +1086,7 @@ export class GrandPrixStore {
    * celui dont il était le fantôme, le flot d'honneur. Le flot garde l'avatar
    * du fantôme tel qu'il le portait ce jour-là.
    */
-  async carnetDe(profileId: string): Promise<{ grandPrix: GrandPrixVu; honneur: boolean; points: number | null; tempsMs: number | null; rang: number | null; sur: number }[]> {
+  async carnetDe(profileId: string): Promise<FlotDuCarnet[]> {
     const res = await this.client.execute({
       sql: `SELECT c.grand_prix_id, MIN(c.finie_le) AS premiere, MIN(c.points * 10000000 + c.temps_ms) AS meilleure,
                    (SELECT COUNT(DISTINCT x.profile_id) FROM grand_prix_courses x

@@ -174,6 +174,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
     maintenant: deps.maintenant,
     campagne: deps.campagne,
     collectionneurs: deps.collectionneurs,
+    // Le Grand Prix du jour, sur l'accueil à la place de l'affiche d'une nouveauté.
+    grandPrix: deps.grandPrix,
     // Le bouton du Cabinet sur l'accueil dit son musée, là où le Cabinet répond : ailleurs, l'accueil n'a pas de bouton pour lui.
     ...(deps.cabinet.ouvert && { cabinet: deps.cabinet.magasin }),
   })

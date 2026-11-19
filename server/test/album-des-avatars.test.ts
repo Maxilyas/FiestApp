@@ -77,7 +77,9 @@ test('l’album : tous les avatars qui se gagnent, une fois chacun, rangés en s
   // chacun, légendaire : la luciole a la sienne depuis le 20 octobre 2026, le panda roux la sienne le même jour. Les
   // cinq légendaires des fêtes du 1er novembre 2026, légendaires aussi, et le Djinn des défis du Cabinet, le même jour ;
   // les dix emojis des niveaux 18 à 29, peu communs, le même jour encore ; et ceux du 31 au 49, huit rares, huit épiques.
-  assert.deepEqual(parPage, { commune: 23, peucommune: 28, rare: 37, epique: 25, legendaire: 54, divin: 6 })
+  // L'album entier : les deux secrets d'un Grand Prix compris (Pégase et Pégase couronné) — la valeur d'une collection s'y
+  // lit —, que les pages ne montrent qu'à qui les a (`pagesDeLAlbum`, plus bas).
+  assert.deepEqual(parPage, { commune: 23, peucommune: 28, rare: 37, epique: 25, legendaire: 56, divin: 6 })
 })
 
 test('la rareté dit ce qu’un avatar demande : plus haut sur le sentier, plus rare ; sa forme ultime, légendaire', () => {
@@ -147,6 +149,9 @@ test('chaque avatar dit où il se gagne — voie après voie ; un Divin, nulle p
     janus: 'soiree jour',
       // Le Djinn ne se gagne qu'au Cabinet, ses dix défis tenus à l'Or : fermé, l'album n'en dit rien.
     djinn: '',
+    // Les avatars en plus d'un Grand Prix : rangés le jour venu, à qui bat le fantôme — ou à la fêtée, sa version à elle.
+    pegase: 'grand-prix',
+    'pegase-couronne': 'grand-prix',
   })
   for (const p of PORTRAITS) assert.deepEqual(avatarDeLAlbum(p.key, FERME)!.lieux, ['sentiers'], p.key)
   for (const c of COLLECTION) assert.deepEqual(avatarDeLAlbum(c.emoji, FERME)!.lieux, ['niveau'], c.emoji)
@@ -207,7 +212,8 @@ test('une page par rareté : ce qu’on a d’abord, puis ce qui reste, chacun d
   // douze formes ultimes des sentiers, et les quatre des compagnons, chacune suivie de sa métamorphose.
   const legendaires = pages[4].avatars.map(a => a.avatar.cle)
   assert.equal(legendaires[0], 'lg:phenix')
-  assert.deepEqual(legendaires.slice(1, 32), LEGENDAIRES.filter(l => l.key !== 'lg:phenix').map(l => l.key))
+  // Les secrets d'un Grand Prix se taisent : il n'en a aucun.
+  assert.deepEqual(legendaires.slice(1, 32), LEGENDAIRES.filter(l => l.key !== 'lg:phenix' && !l.secret).map(l => l.key))
   assert.deepEqual(legendaires.slice(32, 44), BRANCHES.map(b => b.portraits[5].key))
   assert.deepEqual(legendaires.slice(44), [
     'cp:loup-ultime',

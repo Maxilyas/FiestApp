@@ -106,6 +106,14 @@ const RETOUCHE = (retouche: string) =>
   `Edit the attached illustration: ${retouche} Keep everything else exactly as it is — same composition, same creature, same pose, ` +
   'same colors, same light and details. No text, no letters, no frame. Output one square image (1:1 aspect ratio).'
 
+// Une variante : un légendaire repeint sur l'illustration d'un autre
+// (`depuis`), dont il garde la créature et la pose — son sujet ne dit que ce
+// qui s'y ajoute. Deux consignes, même mot pour mot, peignent deux créatures.
+const VARIANTE = (ajout: string) =>
+  'Edit the attached illustration into a variant of the same card: keep exactly the same creature, the same pose, the same composition, ' +
+  `framing and scale, the same painterly style and the same palette, and only ${ajout} No text, no letters, no frame. ` +
+  'Output one square image (1:1 aspect ratio).'
+
 const DECOUPE = (garde: string, retirer: string, fond: FondUni) =>
   `Edit the attached image. Keep ${garde} exactly as it is — same pose, same position, same size, same outline, same colors and details, untouched. ` +
   `Replace everything else with a single perfectly flat, uniform chroma-key ${FONDS_UNIS[fond].nom} filling the canvas edge to edge: no gradient, no shadow, ` +
@@ -129,7 +137,7 @@ interface Travail {
 }
 
 /**
- * Les trente-deux légendaires : chacun sa scène, qui raconte l'exploit qui le
+ * Les trente-deux légendaires, et ceux des Grands Prix (secrets, `shared/grandPrix.ts`) : chacun sa scène, qui raconte l'exploit qui le
  * fait tomber (`shared/legendaires.ts`) ; sa version rare, dans les couleurs
  * de son Éclat (`FONDS_ECLAT`, `Legendaire.tsx`) ; ce que sa découpe garde et
  * retire.
@@ -149,6 +157,13 @@ interface LegendairePeint {
    * l'illustration peinte, que la retouche ne déplace pas.
    */
   retouche?: string
+  /**
+   * Le légendaire dont il est la variante (`VARIANTE`) : son illustration
+   * part de l'image de l'autre au lieu d'une consigne seule, et son `sujet`
+   * ne dit que ce qui s'y ajoute. Sa version rare et sa découpe partent de
+   * lui, comme pour tout autre.
+   */
+  depuis?: string
 }
 
 export const LEGENDAIRES_PEINTS: LegendairePeint[] = [
@@ -543,6 +558,51 @@ export const LEGENDAIRES_PEINTS: LegendairePeint[] = [
     retirer: 'the cabinet, the drawers, the curiosities, the sparks far from him, the hall and the background',
     fond: 'magenta',
   },
+  // Les deux du Grand Prix des étoiles (le 19 novembre 2026,
+  // `retours/2026-11-19/grand-prix/`) : un concours d'obstacles dans le ciel
+  // de nuit, où les chevaux de la course sont des constellations. Pégase se
+  // gagne en battant le fantôme d'un ami ; Pégase couronné est réservé à qui
+  // l'on fête — le même cheval, et non un cousin : il est repeint sur
+  // l'illustration de l'autre (`depuis`). Sa version rare est d'améthyste et
+  // d'argent, loin de la licorne noire et rose et de la comète cramoisie.
+  // Ses jambes sont comptées dans la consigne : repliées dans un saut, c'est
+  // ce qu'un modèle d'image dessine le plus mal.
+  {
+    id: 'pegase',
+    sujet:
+      // Prié d'une crinière « comme des constellations », le premier essai
+      // l'a peinte en cheveux dorés : on lui dit ce qu'elle n'est pas. Sa
+      // barre passait devant les jambes : on la lui veut dessous.
+      'Pegasus, who outran a friend’s ghost on the course of stars — a colossal, majestic winged horse made of white starlight, an original, ' +
+      'noble thoroughbred with a fine, elegant head, not a cartoon, not a pony; seen in full profile, flying from left to right across the ' +
+      'canvas in a magnificent leap, its forelegs folded high under its chest and its hind legs stretched out behind, exactly four slender ' +
+      'legs; its coat glitters with tiny stars and its muscles are traced with fine lines of silver light, like a star chart; its mane and ' +
+      'its long flowing tail are not hair but living constellations — dozens of bright stars linked by thin glowing lines of light, streaming ' +
+      'behind it; its great feathered wings raised high and spread wide, dusted with gold leaf, their edges gilded; its proud head well lit, ' +
+      'with a calm, bright dark eye; just beneath its hooves, never crossing its legs, the fence it is clearing — two slender pillars of ' +
+      'light joined by a bar of stars — on a course of starlight winding across the Milky Way; a trail of gold-leaf stardust behind its ' +
+      'hooves. Palette: white, silver-blue and gold against deep midnight blue.',
+    // Une robe « violet améthyste » est revenue d'un violet de peinture, plat :
+    // la pierre elle-même, translucide et taillée, a l'éclat d'une rare.
+    rare: 'Pegasus becomes an amethyst Pegasus — a coat of polished amethyst gemstone, deep violet and translucent at the edges, glowing from within like lit crystal, with faceted silver highlights; wings of polished silver feathers edged with pale lilac; a mane and tail of silver and pale lilac constellations; the fence of stars turned silver; a deep indigo and violet night with silver stars.',
+    garde: 'the winged horse — its head, its body, its four legs, its two wings, its constellation mane and its constellation tail',
+    retirer: 'the fence of stars and its pillars beneath it, the trail of stardust, the Milky Way, the stars and the night sky',
+  },
+  {
+    id: 'pegase-couronne',
+    depuis: 'pegase',
+    sujet:
+      // Une couronne flottant au-dessus des oreilles tombait hors du disque
+      // (`DISQUE_LEGENDAIRE`, 84 % de l'illustration) : le médaillon montrait
+      // Pégase sans elle. Elle se porte sur le front, sous les oreilles.
+      'crown it: on its brow, set a delicate golden diadem — a fine circlet of golden laurel leaves worn across its forehead just below its ' +
+      'ears, set with seven small radiant golden stars joined like a constellation — that crowns it without rising above its ears: nothing ' +
+      'is added above its head, which stays exactly where it is; a soft golden glow surrounds its head; make the scene a little more festive ' +
+      '— a touch more gold leaf on its wings and mane and a few golden sparks drifting like a celebration. Nothing else moves.',
+    rare: 'the Crowned Pegasus becomes an amethyst Pegasus — a coat of polished amethyst gemstone, deep violet and translucent at the edges, glowing from within like lit crystal, with faceted silver highlights; wings of polished silver feathers edged with pale lilac; a mane and tail of silver and pale lilac constellations; the diadem and its laurel turned to silver set with pale lilac diamonds, still radiant; the fence of stars turned silver; a deep indigo and violet night with silver stars.',
+    garde: 'the winged horse — its head, its body, its four legs, its two wings, its constellation mane and its constellation tail — and the diadem of stars and laurel on its brow',
+    retirer: 'the fence of stars and its pillars beneath it, the trail of stardust, the sparks far from it, the Milky Way, the stars and the night sky',
+  },
 ]
 
 /** Les six Divins : chacun sa silhouette de bijou. Rien de leurs règles, qui ne quittent jamais le serveur. */
@@ -602,11 +662,20 @@ export const DIVINS_PEINTS: { id: string; sujet: string; fond?: FondUni }[] = [
 /** L'image d'un légendaire : son illustration, ou sa retouche s'il en a une. */
 const imageDe = (l: LegendairePeint) => (l.retouche ? `${l.id}-retouche` : l.id)
 
+/** Le légendaire dont une variante part (`depuis`) : un nom qui ne désigne personne arrête tout, avant de payer. */
+const modeleDe = (l: LegendairePeint) => {
+  const m = LEGENDAIRES_PEINTS.find(x => x.id === l.depuis)
+  if (!m) throw new Error(`${l.id} : sa variante part de « ${l.depuis} », qui n'est pas un légendaire peint`)
+  return m
+}
+
 const TRAVAUX: Travail[] = [
   ...LEGENDAIRES_PEINTS.flatMap(l => {
     const cle = `lg:${l.id}`
     return [
-      { nom: l.id, cle, consigne: [CARTE, LEGENDAIRE, l.ombre ? OMBRE : '', `Subject: ${l.sujet}`].filter(Boolean).join('\n\n') },
+      l.depuis
+        ? { nom: l.id, cle, source: imageDe(modeleDe(l)), consigne: VARIANTE(l.sujet) }
+        : { nom: l.id, cle, consigne: [CARTE, LEGENDAIRE, l.ombre ? OMBRE : '', `Subject: ${l.sujet}`].filter(Boolean).join('\n\n') },
       ...(l.retouche ? [{ nom: `${l.id}-retouche`, cle, source: l.id, consigne: RETOUCHE(l.retouche) }] : []),
       { nom: `${l.id}-rare`, cle, source: imageDe(l), consigne: RARE(l.rare) },
       { nom: `decoupe-${l.id}`, cle, source: l.id, consigne: DECOUPE(l.garde, l.retirer, l.fond ?? 'vert') },
@@ -631,7 +700,10 @@ const livre = (cle: string) => cle in LIVRES_LEGENDAIRES || cle in LIVRES_DIVINS
 // Ce qu'on repaie : l'image mise de côté, ce qui part d'elle avec — la
 // version rare et la découpe repartent de la nouvelle.
 const peint = (cle: string) => (cle.startsWith('lg:') ? LEGENDAIRES_PEINTS.find(l => l.id === cle.slice(3)) : undefined)
-for (const cle of liste('regenerer')) {
+// Ses variantes (`depuis`) repartent avec lui : gardées, elles montreraient
+// l'ancienne créature sous une couronne.
+const aRegenerer = liste('regenerer').flatMap(cle => [cle, ...LEGENDAIRES_PEINTS.filter(v => `lg:${v.depuis}` === cle).map(v => `lg:${v.id}`)])
+for (const cle of aRegenerer) {
   const l = peint(cle)
   if (l) for (const nom of [l.id, `${l.id}-retouche`, `${l.id}-rare`, `decoupe-${l.id}`]) mettreDeCote(nom)
   else if (cle.startsWith('dv:') && DIVINS_PEINTS.some(d => d.id === cle.slice(3))) mettreDeCote(cle.slice(3))
@@ -659,7 +731,7 @@ for (const [option, noms] of [
 // `--redecouper` et `--retoucher` ont besoin de son image, qui est ailleurs.
 // Une seule de ses images vue ici suffit : la retouche ajoutée au Coq après
 // sa livraison se demande.
-const repeints = new Set(liste('regenerer'))
+const repeints = new Set(aRegenerer)
 const vuIci = (cle: string) => TRAVAUX.some(t => t.cle === cle && dejaVue(t.nom))
 const aPeindre = (t: Travail) => !livre(t.cle) || vuIci(t.cle) || repeints.has(t.cle)
 
@@ -924,7 +996,7 @@ function livrer(app: string) {
     `// garde l'ancien. Deux tailles, \`[grande, petite]\` : ${tailles}\n`
   writeFileSync(
     TABLES.legendaires,
-    entete('Les trente-deux légendaires', '512 et 256 pixels pour\n// le disque (le médaillon en fait 90 % du côté).') +
+    entete('Les trente-deux légendaires et ceux des Grands Prix','512 et 256 pixels pour\n// le disque (le médaillon en fait 90 % du côté).') +
       `\nexport interface ImagesDeLegendaire {\n` +
       `  /** L'illustration, sur le carré du disque. */\n  art: [string, string]\n` +
       `  /** Sa version rare, éclatée : la même pose, ses couleurs rares. */\n  rare: [string, string]\n` +

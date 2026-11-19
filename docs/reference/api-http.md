@@ -488,6 +488,31 @@ La cote, les ligues, les duels contre quelqu'un, contre Automate, et les amis : 
 - Les réponses d'un duel passent par les routes de la série, décrites avec [la campagne](#la-campagne) (`POST /api/campagne/serie/:id/reponse`, qui rend aussi `rencontre`, `duel`, `contre`, `classe`, `partiA` ; `…/abandon`, refusé pour un duel au dé (« Une rencontre se joue jusqu'au bout : elle ne s'abandonne pas ») comme pour un duel ou un défi (« Le défi n'a qu'une tentative : elle ne s'abandonne pas ») ; `…/correction`, ouverte quand le duel est joué des deux côtés ou fermé). `GET /api/campagne/choix` (catégories et sujets jouables, sans toucher à la base) sert la préparation d'un duel ; elle est aussi à la campagne.
 - Ailleurs, sans être des routes des duels : `GET /api/joueur/carte/:id` porte `profil.duels` (ligue, cote) et la bordure ; `GET /api/joueur/moi?accueil` porte `duels` (`DuelsDAccueil`) ; `PUT /api/joueur/moi` accepte `bordure` (`auto`, `aucune` ou une clé de ligue atteinte) ; `/healthz` dit `campagne.savoir`, l'état du modèle du savoir, sans un nom.
 
+## Le Grand Prix
+
+Un jour d'événement que l'administrateur programme au QG : chacun court dix obstacles — un QCM chacun — contre le fantôme d'un joueur, ses vraies réponses du quiz du jour et de la campagne rejouées à son rythme ; une barre ou un refus coûtent 4 points, le temps départage, et qui le bat gagne son flot (`server/src/grandPrix.ts`, `core/grandPrix.ts`, `shared/grandPrix.ts`). Ni expérience ni confettis.
+
+| Méthode | Route | Accès | Ce qu'elle fait | Fichier |
+|---|---|---|---|---|
+| `GET` | `/api/grand-prix` | profil | La page du Grand Prix (`EtatDuGrandPrix`) : celui du jour, ou rien ; son fantôme, sa course en route ou la dernière, les vainqueurs dans leur ordre d'arrivée — et, pour la personne fêtée, le bilan de son fantôme. Un obstacle laissé au temps s'y relève (un refus) | `server/src/grandPrix.ts` |
+| `GET` | `/api/grand-prix/carnet` | profil | Ses flots, pour le carnet de « Ma collection » (`{ flots: FlotDuCarnet[] }`) : chaque Grand Prix où il a battu le fantôme — ou dont il était le fantôme, le flot d'honneur —, l'avatar du fantôme tel qu'il le portait ce jour-là, sa meilleure course | `server/src/grandPrix.ts` |
+| `POST` | `/api/grand-prix/depart` | profil | Prendre le départ : dix obstacles neufs, tirés du vivier — la moitié du quiz du jour, ceux qu'il n'a pas encore courus d'abord —, le premier servi tout de suite ; une course en route se reprend, elle ne se double pas. Refus sans Grand Prix ce jour-là | `server/src/grandPrix.ts` |
+| `POST` | `/api/grand-prix/course/:id/suivante` | profil | Servir l'obstacle suivant : son chrono part là, à l'horloge du serveur, pas pendant que la révélation se lit | `server/src/grandPrix.ts` |
+| `POST` | `/api/grand-prix/course/:id/reponse` | profil | Un saut (`{ position, choix }`) : la réponse, mesurée depuis que l'obstacle s'est montré, à 20 s et la marge du quiz près ; rend l'état et la révélation (`revelation` : la bonne réponse, le saut du fantôme, l'anecdote), `tropTard` pour une réponse arrivée après la marge — un refus. Renvoyée pour un obstacle passé, elle rend la même révélation sans rien écrire. La fin de la course range le flot et le prix au premier fantôme battu | `server/src/grandPrix.ts` |
+| `POST` | `/api/grand-prix/course/:id/abandon` | profil | Laisser la course en route : elle ne compte pas | `server/src/grandPrix.ts` |
+| `GET` | `/api/admin/grand-prix` | admin | La page du QG (`PageDesGrandsPrix`) : les Grands Prix programmés et courus — leur vivier, leurs coureurs, leurs départs, leurs vainqueurs —, les avatars qui se mettent en jeu, les rubans | `server/src/grandPrix.ts` |
+| `GET` | `/api/admin/grand-prix/fantome/:id` | admin | Ce que le fantôme d'un profil a de quoi courir, avant de le programmer (`ApercuDuFantome`) : ses questions du quiz du jour et de la campagne, combien sont justes. 404 pour un profil introuvable | `server/src/grandPrix.ts` |
+| `POST` | `/api/admin/grand-prix` | admin | Programmer un Grand Prix (`{ id?, fantome, jour, titre, ruban, mot, prix, prixFete }`), ou le reprogrammer avant son jour : fige le vivier du fantôme (300 questions au plus par source, 20 au moins). Refus pour un profil inconnu, un jour passé, un second Grand Prix le même jour, un avatar hors de `PRIX_DES_GRANDS_PRIX`, un fantôme qui n'a pas assez joué, un Grand Prix déjà couru. Noté au journal du QG ; rend la page | `server/src/grandPrix.ts` |
+| `GET` | `/api/admin/grand-prix/:id/essai` | admin | L'état de l'essai d'un Grand Prix, à tout jour, avec le profil connecté de l'administrateur | `server/src/grandPrix.ts` |
+| `POST` | `/api/admin/grand-prix/:id/essai` | admin | Prendre le départ d'un essai : la même course, hors classement, sans flot ni prix (`/grand-prix?essai=<id>`). Noté au journal du QG | `server/src/grandPrix.ts` |
+| `DELETE` | `/api/admin/grand-prix/:id` | admin | Retirer un Grand Prix avant son jour ; couru, il reste, avec ses flots. Noté au journal du QG ; rend la page | `server/src/grandPrix.ts` |
+
+**À savoir :**
+- Sans session de profil, les routes des joueurs — et l'essai — répondent 401 « Connecte-toi à ton profil pour courir le Grand Prix » ; aucune ne se garde en cache (`Cache-Control: no-store`). Une erreur métier est un 400 au message lisible (`wrap`).
+- La bonne réponse d'un obstacle ne part qu'à sa révélation (invariant 1) ; le fantôme ne dit, pendant l'obstacle, que le moment où il saute (`fantomeMs`), jamais ce qu'il a répondu.
+- Les corps JSON se lisent à 4 Ko au plus (`POST …/reponse`), 8 Ko pour la programmation.
+- Ailleurs : `GET /api/joueur/moi?accueil` porte `grandPrix` (`GrandPrixDAccueil`) le jour d'un Grand Prix — le bandeau de l'accueil, et pour la personne fêtée son mot, son flot d'honneur et l'avatar en plus.
+
 ## La page et ses fichiers
 
 Ce que le serveur sert au navigateur : la page, son état de départ, ses fichiers et ses redirections : [le client](../architecture/client.md).

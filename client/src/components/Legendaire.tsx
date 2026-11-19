@@ -9,7 +9,8 @@ import { MATRICE_DE_LA_LUMIERE, enMatiere, tablesDeLaMatiere, type Matiere } fro
 
 /**
  * Les avatars légendaires : trente-deux cartes peintes, qui ne se gagnent que
- * par un haut fait (`shared/legendaires.ts`).
+ * par un haut fait (`shared/legendaires.ts`) — et celles des Grands Prix,
+ * secrètes, que seul un Grand Prix donne.
  *
  * Un emoji est à tout le monde ; un légendaire, non — et il doit se voir de
  * loin, au-dessus même de la forme ultime d'une branche. Chacun est une
@@ -94,6 +95,9 @@ const FONDS: Record<string, [string, string, string]> = {
   'lg:chimere': ['#ffa64d', '#a82a18', '#2a0505'],
   'lg:janus': ['#f4dfa6', '#6a5fa8', '#121032'],
   'lg:djinn': ['#58d0d8', '#1a4f9c', '#061030'],
+  // Les Grands Prix : un cheval d'étoiles sur la nuit (`shared/grandPrix.ts`).
+  'lg:pegase': ['#3a5a9e', '#14234f', '#050a1c'],
+  'lg:pegase-couronne': ['#6a6fae', '#1c2552', '#060a1e'],
 }
 
 /**
@@ -134,6 +138,8 @@ const FONDS_ECLAT: Record<string, [string, string, string]> = {
   'lg:chimere': ['#9ccfff', '#2a56b0', '#071533'],
   'lg:janus': ['#dde8f8', '#6f86b0', '#18213a'],
   'lg:djinn': ['#f0e6c6', '#7a8aa8', '#141b30'],
+  'lg:pegase': ['#b48ae6', '#4a2596', '#12082e'],
+  'lg:pegase-couronne': ['#c49ef0', '#55309e', '#150a32'],
 }
 
 const OMBRE: [string, string, string] = ['#d9c9ff', '#6d4fb3', '#1d1233']

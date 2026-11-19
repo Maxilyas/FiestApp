@@ -68,6 +68,7 @@ const CampagneApp = () => {
 const SalonApp = () => import('./views/SalonApp').then(m => m.SalonApp)
 const CabinetApp = () => import('./views/CabinetApp').then(m => m.CabinetApp)
 const CollectionneursApp = () => import('./views/Collectionneurs').then(m => m.CollectionneursApp)
+const GrandPrixApp = () => import('./views/GrandPrixApp').then(m => m.GrandPrixApp)
 
 /** Une page, à charger : son code vient à part. */
 type PageACharger = () => Promise<ComponentType>
@@ -90,6 +91,7 @@ const ACCOUNT: Record<AccountPage, PageACharger> = {
   duels: CampagneApp,
   cabinet: CabinetApp,
   collectionneurs: CollectionneursApp,
+  'grand-prix': GrandPrixApp,
 }
 const PUBLIC: Record<PublicPage, PageACharger> = {
   souvenir: RecapApp,

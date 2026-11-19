@@ -1,4 +1,4 @@
-// Les trente-deux légendaires, peints : leurs fichiers, dans `client/public/medaillons`.
+// Les trente-deux légendaires et ceux des Grands Prix, peints : leurs fichiers, dans `client/public/medaillons`.
 //
 // Écrit par `server/scripts/anime/legendaires.ts --livrer` : on ne le retouche
 // pas à la main, on relance la chaîne. Chaque fichier est nommé par son
@@ -209,5 +209,17 @@ export const IMAGES: Record<string, ImagesDeLegendaire> = {
     rare: ['/medaillons/djinn-rare-512.2e9926712b.webp', '/medaillons/djinn-rare-256.b1d1a6c43f.webp'],
     perso: '/medaillons/djinn-perso-256.8feb2f604f.webp',
     rarePerso: ['/medaillons/djinn-rare-perso-512.bf9d1266c0.webp', '/medaillons/djinn-rare-perso-256.02d0329d0b.webp'],
+  },
+  'lg:pegase': {
+    art: ['/medaillons/pegase-art-512.53a96335f3.webp', '/medaillons/pegase-art-256.5a7114a0a3.webp'],
+    rare: ['/medaillons/pegase-rare-512.c11f0d9d25.webp', '/medaillons/pegase-rare-256.1403bed324.webp'],
+    perso: '/medaillons/pegase-perso-256.0b887cdc74.webp',
+    rarePerso: ['/medaillons/pegase-rare-perso-512.db3d923ce7.webp', '/medaillons/pegase-rare-perso-256.dbeb881e18.webp'],
+  },
+  'lg:pegase-couronne': {
+    art: ['/medaillons/pegase-couronne-art-512.f839266469.webp', '/medaillons/pegase-couronne-art-256.3ca5d99736.webp'],
+    rare: ['/medaillons/pegase-couronne-rare-512.bc00e0e1d4.webp', '/medaillons/pegase-couronne-rare-256.8978002c14.webp'],
+    perso: '/medaillons/pegase-couronne-perso-256.7a9dce0c69.webp',
+    rarePerso: ['/medaillons/pegase-couronne-rare-perso-512.5a5ff672e1.webp', '/medaillons/pegase-couronne-rare-perso-256.d9a7000daf.webp'],
   },
 }

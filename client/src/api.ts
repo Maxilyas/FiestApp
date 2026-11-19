@@ -51,6 +51,7 @@ import type { CategorieDeCollection, ClassementDesCollections, SuiteDuClassement
 import type { DirectDuQg, JournalDuQg, PageDesSoirees, SorteDeGeste, VueDEnsemble } from '../../shared/qg'
 import type { AccuseDeReponse, PageDesAnnonces, QuestionDAnnonce } from '../../shared/annonces'
 import type { DemandeDAffiche, PageDesAffiches } from '../../shared/affiches'
+import type { ApercuDuFantome, EtatDuGrandPrix, FlotDuCarnet, PageDesGrandsPrix, RevelationDObstacle } from '../../shared/grandPrix'
 import type { EffetsDesAffiches, EffetsDesAnnonces, JoursDeLAvantApres, ReperesDuQg } from '../../shared/qgEffets'
 import type { BaseDuQg, PageDuServeur, PeriodeDuServeur } from '../../shared/santeDuServeur'
 import type { CleDeRegle, IncidentDuQg, PageDesAlertes } from '../../shared/qgAlertes'
@@ -718,6 +719,27 @@ export const api = {
     /** La suite d'un classement, après ce que la page en a déjà : un paquet de places et leurs fiches. */
     suite: (categorie: CategorieDeCollection, depuis: number) => req<SuiteDuClassement>(`/api/collectionneurs/suite/${categorie}?depuis=${depuis}`),
   },
+  /**
+   * Le Grand Prix d'un jour (`shared/grandPrix.ts`) : chaque réponse qui sert
+   * un obstacle porte l'heure du serveur, remesurée (`avecLHeure`) — le chrono
+   * de l'obstacle se lit à `serverNow()` (invariant 6).
+   */
+  grandPrix: {
+    etat: () => avecLHeure(() => req<EtatDuGrandPrix>('/api/grand-prix')),
+    depart: () => avecLHeure(() => req<EtatDuGrandPrix>('/api/grand-prix/depart', { method: 'POST' })),
+    suivante: (course: string) => avecLHeure(() => req<EtatDuGrandPrix>(`/api/grand-prix/course/${encodeURIComponent(course)}/suivante`, { method: 'POST' })),
+    repondre: (course: string, position: number, choix: number) =>
+      req<EtatDuGrandPrix & { revelation: RevelationDObstacle; tropTard: boolean }>(`/api/grand-prix/course/${encodeURIComponent(course)}/reponse`, {
+        method: 'POST',
+        body: JSON.stringify({ position, choix }),
+      }),
+    abandon: (course: string) => req<EtatDuGrandPrix>(`/api/grand-prix/course/${encodeURIComponent(course)}/abandon`, { method: 'POST' }),
+    /** Ses flots, pour le carnet des Grands Prix de « Ma collection ». */
+    carnet: () => req<{ flots: FlotDuCarnet[] }>('/api/grand-prix/carnet'),
+    /** L'essai de l'administrateur, à tout jour, hors classement. */
+    essai: (id: string) => avecLHeure(() => req<EtatDuGrandPrix>(`/api/admin/grand-prix/${encodeURIComponent(id)}/essai`)),
+    essayer: (id: string) => avecLHeure(() => req<EtatDuGrandPrix>(`/api/admin/grand-prix/${encodeURIComponent(id)}/essai`, { method: 'POST' })),
+  },
   jour: {
     etat: () => avecLHeure(() => req<PartieDuJour>(DEPART.jour), DEPART.jour),
     commencer: () => avecLHeure(() => req<PartieDuJour>('/api/jour/commencer', { method: 'POST' })),
@@ -839,6 +861,12 @@ export const api = {
     cloreLaQuestion: (id: string) => req<PageDesAnnonces>(`/api/admin/annonces/${encodeURIComponent(id)}/cloturer`, { method: 'POST', body: '{}' }),
     /** Retirer une annonce : l'accueil la tait, ses confettis restent offerts. Rend la page d'après. */
     retirerLAnnonce: (id: string) => req<PageDesAnnonces>(`/api/admin/annonces/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    /** Les Grands Prix programmés, ce qu'on peut y mettre en jeu ; un fantôme et de quoi il court ; programmer, retirer. */
+    grandsPrix: () => req<PageDesGrandsPrix>('/api/admin/grand-prix'),
+    fantome: (profileId: string) => req<ApercuDuFantome>(`/api/admin/grand-prix/fantome/${encodeURIComponent(profileId)}`),
+    programmer: (demande: { id?: string; fantome: string; jour: string; titre: string; ruban: string; mot: string; prix: string | null; prixFete: string | null }) =>
+      req<PageDesGrandsPrix>('/api/admin/grand-prix', { method: 'POST', body: JSON.stringify(demande) }),
+    retirerLeGrandPrix: (id: string) => req<PageDesGrandsPrix>(`/api/admin/grand-prix/${encodeURIComponent(id)}`, { method: 'DELETE' }),
     /** Les affiches des nouveautés posées, chacune avec ce qu'elle a fait. */
     affiches: () => req<PageDesAffiches>('/api/admin/affiches'),
     /** Poser une affiche ; `id`, celui de l'envoi : refait, elle ne se pose pas deux fois. Rend la page d'après. */
