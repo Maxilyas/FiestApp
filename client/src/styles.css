@@ -18569,7 +18569,8 @@ button.gp-reponse:hover:not(:disabled) { border-color: var(--accent); }
 .gp-fete-cadeaux { display: flex; align-items: flex-start; justify-content: center; gap: 22px; margin-top: 4px; }
 .gp-fete-cadeaux figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .gp-fete-cadeaux figcaption { font-size: 0.8125rem; font-weight: 600; color: #f0d79a; }
-.gp-fete-prix { font-size: 4.4rem; }
+/* Son avatar, à la taille du flot : il en sort tout entier (`.lg-entier`), ses ailes au-dessus de l'anneau. */
+.gp-fete-prix { font-size: 5.4rem; }
 .gp-fete-texte { margin: 12px 4px 0; font-size: 0.875rem; line-height: 1.45; color: var(--muted); text-align: center; }
 .gp-fete-gestes { display: flex; gap: 10px; width: 100%; }
 .gp-fete-gestes .btn { flex: 1 1 0; min-height: 48px; }
