@@ -18559,13 +18559,12 @@ span.annonce-admin-merci { cursor: default; }
 /* Le petit téléphone : deux lignes, et les tuiles du terrain un peu plus serrées — avec deux vainqueurs, le départ d'un
    coureur passait l'écran de 4 px (le rendu du 19 novembre 2026, en 360 × 640). */
 @media (max-height: 700px) {
-  .gp-vainqueurs .gp-ligne:nth-child(3) { display: none; }
+  /* La troisième ligne, cachée à l'œil seulement — les déclarations de `.sr-only` : le lecteur d'écran lit les trois,
+     comme ailleurs ce qu'un petit écran tait (`collectionneurs-stable.test.ts`). */
+  .gp-vainqueurs .gp-ligne:nth-child(3) { position: absolute; width: 1px; height: 1px; min-height: 0; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .gp-ligne { min-height: 38px; }
   .gp-terrain li { gap: 4px; padding: 8px 6px; }
   .gp-terrain-icone { width: 32px; height: 32px; }
-}
-@media (min-height: 701px) {
-  .gp-tous-petit-ecran { display: none; }
 }
 .gp-tous-feuille .gp-lignes { padding: 2px 0 8px; }
 

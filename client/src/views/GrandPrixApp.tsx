@@ -366,9 +366,9 @@ function Vainqueurs({ etat, titre, onTous }: { etat: EtatDuGrandPrix; titre: str
         <h2 id="gp-vainqueurs" className="gp-etiquette">
           {titre}
         </h2>
-        {/* À trois, la troisième ligne ne se cache que sur un petit téléphone : « Tous » n'a à se montrer que là. */}
+        {/* Dès trois : sur un petit téléphone, la troisième ligne ne se voit plus. */}
         {n > 2 && (
-          <button type="button" className={`gp-tous${n === 3 ? ' gp-tous-petit-ecran' : ''}`} onClick={onTous}>
+          <button type="button" className="gp-tous" onClick={onTous}>
             Tous les {n}
             <Icon name="chevron-right" />
           </button>
