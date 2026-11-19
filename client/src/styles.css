@@ -18467,7 +18467,6 @@ span.annonce-admin-merci { cursor: default; }
   --gp-juste: #8fd19e;
   gap: 14px;
   padding-top: 0;
-  overflow-x: hidden;
 }
 .gp-titre-simple { margin: 8px 0 0; font-family: var(--serif); font-size: 2rem; }
 
@@ -18486,12 +18485,13 @@ span.annonce-admin-merci { cursor: default; }
 .gp-etoiles-du-ciel circle { fill: var(--gp-etoile); }
 .gp-ciel { position: absolute; inset: 0; width: 100%; height: 100%; }
 
-/* La tête du départ et de l'arrivée : le ciel, le cavalier fantôme, le titre. */
+/* La tête du départ et de l'arrivée : le ciel, le cavalier fantôme — ou le flot d'or de la fêtée —, le titre. À la hauteur de
+   ce qu'elle porte : le départ tient sur un écran, son bouton compris (le propriétaire, le 19 novembre 2026). */
 .gp-tete {
   position: relative;
   margin: 0 -20px;
-  min-height: 196px;
-  padding: max(8px, env(safe-area-inset-top)) 20px 16px;
+  min-height: 140px;
+  padding: max(8px, env(safe-area-inset-top)) 20px 14px;
   background: var(--gp-nuit);
   color: #f3ece2;
   overflow: hidden;
@@ -18499,9 +18499,12 @@ span.annonce-admin-merci { cursor: default; }
   flex-direction: column;
   justify-content: space-between;
 }
-.gp-tete-courte { min-height: 168px; }
 .gp-tete .jour-sortie { position: relative; color: #e9e1f2; align-self: flex-start; }
-.gp-tete-cheval, .gp-tete-cheval-or { position: absolute; right: 8px; top: 36px; width: 150px; }
+/* Le cavalier et le flot d'or de la fêtée, dans le coin du ciel, au-dessus de la ligne du fantôme : plus bas, elle passait
+   sous leurs étoiles. `.gp-flot`, plus bas dans la feuille, remettrait le flot dans le flux. */
+.gp-tete-cheval { position: absolute; right: 8px; top: max(18px, env(safe-area-inset-top)); width: 128px; }
+.gp-tete-cheval-or { position: absolute; right: 8px; top: max(18px, env(safe-area-inset-top)); width: 112px; }
+.gp-tete .gp-tete-flot { position: absolute; right: 20px; top: max(20px, env(safe-area-inset-top)); }
 .gp-tete-texte { position: relative; display: flex; flex-direction: column; gap: 6px; }
 .gp-tete h1 { margin: 0; font-family: var(--serif); font-size: 2rem; line-height: 1.02; max-width: 15ch; }
 .gp-surtitre { font-size: var(--t-label); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gp-or); }
@@ -18509,7 +18512,9 @@ span.annonce-admin-merci { cursor: default; }
 .gp-fantome-avatar { font-size: 1.25rem; opacity: 0.9; }
 
 .gp-carte { border-radius: 16px; background: var(--bg-raised); border: 1px solid rgba(var(--accent-rgb), 0.22); }
-.gp-gain { display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
+/* Coupée à son cadre : les reflets animés de Pégase éclaté (`.lg-feuille`, `.lg-reflet`) passaient le bas de la page de
+   6 px, et le départ, qui tient sur un écran, défilait pour rien. Pégase sort de son cercle, pas de la carte. */
+.gp-gain { display: flex; align-items: center; gap: 12px; padding: 10px 12px; overflow: hidden; }
 .gp-gain-texte { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .gp-gain-prix { margin-left: auto; font-size: 2.6rem; flex: none; }
 .gp-essayer { margin-left: auto; flex: none; min-height: 44px; }
@@ -18526,42 +18531,35 @@ span.annonce-admin-merci { cursor: default; }
 }
 .gp-flot-coeur .av { font-size: inherit; }
 
-.gp-regles { list-style: none; margin: 0; padding: 0 4px; display: flex; flex-direction: column; gap: 9px; font-size: 0.875rem; }
-.gp-regles li { display: flex; align-items: center; gap: 10px; }
+/* Les blocs du départ : des pictogrammes et des tuiles, deux ou trois mots chacun — on les voit avant de les lire. */
+.gp-etiquette { display: block; margin: 0 0 6px; font-family: var(--sans); font-size: var(--t-label); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.gp-regles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.gp-regles li { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 0.75rem; line-height: 1.2; text-align: center; }
 .gp-regles .icon { color: var(--accent-text); flex: none; }
 
-/* Son terrain : ses thèmes, une ligne chacun — l'emblème du sujet, son nom, ce qu'il y a fait. */
-.gp-terrain { padding: 4px 0 8px; }
-.gp-terrain h2 { margin: 0; padding: 8px 12px 4px; font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 1.125rem; color: var(--accent-text); }
-.gp-terrain ul { list-style: none; margin: 0; padding: 0 12px; display: flex; flex-direction: column; gap: 6px; }
-.gp-terrain li { display: flex; align-items: center; gap: 10px; }
-.gp-terrain-icone { width: 32px; height: 32px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(var(--accent-rgb), 0.14); color: var(--accent-text); }
-.gp-terrain-nom { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
-.gp-vainqueurs { padding: 4px 0 8px; }
-.gp-vainqueurs h2 { margin: 0; padding: 8px 12px 4px; font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 1.125rem; color: var(--accent-text); }
-.gp-vainqueurs ol { list-style: none; margin: 0; padding: 0; }
-.gp-vainqueurs li { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 2px 12px; font-size: 0.875rem; }
-.gp-vainqueurs li + li { border-top: 1px solid rgba(var(--accent-rgb), 0.12); }
-.gp-vainqueurs p { margin: 4px 12px 0; }
-.gp-rang { width: 20px; flex: none; text-align: center; font-family: var(--serif); font-weight: 600; font-size: 1.125rem; color: var(--accent-text); font-variant-numeric: lining-nums; }
+/* Son terrain : un emblème et un nom par thème, en tuiles côte à côte. */
+.gp-terrain ul { list-style: none; margin: 0; padding: 0; display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; gap: 8px; }
+.gp-terrain li { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 6px; padding: 10px 6px; border-radius: 14px; background: var(--bg-raised); border: 1px solid rgba(var(--accent-rgb), 0.22); font-size: 0.8125rem; font-weight: 600; line-height: 1.2; text-align: center; }
+.gp-terrain-icone { width: 36px; height: 36px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(var(--accent-rgb), 0.14); color: var(--accent-text); }
+
+/* Ceux qui l'ont battu : leurs visages et leurs prénoms, en pastilles. */
+.gp-vainqueurs ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.gp-vainqueurs li { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 2px 10px 2px 4px; border-radius: 999px; background: var(--bg-raised); border: 1px solid rgba(var(--accent-rgb), 0.22); font-size: 0.8125rem; font-weight: 600; }
+.gp-vainqueurs .gp-autres { padding: 2px 10px; color: var(--muted); }
 .gp-mini { font-size: 1.25rem; }
-.gp-nom { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gp-chiffres { margin-left: auto; color: var(--muted); font-size: 0.8125rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.gp-toi { color: var(--muted); }
+.gp-nom { max-width: 8em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.gp-bilan { padding: 12px; border-radius: 16px; background: var(--gp-nuit); color: #f3ece2; border: 1px solid rgba(159, 182, 255, 0.35); display: flex; flex-direction: column; gap: 8px; }
-.gp-bilan h2 { margin: 0; font-family: var(--serif); font-size: 1.375rem; }
-.gp-bilan p { margin: 0; color: #d6d0e4; }
-.gp-mot { font-family: var(--serif); font-style: italic; font-size: 1.0625rem; color: #e9e1f2 !important; }
-.gp-bilan-chiffres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.gp-bilan-chiffres span { display: flex; flex-direction: column; align-items: center; padding: 8px 4px; border-radius: 12px; background: rgba(255, 255, 255, 0.06); font-size: 0.75rem; text-align: center; }
-.gp-bilan-chiffres b { font-family: var(--serif); font-size: 1.75rem; line-height: 1; font-variant-numeric: lining-nums; }
+/* Le bilan de la fêtée, dans sa nuit : deux chiffres, et ceux qui l'ont battue. */
+.gp-bilan { padding: 12px; border-radius: 16px; background: var(--gp-nuit); color: #f3ece2; border: 1px solid rgba(159, 182, 255, 0.35); display: flex; flex-direction: column; gap: 12px; }
+.gp-bilan-chiffres { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.gp-bilan-chiffres span { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 4px; border-radius: 12px; background: rgba(255, 255, 255, 0.06); font-size: 0.8125rem; text-align: center; }
+.gp-bilan-chiffres b { font-family: var(--serif); font-size: 2rem; line-height: 1; font-variant-numeric: lining-nums; }
+.gp-bilan .gp-etiquette { color: #c9d4f5; }
+.gp-bilan .gp-vainqueurs li { background: rgba(255, 255, 255, 0.06); border-color: rgba(159, 182, 255, 0.35); }
 
-.gp-pied { position: sticky; bottom: 0; margin: auto -20px 0; padding: 12px 20px max(16px, env(safe-area-inset-bottom)); background: var(--bg); border-top: 1px solid rgba(var(--accent-rgb), 0.14); display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.gp-pied .btn { width: 100%; min-height: 50px; }
-.gp-pied-double { flex-direction: row; flex-wrap: wrap; }
-.gp-pied-double .btn { width: auto; flex: 1 1 140px; }
-.gp-pied-double .error { flex-basis: 100%; }
+/* Le geste du départ et de l'arrivée, au bas de l'écran — collé sous le pouce si la page déborde (`SousLePouce`). */
+.sous-le-pouce.gp-geste { margin-top: auto; }
+.gp-geste .btn { width: 100%; min-height: 50px; }
 
 /* La course : le ciel en haut, la question dessous. Sa marge du bas reste celle de la coquille — le ressort des marges
    la resserre quand la page tient (« La marge du bout se resserre ») : réécrite à zéro, il lui en reprenait 28 px. */
@@ -18716,7 +18714,7 @@ button.gp-reponse:hover:not(:disabled) { border-color: var(--accent); }
 .gp-fete-cadeaux figcaption { font-size: 0.8125rem; font-weight: 600; color: #f0d79a; }
 /* Son avatar, à la taille du flot : il en sort tout entier (`.lg-entier`), ses ailes au-dessus de l'anneau. */
 .gp-fete-prix { font-size: 5.4rem; }
-.gp-fete-texte { margin: 12px 4px 0; font-size: 0.875rem; line-height: 1.45; color: var(--muted); text-align: center; }
+.gp-fete-ligne { align-self: stretch; margin: 2px 0 0; padding-top: 10px; border-top: 1px solid rgba(159, 182, 255, 0.25); font-size: 0.8125rem; color: #c9d4f5; }
 .gp-fete-gestes { display: flex; gap: 10px; width: 100%; }
 .gp-fete-gestes .btn { flex: 1 1 0; min-height: 48px; }
 

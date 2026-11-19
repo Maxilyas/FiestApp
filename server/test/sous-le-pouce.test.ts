@@ -53,7 +53,9 @@ test('la feuille : collé au bas de l’écran quand sa place est plus bas, et �
   assert.match(voile, /pointer-events: none;/)
   // Il se colle à l'écran, pas à un cadre : aucune coquille de page ne coupe ni ne fait défiler ce qu'elle contient — un
   // `overflow` sur l'une d'elles, et chaque geste se collerait à elle.
-  for (const coquille of ['.player-shell', '.quiz-player']) {
+  // `.gp-page` aussi : son `overflow-x: hidden` faisait d'elle le cadre qui défile, et « Me battre moi-même » de la
+  // fêtée passait sous l'écran sans jamais s'y coller (le propriétaire, le 19 novembre 2026).
+  for (const coquille of ['.player-shell', '.quiz-player', '.gp-page']) {
     const corps = [...CSS.matchAll(new RegExp(`(?:^|\\n)${coquille.replace('.', '\\.')} \\{([^}]*)\\}`, 'g'))].map(m => m[1]).join('\n')
     assert.ok(corps.length > 0, coquille)
     assert.doesNotMatch(corps, /overflow/, `${coquille} ne coupe rien`)
@@ -84,8 +86,10 @@ test('chaque écran plus long que le téléphone tient son geste principal sous 
   tient('views/Sentiers.tsx', 'Jouer le palier', 'Le porter')
   tient('views/Parcours.tsx', 'Jouer l’étape')
   tient('views/Duel.tsx', 'suite.texte', 'Accueil')
+  // Le Grand Prix : son départ — celui de la fêtée compris —, chaque révélation, l'arrivée.
+  tient('views/GrandPrixApp.tsx', 'Me battre moi-même', 'Prendre le départ', 'Obstacle suivant', 'Recourir')
   // Un seul geste par cadre, le principal : deux boutons collés prendraient le quart d'un petit écran.
-  for (const fichier of ['views/CampagneApp.tsx', 'views/Sentiers.tsx', 'views/Parcours.tsx', 'views/JourApp.tsx', 'views/LancerUnDefi.tsx', 'views/SalonApp.tsx', 'views/Duel.tsx']) {
+  for (const fichier of ['views/CampagneApp.tsx', 'views/Sentiers.tsx', 'views/Parcours.tsx', 'views/JourApp.tsx', 'views/LancerUnDefi.tsx', 'views/SalonApp.tsx', 'views/Duel.tsx', 'views/GrandPrixApp.tsx']) {
     for (const g of gestes(fichier)) assert.equal((g.match(/<(?:button|a)\b/g) ?? []).length, 1, `${fichier} : un seul geste sous le pouce`)
   }
 })

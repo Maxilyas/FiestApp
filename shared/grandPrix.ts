@@ -394,15 +394,11 @@ export interface VainqueurVu extends ApparenceDeLAvatar {
   departs: number
 }
 
-/** Ce que la personne fêtée lit de sa journée : le bilan de son fantôme. */
+/** Ce que la personne fêtée lit de sa journée : le bilan de son fantôme — ceux qui l'ont battue sont dans `vainqueurs` de la page. */
 export interface BilanDuFantome {
   coureurs: number
   departs: number
   vainqueurs: number
-  /** Ceux que son fantôme tient en échec : partis, jamais vainqueurs, les plus obstinés d'abord. */
-  tenus: (ApparenceDeLAvatar & { id: string; nom: string; avatar: string; departs: number })[]
-  /** Sa question la plus redoutable : celle où le plus de coureurs ont fait tomber la barre. */
-  redoutable: { texte: string; tombees: number; sur: number } | null
 }
 
 export interface EtatDuGrandPrix {

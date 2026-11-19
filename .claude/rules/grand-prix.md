@@ -79,6 +79,17 @@ maquette et les décisions du propriétaire : `retours/2026-11-19/grand-prix/`.
 - **L'essai du QG** court avec le profil de l'administrateur (son cookie de
   joueur sous la porte du QG), hors classement, sans flot ni prix ; le bilan
   du fantôme écarte les essais, les abandons et ses propres courses.
+- **Chaque écran tient sur un écran, en 360 × 640, son bouton compris** (le
+  propriétaire, le 19 novembre 2026 : « Me battre moi-même » de la fêtée
+  passait sous l'écran, sous un bilan en phrases). Des tuiles, des
+  pictogrammes, des pastilles, presque sans phrase : un bloc de plus se
+  regarde aux deux tailles, et `rendu-grand-prix.ts` sort en erreur si le
+  départ, l'arrivée ou la feuille de la fêtée défilent — il dit alors la
+  hauteur de la page sans chacun de ses blocs. Le geste est sous le pouce
+  (`SousLePouce`, `sous-le-pouce.test.ts`), et **la coquille ne coupe rien** :
+  son `overflow-x: hidden` faisait d'elle le cadre qui défile, et le pied
+  collé ne collait plus. Ce qui déborde se coupe à sa carte — les reflets
+  animés de Pégase éclaté passaient le bas de la page de 6 px (`.gp-gain`).
 - **Sur l'accueil, il prend la place de l'affiche** (`BandeauDuGrandPrix`, les
   classes `.affiche .affiche-bandeau`) : l'accueil tient sur un écran (règle
   `profil.md`). La feuille de la fêtée s'ouvre par-dessus, une fois par

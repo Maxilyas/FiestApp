@@ -18,10 +18,9 @@ import { insister } from '../insister'
 import { confirmDialog } from '../components/Dialog'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
-import { Sortie } from '../components/Pieces'
+import { Sortie, SousLePouce } from '../components/Pieces'
 import { ChevalDEtoiles, CielDuGrandPrix, Flot, Obstacle } from '../components/GrandPrix'
 import { iconeDuSujet } from '../iconeDuSujet'
-import { formatNumber } from '../format'
 import { sujetParCle } from '../../../shared/sujets'
 import { gesteAccepte } from '../../../shared/console'
 import { legendaire } from '../../../shared/legendaires'
@@ -230,107 +229,104 @@ export function GrandPrixApp() {
 
 // ── Le départ ────────────────────────────────────────────────────────────
 
+/**
+ * Le départ tient sur un écran, son bouton compris (le propriétaire, le
+ * 19 novembre 2026 : « Me battre moi-même » de la fêtée passait sous l'écran,
+ * sous un bilan en phrases). Des blocs qu'on lit d'un coup d'œil, presque sans
+ * phrase : le ciel et le titre, son terrain en trois emblèmes, le flot à
+ * gagner, la règle en quatre pictogrammes, ceux qui l'ont battu. La fêtée n'a
+ * ni le flot à gagner — le sien, d'or, brille dans son ciel — ni la règle :
+ * son bilan prend leur place.
+ */
 function Depart({ etat, enRoute, onPartir, refus, essai }: { etat: EtatDuGrandPrix; enRoute: boolean; onPartir: () => void; refus: string; essai: boolean }) {
   const g = etat.grandPrix!
   const nom = g.fantome.nom
   const fete = etat.fete
-  const prix = fete ? fete.prix : g.prix
   return (
     <div className="player-shell gp-page gp-depart">
       <header className="gp-tete">
         <CielDuGrandPrix />
-        <ChevalDEtoiles pose="saut" fantome className="gp-tete-cheval" />
+        {fete ? <Flot ruban={g.ruban} honneur fantome={g.fantome} nom="Ton flot d’honneur" taille={64} className="gp-tete-flot" /> : <ChevalDEtoiles pose="saut" fantome className="gp-tete-cheval" />}
         <Sortie />
         <div className="gp-tete-texte">
-          <span className="gp-surtitre">{essai ? 'Essai · hors classement' : 'Aujourd’hui, jusqu’à minuit'}</span>
+          {essai && <span className="gp-surtitre">Essai · hors classement</span>}
           <h1>{g.titre}</h1>
           <span className="gp-fantome-ligne">
             <Avatar className="gp-fantome-avatar" avatar={g.fantome.avatar} finition={g.fantome.finition} eclat={g.fantome.eclat} legendaire={g.fantome.legendaire} sceau={g.fantome.sceau} />
-            {fete ? 'Ton fantôme rejoue tes vraies réponses' : `Le fantôme de ${nom} rejoue ses vraies réponses`}
+            {fete ? 'Toute la bande court contre ton fantôme' : 'Son fantôme rejoue ses vraies réponses'}
           </span>
         </div>
       </header>
 
       {fete && etat.bilan && <BilanDuFantome etat={etat} />}
 
-      {g.terrain.length > 0 && <Terrain terrain={g.terrain} fete={!!fete} nom={nom} />}
+      {g.terrain.length > 0 && <Terrain terrain={g.terrain} fete={!!fete} />}
 
-      <section className="gp-carte gp-gain" aria-label="Ce qu’on gagne">
-        <Flot ruban={g.ruban} honneur={!!fete} fantome={g.fantome} nom={fete ? 'Ton flot d’honneur' : `Le flot du ${g.titre}`} taille={52} />
-        <span className="gp-gain-texte">
-          <b>{fete ? 'Ton flot d’honneur' : `Bats ${nom} : son flot`}</b>
-          {prix && <span className="muted small">{fete ? `et ${legendaire(prix)?.nom ?? 'un avatar'}, rien qu’à toi` : `et ${legendaire(prix)?.nom ?? 'un avatar'} en plus, à porter`}</span>}
-        </span>
-        {prix && <Avatar className="gp-gain-prix" avatar="🐴" legendaire={prix} />}
-      </section>
-
-      <ul className="gp-regles" aria-label="La règle">
-        <li>
-          <Icon name="flag" />
-          Dix obstacles, une question chacun
-        </li>
-        <li>
-          <Icon name="x-circle" />
-          Une erreur ou un refus : une barre, {PENALITE_D_UNE_BARRE} points
-        </li>
-        <li>
-          <Icon name="timer" />À points égaux, le plus rapide l’emporte
-        </li>
-      </ul>
-
-      {!essai && (
-        <section className="gp-carte gp-vainqueurs" aria-labelledby="gp-vainqueurs">
-          <h2 id="gp-vainqueurs">
-            {etat.vainqueurs.length === 0 ? `Personne n’a encore battu ${fete ? 'ton fantôme' : nom}` : `${fete ? 'Ils t’ont battu' : `Ils ont battu ${nom}`} · ${etat.vainqueurs.length}`}
-          </h2>
-          <ol>
-            {etat.vainqueurs.slice(0, 5).map(v => (
-              <li key={v.id}>
-                <span className="gp-rang">{v.rang}</span>
-                <Avatar className="gp-mini" avatar={v.avatar} finition={v.finition} eclat={v.eclat} legendaire={v.legendaire} sceau={v.sceau} />
-                <span className="gp-nom">{v.nom}</span>
-                <span className="gp-chiffres">
-                  {pointsDits(v.points)} · {chronoDit(v.tempsMs)}
-                </span>
-              </li>
-            ))}
-          </ol>
-          {etat.vainqueurs.length > 5 && <p className="muted small">et {etat.vainqueurs.length - 5} autres</p>}
-          {etat.departs > 0 && !fete && (
-            <p className="gp-toi small">
-              Toi · {etat.departs === 1 ? 'un départ' : `${etat.departs} départs`}
-              {etat.meilleure && ` · ton meilleur : ${pointsDits(etat.meilleure.points)}, ${chronoDit(etat.meilleure.tempsMs)}`}
-              {etat.rang && ` · ${etat.rang === 1 ? '1ʳᵉ' : `${etat.rang}ᵉ`} place à l’arrivée`}
-            </p>
-          )}
+      {!fete && (
+        <section className="gp-carte gp-gain" aria-label="Ce qu’on gagne">
+          <Flot ruban={g.ruban} fantome={g.fantome} nom={`Le flot du ${g.titre}`} taille={52} />
+          <span className="gp-gain-texte">
+            <b>{`Bats ${nom} : son flot`}</b>
+            {g.prix && <span className="muted small">et {legendaire(g.prix)?.nom ?? 'un avatar'}</span>}
+          </span>
+          {g.prix && <Avatar className="gp-gain-prix" avatar="🐴" legendaire={g.prix} />}
         </section>
       )}
 
-      <footer className="gp-pied">
-        {refus && (
-          <p className="error small" role="alert">
-            {refus}
-          </p>
-        )}
+      {!fete && <Regles />}
+
+      {!fete && !essai && etat.vainqueurs.length > 0 && <Vainqueurs etat={etat} titre={`Ils ont battu ${nom}`} />}
+
+      {refus && (
+        <p className="error small" role="alert">
+          {refus}
+        </p>
+      )}
+      <SousLePouce className="gp-geste">
         <button type="button" className="btn btn-primary gp-partir" onClick={onPartir} disabled={enRoute}>
           {fete ? 'Me battre moi-même' : etat.departs > 0 ? 'Recourir' : 'Prendre le départ'}
         </button>
-        <span className="muted small">Essais illimités · un parcours neuf à chaque départ</span>
-      </footer>
+      </SousLePouce>
     </div>
   )
 }
 
-/**
- * Son terrain : les thèmes où il a passé le plus de temps en campagne, et ce
- * qu'il y a fait — le Grand Prix le met en valeur sur ce qu'il aime (le
- * souhait du propriétaire, le 19 novembre 2026). Chaque course y tire ses
- * obstacles, à tour de rôle.
- */
-function Terrain({ terrain, fete, nom }: { terrain: readonly ThemeDuTerrain[]; fete: boolean; nom: string }) {
+/** La règle en quatre pictogrammes, deux mots chacun : elle se voit avant de se lire. */
+function Regles() {
   return (
-    <section className="gp-carte gp-terrain" aria-labelledby="gp-terrain">
-      <h2 id="gp-terrain">{fete ? 'Sur ton terrain' : `Sur le terrain de ${nom}`}</h2>
+    <ul className="gp-regles" aria-label="La règle">
+      <li>
+        <Icon name="flag" />
+        10 obstacles
+      </li>
+      <li>
+        <Icon name="x-circle" />
+        Faute : {PENALITE_D_UNE_BARRE} pts
+      </li>
+      <li>
+        <Icon name="timer" />
+        Égalité : chrono
+      </li>
+      <li>
+        <Icon name="infinity" />
+        Essais illimités
+      </li>
+    </ul>
+  )
+}
+
+/**
+ * Son terrain : les thèmes où il a passé le plus de temps en campagne — le
+ * Grand Prix le met en valeur sur ce qu'il aime (le souhait du propriétaire,
+ * le 19 novembre 2026). Un emblème et un nom chacun : ses comptes se lisent au
+ * QG, ici ils n'étaient que du texte de plus.
+ */
+function Terrain({ terrain, fete }: { terrain: readonly ThemeDuTerrain[]; fete: boolean }) {
+  return (
+    <section className="gp-terrain" aria-labelledby="gp-terrain">
+      <h2 id="gp-terrain" className="gp-etiquette">
+        {fete ? 'Sur ton terrain' : 'Sur son terrain'}
+      </h2>
       <ul>
         {terrain.map(t => {
           const sujet = sujetParCle(t.cle)
@@ -339,10 +335,7 @@ function Terrain({ terrain, fete, nom }: { terrain: readonly ThemeDuTerrain[]; f
               <span className="gp-terrain-icone" aria-hidden="true">
                 <Icon name={sujet ? iconeDuSujet(sujet) : 'star'} />
               </span>
-              <span className="gp-terrain-nom">
-                <b>{t.nom}</b>
-                <span className="muted small">{`${formatNumber(t.reponses)} réponses · ${t.pourcent} % de bonnes`}</span>
-              </span>
+              {t.nom}
             </li>
           )
         })}
@@ -351,39 +344,40 @@ function Terrain({ terrain, fete, nom }: { terrain: readonly ThemeDuTerrain[]; f
   )
 }
 
+/** Ceux qui l'ont battu, dans l'ordre d'arrivée : leurs visages et leurs prénoms, les quatre premiers, puis combien d'autres. */
+function Vainqueurs({ etat, titre }: { etat: EtatDuGrandPrix; titre: string }) {
+  const montres = etat.vainqueurs.slice(0, 4)
+  const autres = etat.vainqueurs.length - montres.length
+  return (
+    <section className="gp-vainqueurs" aria-label={titre}>
+      <span className="gp-etiquette">{titre}</span>
+      <ol>
+        {montres.map(v => (
+          <li key={v.id}>
+            <Avatar className="gp-mini" avatar={v.avatar} finition={v.finition} eclat={v.eclat} legendaire={v.legendaire} sceau={v.sceau} />
+            <span className="gp-nom">{v.nom}</span>
+          </li>
+        ))}
+        {autres > 0 && <li className="gp-autres">+{autres}</li>}
+      </ol>
+    </section>
+  )
+}
+
+/** Le bilan de la fêtée : deux chiffres, et les visages de ceux qui l'ont battue. */
 function BilanDuFantome({ etat }: { etat: EtatDuGrandPrix }) {
   const b = etat.bilan!
   return (
-    <section className="gp-bilan" aria-labelledby="gp-bilan">
-      <h2 id="gp-bilan">Ton fantôme, aujourd’hui</h2>
-      {etat.fete?.mot && <p className="gp-mot">« {etat.fete.mot} »</p>}
+    <section className="gp-bilan" aria-label="Ton fantôme, aujourd’hui">
       <div className="gp-bilan-chiffres">
         <span>
           <b>{b.coureurs}</b> {b.coureurs > 1 ? 'ont couru' : 'a couru'}
         </span>
         <span>
-          <b>{b.departs}</b> {b.departs > 1 ? 'départs' : 'départ'}
-        </span>
-        <span>
           <b>{b.vainqueurs}</b> {b.vainqueurs > 1 ? 't’ont battu' : 't’a battu'}
         </span>
       </div>
-      {b.tenus.length > 0 && (
-        <p className="small">
-          Tenus en échec :{' '}
-          {b.tenus.map((t, i) => (
-            <span key={t.id}>
-              {i > 0 && ', '}
-              {t.nom} ({t.departs === 1 ? 'un départ' : `${t.departs} départs`})
-            </span>
-          ))}
-        </p>
-      )}
-      {b.redoutable && (
-        <p className="small">
-          Ta question la plus redoutable : « {b.redoutable.texte} » — {b.redoutable.tombees} sur {b.redoutable.sur} y ont fait tomber la barre.
-        </p>
-      )}
+      {etat.vainqueurs.length > 0 && <Vainqueurs etat={etat} titre="Ils t’ont battu" />}
     </section>
   )
 }
@@ -538,9 +532,11 @@ function Revelation({ g, r, tropTard, course, fin, enRoute, onSuivant, refus }: 
             {refus}
           </p>
         )}
-        <button type="button" className="btn btn-primary gp-suivant" onClick={onSuivant} disabled={enRoute}>
-          {fin ? 'Voir l’arrivée' : 'Obstacle suivant'}
-        </button>
+        <SousLePouce>
+          <button type="button" className="btn btn-primary gp-suivant" onClick={onSuivant} disabled={enRoute}>
+            {fin ? 'Voir l’arrivée' : 'Obstacle suivant'}
+          </button>
+        </SousLePouce>
       </section>
     </div>
   )
@@ -565,8 +561,8 @@ function Arrivee({ etat, course, enRoute, onRecourir, refus, essai }: { etat: Et
       <header className="gp-tete gp-tete-courte">
         <CielDuGrandPrix />
         <ChevalDEtoiles pose={battu ? 'galop' : 'saut'} className="gp-tete-cheval-or" />
+        {essai ? <Sortie vers="Le QG" href="/admin#grand-prix" /> : <Sortie />}
         <div className="gp-tete-texte">
-          <span className="gp-surtitre">{g.titre} · arrivée</span>
           <h1>{titre}</h1>
           {manque && <span className="gp-fantome-ligne">{manque}</span>}
         </div>
@@ -594,21 +590,16 @@ function Arrivee({ etat, course, enRoute, onRecourir, refus, essai }: { etat: Et
           <Flot ruban={g.ruban} fantome={g.fantome} nom={`Le flot du ${g.titre}`} taille={72} />
           <span className="gp-gain-texte">
             <b id="gp-gagnes">{fin.flot ? 'Le flot est à toi' : 'Ton flot t’attendait déjà'}</b>
-            <span className="muted small">
-              Rangé dans ta collection, au carnet des fêtes{fin.rang ? ` · ${fin.rang === 1 ? '1ʳᵉ' : `${fin.rang}ᵉ`} place à l’arrivée` : ''}.
-            </span>
+            {fin.rang && <span className="muted small">{fin.rang === 1 ? '1ʳᵉ' : `${fin.rang}ᵉ`} à l’arrivée</span>}
           </span>
         </section>
       )}
       {fin?.prix && (
         <section className="gp-carte gp-gain" aria-labelledby="gp-porter">
           <Avatar className="gp-gain-prix" avatar="🐴" legendaire={fin.prix} />
-          <span className="gp-gain-texte">
-            <b id="gp-porter">{legendaire(fin.prix)?.nom ?? 'Un avatar'}</b>
-            <span className="muted small">À porter, dès maintenant</span>
-          </span>
+          <b id="gp-porter">{legendaire(fin.prix)?.nom ?? 'Un avatar'}</b>
           <a className="btn gp-essayer" href={`/profil?essayer=${encodeURIComponent(fin.prix)}#avatar`}>
-            Essayer
+            Le porter
           </a>
         </section>
       )}
@@ -633,19 +624,16 @@ function Arrivee({ etat, course, enRoute, onRecourir, refus, essai }: { etat: Et
         </div>
       </section>
 
-      <footer className="gp-pied gp-pied-double">
-        {refus && (
-          <p className="error small" role="alert">
-            {refus}
-          </p>
-        )}
-        <a className="btn" href={essai ? '/admin#grand-prix' : '/'}>
-          {essai ? 'Le QG' : 'Accueil'}
-        </a>
-        <button type="button" className="btn btn-primary" onClick={onRecourir} disabled={enRoute}>
+      {refus && (
+        <p className="error small" role="alert">
+          {refus}
+        </p>
+      )}
+      <SousLePouce className="gp-geste">
+        <button type="button" className="btn btn-primary gp-partir" onClick={onRecourir} disabled={enRoute}>
           Recourir
         </button>
-      </footer>
+      </SousLePouce>
     </div>
   )
 }

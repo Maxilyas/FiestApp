@@ -6,8 +6,9 @@ Né le 19 novembre 2026, pour un anniversaire de début décembre : le propriét
 
 ## La course
 
-- **Le départ** (`/grand-prix`) : le fantôme, son flot, ce qu'on gagne, **son terrain** ; ceux qui l'ont déjà battu, dans l'ordre d'arrivée.
-- **Son terrain** : les thèmes de la campagne où le fantôme a passé le plus de temps — trois au plus, choisis au QG, les trois plus joués d'office. On le bat chez lui : le Grand Prix est fait pour mettre la personne fêtée en valeur. Chaque thème se montre au départ avec ses réponses et sa part de bonnes (« 240 réponses · 85 % de bonnes »). Le quiz du jour n'y entre pas : le propriétaire l'a écarté — tout le monde l'a joué le même jour, et ce n'est pas là qu'on est chez soi.
+- **Chaque écran tient sur un écran**, son bouton compris, en 360 × 640 : des blocs qu'on voit avant de les lire — des tuiles, des pictogrammes, des pastilles —, presque sans phrase (le propriétaire, le 19 novembre 2026 : « Je veux que tout soit visible sur un écran […] moins de texte inutile, plus épuré »). Le bouton reste sous le pouce si le texte agrandi fait défiler la page.
+- **Le départ** (`/grand-prix`) : le titre et le fantôme dans le ciel, **son terrain** en trois tuiles, le flot à gagner, la règle en quatre pictogrammes (« 10 obstacles », « Faute : 4 pts », « Égalité : chrono », « Essais illimités »), ceux qui l'ont déjà battu en pastilles, dans l'ordre d'arrivée.
+- **Son terrain** : les thèmes de la campagne où le fantôme a passé le plus de temps — trois au plus, choisis au QG, les trois plus joués d'office. On le bat chez lui : le Grand Prix est fait pour mettre la personne fêtée en valeur. Au départ, chaque thème est une tuile, son emblème et son nom ; ses comptes ne se lisent qu'au QG. Le quiz du jour n'y entre pas : le propriétaire l'a écarté — tout le monde l'a joué le même jour, et ce n'est pas là qu'on est chez soi.
 - **Dix obstacles**, un QCM chacun, tirés de ses vraies réponses en campagne sur son terrain — la question telle qu'il l'a lue —, les thèmes à tour de rôle (4, 3 et 3 sur trois thèmes). Vingt secondes chacun ; le nom du thème au-dessus de la question. Le chrono part quand l'obstacle se montre, à l'horloge du serveur.
 - **Le fantôme saute** à son rythme : la campagne ne garde pas les temps, il saute donc à un temps tiré de ses temps du quiz du jour au même verdict — la seule chose qu'on en garde —, plus lent quand il se trompe. On le voit sauter, jamais ce qu'il a répondu : ça, c'est à la révélation.
 - **Le barème du concours hippique** : une barre — une mauvaise réponse — ou un refus — l'obstacle laissé au temps — coûtent **4 points**. Le moins de points gagne ; à égalité, le temps cumulé départage. Battre le fantôme, c'est moins de points, ou autant et plus vite.
@@ -23,7 +24,7 @@ Né le 19 novembre 2026, pour un anniversaire de début décembre : le propriét
 
 ## Sur l'accueil
 
-Ce jour-là, le Grand Prix prend la place de l'affiche d'une nouveauté, couché en bandeau : son flot, son titre, « Courir » — « Recourir » une fois battu. L'accueil tient toujours sur un écran. La personne fêtée trouve à son réveil une feuille par-dessus l'accueil, une fois par téléphone : le mot de l'administrateur, son flot d'honneur, son avatar — « Le porter », « Mon Grand Prix ». Sa page lui dit le bilan de son fantôme : combien l'ont couru, combien l'ont battu, et qui.
+Ce jour-là, le Grand Prix prend la place de l'affiche d'une nouveauté, couché en bandeau : son flot, son titre, « Courir » — « Recourir » une fois battu. L'accueil tient toujours sur un écran. La personne fêtée trouve à son réveil une feuille par-dessus l'accueil, une fois par téléphone : le mot de l'administrateur, son flot d'honneur, son avatar, et une ligne — « Toute la bande court contre ton fantôme » —, puis « Le porter », « Mon Grand Prix ». Sa page a son flot d'or dans le ciel, et le bilan de son fantôme : combien l'ont couru, combien l'ont battu, et qui, en pastilles ; puis son terrain et « Me battre moi-même ».
 
 ## Au QG
 

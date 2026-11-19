@@ -88,3 +88,23 @@ juste que si tu vas loin tu fais plus de fautes » (le propriétaire, le
 - **Chaque course les prend à tour de rôle** (4, 3 et 3), et ce qu'un
   coureur a déjà joué en campagne passe en dernier : sur un thème partagé,
   on ne court pas sur ses propres réponses.
+
+## Tout sur un écran
+
+« Le bouton "Me battre moi-même" n'est pas visible. Je veux que tout soit
+visible sur un écran. Je veux aussi moins de texte inutile, que ça soit plus
+épuré. Visuellement on doit comprendre » — et la feuille du réveil : « il y
+a plein de lignes de texte en dessous, pas jolies ni pertinentes » (le
+propriétaire, le 19 novembre 2026).
+
+- **Le départ, l'arrivée et la feuille tiennent en 360 × 640**, le bouton
+  au bas de l'écran, sous le pouce.
+- **Des blocs à voir** : le terrain en tuiles (emblème et nom, sans ses
+  comptes), la règle en quatre pictogrammes, ceux qui l'ont battu en
+  pastilles (visage et prénom). La fêtée a son flot d'or dans le ciel de sa
+  page et deux chiffres — ont couru, l'ont battue — à la place du flot à
+  gagner et de la règle ; « tenus en échec » et « sa question la plus
+  redoutable », deux phrases, sont partis.
+- **La feuille du réveil** : le paragraphe sous la carte — son terrain, les
+  règles, « toi aussi, tu peux courir » — est remplacé par une ligne dans la
+  carte, « Toute la bande court contre ton fantôme ».
