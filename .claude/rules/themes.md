@@ -185,7 +185,13 @@ paths:
   troisième. L'assemblage relit chaque peinture (`profilDUneMarche` : sa
   face, son dessus) et signale celle qui s'écarte (⚠) — à juger à l'œil sur la
   planche avant de livrer, une face organique (la souche de la Forêt) se lit
-  de travers sans l'être. **Sa finition suit la rareté** (`FINITIONS` :
+  de travers sans l'être. **Le médaillon ne se mesure pas : il se regarde**,
+  sur la planche des médaillons que l'assemblage écrit
+  (`export/decors/planche-des-medaillons.png`, chaque marche et le cercle du
+  gabarit par-dessus) : celui du Ciel du jour, plus grand et plus bas que le
+  cercle, a passé le profil et la livraison, et la pièce « 3 » s'est posée
+  sur son bord haut, chez un joueur (le retour du propriétaire, le
+  19 novembre 2026 ; repeint, avec celui de la Neige). **Sa finition suit la rareté** (`FINITIONS` :
   offert et commun, simples ; peu commun, plus riche ; rare, précieux ;
   épique, spectaculaire, la monture du médaillon sertie ; légendaire et
   gagné, un chef-d'œuvre, le gagné cerné d'or) : un thème qui change de

@@ -728,7 +728,10 @@ export const MARCHES_A_PEINDRE: { cle: string; fond: FondDUneMarche; sujet: stri
     cle: 'neige',
     fond: 'magenta',
     sujet:
-      'Theme — the Snowy winter night: the step is carved from blue ice and packed snow, frost patterns on its front, icicles along its top edge; on its top corners, little snow-covered fir trees with a warm glowing lantern on one side, a small snowman with a scarf on the other, snowflakes falling. Palette: midnight blue (#0b1627), ice blue (#a8dcff), white.',
+      // Repeinte le 19 novembre 2026 : son médaillon sortait plus grand et plus bas que le cercle, puis un ovale de
+      // travers, sa face se rétrécissait sous les glaçons, puis les cases en pointillés du croquis se peignaient sur sa
+      // neige — la consigne dit la face pleine, le médaillon et un dessus de neige nu.
+      'Theme — the Snowy winter night: the front face of the step is one wide wall of blue ice and packed snow, frost patterns on it, filling the rectangle edge to edge, a few short icicles hanging only from the edge of its top band, and the top band itself plain smooth snow with nothing drawn on it — no line, no dash, no frame, no box; the medallion is a perfectly round porthole of clear ice with a thin silver rim, exactly the circle of the sketch; on its top corners, little snow-covered fir trees with a warm glowing lantern on one side, a small snowman with a scarf on the other, snowflakes falling. Palette: midnight blue (#0b1627), ice blue (#a8dcff), white.',
   },
   {
     cle: 'cerisiers',
@@ -1478,6 +1481,34 @@ try {
     const { dessus, profondeur } = GABARIT_DE_LA_MARCHE
     const doute = d.bordFaux || Math.abs(p.dessus - (dessus - profondeur / 2)) > 0.045 || Math.abs(p.corps - FACE) > 0.05
     console.log(`  ${doute ? '⚠ ' : ''}marche-${m.cle} : face ${(p.corps * 100).toFixed(0)} % (${(FACE * 100).toFixed(0)}), dessus à ${p.dessus.toFixed(3)} (${dessus - profondeur} à ${dessus})`)
+  }
+  // La planche des médaillons : chaque marche, le cercle du gabarit tracé
+  // par-dessus — c'est lui qui pose la pièce du rang. Le profil ne mesure que
+  // la face et le dessus : le médaillon du Ciel du jour, plus grand et plus
+  // bas que le cercle, est passé jusqu'à l'écran d'un joueur, la pièce « 3 »
+  // posée sur son bord haut (le retour du propriétaire, le 19 novembre 2026).
+  // À juger à l'œil avant de livrer.
+  const marchesAssemblees = MARCHES_A_PEINDRE.filter(m => existsSync(path.join(app, `marche-${m.cle}-360.webp`)))
+  if (marchesAssemblees.length) {
+    const { dessus, medaillon, rayon } = GABARIT_DE_LA_MARCHE
+    const cy = 360 * (dessus + FACE * medaillon)
+    const r = 360 * FACE * rayon
+    const planche = await nav.newPage({ viewport: { width: 1480, height: 400 }, deviceScaleFactor: 1 })
+    await planche.setContent(
+      '<!doctype html><body style="margin:0;padding:8px;background:#1c181e;display:grid;grid-template-columns:repeat(7,200px);gap:8px;font:12px sans-serif;color:#f0d796">' +
+        marchesAssemblees
+          .map(
+            m =>
+              `<figure style="margin:0"><figcaption>${m.cle}</figcaption><svg viewBox="0 60 360 300" width="200" height="167">` +
+              `<image href="${enDataUrl(path.join(app, `marche-${m.cle}-360.webp`))}" width="360" height="480"/>` +
+              `<circle cx="180" cy="${cy}" r="${r}" fill="none" stroke="#00ffff" stroke-width="3"/></svg></figure>`,
+          )
+          .join('') +
+        '</body>',
+    )
+    await planche.screenshot({ path: path.join(racine, 'planche-des-medaillons.png'), fullPage: true })
+    await planche.close()
+    console.log(`  la planche des médaillons : ${path.join(racine, 'planche-des-medaillons.png')}`)
   }
   console.log(app)
   if (args.includes('--livrer')) livrer()
