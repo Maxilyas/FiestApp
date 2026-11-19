@@ -229,7 +229,9 @@ partagent les trois premières places (la liste les garde tous).
 
 > « Tu as mon feu vert » — le propriétaire, le même soir.
 
-Codés sur tout l'inventaire, sauf ce qui dit « inchangé » : l'écrin
+`trois-propositions/5-le-code.jpg` et `6-le-code-ivoire.jpg` : le code, vu
+par une joueuse classée 7ᵉ, sous le Velours et sous l'Ivoire. Codés sur tout
+l'inventaire, sauf ce qui dit « inchangé » : l'écrin
 (`Ecrin`, `client/src/components/Plaque.tsx`) partout où un joueur se montre
 hors d'une soirée, le podium (`PodiumDuClassement`, `surLePodium`) en tête du
 jour, du mois, du défi — de la semaine et entre amis — et du classement
