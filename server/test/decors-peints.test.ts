@@ -1,7 +1,7 @@
 // Les décors peints (`server/scripts/anime/decors.ts`) : le Calendrier des
 // Heures, les quatre thèmes peints, vingt fonds de carte — deux gagnés, six du
-// trésor, douze des savoirs que la boutique vend — et les quatre coffres de
-// la semaine. Leurs fichiers, servis sous
+// trésor, douze des savoirs que la boutique vend —, les quatre coffres de
+// la semaine, et les trente-cinq marches du podium. Leurs fichiers, servis sous
 // leur empreinte et d'un poids qu'un téléphone porte ; ce qui les cite — la
 // table du calendrier, celle des coffres, le bloc que la chaîne réécrit dans
 // chaque feuille — ; aucun fichier que plus personne ne cite ; et l'horloge
@@ -14,6 +14,7 @@ import path from 'node:path'
 import { demarrer } from './banc'
 import { PAGES } from '../../shared/calendrier'
 import { FONDS_EN_BOUTIQUE } from '../../shared/fonds'
+import { THEMES } from '../../shared/themes'
 
 const client = (fichier: string) => new URL(`../../client/src/${fichier}`, import.meta.url)
 
@@ -152,6 +153,21 @@ test('les douze fonds des savoirs sont peints, dans le même bloc, chacun son vo
     // Et la règle commune qui pose son image : sans elle, le bloc nommait une image que rien ne montrait.
     assert.match(dehors, new RegExp(`\\.carte-fond\\.fond-${f}[,\\s][^{]*\\{\\s*background: var\\(--fond-peint\\)`), `fond ${f} : son image posée`)
   }
+})
+
+test('chaque thème a sa marche du podium peinte, dans le même bloc, et rien d’autre ne la nomme', () => {
+  // Une par thème, Velours compris — la marche de la maison, sous le podium entier : `decors.ts` refuse de partir sans
+  // une marche par thème du catalogue, `plaques.test.ts` relit qui la pose et comment.
+  const { dedans, dehors } = bloc('styles.css')
+  const marches = [...dedans.matchAll(/^(\.[\w.:()-]+) \{ --marche-peinte: url\(([^)]+)\); \}$/gm)]
+  assert.equal(marches.length, THEMES.length, 'une marche par thème')
+  for (const [, selecteur, adresse] of marches) {
+    const cle = selecteur === '.podium-du-classement' ? 'velours' : /^\.pdc-marche\.plaque-([a-z]+)$/.exec(selecteur)?.[1]
+    assert.ok(cle && THEMES.some(t => t.key === cle), `${selecteur} : un thème du catalogue`)
+    verifierFichier(adresse, new RegExp(`^marche-${cle}-360\\.`))
+  }
+  // Écrit à la main, le podium ne lit que la propriété.
+  assert.match(dehors, /background: var\(--marche-peinte\)/)
 })
 
 test('les quatre coffres de la semaine sont peints, fermés et ouverts sur le même cadre', async () => {

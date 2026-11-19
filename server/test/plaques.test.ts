@@ -6,7 +6,8 @@
 // 18 novembre 2026 (`retours/2026-11-18/plaques/trois-propositions/`), deux
 // pièces : l'écrin — l'avatar posé sur une tuile à ses couleurs, son emblème
 // en filigrane — partout où un joueur se montre hors d'une soirée ; le
-// podium — les trois premiers sur leur marche — en tête d'un classement. Et à
+// podium — les trois premiers sur leur marche, depuis le 19 novembre 2026 une
+// peinture de son thème (`retours/2026-11-19/podium-peint/`) — en tête d'un classement. Et à
 // un contre un, la grande plaque des duels : chaque carte à la plaque de son
 // joueur, chacun sur son socle au verdict. Rien ne passe jamais sous un texte,
 // sauf le semis des cartes d'un duel, mesuré.
@@ -22,6 +23,11 @@ import { avecLEssai, essayer, lignesDeLEssai } from '../../shared/loge'
 import { jourDe } from '../../shared/jour'
 import { CATEGORIES } from '../../shared/categories'
 import { CONTRASTE_D_UN_EMBLEME, DEBUT, EMBLEMES, FIN, auPire, couleursDesPlaques, feuilleAJour, fondsDesThemes } from '../scripts/emblemes-des-plaques'
+import { FACE, GABARIT_DE_LA_MARCHE } from '../scripts/anime/gabarit-marche'
+
+/** Les repères du bloc des décors peints, que `decors.ts --livrer` réécrit : les marches du podium y sont. */
+const DEBUT_DES_DECORS = '/* ── Décors peints : écrit par `server/scripts/anime/decors.ts --livrer`, on ne le retouche pas à la main ── */'
+const FIN_DES_DECORS = '/* ── Fin des décors peints ── */'
 
 const CLIENT = new URL('../../client/src/', import.meta.url)
 const lu = (chemin: string) => readFileSync(new URL(chemin, CLIENT), 'utf8')
@@ -121,18 +127,20 @@ test('l’écrin et le podium rendus : la tuile à ses couleurs ou sa place vide
   assert.equal(rendu(React.createElement(Ecrin, { plaque: null }, '🦊')), '<span class="ecrin">🦊</span>')
   assert.equal(rendu(React.createElement(Ecrin, { plaque: 'x y', petit: true }, '🦊')), '<span class="ecrin ecrin-petit">🦊</span>')
 
-  // Le podium : la deuxième à gauche, la première au milieu, la troisième à droite ; à ses couleurs, ou son métal.
+  // Le podium : la deuxième à gauche, la première au milieu, la troisième à droite ; la marche de sa plaque, ou celle
+  // de la maison (le Velours, posé par la feuille sous le podium entier).
   const marche = (profileId: string, rang: number, plaque?: string, moi?: boolean) => ({ profileId, rang, plaque, moi, label: `La carte de ${profileId}, rang ${rang}`, visage: '🦊', nom: profileId, valeur: String(100 - rang) })
   const html = rendu(React.createElement(PodiumDuClassement, { marches: [marche('lea', 1, 'kintsugi'), marche('tom', 2), marche('zoe', 2, 'ocean', true)], onOuvrir: () => {} }))
-  const ordre = [...html.matchAll(/<div role="listitem" class="([^"]+)" style="--metal:([^"]+)">/g)].map(m => [m[1], m[2]])
+  const ordre = [...html.matchAll(/<div role="listitem" class="([^"]+)">/g)].map(m => m[1])
   assert.deepEqual(ordre, [
-    ['pdc-marche pdc-2', 'var(--argent-text)'],
-    ['pdc-marche pdc-1 plaque plaque-kintsugi', 'var(--or-text)'],
-    // Deux ex æquo à la deuxième place montent à la même hauteur ; la sienne se cerne.
-    ['pdc-marche pdc-2 me plaque plaque-ocean', 'var(--argent-text)'],
+    'pdc-marche pdc-2',
+    'pdc-marche pdc-1 plaque plaque-kintsugi',
+    // Deux ex æquo à la deuxième place montent à la même hauteur ; son prénom se lit à l'or.
+    'pdc-marche pdc-2 me plaque plaque-ocean',
   ])
-  // Un toucher ouvre sa carte : le nom du bouton est celui de sa ligne.
-  assert.match(html, /<button type="button" class="pdc-joueur" aria-label="La carte de lea, rang 1"><span class="pdc-avatar">🦊<\/span><span class="pdc-nom">lea<\/span><span class="pdc-valeur">99<\/span><span class="pdc-socle"><b>1<\/b><\/span><\/button>/)
+  // De haut en bas, comme on monte sur un podium : le prénom, le score, lui debout, sa marche et son rang. Un toucher
+  // ouvre sa carte : le nom du bouton est celui de sa ligne.
+  assert.match(html, /<button type="button" class="pdc-joueur" aria-label="La carte de lea, rang 1"><span class="pdc-nom">lea<\/span><span class="pdc-valeur">99<\/span><span class="pdc-avatar">🦊<\/span><span class="pdc-socle"><b>1<\/b><\/span><\/button>/)
   assert.match(html, /^<div class="podium-du-classement" role="list" aria-label="Le podium">/)
   // Rien à monter : rien ne se dessine.
   assert.equal(rendu(React.createElement(PodiumDuClassement, { marches: [] })), '')
@@ -157,7 +165,7 @@ test('la feuille : chaque plaque porte les couleurs de son thème, lisibles, et 
       ['--p-trait', '--accent'],
     ]
     for (const [p, j] of paires) assert.equal(lue.get(p), teinte(jetons, j).toLowerCase(), `${cle} : ${p} est le ${j} de son thème`)
-    // Ce qui s'écrit sur la plaque se lit : un nom sur sa plaque aux écrans d'un duel, son rang sur sa marche.
+    // Ce qui s'écrit sur la plaque se lit : un nom sur sa plaque aux écrans d'un duel.
     for (const p of ['--p-ink', '--p-muted', '--p-or']) {
       const c = contraste(lue.get(p)!, lue.get('--p-bg')!)
       assert.ok(c >= 4.5, `${cle} : ${p} sur son fond, ${c.toFixed(2)}:1`)
@@ -202,10 +210,10 @@ test('l’écrin et le podium : des images aux couleurs écrites dedans, jamais 
   assert.ok(bloc.length > 1000, 'le bloc des plaques se trouve')
   assert.doesNotMatch(bloc, /mask|filter|animation:(?!\s*none)|transform/, 'ni masque, ni filtre, ni mouvement')
   // L'emblème ne se pose qu'en filigrane, sous l'avatar d'un écrin — l'illustration d'une carte des collections en est
-  // un — et sous le rang d'une marche : jamais sous un prénom.
+  // un — : jamais sous un prénom. La marche du podium a sa peinture, depuis le 19 novembre 2026, plus son emblème.
   assert.deepEqual(
     [...bloc.matchAll(/([^{}]+)\{[^}]*var\(--p-embleme\)/g)].map(m => m[1].trim()),
-    ['.ecrin.plaque::before', '.cl-carte-illu.plaque::before', '.pdc-marche.plaque .pdc-socle::before'],
+    ['.ecrin.plaque::before', '.cl-carte-illu.plaque::before'],
   )
   assert.match(bloc, /\.ecrin\.plaque::before \{[^}]*opacity: 0\.16;/)
   // L'écrin a la même place avec ou sans plaque : les avatars d'une liste restent alignés.
@@ -235,26 +243,53 @@ test('l’écrin et le podium : des images aux couleurs écrites dedans, jamais 
   assert.match(lu('views/Collectionneurs.tsx'), /className=\{'cl-carte-illu' \+ classeDeLaPlaque\(f\.plaque\)\}/)
 })
 
-test('le podium se lit : le rang à l’or de sa plaque sur sa marche, son filigrane et son reflet compris', () => {
+test('le podium : chaque marche, une peinture de son thème posée par le gabarit, et son rang sur une pièce qui se lit', () => {
   const regle = (selecteur: string) => {
     const m = new RegExp(`(?:^|\\n)${selecteur.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`).exec(CSS)
     assert.ok(m, `la règle ${selecteur}`)
     return m![1]
   }
-  const socle = regle('.pdc-marche.plaque .pdc-socle')
-  const filigrane = Number(/opacity: (0\.\d+);/.exec(regle('.pdc-marche.plaque .pdc-socle::before'))?.[1])
-  const alpha = (rgb: string) => Number(new RegExp(`rgba\\(${rgb}, (0\\.\\d+)\\)`).exec(socle)?.[1] ?? 0)
-  assert.ok(filigrane > 0 && alpha('255, 255, 255') > 0 && alpha('0, 0, 0') > 0)
-  assert.match(regle('.pdc-marche.plaque .pdc-socle b'), /color: var\(--p-or\);/)
-  const tons = new Map([...CSS.matchAll(/\.plaque-([a-z]+) \{ --p-clair: (#[0-9a-f]{6}); --p-sombre: (#[0-9a-f]{6});/g)].map(m => [m[1], [m[2], m[3]]]))
-  const rgb = (h: string) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))
-  const melange = (a: string, b: string, t: number) => '#' + rgb(a).map((v, i) => Math.round(v + (rgb(b)[i] - v) * t).toString(16).padStart(2, '0')).join('')
-  for (const [cle, c] of couleursDesPlaques(CSS)) {
-    const [clair, sombre] = tons.get(cle) ?? assert.fail(`${cle} : ses deux tons`)
-    const fonds = [melange(c.bg, '#ffffff', alpha('255, 255, 255')), melange(c.bg, '#000000', alpha('0, 0, 0'))].flatMap(f => [f, melange(f, clair, filigrane), melange(f, sombre, filigrane)])
-    // Son rang s'écrit en grand (2 rem et plus) : 3:1, comme le score d'un duel.
-    const pire = Math.min(...fonds.map(f => contraste(c.or, f)))
-    assert.ok(pire >= 3, `${cle} : son rang sur sa marche, ${pire.toFixed(2)}:1`)
+  const pourcent = (v: number) => `${(v * 100).toFixed(2).replace(/\.?0+$/, '')}%`
+  // Chaque thème a sa marche dans le bloc de la chaîne ; qui n'a pas de plaque, la marche de la maison, le Velours,
+  // posée sous le podium entier — une plaque encore sans peinture la reçoit aussi.
+  const bloc = CSS.slice(CSS.indexOf(DEBUT_DES_DECORS), CSS.indexOf(FIN_DES_DECORS))
+  for (const t of THEMES) {
+    const selecteur = t.key === 'velours' ? '.podium-du-classement' : `.pdc-marche.plaque-${t.key}`
+    assert.match(bloc, new RegExp(`^${selecteur.replace(/\./g, '\\.')} \\{ --marche-peinte: url\\(/decors/marche-${t.key}-360\\.[0-9a-f]{10}\\.webp\\); \\}$`, 'm'), `${t.key} : sa marche`)
+  }
+  // La peinture se pose par le gabarit, jamais par ce qu'une image a peint : sa face avant à la largeur de la marche, son
+  // dessus au haut de la marche — ce qui est posé sur ses coins monte derrière l'avatar, devant elle.
+  const peinture = regle('.pdc-socle::before')
+  const { bord, dessus, medaillon, rayon } = GABARIT_DE_LA_MARCHE
+  assert.match(peinture, /background: var\(--marche-peinte\) top center \/ 100% auto no-repeat;/)
+  assert.match(peinture, new RegExp(`left: -${pourcent(bord / FACE).replace('%', '')}%;`), 'elle déborde de ce que le gabarit laisse sur les côtés')
+  assert.match(peinture, new RegExp(`right: -${pourcent(bord / FACE).replace('%', '')}%;`))
+  assert.match(peinture, new RegExp(`margin-top: -${pourcent(dessus / FACE).replace('%', '')}%;`), 'son dessus au haut de la marche')
+  assert.match(regle('.pdc-avatar'), /z-index: 1;/, 'il se tient devant ce qui est posé sur les coins')
+  // Sa case monte au moins aussi haut que ce décor, sur toute largeur : il ne touche jamais le score.
+  const air = Number(/padding-top: ([\d.]+)%;/.exec(regle('.pdc-avatar::before'))?.[1])
+  assert.ok(air >= (dessus / FACE) * 100, `la case de l'avatar, ${air} % de la largeur`)
+  // La pièce de rang, au centre du médaillon peint, un peu moins large que lui : sa monture peinte reste autour.
+  const piece = regle('.pdc-socle b')
+  const largeur = Number(/width: ([\d.]+)%;/.exec(piece)?.[1]) / 100
+  const [haut, gauche] = [...(/margin: ([\d.]+)% 0 0 -([\d.]+)%;/.exec(piece) ?? assert.fail('la marge de la pièce'))].slice(1).map(v => Number(v) / 100)
+  assert.ok(Math.abs(haut + largeur / 2 - medaillon) < 0.001, 'au centre du médaillon')
+  assert.ok(Math.abs(gauche - largeur / 2) < 0.001, 'au milieu de la marche')
+  assert.ok(largeur < 2 * rayon && largeur > rayon, `${largeur} : dans le médaillon, et assez grande pour se lire`)
+  // Son encre se lit sur tout son métal, du plus clair au plus sombre (4,5:1 : elle s'écrit en petit).
+  for (const place of [1, 2, 3]) {
+    const metal = regle(`.pdc-${place}`)
+    const ton = (nom: string) => /#[0-9a-f]{6}/i.exec(new RegExp(`--piece-${nom}: (#[0-9a-f]{6});`).exec(metal)?.[1] ?? '')?.[0] ?? assert.fail(`${place} : --piece-${nom}`)
+    for (const fond of [ton('clair'), ton('sombre')]) {
+      const c = contraste(ton('encre'), fond)
+      assert.ok(c >= 4.5, `la pièce du rang ${place} : ${c.toFixed(2)}:1 sur ${fond}`)
+    }
+  }
+  // Ses proportions, pas sa hauteur : sur une tablette, une hauteur fixe coupait le médaillon de la troisième au sol.
+  for (const place of [1, 2, 3]) {
+    const r = /aspect-ratio: (\d+) \/ (\d+);/.exec(regle(`.pdc-${place} .pdc-socle`)) ?? assert.fail(`${place} : ses proportions`)
+    const hauteur = Number(r[2]) / Number(r[1])
+    assert.ok(hauteur > medaillon + rayon, `la marche ${place} montre son médaillon entier`)
   }
 })
 

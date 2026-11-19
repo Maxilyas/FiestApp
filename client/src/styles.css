@@ -974,9 +974,13 @@ h3 > .icon {
 .cl-carte-illu.plaque::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--p-embleme) 5px 5px / 16px 16px repeat; opacity: 0.16; pointer-events: none; }
 .cl-carte-illu.plaque > * { position: relative; }
 
-/* Le podium : trois marches posées sur un sol, la liste juste dessous. Sans
-   plaque, une marche prend son métal (`--metal`, posé par la page), comme le
-   podium d'un quiz en soirée (`.marches`). */
+/* Le podium : trois marches posées sur un sol, la liste juste dessous —
+   chacune une peinture de son thème, le gagnant debout dessus (le choix du
+   propriétaire du 19 novembre 2026, `retours/2026-11-19/podium-peint/` : « un
+   vrai décor de podium détaillé […] je veux que ce soit encore plus beau »
+   pour les thèmes durs à obtenir). Sans plaque, la marche de la maison, le
+   Velours : personne n'y a l'air d'avoir moins. Les peintures sont écrites
+   dans le bloc de la chaîne (`--marche-peinte`, `decors.ts --livrer`). */
 .podium-du-classement {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr) minmax(0, 1fr);
@@ -991,48 +995,74 @@ h3 > .icon {
 .podium-du-classement + .leaderboard { margin-top: 12px; }
 .classement-periode > .podium-du-classement + .leaderboard { margin-top: -6px; }
 .pdc-marche { min-width: 0; }
+/* De haut en bas : son prénom, son score, lui debout, sa marche — comme on monte sur un podium. */
 .pdc-joueur { display: flex; flex-direction: column; align-items: center; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: center; cursor: pointer; }
 .pdc-joueur:where(div) { cursor: default; }
-.pdc-avatar { display: grid; place-items: center; height: 62px; margin-bottom: 4px; }
-.pdc-avatar .lb-avatar { font-size: 2.1rem; }
-.pdc-1 .pdc-avatar { height: 74px; }
-.pdc-1 .pdc-avatar .lb-avatar { font-size: 2.6rem; }
 .pdc-nom { max-width: 100%; overflow: hidden; color: var(--ink); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .pdc-nom > .duels-ligne-en-cours { margin-left: 4px; vertical-align: -2px; }
-.pdc-valeur { display: inline-flex; align-items: center; gap: 4px; margin-bottom: 8px; color: var(--accent-text); font-family: var(--serif); font-size: 1.15rem; line-height: 1.1; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
+.pdc-valeur { display: inline-flex; align-items: center; gap: 4px; color: var(--accent-text); font-family: var(--serif); font-size: 1.15rem; line-height: 1.1; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
 .pdc-valeur .blason { flex: none; }
 .pdc-unite { color: var(--muted); font-family: var(--sans); font-size: 0.8125rem; }
-.pdc-socle {
-  position: relative;
+/* Lui, les pieds sur le dessus de sa marche : devant ce qui est posé sur ses coins, qui monte derrière lui. Sa case
+   est au moins aussi haute que ce décor — 37,23 % de la largeur de la marche, plus un peu d'air : un pourcent de
+   remplissage se compte sur la largeur, que la case prend entière (`::before`, dans la même cellule que lui) —, et il
+   ne touche jamais le score, même sur une tablette où la marche du premier fait près de 200 points. */
+.pdc-avatar { position: relative; z-index: 1; display: grid; place-items: end center; align-self: stretch; min-height: 50px; margin-bottom: -2px; }
+.pdc-avatar::before { content: ''; padding-top: 39%; }
+.pdc-avatar::before, .pdc-avatar > * { grid-area: 1 / 1; }
+.pdc-avatar .lb-avatar { font-size: 2.1rem; }
+.pdc-1 .pdc-avatar { min-height: 60px; }
+.pdc-1 .pdc-avatar .lb-avatar { font-size: 2.6rem; }
+/* Ses proportions, pas sa hauteur : 96, 72 et 56 points sur un téléphone de 360 de large, et sur une tablette, où la
+   marche s'élargit, elle grandit avec — à hauteur fixe, le sol y coupait le médaillon de la troisième. */
+.pdc-socle { position: relative; align-self: stretch; container-type: inline-size; }
+.pdc-1 .pdc-socle { aspect-ratio: 112 / 96; }
+.pdc-2 .pdc-socle { aspect-ratio: 100 / 72; }
+.pdc-3 .pdc-socle { aspect-ratio: 100 / 56; }
+/* La peinture, posée par le gabarit (`server/scripts/anime/gabarit-marche.ts`), jamais par ce qu'une image a peint :
+   sa face avant fait 94 % de sa largeur — la marche, ici —, son dessus est à 35 % de sa largeur depuis son haut. Elle
+   déborde donc de 3,19 % de chaque côté (0,03 / 0,94), et monte de 37,23 % de la largeur de la marche (0,35 / 0,94) :
+   en marge, que le pourcent compte toujours sur la largeur. Le sol coupe sa face : on ne voit jamais son pied. */
+.pdc-socle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -3.19%;
+  bottom: 0;
+  left: -3.19%;
+  margin-top: -37.23%;
+  background: var(--marche-peinte) top center / 100% auto no-repeat;
+  pointer-events: none;
+}
+/* Son rang : une pièce d'or, d'argent ou de bronze sertie au milieu du médaillon peint — 24 % de la largeur sous le
+   dessus, et un peu moins large que lui (26 %) : sa monture peinte reste autour. La marche dit son thème, la pièce sa
+   place ; son encre se lit sur tout son métal, du plus clair au plus sombre (`plaques.test.ts`). */
+.pdc-socle b {
+  position: absolute;
+  top: 0;
+  left: 50%;
   display: grid;
   place-items: center;
-  align-self: stretch;
-  overflow: hidden;
-  border-top: 3px solid var(--metal);
-  border-radius: 12px 12px 0 0;
-  background: linear-gradient(to bottom, color-mix(in srgb, var(--metal) 26%, transparent), color-mix(in srgb, var(--metal) 4%, transparent));
+  width: 20%;
+  aspect-ratio: 1;
+  margin: 14% 0 0 -10%;
+  border-radius: 50%;
+  color: var(--piece-encre);
+  background: radial-gradient(circle at 34% 28%, var(--piece-clair), var(--piece-sombre) 82%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+  font-family: var(--serif);
+  font-size: 14.5cqw;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: lining-nums;
 }
-.pdc-socle b { position: relative; color: var(--metal); font-family: var(--serif); font-size: 2.1rem; line-height: 1; font-variant-numeric: lining-nums; }
-.pdc-1 .pdc-socle { height: 96px; }
-.pdc-1 .pdc-socle b { font-size: 2.7rem; }
-.pdc-2 .pdc-socle { height: 72px; }
-.pdc-3 .pdc-socle { height: 56px; }
-/* À ses couleurs : son fond, son filet, son emblème en filigrane, son rang à son or — en grand, 3:1 sur chaque plaque,
-   son ombre et son filigrane compris (`plaques.test.ts`). L'ombre du bas à 18 % et le filigrane à 12 % de la maquette
-   tombaient à 2,85:1 sous le rang de l'Ivoire ; à 10 % l'un et l'autre, 3,51 au pire. */
-.pdc-marche.plaque .pdc-socle {
-  border: 1px solid var(--p-trait);
-  border-bottom: 0;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0.1)), var(--p-bg);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
-}
-.pdc-marche.plaque .pdc-socle::before { content: ''; position: absolute; inset: 0; background: var(--p-embleme) 6px 6px / 22px 22px repeat; opacity: 0.1; pointer-events: none; }
-.pdc-marche.plaque .pdc-socle b { color: var(--p-or); }
-/* La sienne : son prénom à l'or du thème de celui qui regarde, sa marche cernée. */
+/* Ses trois métaux, écrits en dur : une pièce ne suit pas le thème de celui qui regarde. Son bord le plus sombre garde
+   4,5:1 sous son encre — le bronze à #94542a tombait à 2,9. */
+.pdc-1 { --piece-clair: #f7df8f; --piece-sombre: #b48420; --piece-encre: #241800; }
+.pdc-2 { --piece-clair: #f2f4f7; --piece-sombre: #98a0ac; --piece-encre: #262b33; }
+.pdc-3 { --piece-clair: #f0b583; --piece-sombre: #b8784a; --piece-encre: #1c0c02; }
+/* La sienne : son prénom à l'or du thème de celui qui regarde — sa marche est sa peinture, rien ne la cerne. */
 .pdc-marche.me .pdc-nom { color: var(--accent-text); }
-/* Cernée d'une ombre pleine, pas d'un `outline` : l'anneau du focus est le seul (`design.test.ts`). */
-.pdc-marche.me .pdc-socle { box-shadow: 0 0 0 2px var(--accent); }
-.pdc-marche.plaque.me .pdc-socle { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 0 2px var(--accent); }
 
 /* Les couleurs de chaque plaque : le fond, l'encre, l'encre atténuée, l'or du
    texte et le trait de son thème (`--bg`, `--ink`, `--muted`, `--accent-text`,
@@ -4835,6 +4865,41 @@ h3 > .icon {
 .carte-fond.fond-epices { --fond-peint: url(/decors/fond-epices-720.0af27890fb.webp); }
 .carte-fond.fond-table-de-jeux { --fond-peint: url(/decors/fond-table-de-jeux-720.1c5b3b3a0d.webp); }
 .carte-fond.fond-annees-folles { --fond-peint: url(/decors/fond-annees-folles-720.2efc802b5c.webp); }
+.podium-du-classement { --marche-peinte: url(/decors/marche-velours-360.6e069c85f7.webp); }
+.pdc-marche.plaque-ivoire { --marche-peinte: url(/decors/marche-ivoire-360.ff289c747e.webp); }
+.pdc-marche.plaque-cahier { --marche-peinte: url(/decors/marche-cahier-360.1bf08fbad3.webp); }
+.pdc-marche.plaque-carnet { --marche-peinte: url(/decors/marche-carnet-360.05734ec20b.webp); }
+.pdc-marche.plaque-guinguette { --marche-peinte: url(/decors/marche-guinguette-360.2ce31c6144.webp); }
+.pdc-marche.plaque-pyjama { --marche-peinte: url(/decors/marche-pyjama-360.7834cadcb2.webp); }
+.pdc-marche.plaque-stade { --marche-peinte: url(/decors/marche-stade-360.35c59bde5c.webp); }
+.pdc-marche.plaque-jungle { --marche-peinte: url(/decors/marche-jungle-360.26d66428f9.webp); }
+.pdc-marche.plaque-ocean { --marche-peinte: url(/decors/marche-ocean-360.a65bcf8da9.webp); }
+.pdc-marche.plaque-patisserie { --marche-peinte: url(/decors/marche-patisserie-360.95fe2dab82.webp); }
+.pdc-marche.plaque-gameboy { --marche-peinte: url(/decors/marche-gameboy-360.b74cae4470.webp); }
+.pdc-marche.plaque-foret { --marche-peinte: url(/decors/marche-foret-360.cae4d19411.webp); }
+.pdc-marche.plaque-carnaval { --marche-peinte: url(/decors/marche-carnaval-360.aff4035b10.webp); }
+.pdc-marche.plaque-plage { --marche-peinte: url(/decors/marche-plage-360.9cfebb2cbf.webp); }
+.pdc-marche.plaque-licorne { --marche-peinte: url(/decors/marche-licorne-360.3e8b758b4e.webp); }
+.pdc-marche.plaque-heros { --marche-peinte: url(/decors/marche-heros-360.9ce9022d5b.webp); }
+.pdc-marche.plaque-grimoire { --marche-peinte: url(/decors/marche-grimoire-360.5fa1f5f6cb.webp); }
+.pdc-marche.plaque-filmnoir { --marche-peinte: url(/decors/marche-filmnoir-360.ef340684c8.webp); }
+.pdc-marche.plaque-disco { --marche-peinte: url(/decors/marche-disco-360.067b66471d.webp); }
+.pdc-marche.plaque-halloween { --marche-peinte: url(/decors/marche-halloween-360.9e2d15d01e.webp); }
+.pdc-marche.plaque-neige { --marche-peinte: url(/decors/marche-neige-360.85f793ae81.webp); }
+.pdc-marche.plaque-cerisiers { --marche-peinte: url(/decors/marche-cerisiers-360.d14f171258.webp); }
+.pdc-marche.plaque-neon { --marche-peinte: url(/decors/marche-neon-360.661ab48091.webp); }
+.pdc-marche.plaque-olympe { --marche-peinte: url(/decors/marche-olympe-360.8d565e57df.webp); }
+.pdc-marche.plaque-braises { --marche-peinte: url(/decors/marche-braises-360.cd3799d451.webp); }
+.pdc-marche.plaque-cosmos { --marche-peinte: url(/decors/marche-cosmos-360.2c2cb834cb.webp); }
+.pdc-marche.plaque-feudartifice { --marche-peinte: url(/decors/marche-feudartifice-360.56c8f3cc5a.webp); }
+.pdc-marche.plaque-aurore { --marche-peinte: url(/decors/marche-aurore-360.1e5f5adec9.webp); }
+.pdc-marche.plaque-kintsugi { --marche-peinte: url(/decors/marche-kintsugi-360.1c9f217a2e.webp); }
+.pdc-marche.plaque-theatre { --marche-peinte: url(/decors/marche-theatre-360.8781897ba0.webp); }
+.pdc-marche.plaque-babel { --marche-peinte: url(/decors/marche-babel-360.b33fd838ba.webp); }
+.pdc-marche.plaque-horloge { --marche-peinte: url(/decors/marche-horloge-360.3688562533.webp); }
+.pdc-marche.plaque-ciel { --marche-peinte: url(/decors/marche-ciel-360.e86004c412.webp); }
+.pdc-marche.plaque-heures { --marche-peinte: url(/decors/marche-heures-360.5e5c537d69.webp); }
+.pdc-marche.plaque-sommet { --marche-peinte: url(/decors/marche-sommet-360.d6eeea1b21.webp); }
 /* ── Fin des décors peints ── */
 .carte-fond.fond-triomphe,
 .carte-fond.fond-cadran,
