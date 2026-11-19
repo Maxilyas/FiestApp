@@ -61,5 +61,13 @@ marches larges et basses.
   peinture, si un avatar ou un décor touche le score, ou si la pièce du rang
   sort de sa marche.
 
+Le soir même, sur le classement du jour d'un joueur, la pièce « 3 » de la
+marche du Ciel du jour se posait sur le bord haut de son médaillon peint,
+plus grand et plus bas que le cercle du gabarit : le profil ne mesure que la
+face et le dessus. Le Ciel et la Neige (un peu décalée aussi) ont été
+repeints, 0,72 $, et l'assemblage écrit depuis une planche des médaillons,
+le cercle du gabarit sur chaque marche (`le-code/5-les-medaillons.jpg`), à
+regarder avant de livrer.
+
 Les originaux en 1K (33 Mo, les repeints mis de côté compris) restent dans
 `export/decors/originaux/`, hors du dépôt, sur la machine qui les a peints.
