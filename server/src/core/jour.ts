@@ -84,7 +84,7 @@ import {
   type SalleDuBonus,
   type StatutDUneProposition,
 } from '../../../shared/propositions'
-import { classer, rangDansLesTries } from '../../../shared/classement'
+import { classer, rangDansLesTries, type Departage } from '../../../shared/classement'
 import { PLACES_DU_COFFRE_DU_MOIS, PREMIER_MOIS_DES_COFFRES } from '../../../shared/coffre'
 import { nomsAffiches, sansAccent } from '../../../shared/homonymes'
 import { tronquer } from '../../../shared/avatars'
@@ -190,6 +190,9 @@ interface Partie {
   servieLe: number | null
   points: number
   justes: number
+  /** Le temps de ses bonnes réponses chronométrées, et leur nombre : ce qui départage les ex æquo (`tempsMoyen`). */
+  tempsDesJustes: number
+  justesChronometrees: number
   finieLe: number | null
   xp: number
   /** Son bonus de série (`xpDeSerie`), écrit quand elle commence. */
@@ -527,6 +530,54 @@ interface Joueur {
   points: number
   enCours: boolean
   commenceeLe: number
+  /** Le temps de ses bonnes réponses et leur nombre, sur le jour ou le mois : son départage (`tempsMoyen`). */
+  tempsDesJustes: number
+  justesChronometrees: number
+}
+
+/**
+ * Le départage des ex æquo, au temps de réaction (le choix du propriétaire du
+ * 19 novembre 2026 : « que le temps de réaction soit compté pour départager
+ * les ex æquo ») : à points égaux, le plus rapide en moyenne sur ses bonnes
+ * réponses passe devant. Le bonus de rapidité ne départageait presque
+ * personne : il reste plein tant qu'on répond pendant le temps de lecture
+ * (`pointsDuChoix`), ce que faisaient 81 % des bonnes réponses — les scores
+ * tombaient sur des multiples de 200, et sur cinquante-quatre jours, neuf
+ * avaient plusieurs premiers (sept à 2000 points le 20 octobre 2026).
+ *
+ * La moyenne, pas le total : deux ex æquo n'ont pas toujours autant de bonnes
+ * réponses, et le total chargeait celui qui en avait le plus. Au dixième de
+ * seconde : le temps se mesure au serveur, réseau du téléphone compris, et un
+ * écart plus fin ne dirait que la 4G de l'un et le wifi de l'autre — ces deux-là
+ * restent ex æquo. Seules comptent les bonnes réponses chronométrées d'une
+ * question qui compte : ni annulée, ni la sienne.
+ *
+ * Elle vaut le classement du jour, sa nuit — podium, lauriers, victoires —,
+ * la place d'hier et celle de ses jours joués, et le mois — son champion, ses
+ * coffres. Pas les seuils, qui se lisent aux points (L'Élite au premier quart,
+ * le Phénix à la moitié basse) : à points égaux, on est dans le même quart.
+ * Et rien d'avant elle (`departageDepuis`).
+ */
+const DIXIEME_MS = 100
+
+/** Le temps moyen de ses bonnes réponses, au dixième de seconde, en millisecondes : null sans bonne réponse chronométrée. */
+export function tempsMoyen(tempsDesJustes: number, justesChronometrees: number): number | null {
+  return justesChronometrees > 0 ? Math.round(tempsDesJustes / justesChronometrees / DIXIEME_MS) * DIXIEME_MS : null
+}
+
+/** Le départage de qui n'a aucune bonne réponse chronométrée : derrière tous les autres, à égalité entre eux (un nombre fini, `Departage`). */
+const SANS_TEMPS = Number.MAX_SAFE_INTEGER
+
+const departageDuJoueur: Departage<Joueur> = j => tempsMoyen(j.tempsDesJustes, j.justesChronometrees) ?? SANS_TEMPS
+
+/** Sa ligne dans `jour_meta` : le premier jour départagé (`JourStore.departageDepuis`). */
+const CLE_DU_DEPARTAGE = 'departage_au_temps'
+
+/** Ce qu'il faut d'un joueur d'un jour pour y lire une place : ses points, et son départage (`tempsMoyen`, ou `SANS_TEMPS`). */
+interface PointsDUnJoueur {
+  id: string
+  points: number
+  temps: number
 }
 
 /**
@@ -758,7 +809,7 @@ export class JourStore {
    * de ses trente derniers jours : 6 000 lignes par visite à deux cents
    * joueurs par jour.
    */
-  private pointsGardes = new Map<string, { revision: number; points: { id: string; points: number }[] }>()
+  private pointsGardes = new Map<string, { revision: number; points: PointsDUnJoueur[] }>()
   /**
    * Les tirages lus : figés à la première demande, ils ne changent plus que
    * par une annulation, qui remet le sien à jour sous son verrou
@@ -785,6 +836,16 @@ export class JourStore {
   private championsDuMois: { mois: string; ids: ReadonlySet<string> } = { mois: '', ids: AUCUN_LAURIER }
   /** Le mois en cours au dernier passage de la nuit : les mois d'avant sont clos jusque-là (`cloreLesMois`). */
   private moisClosAvant = ''
+  /**
+   * Le premier jour départagé au temps (`DIXIEME_MS`) : celui où ce serveur
+   * a démarré pour la première fois avec la règle, écrit une fois dans
+   * `jour_meta` (`poserLeDepartage`). Les jours d'avant ont payé leur podium à
+   * tous leurs ex æquo, et leurs classements les gardent ainsi : départagés
+   * après coup, ils auraient montré deuxième un joueur qui porte le laurier de
+   * ce jour-là. Le mois de ce jour se départage en entier — il n'était pas
+   * clos. Chaque base a le sien : la préproduction ne date pas la production.
+   */
+  private departageDepuis: string | null = null
   private ferme = false
   /**
    * Un laurier est tombé ou s'est posé sur ce profil : la salle des soirées
@@ -1040,8 +1101,57 @@ export class JourStore {
     // `jour_reserve` est déjà lu, celui de `jour_propositions` coûterait une
     // lecture de plus à chaque réveil.
     await ajouterColonne(this.client, 'jour_reserve', 'd_office', 'INTEGER NOT NULL DEFAULT 0')
-    for (const r of (await this.client.execute('SELECT profile_id FROM jour_masques')).rows) this.masques.add(String(r.profile_id))
+    // Le temps de ses bonnes réponses et leur nombre (le 19 novembre 2026) :
+    // le départage des ex æquo, à côté des points qu'il départage. Écrits avec
+    // eux, ils ne coûtent rien de plus ; relus de `jour_reponses`, le classement
+    // du mois aurait lu dix lignes par partie. Le schéma est déjà lu.
+    await ajouterColonne(this.client, 'jour_parties', 'temps_des_justes', 'INTEGER NOT NULL DEFAULT 0')
+    await ajouterColonne(this.client, 'jour_parties', 'justes_chronometrees', 'INTEGER NOT NULL DEFAULT 0')
+    const [masques, departage] = await this.client.batch(
+      ['SELECT profile_id FROM jour_masques', { sql: 'SELECT valeur FROM jour_meta WHERE cle = ?', args: [CLE_DU_DEPARTAGE] }],
+      'read',
+    )
+    for (const r of masques.rows) this.masques.add(String(r.profile_id))
+    this.departageDepuis = departage.rows[0] ? String(departage.rows[0].valeur) : await this.poserLeDepartage()
     await this.amorcer()
+  }
+
+  /**
+   * Au premier démarrage avec le départage au temps : ce jour en devient le
+   * premier, et les parties de son mois prennent le temps de leurs bonnes
+   * réponses, relu de `jour_reponses` — les autres n'en auront jamais besoin.
+   * Dans le même lot que la date : une panne entre les deux laisserait des
+   * temps à zéro, que rien ne recompterait.
+   */
+  private async poserLeDepartage(): Promise<string> {
+    const jour = jourDe(this.maintenant())
+    const chronometree = `r.profile_id = jour_parties.profile_id AND r.jour = jour_parties.jour AND r.juste = 1 AND r.ms IS NOT NULL
+      AND r.question NOT IN (SELECT value FROM json_each(COALESCE((SELECT t.annulees FROM jour_tirages t WHERE t.jour = jour_parties.jour), '[]')))`
+    const [, , lu] = await this.client.batch(
+      [
+        {
+          sql: `UPDATE jour_parties SET
+                  temps_des_justes = (SELECT COALESCE(SUM(r.ms), 0) FROM jour_reponses r WHERE ${chronometree}),
+                  justes_chronometrees = (SELECT COUNT(*) FROM jour_reponses r WHERE ${chronometree})
+                WHERE jour >= ?`,
+          args: [`${moisDe(jour)}-01`],
+        },
+        { sql: 'INSERT OR IGNORE INTO jour_meta (cle, valeur) VALUES (?, ?)', args: [CLE_DU_DEPARTAGE, jour] },
+        { sql: 'SELECT valeur FROM jour_meta WHERE cle = ?', args: [CLE_DU_DEPARTAGE] },
+      ],
+      'write',
+    )
+    return String(lu.rows[0]?.valeur ?? jour)
+  }
+
+  /**
+   * Le départage d'un jour (« 2026-11-19 ») ou d'un mois (« 2026-11 »), s'il
+   * le prend : depuis le premier jour départagé, et le mois de ce jour.
+   */
+  private departage(periode: string): Departage<Joueur> | undefined {
+    const depuis = this.departageDepuis
+    if (depuis === null) return undefined
+    return periode >= (periode.length === 7 ? moisDe(depuis) : depuis) ? departageDuJoueur : undefined
   }
 
   // ── Les métadonnées et la difficulté mesurée ────────────────────────────
@@ -1994,7 +2104,7 @@ export class JourStore {
       }
       const [res, lue, ...stats] = lus
       if (res.rowsAffected > 0) {
-        this.suivreAuClassement(jour, profil, { points: 0, enCours: true, commenceeLe })
+        this.suivreAuClassement(jour, profil, { points: 0, enCours: true, commenceeLe, tempsDesJustes: 0, justesChronometrees: 0 })
         // Son bonus de série d'abord : versé avant ses paliers, il compte
         // déjà dans le niveau que La Légende lit.
         await this.payerLaSerie(profil.id, jour, serieLue(stats.slice(LECTURES_AVANT_LA_SERIE), jour).serie)
@@ -2181,6 +2291,10 @@ export class JourStore {
       total = gagne + partDeLAuteur(gagne, autresQuestions(tirage))
       justes = trouvees + partDeLAuteur(trouvees, autresQuestions(tirage))
     }
+    // Son départage : le temps d'une bonne réponse qui compte s'ajoute au sien (`tempsMoyen`).
+    const chronometree = juste && !annulee && ms !== null
+    const tempsDesJustes = partie.tempsDesJustes + (chronometree ? ms : 0)
+    const justesChronometrees = partie.justesChronometrees + (chronometree ? 1 : 0)
     const derniere = index + 1 >= tirage.questions.length
     const maintenant = this.maintenant()
     let res: ResultSet[]
@@ -2196,9 +2310,20 @@ export class JourStore {
                 args: [partie.profileId, partie.jour, index, choix, ms, juste ? 1 : 0, points, maintenant, compagnon],
               },
           {
-            sql: `UPDATE jour_parties SET question = ?, servie_le = NULL, points = ?, justes = ?, finie_le = ?, xp = ?
+            sql: `UPDATE jour_parties SET question = ?, servie_le = NULL, points = ?, justes = ?, temps_des_justes = ?, justes_chronometrees = ?, finie_le = ?, xp = ?
                   WHERE profile_id = ? AND jour = ? AND question = ?`,
-            args: [index + 1, total, justes, derniere ? maintenant : null, xpDuJour(total, possiblesDe(tirage)), partie.profileId, partie.jour, index],
+            args: [
+              index + 1,
+              total,
+              justes,
+              tempsDesJustes,
+              justesChronometrees,
+              derniere ? maintenant : null,
+              xpDuJour(total, possiblesDe(tirage)),
+              partie.profileId,
+              partie.jour,
+              index,
+            ],
           },
           ...this.lecturesDeLExperience(partie.profileId),
           ...this.lecturesDeRevelation(partie.profileId, partie.jour, index),
@@ -2223,7 +2348,7 @@ export class JourStore {
       suite: lirePartie(partie.profileId, partie.jour, revelation[2].rows[0]),
     }
     if (avance.rowsAffected === 0) return lu
-    this.suivreAuClassement(partie.jour, partie.profileId, { points: total, enCours: !derniere })
+    this.suivreAuClassement(partie.jour, partie.profileId, { points: total, enCours: !derniere, tempsDesJustes, justesChronometrees })
     // Ses paliers ne bougent qu'au début de la partie (un jour joué, voir
     // `commencer`) et à sa fin (un sans-faute) : les chercher à chaque
     // réponse coûtait un aller-retour de plus sous les doigts du joueur.
@@ -2541,13 +2666,25 @@ export class JourStore {
    * qui n'a pas de ligne. Sous son verrou : une réponse en route ne s'y
    * glisse pas.
    */
-  private async brutDe(profileId: string, jour: string, tirage: Tirage): Promise<{ points: number; justes: number }> {
+  private async brutDe(
+    profileId: string,
+    jour: string,
+    tirage: Tirage,
+  ): Promise<{ points: number; justes: number; tempsDesJustes: number; justesChronometrees: number }> {
     const res = await this.client.execute({
-      sql: `SELECT COALESCE(SUM(points), 0) AS points, COALESCE(SUM(juste), 0) AS justes FROM jour_reponses
+      sql: `SELECT COALESCE(SUM(points), 0) AS points, COALESCE(SUM(juste), 0) AS justes,
+                   COALESCE(SUM(CASE WHEN juste = 1 THEN ms END), 0) AS temps, COUNT(CASE WHEN juste = 1 THEN ms END) AS chronometrees
+            FROM jour_reponses
             WHERE profile_id = ? AND jour = ? AND question NOT IN (SELECT value FROM json_each(?))`,
       args: [profileId, jour, JSON.stringify(tirage.annulees)],
     })
-    return { points: Number(res.rows[0]?.points ?? 0), justes: Number(res.rows[0]?.justes ?? 0) }
+    const r = res.rows[0]
+    return {
+      points: Number(r?.points ?? 0),
+      justes: Number(r?.justes ?? 0),
+      tempsDesJustes: Number(r?.temps ?? 0),
+      justesChronometrees: Number(r?.chronometrees ?? 0),
+    }
   }
 
   /** Les lectures d'une révélation : seules, ou au bout du lot qui écrit la réponse. */
@@ -2642,8 +2779,9 @@ export class JourStore {
     const categories = [...new Set(tirage.questions.map(q => q.categorie).filter((c): c is string => !!c))]
     const joueurs = lus ?? (await this.joueursDu(jour, profil.id))
     const nom = nommer(joueurs, this.deps.profiles)
-    const classes = classer(joueurs, j => j.points, nom, j => j.profil.id)
+    const classes = classer(joueurs, j => j.points, nom, j => j.profil.id, this.departage(jour))
     const moi = classes.find(c => c.item.profil.id === profil.id)
+    // Le plus proche devant lui aux points : un ex æquo plus rapide n'est pas « à 0 pt ».
     const devant = moi && classes.filter(c => c.item.points > moi.item.points).at(-1)
     const etat = !partie ? 'a-jouer' : partie.finieLe !== null ? 'finie' : 'en-cours'
     let vue: PartieDuJour = {
@@ -2814,12 +2952,24 @@ export class JourStore {
   }
 
   private async lireClassement(jour: string): Promise<Joueur[]> {
-    const res = await this.client.execute({ sql: 'SELECT profile_id, points, finie_le, commencee_le FROM jour_parties WHERE jour = ?', args: [jour] })
+    const res = await this.client.execute({
+      sql: 'SELECT profile_id, points, finie_le, commencee_le, temps_des_justes, justes_chronometrees FROM jour_parties WHERE jour = ?',
+      args: [jour],
+    })
     const profils = await this.deps.profiles.byIds(res.rows.map(r => String(r.profile_id)))
     const lus: Joueur[] = []
     res.rows.forEach((r, i) => {
       const profil = profils[i]
-      if (profil) lus.push({ profil, points: Number(r.points), enCours: r.finie_le == null, commenceeLe: Number(r.commencee_le) })
+      if (profil) {
+        lus.push({
+          profil,
+          points: Number(r.points),
+          enCours: r.finie_le == null,
+          commenceeLe: Number(r.commencee_le),
+          tempsDesJustes: Number(r.temps_des_justes ?? 0),
+          justesChronometrees: Number(r.justes_chronometrees ?? 0),
+        })
+      }
     })
     return lus
   }
@@ -2841,20 +2991,25 @@ export class JourStore {
    * reste en retard, et se relit. Une lecture partie avant ne s'installe pas
    * par-dessus (`classementDe` garde la révision la plus récente).
    */
-  private suivreAuClassement(jour: string, joueur: ProfileRec | string, changement: { points: number; enCours: boolean; commenceeLe?: number }) {
+  private suivreAuClassement(
+    jour: string,
+    joueur: ProfileRec | string,
+    changement: { points: number; enCours: boolean; tempsDesJustes: number; justesChronometrees: number; commenceeLe?: number },
+  ) {
     const avant = this.revisionDu(jour)
     this.reviser(jour)
     const garde = this.classementsGardes.get(jour)
     if (!garde || garde.revision !== avant) return
     const id = typeof joueur === 'string' ? joueur : joueur.id
     const i = garde.joueurs.findIndex(j => j.profil.id === id)
+    const { points, enCours, tempsDesJustes, justesChronometrees } = changement
     let joueurs: Joueur[]
     if (i >= 0) {
       joueurs = garde.joueurs.slice()
-      joueurs[i] = { ...joueurs[i], points: changement.points, enCours: changement.enCours }
+      joueurs[i] = { ...joueurs[i], points, enCours, tempsDesJustes, justesChronometrees }
     } else if (typeof joueur !== 'string' && changement.commenceeLe !== undefined) {
       // Un joueur qui arrive : comme la relecture le trouverait, sa partie à zéro, en cours.
-      joueurs = [...garde.joueurs, { profil: joueur, points: changement.points, enCours: changement.enCours, commenceeLe: changement.commenceeLe }]
+      joueurs = [...garde.joueurs, { profil: joueur, points, enCours, commenceeLe: changement.commenceeLe, tempsDesJustes, justesChronometrees }]
     } else {
       return
     }
@@ -2878,7 +3033,8 @@ export class JourStore {
   /** Le classement d'un mois : les points de tous ses jours, additionnés. */
   async classementDuMois(mois: string, pour: string | null): Promise<ClassementDuJour> {
     const res = await this.client.execute({
-      sql: `SELECT profile_id, SUM(points) AS points, MIN(commencee_le) AS commencee_le FROM jour_parties
+      sql: `SELECT profile_id, SUM(points) AS points, MIN(commencee_le) AS commencee_le,
+                   SUM(temps_des_justes) AS temps_des_justes, SUM(justes_chronometrees) AS justes_chronometrees FROM jour_parties
             WHERE jour >= ? AND jour <= ? GROUP BY profile_id`,
       args: [`${mois}-01`, `${mois}-31`],
     })
@@ -2887,20 +3043,36 @@ export class JourStore {
     res.rows.forEach((r, i) => {
       const profil = profils[i]
       if (!profil || (this.masques.has(profil.id) && profil.id !== pour)) return
-      joueurs.push({ profil, points: Number(r.points), enCours: false, commenceeLe: Number(r.commencee_le) })
+      joueurs.push({
+        profil,
+        points: Number(r.points),
+        enCours: false,
+        commenceeLe: Number(r.commencee_le),
+        // Le mois se départage sur toutes ses bonnes réponses : la moyenne de ses jours, pesée par leurs bonnes réponses.
+        tempsDesJustes: Number(r.temps_des_justes ?? 0),
+        justesChronometrees: Number(r.justes_chronometrees ?? 0),
+      })
     })
     return { ...this.lignes(joueurs, mois, pour), fige: moisDe(jourDe(this.maintenant())) > mois }
   }
 
   private lignes(joueurs: readonly Joueur[], periode: string, pour: string | null): Omit<ClassementDuJour, 'fige'> {
     const nom = nommer(joueurs, this.deps.profiles)
-    const classes = classer(joueurs, j => j.points, nom, j => j.profil.id)
+    const departage = this.departage(periode)
+    const classes = classer(joueurs, j => j.points, nom, j => j.profil.id, departage)
+    // Le temps ne se montre que là où il a départagé : sur les lignes à points
+    // égaux avec une voisine. Partout, il chargeait chaque ligne d'un chiffre
+    // qui ne décide de rien.
+    const aEgalite = new Set(
+      departage ? classes.filter((c, i) => c.item.points > 0 && [classes[i - 1], classes[i + 1]].some(v => v && v.item.points === c.item.points)).map(c => c.item) : [],
+    )
     const ligne = ({ item: j, rang }: { item: Joueur; rang: number }): LigneDuJour => {
       const { niveau, finition, eclat, legendaire, sceau, laurier } = this.deps.profiles.apparenceDe(j.profil)
       // Sa bordure de ligue, de mémoire : le classement ne l'attend pas.
       const bordure = this.deps.profiles.bordureDe(j.profil, legendaire)
       // La plaque de son nom, de mémoire aussi.
       const plaque = this.deps.profiles.plaqueDe(j.profil)
+      const temps = aEgalite.has(j) ? tempsMoyen(j.tempsDesJustes, j.justesChronometrees) : null
       return {
         profileId: j.profil.id,
         nom: nom(j),
@@ -2915,6 +3087,7 @@ export class JourStore {
         ...(plaque && { plaque }),
         points: j.points,
         rang,
+        ...(temps !== null && { temps }),
         ...(j.enCours && { enCours: true as const }),
       }
     }
@@ -2984,7 +3157,7 @@ export class JourStore {
     ])
     if (!partie) return null
     const [tirage, joueurs] = await Promise.all([this.tirageLu(jour), this.joueursDu(jour, profil.id)])
-    const classes = classer(joueurs, j => j.points, j => j.profil.name, j => j.profil.id)
+    const classes = classer(joueurs, j => j.points, j => j.profil.name, j => j.profil.id, this.departage(jour))
     const rang = classes.find(c => c.item.profil.id === profil.id)?.rang ?? 0
     const comptees = tirage ? tirage.questions.length - tirage.annulees.length : 0
     // Ce que la nuit a décerné seulement : le reste tombait avec la partie,
@@ -3449,7 +3622,7 @@ export class JourStore {
         { sql: 'SELECT created_at FROM profile_sabliers WHERE profile_id = ?', args: [profileId] },
         justes.instruction,
         {
-          sql: `SELECT jour, profile_id, points FROM jour_parties WHERE jour IN (${aLire})
+          sql: `SELECT jour, profile_id, points, temps_des_justes, justes_chronometrees FROM jour_parties WHERE jour IN (${aLire})
                 AND profile_id IN (SELECT id FROM profiles WHERE disabled_at IS NULL)`,
           args: [profileId, ...gardes],
         },
@@ -3495,7 +3668,8 @@ export class JourStore {
 
   /**
    * Ses derniers jours, chacun avec sa place telle que le classement de ce
-   * jour-là la donnait : rang partagé (`rangDansLesTries`), sans les profils
+   * jour-là la donnait : rang partagé (`rangDansLesTries`), départagé au temps
+   * depuis la règle (`departage`), sans les profils
    * fermés ni les masqués — sauf lui, qui se voit toujours. Les points de la
    * salle des jours qui n'étaient pas gardés arrivent dans le lot
    * (`lecturesDeLaCarriere`), et se gardent sous la révision lue avant lui.
@@ -3513,8 +3687,11 @@ export class JourStore {
     const revisionDe = (jour: string) => revisions.get(jour) ?? 0
     const manquants = jours.filter(j => !gardes.has(j))
     if (manquants.length > 0) {
-      const lus = new Map<string, { id: string; points: number }[]>(manquants.map(j => [j, []]))
-      for (const r of salle.rows) lus.get(String(r.jour))?.push({ id: String(r.profile_id), points: Number(r.points) })
+      const lus = new Map<string, PointsDUnJoueur[]>(manquants.map(j => [j, []]))
+      for (const r of salle.rows) {
+        const temps = tempsMoyen(Number(r.temps_des_justes ?? 0), Number(r.justes_chronometrees ?? 0)) ?? SANS_TEMPS
+        lus.get(String(r.jour))?.push({ id: String(r.profile_id), points: Number(r.points), temps })
+      }
       for (const [jour, points] of lus) {
         const garde = this.pointsGardes.get(jour)
         if (garde && garde.revision > revisionDe(jour)) continue
@@ -3525,10 +3702,10 @@ export class JourStore {
     }
     // Les masqués s'écartent à la lecture — sauf lui, qui se voit toujours :
     // un masque posé ou levé vaut tout de suite, sans relire la base.
-    const pointsDu = new Map<string, number[]>()
+    const salleDu = new Map<string, PointsDUnJoueur[]>()
     for (const jour of jours) {
       const garde = this.pointsGardes.get(jour)
-      if (garde) pointsDu.set(jour, garde.points.filter(e => e.id === profileId || !this.masques.has(e.id)).map(e => e.points))
+      if (garde) salleDu.set(jour, garde.points.filter(e => e.id === profileId || !this.masques.has(e.id)))
     }
     const annuleesDu = new Map(recents.map(p => [p.jour, p.annulees]))
     const tempsDu = new Map<string, number>()
@@ -3538,12 +3715,20 @@ export class JourStore {
       tempsDu.set(r.jour, (tempsDu.get(r.jour) ?? 0) + r.ms)
     }
     return recents.map(p => {
-      const tries = (pointsDu.get(p.jour) ?? [p.points]).sort((a, b) => b - a)
+      const salle = salleDu.get(p.jour) ?? [{ id: profileId, points: p.points, temps: SANS_TEMPS }]
+      const sien = salle.find(e => e.id === profileId)
+      // Sa place, celle du classement de ce jour-là : départagée au temps, s'il l'était (`departage`).
+      const devant = this.departage(p.jour)
+        ? salle.filter(e => e.points > p.points || (e.points === p.points && sien !== undefined && e.temps < sien.temps)).length
+        : rangDansLesTries(
+            p.points,
+            salle.map(e => e.points).sort((a, b) => b - a),
+          ) - 1
       return {
         jour: p.jour,
         points: p.points,
-        rang: rangDansLesTries(p.points, tries),
-        joueurs: tries.length,
+        rang: devant + 1,
+        joueurs: salle.length,
         xp: p.xp + (podiumDe.get(p.jour) ?? 0),
         medaille: medailleDe(p.justes, p.comptees),
         comptees: p.comptees,
@@ -3634,7 +3819,8 @@ export class JourStore {
     if (await this.estClos(jour)) return
     // La base, pas le classement gardé : le podium se paie une fois, pour de bon.
     const joueurs = await this.joueursDu(jour, null, true)
-    const classes = classer(joueurs, j => j.points, j => j.profil.name, j => j.profil.id)
+    // Départagé au temps (`tempsMoyen`) : le laurier, la victoire et le podium vont au plus rapide des ex æquo.
+    const classes = classer(joueurs, j => j.points, j => j.profil.name, j => j.profil.id, this.departage(jour))
     const podium = classes
       .filter(c => c.item.points > 0)
       .map(c => ({ profileId: c.item.profil.id, rang: c.rang, points: c.item.points, xp: xpDuPodium(c.rang, joueurs.length) }))
@@ -3926,19 +4112,25 @@ export class JourStore {
    */
   private async poserLesCoffresDuMois(mois: string): Promise<void> {
     const res = await this.client.execute({
-      sql: `SELECT profile_id, SUM(points) AS points FROM jour_parties WHERE jour >= ? AND jour <= ? GROUP BY profile_id`,
+      sql: `SELECT profile_id, SUM(points) AS points, SUM(temps_des_justes) AS temps_des_justes, SUM(justes_chronometrees) AS justes_chronometrees
+            FROM jour_parties WHERE jour >= ? AND jour <= ? GROUP BY profile_id`,
       args: [`${mois}-01`, `${mois}-31`],
     })
     const profils = await this.deps.profiles.byIds(res.rows.map(r => String(r.profile_id)))
-    const joueurs: { id: string; nom: string; points: number }[] = []
+    const joueurs: { id: string; nom: string; points: number; temps: number }[] = []
     res.rows.forEach((r, i) => {
       const profil = profils[i]
-      if (profil && !this.masques.has(profil.id)) joueurs.push({ id: profil.id, nom: profil.name, points: Number(r.points) })
+      if (profil && !this.masques.has(profil.id)) {
+        const temps = tempsMoyen(Number(r.temps_des_justes ?? 0), Number(r.justes_chronometrees ?? 0)) ?? SANS_TEMPS
+        joueurs.push({ id: profil.id, nom: profil.name, points: Number(r.points), temps })
+      }
     })
     if (joueurs.length < 2) return
     const derniere = PLACES_DU_COFFRE_DU_MOIS.argent
+    // Sa place, celle du classement du mois : départagée au temps comme lui, s'il l'est.
+    const departage = this.departage(mois) ? (j: { temps: number }) => j.temps : undefined
     await this.client.batch(
-      classer(joueurs, j => j.points, j => j.nom, j => j.id).map(({ item: j, rang }) => ({
+      classer(joueurs, j => j.points, j => j.nom, j => j.id, departage).map(({ item: j, rang }) => ({
         sql: 'INSERT OR IGNORE INTO jour_coffres_du_mois (mois, profile_id, place, points) VALUES (?, ?, ?, ?)',
         args: [mois, j.id, j.points > 0 ? rang : Math.max(rang, derniere + 1), j.points],
       })),
@@ -4955,9 +5147,10 @@ export class JourStore {
     const sienne = sienneDans(tirage, profileId) >= 0
     const points = brut.points + (sienne ? partDeLAuteur(brut.points, autresQuestions(tirage)) : 0)
     const justes = brut.justes + (sienne ? partDeLAuteur(brut.justes, autresQuestions(tirage)) : 0)
+    // Son départage aussi : le temps d'une bonne réponse annulée ne compte plus.
     await this.client.execute({
-      sql: 'UPDATE jour_parties SET points = ?, justes = ?, xp = ? WHERE profile_id = ? AND jour = ?',
-      args: [points, justes, xpDuJour(points, possiblesDe(tirage)), profileId, jour],
+      sql: 'UPDATE jour_parties SET points = ?, justes = ?, temps_des_justes = ?, justes_chronometrees = ?, xp = ? WHERE profile_id = ? AND jour = ?',
+      args: [points, justes, brut.tempsDesJustes, brut.justesChronometrees, xpDuJour(points, possiblesDe(tirage)), profileId, jour],
     })
     await this.ecrireXp(profileId, jour)
   }
@@ -5373,6 +5566,8 @@ function lirePartie(profileId: string, jour: string, r: Record<string, unknown> 
     servieLe: r.servie_le == null ? null : Number(r.servie_le),
     points: Number(r.points),
     justes: Number(r.justes),
+    tempsDesJustes: Number(r.temps_des_justes ?? 0),
+    justesChronometrees: Number(r.justes_chronometrees ?? 0),
     finieLe: r.finie_le == null ? null : Number(r.finie_le),
     xp: Number(r.xp),
     xpSerie: Number(r.xp_serie ?? 0),

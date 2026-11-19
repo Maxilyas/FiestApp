@@ -131,7 +131,8 @@ test('une ligne de classement étroite passe sur deux étages : le prénom seul 
   // où elle peut, sur un troisième étage.
   for (const [enfant, aire] of [
     ['.lb-rank', 'rang'],
-    ['.lb-avatar', 'av'],
+    // L'avatar, ou l'écrin qui le porte (le 18 novembre 2026, `Plaque.tsx`).
+    [':is(.lb-avatar, .ecrin)', 'av'],
     ['.lb-name', 'nom'],
     ['.niveau', 'niv'],
     ['.lb-score', 'pts'],

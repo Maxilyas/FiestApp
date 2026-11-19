@@ -23,11 +23,14 @@
 // l'accueil, d'où « Défier » mène à la préparation ; enfin les joueurs
 // croisés — ceux d'une soirée d'hier, dans « Contre qui ? » et sous ses amis —,
 // et la carte entière de l'une, qui n'a joué ni au quiz du jour ni en duel.
+// Avec `PLAQUES=1`, Léa porte la plaque du Kintsugi et Tom celle de la
+// Guinguette : le duel à relever et le verdict d'un duel classé s'en habillent
+// (la grande plaque des duels, le 18 novembre 2026).
 // Les cotes des autres viennent de duels écrits dans la base : la cote se
 // relit dans le journal des rencontres (`shared/duels.ts`). Le client
 // construit d'abord (`npm run build -w client`).
 //
-//   [ECRAN=390x844] [THEME=ivoire] [CALME=1] npx tsx scripts/rendu-duels.ts [dossier]
+//   [ECRAN=390x844] [THEME=ivoire] [CALME=1] [PLAQUES=1] npx tsx scripts/rendu-duels.ts [dossier]
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
@@ -90,6 +93,18 @@ try {
   const jade = await inscrireProfil(banc.url, 'jade', 'Jade', '🦄')
   // Le thème voulu, porté par Léa, Tom et Zoé : leurs pages s'en habillent.
   if (process.env.THEME) for (const cookie of [lea, tom, zoe]) await ecrire(banc.url, '/api/joueur/moi', { theme: process.env.THEME }, cookie, 'PUT')
+  // Leurs plaques : le thème offert d'abord, une plaque ne se porte que d'un thème à soi.
+  if (process.env.PLAQUES) {
+    for (const [cookie, plaque] of [
+      [lea, 'kintsugi'],
+      [tom, 'guinguette'],
+    ] as const) {
+      const db = base(banc)
+      db.prepare('INSERT INTO profile_achats (profile_id, theme, prix, created_at) VALUES (?, ?, 0, ?)').run(await idDe(banc, cookie), plaque, Date.now())
+      db.close()
+      await ecrire(banc.url, '/api/joueur/moi', { plaque }, cookie, 'PUT')
+    }
+  }
   // Ce qu'ils portent : Léa le loup de la forêt, Tom son blaireau, Inès le cerf — les écrans des duels les
   // montrent peints, jamais l'emoji d'en dessous (le retour du propriétaire du 13 octobre 2026).
   for (const [cookie, paliers, portrait] of [

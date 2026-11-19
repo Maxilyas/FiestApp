@@ -1276,8 +1276,16 @@ export function CampagneApp() {
         <laPageDesDuels.VerdictDuDuel
           verdict={{
             quoi: nomDuChoix(ecran.categories, ecran.sujet) ?? 'Toutes les catégories',
-            toi: { avatar: profil?.avatar ?? '🙂', justes: ecran.justes, apparence: monApparence || undefined },
-            lui: { nom: adversaire.nom, avatar: adversaire.avatar, justes: adversaire.justes, apparence: ceQuIlPorte(adversaire), ...(ecran.enFace?.ligue && { ligue: ecran.enFace.ligue }) },
+            // Chacun sur son socle, à sa plaque : la sienne, lue avec son profil ; celle d'en face, qu'un duel classé dit (Automate n'en a pas).
+            toi: { avatar: profil?.avatar ?? '🙂', justes: ecran.justes, apparence: monApparence || undefined, ...(profil?.plaque && { plaque: profil.plaque }) },
+            lui: {
+              nom: adversaire.nom,
+              avatar: adversaire.avatar,
+              justes: adversaire.justes,
+              apparence: ceQuIlPorte(adversaire),
+              ...(ecran.enFace?.ligue && { ligue: ecran.enFace.ligue }),
+              ...(adversaire.plaque && { plaque: adversaire.plaque }),
+            },
             ...(ecran.cote && {
               ecart: ecran.cote.ecart,
               apres: { cote: ecran.cote.apres, ligue: ecran.cote.ligue, ...(ecran.cote.rang !== undefined && { rang: ecran.cote.rang }) },

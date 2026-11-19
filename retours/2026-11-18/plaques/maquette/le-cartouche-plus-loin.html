@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Plaques — le cartouche, plus loin</title>
+<style>
+@font-face { font-family: 'Cormorant Garamond'; font-weight: 600; src: url('../../../../client/public/fonts/cormorant-garamond-600.woff2') format('woff2'); }
+@font-face { font-family: 'Figtree'; font-weight: 300 900; src: url('../../../../client/public/fonts/figtree-variable.woff2') format('woff2'); }
+@font-face { font-family: 'Italiana'; src: url('../../../../client/public/fonts/themes/italiana.woff2') format('woff2'); }
+@font-face { font-family: 'Yeseva One'; src: url('../../../../client/public/fonts/themes/yeseva-one.woff2') format('woff2'); }
+@font-face { font-family: 'VT323'; src: url('../../../../client/public/fonts/themes/vt323.woff2') format('woff2'); }
+@font-face { font-family: 'Pacifico'; src: url('../../../../client/public/fonts/themes/pacifico.woff2') format('woff2'); }
+@font-face { font-family: 'Orbitron'; src: url('../../../../client/public/fonts/themes/orbitron.woff2') format('woff2'); }
+@font-face { font-family: 'Special Elite'; src: url('../../../../client/public/fonts/themes/special-elite.woff2') format('woff2'); }
+@font-face { font-family: 'Comfortaa'; src: url('../../../../client/public/fonts/themes/comfortaa.woff2') format('woff2'); }
+* { box-sizing: border-box; }
+body { margin: 0; background: #0e0b0a; font-family: Figtree, sans-serif; }
+.planche { display: grid; grid-template-columns: repeat(4, 360px); gap: 18px; padding: 18px; }
+.tel {
+  --serif: 'Cormorant Garamond', Georgia, serif;
+  --bg: #1a1412; --ink: #f3ece2; --muted: #a89b8a; --accent: #d9b56a; --accent-text: #d9b56a;
+  --surface: rgba(255,255,255,.035); --edge: rgba(217,181,106,.22); --edge-strong: rgba(217,181,106,.55); --accent-soft: rgba(217,181,106,.12);
+  background: var(--bg); color: var(--ink); padding: 18px 20px 20px; border-radius: 18px;
+}
+.tel.ivoire {
+  --bg: #f9f5ec; --ink: #2a201b; --muted: #7a6b5a; --accent: #ac8536; --accent-text: #836420;
+  --surface: #fffdf8; --edge: rgba(172,133,54,.25); --edge-strong: rgba(172,133,54,.6); --accent-soft: rgba(172,133,54,.14);
+}
+.titre { font: 600 0.68rem/1.2 Figtree; letter-spacing: .18em; text-transform: uppercase; color: var(--accent-text); margin: 0 0 4px; }
+.sous { font-size: .8rem; color: var(--muted); margin: 0 0 12px; line-height: 1.3; min-height: 2.6em; }
+.lb { display: flex; flex-direction: column; gap: 6px; }
+.row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 12px; background: var(--surface); border: 1px solid transparent; min-height: 50px; }
+.rank { width: 1.7em; flex: none; text-align: center; font: 600 1.3rem/1 var(--serif); color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
+.r1 .rank { color: var(--accent-text); } .r2 .rank, .r3 .rank { color: var(--ink); }
+.av { font-size: 1.2rem; line-height: 1; flex: none; }
+.nom { min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.25; }
+.niv { display: inline-flex; align-items: center; justify-content: center; min-width: 1.5em; height: 1.5em; padding: 0 .35em; border-radius: 99px; border: 1px solid var(--edge-strong); background: var(--accent-soft); color: var(--accent-text); font-size: .75rem; font-weight: 600; flex: none; }
+.pts { font: 600 1.35rem/1 var(--serif); color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; flex: none; }
+.me { background: var(--accent-soft); border-color: var(--edge-strong); }
+
+.p-kintsugi { --p-bg:#121110; --p-ink:#f5efe3; --p-trait:#d4a73a; }
+.p-guinguette { --p-bg:#14213d; --p-ink:#fdf6e3; --p-trait:#ffcb47; }
+.p-ivoire { --p-bg:#f9f5ec; --p-ink:#2a201b; --p-trait:#ac8536; }
+.p-gameboy { --p-bg:#9bbc0f; --p-ink:#0f380f; --p-trait:#0f380f; }
+.p-patisserie { --p-bg:#fff7f0; --p-ink:#4a2c2a; --p-trait:#f7a8b8; }
+.p-neon { --p-bg:#0b0616; --p-ink:#f7f2ff; --p-trait:#ff3fd8; }
+.p-carnet { --p-bg:#e8d9ba; --p-ink:#2b2118; --p-trait:#b5452f; }
+.p-ocean { --p-bg:#03202b; --p-ink:#e8fbff; --p-trait:#3ff0d0; }
+
+/* Les emblèmes, dessinés un par thème. */
+.p-kintsugi { --p-emb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24'%3E%3Cpath d='M1 3 L7 9 L5 13 L12 15 L10 21 M7 9 L13 7 L18 11 M12 15 L19 14 L27 20' fill='none' stroke='%23e0b54a' stroke-width='1.5' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E"); }
+.p-guinguette { --p-emb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24'%3E%3Cpath d='M1 5 Q14 15 27 5' fill='none' stroke='%23b8c0d4' stroke-width='.8'/%3E%3Cg fill='%23ffd166'%3E%3Ccircle cx='6' cy='10.5' r='2.2'/%3E%3Ccircle cx='14' cy='12.6' r='2.2' fill='%23ff8fa3'/%3E%3Ccircle cx='22' cy='10.5' r='2.2' fill='%238fe3ff'/%3E%3C/g%3E%3C/svg%3E"); }
+.p-ivoire { --p-emb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24'%3E%3Cg fill='none' stroke='%23ac8536' stroke-width='1.2'%3E%3Cpath d='M14 4 L20 12 L14 20 L8 12 Z'/%3E%3Cpath d='M2 12 H7 M21 12 H26'/%3E%3C/g%3E%3Ccircle cx='14' cy='12' r='1.6' fill='%23ac8536'/%3E%3C/svg%3E"); }
+.p-gameboy { --p-emb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24' shape-rendering='crispEdges'%3E%3Cg fill='%230f380f'%3E%3Crect x='8' y='6' width='4' height='2'/%3E%3Crect x='16' y='6' width='4' height='2'/%3E%3Crect x='6' y='8' width='16' height='4'/%3E%3Crect x='8' y='12' width='12' height='2'/%3E%3Crect x='10' y='14' width='8' height='2'/%3E%3Crect x='12' y='16' width='4' height='2'/%3E%3C/g%3E%3C/svg%3E"); }
+.p-patisserie { --p-emb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24'%3E%3Cpath d='M7 13 h14 l-2 8 h-10 z' fill='%23f2c14e'/%3E%3Cpath d='M9 13 v8 M12 13 v8 M15 13 v8 M18 13 v8' stroke='%23d9a53a' stroke-width='.8'/%3E%3Cpath d='M6 13 q0 -7 8 -7 q8 0 8 7 z' fill='%23f7a8b8'/%3E%3Ccircle cx='14' cy='4.5' r='2' fill='%23b0305a'/%3E%3C/svg%3E"); }
+.p-neon { --p-emb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24'%3E%3Cpath d='M16 2 L9 13 H14 L11 22 L19 10 H14 Z' fill='none' stroke='%23ff3fd8' stroke-width='3.2' stroke-linejoin='round' opacity='.35'/%3E%3Cpath d='M16 2 L9 13 H14 L11 22 L19 10 H14 Z' fill='none' stroke='%23ffc8f5' stroke-width='1.2' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+.p-carnet { --p-emb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24'%3E%3Crect x='6' y='3' width='16' height='18' rx='1' fill='%23f3e7cd' stroke='%23b5452f' stroke-width='1.2' stroke-dasharray='1.6 1.2'/%3E%3Ccircle cx='14' cy='12' r='4.5' fill='none' stroke='%23b5452f' stroke-width='1'/%3E%3Cpath d='M10 12 h8' stroke='%23b5452f' stroke-width='.8'/%3E%3C/svg%3E"); }
+.p-ocean { --p-emb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24'%3E%3Cg fill='none' stroke='%233ff0d0' stroke-width='1.2'%3E%3Ccircle cx='9' cy='15' r='4'/%3E%3Ccircle cx='17' cy='8' r='2.6'/%3E%3Ccircle cx='21' cy='16' r='1.6'/%3E%3C/g%3E%3Cpath d='M7 13.5 a2.2 2.2 0 0 1 2 -1.4' stroke='%23e8fbff' stroke-width='.9' fill='none'/%3E%3C/svg%3E"); }
+
+/* ── A, tel que proposé ── */
+.cartouche { display: flex; align-items: center; gap: 7px; min-width: 0; flex: 0 1 auto; margin-right: auto; position: relative; }
+.row.pl .cartouche {
+  padding: 5px 8px 5px 7px; margin-block: -3px; border-radius: 9px;
+  background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(0,0,0,.08)), var(--p-bg);
+  border: 1px solid var(--p-trait); color: var(--p-ink);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 1px 2px rgba(0,0,0,.25);
+}
+.emb { display: none; width: 22px; height: 18px; flex: none; background: var(--p-emb) center / contain no-repeat; }
+.row.pl .emb { display: block; }
+
+/* ── + La matière et les bords : chaque cartouche est un objet du thème ── */
+/* Kintsugi — légendaire : laque noire, double filet d'or, la fêlure qui traverse le bout de la plaque. */
+.M .p-kintsugi .cartouche {
+  background: linear-gradient(112deg, transparent 38%, rgba(255,255,255,.08) 46%, transparent 54%), radial-gradient(130% 160% at 15% 0%, #34302b 0%, #121110 62%);
+  border: 1px solid #e0b54a; border-radius: 4px;
+  box-shadow: inset 0 0 0 2px #121110, inset 0 0 0 2.8px rgba(224,181,74,.55), 0 2px 4px rgba(0,0,0,.45);
+  padding-right: 4px;
+}
+.M .p-kintsugi .emb { align-self: stretch; height: auto; margin-block: -5px; width: 22px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 40' preserveAspectRatio='none'%3E%3Cpath d='M9 0 L12 8 L8 15 L13 22 L10 30 L14 40 M12 8 L19 11 M13 22 L20 24' fill='none' stroke='%23f0c860' stroke-width='1.6' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E") center / 100% 100% no-repeat; }
+.M .p-kintsugi .cartouche::before, .M .p-kintsugi .cartouche::after { content: ''; position: absolute; width: 7px; height: 7px; border: 1.2px solid #e0b54a; }
+.M .p-kintsugi .cartouche::before { left: 3px; top: 3px; border-right: 0; border-bottom: 0; }
+.M .p-kintsugi .cartouche::after { right: 3px; bottom: 3px; border-left: 0; border-top: 0; }
+/* Guinguette — commune : la guirlande d'ampoules court sur le bord du haut. */
+.M .p-guinguette .cartouche { background: linear-gradient(180deg, #1f3260, #14213d); border-color: rgba(255,203,71,.5); padding-top: 9px; }
+.M .p-guinguette .cartouche::before { content: ''; position: absolute; left: 4px; right: 4px; top: -2px; height: 9px;
+  background:
+    radial-gradient(circle at 5px 6px, #ffd166 2.1px, transparent 2.7px) 0 0 / 27px 9px repeat-x,
+    radial-gradient(circle at 14px 7px, #ff8fa3 2.1px, transparent 2.7px) 0 0 / 27px 9px repeat-x,
+    radial-gradient(circle at 23px 6px, #8fe3ff 2.1px, transparent 2.7px) 0 0 / 27px 9px repeat-x,
+    radial-gradient(ellipse 14px 5px at 13.5px 0, transparent 4px, rgba(184,192,212,.7) 4px 4.8px, transparent 5px) 0 0 / 27px 9px repeat-x; }
+/* Ivoire — offerte : papier crème, double filet d'or, comme un carton d'invitation. */
+.M .p-ivoire .cartouche { background: linear-gradient(180deg, #fffdf7, #f4eddd); border: 1px solid #ac8536; border-radius: 3px;
+  box-shadow: inset 0 0 0 2px #fbf7ee, inset 0 0 0 2.7px rgba(172,133,54,.55), 0 1px 2px rgba(0,0,0,.25); padding-inline: 10px 7px; }
+/* Game Boy — peu commune : des coins en escalier de pixels, et l'écran vert. */
+.M .p-gameboy .cartouche { border: none; border-radius: 0; margin-left: 3px; background: linear-gradient(180deg, #a8c81c, #8bac0f);
+  box-shadow: 0 -3px 0 0 #0f380f, 0 3px 0 0 #0f380f, -3px 0 0 0 #0f380f, 3px 0 0 0 #0f380f, inset 0 3px 0 0 #b9d64a, inset 0 -3px 0 0 #7d9c0c; }
+/* Pâtisserie — peu commune : un glaçage framboise qui coule du haut. */
+.M .p-patisserie .cartouche { background: linear-gradient(180deg, #fffaf6, #fdeee4); border-color: #f2a0b3; padding-top: 10px; overflow: hidden; }
+.M .p-patisserie .cartouche::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 9px;
+  background:
+    radial-gradient(ellipse 3.2px 4.6px at 6px 4.2px, #f49ab0 96%, transparent) 0 0 / 23px 9px repeat-x,
+    radial-gradient(ellipse 2.4px 3.4px at 15px 3.4px, #f49ab0 96%, transparent) 0 0 / 23px 9px repeat-x,
+    linear-gradient(#f7b3c3, #f49ab0) 0 0 / 100% 3.6px no-repeat; }
+/* Néon — épique : un tube qui luit, le prénom qui brille. */
+.M .p-neon .cartouche { background: #0b0616; border: 1px solid #ffd2f6; border-radius: 12px;
+  box-shadow: 0 0 0 1.5px #ff3fd8, 0 0 12px rgba(255,63,216,.6), inset 0 0 9px rgba(255,63,216,.4); }
+.M .p-neon .nom { color: #fff3fd; text-shadow: 0 0 6px rgba(255,63,216,.9), 0 0 1px #fff; }
+/* Carnet — commune : une étiquette de kraft, collée un peu de travers, sa marge rouge. */
+.M .p-carnet .cartouche { border-radius: 2px; transform: rotate(-1.2deg); border: 1px solid rgba(90,74,54,.35); padding-left: 14px;
+  background: linear-gradient(90deg, transparent 4px, #b5452f 4px 5px, transparent 5px 7px, #b5452f 7px 8px, transparent 8px), linear-gradient(180deg, #efe3c8, #e2d0ad);
+  box-shadow: 1px 2px 3px rgba(0,0,0,.35); }
+/* Océan — peu commune : la surface en haut, les abysses en bas, une vague sur le bord. */
+.M .p-ocean .cartouche { background: linear-gradient(180deg, #0f4a5b 0%, #052a37 55%, #03202b 100%); border-color: rgba(63,240,208,.55); padding-bottom: 8px; overflow: hidden; }
+.M .p-ocean .cartouche::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 6px;
+  background: radial-gradient(circle at 6px 9px, transparent 4.4px, rgba(63,240,208,.75) 4.4px 5.6px, transparent 5.6px) 0 0 / 12px 6px repeat-x; }
+
+/* ── + La police du thème, sur le prénom seul ── */
+.P .p-kintsugi .nom { font-family: Italiana; font-size: 1.12rem; letter-spacing: .06em; }
+.P .p-guinguette .nom { font-family: 'Yeseva One'; font-size: 1.02rem; }
+.P .p-ivoire .nom { font-family: 'Cormorant Garamond'; font-weight: 600; font-size: 1.18rem; }
+.P .p-gameboy .nom { font-family: VT323; font-size: 1.45rem; line-height: 1; }
+.P .p-patisserie .nom { font-family: Pacifico; font-size: 1rem; line-height: 1.3; }
+.P .p-neon .nom { font-family: Orbitron; font-size: .82rem; letter-spacing: .05em; }
+.P .p-carnet .nom { font-family: 'Special Elite'; font-size: 1rem; }
+.P .p-ocean .nom { font-family: Comfortaa; font-weight: 700; font-size: .95rem; }
+
+/* Le gros plan : les mêmes, deux fois plus grands. */
+.zoom { zoom: 1; }
+</style>
+</head>
+<body>
+<div class="planche" id="planche"></div>
+<script>
+const J = [
+  ['Camille','🦉','kintsugi',1820,12], ['Hugo','🐻','guinguette',1690,8], ['Léa','🦊','ivoire',1540,15,true],
+  ['Noé','🐸','gameboy',1410,4], ['Zoé','🐱','patisserie',1300,9], ['Maximilien','🐼','neon',1180,22],
+  ['Inès','🐙',null,990,3], ['Tom','🐶','carnet',870,6], ['Sacha','🦁','ocean',720,11],
+]
+const PANNEAUX = [
+  ['A', '', 'A · tel que proposé', 'Un cartouche plat, un emblème.'],
+  ['A M', '', '+ La matière et les bords', 'Chaque plaque est un objet de son thème ; le décor court sur le bord, jamais sous le prénom.'],
+  ['A M P', '', '+ La police du thème', 'Le prénom écrit dans la police du thème.'],
+  ['A M P', 'ivoire', '+ La police · sous l’Ivoire', 'La même chose, vue par quelqu’un qui joue en Ivoire.'],
+]
+const planche = document.getElementById('planche')
+for (const [cle, theme, titre, sous] of PANNEAUX) {
+  const tel = document.createElement('div')
+  tel.className = `tel ${cle} ${theme}`
+  let h = `<p class="titre">${titre}</p><p class="sous">${sous}</p><div class="lb">`
+  J.forEach(([nom, av, p, pts, niv, me], i) => {
+    h += `<div class="row r${i + 1}${p ? ' pl p-' + p : ''}${me ? ' me' : ''}"><span class="rank">${i + 1}</span>`
+    h += `<span class="cartouche"><span class="av">${av}</span><span class="nom">${nom}</span><span class="emb"></span></span>`
+    h += `<span class="niv">${niv}</span><span class="pts">${pts}</span></div>`
+  })
+  tel.innerHTML = h + '</div>'
+  planche.appendChild(tel)
+}
+</script>
+</body>
+</html>

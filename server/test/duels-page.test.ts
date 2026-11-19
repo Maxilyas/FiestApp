@@ -164,7 +164,7 @@ test('un duel reçu : sa carte face cachée — son score écrit nulle part avan
   assert.match(html, /<p class="duels-surtitre or">Duel classé · Histoire<\/p>/)
   assert.match(
     html,
-    /<span class="duels-carte-nom"><span aria-hidden="true">🐻<\/span><span>Tom<\/span><\/span><span class="num duels-carte-mystere" aria-hidden="true">\?<\/span><span class="duels-carte-sceau" role="img" aria-label="Score caché">/,
+    /<span class="duels-carte-nom"><span aria-hidden="true">🐻<\/span><span class="duels-carte-son-nom">Tom<\/span><\/span><span class="num duels-carte-mystere" aria-hidden="true">\?<\/span><span class="duels-carte-sceau" role="img" aria-label="Score caché">/,
   )
   assert.doesNotMatch(html, />7</, 'son score n’est écrit nulle part')
   assert.match(html, /<span class="duels-carte duels-carte-toi ligue-argent">.*<span class="duels-carte-case">à jouer<\/span>/)
@@ -222,7 +222,8 @@ test('ce qu’il porte, partout sur la page des duels : son légendaire, pas l�
   // L'onglet du classement : chaque ligne comme au classement entier, sa bordure comprise ; le podium, ce qu'il porte.
   const page = readFileSync(client('views/Duels.tsx'), 'utf8')
   assert.match(page, /<Avatar className="duels-rang-avatar" avatar=\{l\.avatar\} finition=\{l\.finition\} legendaire=\{l\.legendaire\} sceau=\{l\.sceau\} eclat=\{l\.eclat\} bordure=\{l\.bordure\} \/>/)
-  assert.match(page, /<Anneau key=\{l\.profileId\} avatar=\{l\.avatar\} apparence=\{ceQuIlPorte\(l\)\} ligue=\{l\.ligue\} petit \/>/)
+  // Le Top 3 : chacun dans son petit écrin (le 18 novembre 2026).
+  assert.match(page, /<Ecrin key=\{l\.profileId\} plaque=\{l\.plaque\} petit>\s*<Anneau avatar=\{l\.avatar\} apparence=\{ceQuIlPorte\(l\)\} ligue=\{l\.ligue\} petit \/>/)
   // La carte du verdict, les cartes d'un duel reçu, la partie elle-même : jamais l'emoji nu de qui porte quelque chose.
   const duel = readFileSync(client('views/Duel.tsx'), 'utf8')
   assert.doesNotMatch(duel, />\s*\{(v\.toi|v\.lui|enFace|moi)\.avatar\}\s*</)
@@ -413,9 +414,23 @@ test('un duel déjà ouvert entre eux : sa carte le dit à la place de « Défie
   const duel = (code: string, profileId: string, plus: object = {}) => ({ code, contre: { profileId, nom: profileId, avatar: '🐻' }, lance: true, justes: 6, sesJustes: null, minutesRestantes: 600, ...plus })
   const feuille = (contre?: object[]) => renderToStaticMarkup(React.createElement(FeuilleDuClassement, { classement, ...(contre && { contre }), onOuvrir() {}, onFermer() {} }))
   const avecTom = feuille([duel('TOM1', 'tom')])
+  // Tom est monté sur le podium (le 18 novembre 2026) : le sablier suit son nom sur sa marche.
   assert.match(
     avecTom,
-    /<button type="button" class="lb-row lb-ouvrable duels-ligne" aria-label="La carte de Tom — rang 2, ligue d’or, cote 1240, un duel en cours entre vous">.*?<span class="lb-name">Tom<\/span><span class="duels-ligne-en-cours" aria-hidden="true"><svg/,
+    /<button type="button" class="pdc-joueur" aria-label="La carte de Tom — rang 2, ligue d’or, cote 1240, un duel en cours entre vous">.*?<span class="pdc-nom">Tom<span class="duels-ligne-en-cours" aria-hidden="true"><svg/,
+  )
+  // Et sur une ligne, plus bas : le même sablier après le nom.
+  const plusBas = renderToStaticMarkup(
+    React.createElement(FeuilleDuClassement, {
+      classement: { ...classement, joueurs: 4, lignes: [ligne('Inès', 1, 1500), ligne('Zoé', 2, 1300), ligne('Léa', 3, 1150), ligne('Tom', 4, 1100)] },
+      contre: [duel('TOM1', 'tom')],
+      onOuvrir() {},
+      onFermer() {},
+    }),
+  )
+  assert.match(
+    plusBas,
+    /<button type="button" class="lb-row lb-ouvrable duels-ligne" aria-label="La carte de Tom — rang 4, ligue d’argent, cote 1100, un duel en cours entre vous">.*?<span class="lb-name">Tom<\/span><span class="duels-ligne-en-cours" aria-hidden="true"><svg/,
   )
   assert.equal(avecTom.match(/duels-ligne-en-cours/g)?.length, 1, 'Inès, qu’il n’affronte pas, rien')
   assert.match(avecTom, /<p class="muted small duels-legende-en-cours"><svg[^>]*>.*?<\/svg>un duel en cours entre vous : sa carte le rouvre<\/p>/)

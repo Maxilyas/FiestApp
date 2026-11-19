@@ -332,7 +332,7 @@ interface Rangement {
 }
 
 export interface DepsDesCollectionneurs {
-  profiles: Pick<ProfileStore, 'byIds' | 'cached' | 'idsExistants' | 'collectionDe' | 'themesAchetes' | 'lireLaMeta' | 'ecrireLaMeta'>
+  profiles: Pick<ProfileStore, 'byIds' | 'cached' | 'idsExistants' | 'collectionDe' | 'themesAchetes' | 'lireLaMeta' | 'ecrireLaMeta'> & Partial<Pick<ProfileStore, 'plaqueDe'>>
   campagne: Pick<CampagneStore, 'collectionneurDe' | 'paliersDeTous' | 'liguesDeTous'>
   jour: Pick<JourStore, 'resumeDe' | 'resumesDeTous' | 'estMasque' | 'versionDesExclus'>
 }
@@ -411,7 +411,20 @@ export class Collectionneurs {
       for (const id of porteurs) montrer(id)
       return porteurs.length > 0 ? [{ cle: d.key, porteurs }] : []
     })
-    return { releve: tenu.le, moi: profileId, fiches: [...montrees.values()], categories, amis: amis.filter(id => montrees.has(id)), divins }
+    return { releve: tenu.le, moi: profileId, fiches: [...montrees.values()].map(this.avecSaPlaque), categories, amis: amis.filter(id => montrees.has(id)), divins }
+  }
+
+  /**
+   * Sa fiche avec la plaque de son nom, de mémoire, posée à la lecture
+   * (`plaqueDe`) : elle change d'un geste dans la loge, et le relevé, gardé et
+   * relu à son heure, ne se refait pas pour elle — ni ne la range en base.
+   * Son avatar se pose dans son écrin, et sa marche du podium à ses couleurs
+   * (`Plaque.tsx`).
+   */
+  private avecSaPlaque = (f: FicheDeCollectionneur): FicheDeCollectionneur => {
+    const profil = this.deps.profiles.plaqueDe && this.deps.profiles.cached(f.id)
+    const plaque = profil ? this.deps.profiles.plaqueDe?.(profil) : null
+    return plaque ? { ...f, plaque } : f
   }
 
   /**
@@ -430,7 +443,7 @@ export class Collectionneurs {
     const r = this.rangement(tenu).categories.collection
     const i = r.position.get(profileId)
     const fiche = this.rangement(tenu).fiches.get(profileId) ?? { ...e.fiche, nom: e.nom }
-    return { fiche, ...(i !== undefined && { rang: r.classes[i].rang }), classes: r.classes.length, pieces: e.pieces }
+    return { fiche: this.avecSaPlaque(fiche), ...(i !== undefined && { rang: r.classes[i].rang }), classes: r.classes.length, pieces: e.pieces }
   }
 
   /**
@@ -448,7 +461,7 @@ export class Collectionneurs {
     const paquet = r.classes.slice(depuis, depuis + PAQUET_DE_LA_SUITE)
     return {
       places: paquet.map(c => ({ id: c.item.id, rang: c.rang, valeur: valeurDansLaCategorie(c.item, cat) })),
-      fiches: paquet.map(c => c.item),
+      fiches: paquet.map(c => this.avecSaPlaque(c.item)),
       classes: r.classes.length,
     }
   }

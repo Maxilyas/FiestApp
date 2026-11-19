@@ -889,6 +889,14 @@ h3 > .icon {
   font-variant-numeric: lining-nums tabular-nums;
 }
 
+/* Le temps qui a départagé deux ex æquo du quiz du jour, sous leurs points
+   (`PointsDeLaLigne`, `JourApp.tsx`) : en petit, pour ne pas peser plus que le
+   score — sur les seules lignes à égalité. Ses deux étages débordent un peu
+   du rang (`margin-block`, comme l'écrin) : la ligne garde la hauteur des
+   autres, elle en faisait 4 px de plus. */
+.lb-score-departage { display: inline-flex; flex-direction: column; align-items: flex-end; margin-block: -3px; }
+.lb-temps { margin-top: 2px; color: var(--muted); font-family: var(--sans); font-size: var(--t-label); font-weight: 500; }
+
 /* Étroite — un petit téléphone, ou le texte agrandi —, une ligne passe sur
    deux étages : le prénom en haut, avec sa marque et son laurier ; le niveau
    et les points dessous, là où ils étaient, à droite. Sur un seul, seul le
@@ -907,7 +915,7 @@ h3 > .icon {
     row-gap: 2px;
   }
   .lb-row:not(.team-row) > .lb-rank { grid-area: rang; }
-  .lb-row:not(.team-row) > .lb-avatar { grid-area: av; }
+  .lb-row:not(.team-row) > :is(.lb-avatar, .ecrin) { grid-area: av; }
   .lb-row:not(.team-row) > .lb-name { grid-area: nom; }
   .lb-row:not(.team-row) > .niveau { grid-area: niv; justify-self: end; }
   .lb-row:not(.team-row) > .lb-score { grid-area: pts; }
@@ -921,65 +929,110 @@ h3 > .icon {
   .lb-row > .guess-value { grid-area: val; }
 }
 
-/* ── Les plaques de nom ─────────────────────────── */
-/* La ligne d'un joueur aux couleurs d'un thème qu'il possède
-   (`shared/plaques.ts`, la maquette validée le 10 novembre 2026) : la part
-   d'un thème que les autres voient, aux classements du quiz du jour, du défi
-   et des duels. Une plaque est un petit thème posé sur sa seule ligne : elle
-   redit les jetons que la ligne lit (`--ink`, `--muted`, `--accent-text`), et
-   ce qu'elle contient — le rang, le prénom, le score — suit sans rien
-   savoir. Ses couleurs s'écrivent en dur, celles de son thème
-   (`plaques.test.ts` les compare à ses jetons, et mesure l'encre sur le
-   fond) : elle ne suit jamais le thème de celui qui regarde.
-   Plus forte que la ligne d'un thème, « la mienne » comprise
-   (`:root[data-theme] .lb-row.me`) : les thèmes repeignent `.lb-row`, et la
-   plaque d'un autre ne se repeint pas. */
-:root body .lb-row.plaque:not(.team-row) {
-  --ink: var(--p-ink);
-  --muted: var(--p-muted);
-  --accent-text: var(--p-or);
-  background: var(--p-bg);
+/* ── Les plaques de nom : l'écrin et le podium ─────────────────────────── */
+/* La part d'un thème que les autres voient (`shared/plaques.ts`, `Plaque.tsx`).
+   Depuis le soir du 18 novembre 2026 (trois propositions reparties de zéro,
+   `retours/2026-11-18/plaques/trois-propositions/` — le propriétaire a retenu
+   l'écrin avec le podium) : partout où un joueur se montre hors d'une soirée,
+   son avatar est posé sur **son écrin**, une tuile à ses couleurs ; en tête
+   d'un classement, les trois premiers montent sur **le podium**, chacun sur
+   sa marche à ses couleurs. Le prénom, le niveau et le score restent ceux de
+   tous : avant, la ligne entière à ses couleurs au podium faisait une
+   mosaïque là où l'œil arrive, et le trait sous le prénom, plus bas, se lisait
+   comme un lien. Des images aux couleurs écrites dedans, ni masque, ni
+   filtre, ni mouvement : dans une liste, rien ne garde un calque (règle
+   `css.md`). */
+
+/* L'écrin : la même place pour tous — sans plaque, vide, et les avatars d'une
+   liste restent alignés. Il déborde un peu de la ligne (`margin-block`) : une
+   ligne y gagne 6 px, pas 14. */
+.ecrin { position: relative; display: grid; place-items: center; flex: none; width: 42px; height: 42px; margin-block: -5px; }
+.ecrin.plaque {
   border: 1px solid var(--p-trait);
-  box-shadow: none;
-  color: var(--p-ink);
+  border-radius: 12px;
+  background: radial-gradient(70% 70% at 50% 32%, rgba(255, 255, 255, 0.12), transparent 70%), var(--p-bg);
+  box-shadow: inset 0 0 0 2px var(--p-bg), inset 0 0 0 3px color-mix(in srgb, var(--p-trait) 55%, transparent), 0 2px 5px rgba(0, 0, 0, 0.3);
 }
-/* La sienne : l'anneau du thème de celui qui regarde, autour de sa plaque —
-   le fond d'or pâle de `.lb-row.me` y céderait la place à sa plaque. */
-:root body .lb-row.plaque.me:not(.team-row) { box-shadow: 0 0 0 3px var(--edge-strong); }
-
-/* La pastille de niveau prend les couleurs de la plaque, sans fond : peinte
-   par le thème de celui qui regarde, elle posait le chiffre de la plaque sur
-   le disque du thème — brun sur bleu nuit sous Le Ciel, pour une plaque
-   claire (le rendu du 10 novembre 2026). La pierre d'un niveau 30 garde la
-   sienne, qu'aucun thème ne repeint. */
-:root body .lb-row.plaque .niveau:not(.pierre) {
-  background: transparent;
-  border: 1px solid var(--p-or);
-  color: var(--p-or);
-  font-weight: 600;
+/* L'emblème en filigrane, sous l'avatar : le premier de l'écrin, aucun texte dessus. */
+.ecrin.plaque::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--p-embleme) 4px 4px / 12px 12px repeat; opacity: 0.16; pointer-events: none; }
+.ecrin > * { position: relative; }
+.ecrin-petit { width: 38px; height: 38px; margin-block: 0; }
+.ecrin-petit.plaque { border-radius: 10px; }
+.ecrin-petit.plaque::before { background-size: 10px 10px; }
+/* Autour d'un anneau des duels — un rond de 44 px, sa ligue au bord — ou d'un avatar plus grand : l'écrin le laisse tenir. */
+.ecrin:has(> .duels-anneau:not(.petit)), .duels-echelon-joueur > .ecrin { width: 52px; height: 52px; margin-block: 0; border-radius: 14px; }
+/* La carte d'un collectionneur, au podium des collections : son illustration est l'écrin, à sa taille. */
+.cl-carte-illu.plaque {
+  position: relative;
+  margin-inline: auto;
+  aspect-ratio: 1;
+  border: 1px solid var(--p-trait);
+  border-radius: 14px;
+  background: radial-gradient(70% 70% at 50% 32%, rgba(255, 255, 255, 0.12), transparent 70%), var(--p-bg);
+  box-shadow: inset 0 0 0 2px var(--p-bg), inset 0 0 0 3px color-mix(in srgb, var(--p-trait) 55%, transparent);
 }
-/* Une place perdue depuis lundi s'écrit à l'alerte du thème de celui qui regarde : sur une plaque, à son encre atténuée. */
-.lb-row.plaque .duels-moins { color: var(--p-muted); }
+.cl-carte-illu.plaque::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--p-embleme) 5px 5px / 16px 16px repeat; opacity: 0.16; pointer-events: none; }
+.cl-carte-illu.plaque > * { position: relative; }
 
-/* Le motif est une pièce de la ligne, entre le prénom et la suite : il prend
-   la place qui reste, jamais celle d'un texte. Fondu aux deux bouts dans le
-   fond de la plaque, par un dégradé et pas par un masque — dans une liste,
-   rien ne garde un calque de la carte graphique (règle `css.md`). */
-.plaque-motif { display: none; }
-.lb-row.plaque > .lb-name { flex: 0 1 auto; }
-.lb-row.plaque > .plaque-motif {
-  display: block;
-  flex: 1 1 0;
-  min-width: 0;
+/* Le podium : trois marches posées sur un sol, la liste juste dessous. Sans
+   plaque, une marche prend son métal (`--metal`, posé par la page), comme le
+   podium d'un quiz en soirée (`.marches`). */
+.podium-du-classement {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr) minmax(0, 1fr);
+  align-items: end;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 0 2px;
+  border-bottom: 2px solid color-mix(in srgb, var(--accent) 50%, transparent);
+}
+/* La liste juste sous le sol : 12 px, dans le fil d'une section comme dans la colonne du classement du jour — dont
+   l'écart (18 px) s'ajoutait aux marges, et laissait 40 px de vide sous le podium. */
+.podium-du-classement + .leaderboard { margin-top: 12px; }
+.classement-periode > .podium-du-classement + .leaderboard { margin-top: -6px; }
+.pdc-marche { min-width: 0; }
+.pdc-joueur { display: flex; flex-direction: column; align-items: center; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: center; cursor: pointer; }
+.pdc-joueur:where(div) { cursor: default; }
+.pdc-avatar { display: grid; place-items: center; height: 62px; margin-bottom: 4px; }
+.pdc-avatar .lb-avatar { font-size: 2.1rem; }
+.pdc-1 .pdc-avatar { height: 74px; }
+.pdc-1 .pdc-avatar .lb-avatar { font-size: 2.6rem; }
+.pdc-nom { max-width: 100%; overflow: hidden; color: var(--ink); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.pdc-nom > .duels-ligne-en-cours { margin-left: 4px; vertical-align: -2px; }
+.pdc-valeur { display: inline-flex; align-items: center; gap: 4px; margin-bottom: 8px; color: var(--accent-text); font-family: var(--serif); font-size: 1.15rem; line-height: 1.1; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
+.pdc-valeur .blason { flex: none; }
+.pdc-unite { color: var(--muted); font-family: var(--sans); font-size: 0.8125rem; }
+.pdc-socle {
+  position: relative;
+  display: grid;
+  place-items: center;
   align-self: stretch;
-  margin-block: -8px;
-  background: linear-gradient(90deg, var(--p-bg), transparent 30%, transparent 70%, var(--p-bg)), var(--p-motif);
-  opacity: 0.85;
+  overflow: hidden;
+  border-top: 3px solid var(--metal);
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--metal) 26%, transparent), color-mix(in srgb, var(--metal) 4%, transparent));
 }
-/* Sur deux étages, la ligne n'a plus de place à lui donner. */
-@container (max-width: 17rem) {
-  .lb-row.plaque > .plaque-motif { display: none; }
+.pdc-socle b { position: relative; color: var(--metal); font-family: var(--serif); font-size: 2.1rem; line-height: 1; font-variant-numeric: lining-nums; }
+.pdc-1 .pdc-socle { height: 96px; }
+.pdc-1 .pdc-socle b { font-size: 2.7rem; }
+.pdc-2 .pdc-socle { height: 72px; }
+.pdc-3 .pdc-socle { height: 56px; }
+/* À ses couleurs : son fond, son filet, son emblème en filigrane, son rang à son or — en grand, 3:1 sur chaque plaque,
+   son ombre et son filigrane compris (`plaques.test.ts`). L'ombre du bas à 18 % et le filigrane à 12 % de la maquette
+   tombaient à 2,85:1 sous le rang de l'Ivoire ; à 10 % l'un et l'autre, 3,51 au pire. */
+.pdc-marche.plaque .pdc-socle {
+  border: 1px solid var(--p-trait);
+  border-bottom: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0.1)), var(--p-bg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
+.pdc-marche.plaque .pdc-socle::before { content: ''; position: absolute; inset: 0; background: var(--p-embleme) 6px 6px / 22px 22px repeat; opacity: 0.1; pointer-events: none; }
+.pdc-marche.plaque .pdc-socle b { color: var(--p-or); }
+/* La sienne : son prénom à l'or du thème de celui qui regarde, sa marche cernée. */
+.pdc-marche.me .pdc-nom { color: var(--accent-text); }
+/* Cernée d'une ombre pleine, pas d'un `outline` : l'anneau du focus est le seul (`design.test.ts`). */
+.pdc-marche.me .pdc-socle { box-shadow: 0 0 0 2px var(--accent); }
+.pdc-marche.plaque.me .pdc-socle { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 0 2px var(--accent); }
 
 /* Les couleurs de chaque plaque : le fond, l'encre, l'encre atténuée, l'or du
    texte et le trait de son thème (`--bg`, `--ink`, `--muted`, `--accent-text`,
@@ -1019,37 +1072,49 @@ h3 > .icon {
 .plaque-heures { --p-bg: #f3e8cf; --p-ink: #2b1d14; --p-muted: #4e3b29; --p-or: #1e4091; --p-trait: #c19a3e; }
 .plaque-sommet { --p-bg: #0b1322; --p-ink: #f4f6fb; --p-muted: #b6c0d2; --p-or: #f6b475; --p-trait: #f2a65a; }
 
-/* Les motifs : huit familles, tracées au trait du thème. Des dégradés, pas
-   d'image — une plaque ne télécharge rien. */
-.plaque-ivoire, .plaque-guinguette, .plaque-patisserie, .plaque-cerisiers {
-  --p-motif: radial-gradient(circle, var(--p-trait) 1.3px, transparent 1.8px) 0 0 / 11px 11px;
-}
-.plaque-cahier, .plaque-gameboy, .plaque-disco, .plaque-neon, .plaque-babel {
-  --p-motif: linear-gradient(var(--p-trait) 1px, transparent 1px) 0 0 / 12px 12px, linear-gradient(90deg, var(--p-trait) 1px, transparent 1px) 0 0 / 12px 12px;
-}
-.plaque-carnet, .plaque-stade, .plaque-filmnoir, .plaque-olympe, .plaque-theatre {
-  --p-motif: repeating-linear-gradient(115deg, var(--p-trait) 0 2px, transparent 2px 10px);
-}
-.plaque-pyjama, .plaque-licorne, .plaque-neige, .plaque-cosmos, .plaque-ciel {
-  --p-motif: radial-gradient(circle, var(--p-trait) 1px, transparent 1.5px) 3px 5px / 23px 19px, radial-gradient(circle, var(--p-trait) 1.6px, transparent 2.2px) 12px 13px / 37px 29px;
-}
-.plaque-jungle, .plaque-ocean, .plaque-plage, .plaque-aurore, .plaque-sommet {
-  --p-motif: radial-gradient(circle at 50% 120%, transparent 9px, var(--p-trait) 9px 10.5px, transparent 10.5px) 0 0 / 22px 15px;
-}
-.plaque-foret, .plaque-carnaval, .plaque-grimoire, .plaque-heures {
-  --p-motif: linear-gradient(45deg, var(--p-trait) 12%, transparent 12% 88%, var(--p-trait) 88%) 0 0 / 14px 14px;
-}
-.plaque-heros, .plaque-feudartifice, .plaque-horloge {
-  --p-motif: repeating-conic-gradient(from 0deg at 100% 50%, var(--p-trait) 0 4deg, transparent 4deg 14deg);
-}
-.plaque-halloween, .plaque-braises, .plaque-kintsugi {
-  --p-motif: linear-gradient(118deg, transparent 47%, var(--p-trait) 47% 50%, transparent 50%) 0 0 / 46px 100%, linear-gradient(62deg, transparent 48%, var(--p-trait) 48% 50.5%, transparent 50.5%) 18px 0 / 64px 100%;
-}
+/* ── Les emblèmes des plaques : écrits par server/scripts/emblemes-des-plaques.ts --ecrire, jamais à la main ── */
+/* Chaque plaque, ses deux tons — `--p-clair`, qui se lit sur un thème sombre ; `--p-sombre`, sur un thème clair — et son
+   emblème, le clair cerné du sombre : lisible sur le fond de tout thème, et sur sa propre plaque. */
+.plaque-ivoire { --p-clair: #ac8536; --p-sombre: #604a1e; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22none%22 stroke=%22%23604a1e%22 stroke-width=%224%22 d=%22M12 3.5 17.5 12 12 20.5 6.5 12z%22/%3E%3Ccircle fill=%22%23604a1e%22 stroke=%22%23604a1e%22 stroke-width=%222.2%22 cx=%2212%22 cy=%2212%22 r=%222.3%22/%3E%3Cpath fill=%22none%22 stroke=%22%23ac8536%22 stroke-width=%221.8%22 d=%22M12 3.5 17.5 12 12 20.5 6.5 12z%22/%3E%3Ccircle fill=%22%23ac8536%22 cx=%2212%22 cy=%2212%22 r=%222.3%22/%3E%3C/svg%3E"); }
+.plaque-cahier { --p-clair: #486fd8; --p-sombre: #2342a8; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%232342a8%22 stroke=%22%232342a8%22 stroke-width=%222.2%22 d=%22M8.6 19.4 4.6 15.4 15.2 4.8l4 4z%22/%3E%3Cpath fill=%22%232342a8%22 stroke=%22%232342a8%22 stroke-width=%222.2%22 d=%22M3.7 16.5l3.8 3.8-4.8 1z%22/%3E%3Cpath fill=%22%23486fd8%22 d=%22M8.6 19.4 4.6 15.4 15.2 4.8l4 4z%22/%3E%3Cpath fill=%22%23486fd8%22 d=%22M3.7 16.5l3.8 3.8-4.8 1z%22/%3E%3C/svg%3E"); }
+.plaque-carnet { --p-clair: #be5b48; --p-sombre: #8a3424; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%238a3424%22 stroke=%22%238a3424%22 stroke-width=%222.2%22 d=%22M2.5 11.2 21.5 3l-6.6 18-3.4-7.4z%22/%3E%3Cpath fill=%22%238a3424%22 stroke=%22%238a3424%22 stroke-width=%222.2%22 d=%22M11.9 13.2 21 3.4l-7.6 12.5z%22/%3E%3Cpath fill=%22%23be5b48%22 d=%22M2.5 11.2 21.5 3l-6.6 18-3.4-7.4z%22/%3E%3Cpath fill=%22%23be5b48%22 d=%22M11.9 13.2 21 3.4l-7.6 12.5z%22/%3E%3C/svg%3E"); }
+.plaque-guinguette { --p-clair: #ffd166; --p-sombre: #5c491a; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22none%22 stroke=%22%235c491a%22 stroke-width=%223.4%22 d=%22M2 4q10 6 20 0%22/%3E%3Cpath fill=%22none%22 stroke=%22%235c491a%22 stroke-width=%223.5%22 d=%22M6.5 6v2.2M12 7v2.6M17.5 6v2.2%22/%3E%3Ccircle fill=%22%235c491a%22 stroke=%22%235c491a%22 stroke-width=%222.2%22 cx=%226.5%22 cy=%2211.2%22 r=%222.5%22/%3E%3Ccircle fill=%22%235c491a%22 stroke=%22%235c491a%22 stroke-width=%222.2%22 cx=%2212%22 cy=%2212.8%22 r=%222.5%22/%3E%3Ccircle fill=%22%235c491a%22 stroke=%22%235c491a%22 stroke-width=%222.2%22 cx=%2217.5%22 cy=%2211.2%22 r=%222.5%22/%3E%3Cpath fill=%22none%22 stroke=%22%23ffd166%22 stroke-width=%221.2%22 d=%22M2 4q10 6 20 0%22/%3E%3Cpath fill=%22none%22 stroke=%22%23ffd166%22 stroke-width=%221.3%22 d=%22M6.5 6v2.2M12 7v2.6M17.5 6v2.2%22/%3E%3Ccircle fill=%22%23ffd166%22 cx=%226.5%22 cy=%2211.2%22 r=%222.5%22/%3E%3Ccircle fill=%22%23ffd166%22 cx=%2212%22 cy=%2212.8%22 r=%222.5%22/%3E%3Ccircle fill=%22%23ffd166%22 cx=%2217.5%22 cy=%2211.2%22 r=%222.5%22/%3E%3C/svg%3E"); }
+.plaque-pyjama { --p-clair: #ffdcaa; --p-sombre: #5c4e3a; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%235c4e3a%22 stroke=%22%235c4e3a%22 stroke-width=%222.2%22 d=%22M14.6 3.4A8.8 8.8 0 1 0 20.6 15.3 7 7 0 0 1 14.6 3.4z%22/%3E%3Cpath fill=%22%235c4e3a%22 stroke=%22%235c4e3a%22 stroke-width=%222.2%22 d=%22M19.2 2.6l.7 1.6 1.6.7-1.6.7-.7 1.6-.7-1.6-1.6-.7 1.6-.7z%22/%3E%3Cpath fill=%22%23ffdcaa%22 d=%22M14.6 3.4A8.8 8.8 0 1 0 20.6 15.3 7 7 0 0 1 14.6 3.4z%22/%3E%3Cpath fill=%22%23ffdcaa%22 d=%22M19.2 2.6l.7 1.6 1.6.7-1.6.7-.7 1.6-.7-1.6-1.6-.7 1.6-.7z%22/%3E%3C/svg%3E"); }
+.plaque-stade { --p-clair: #e8ff6a; --p-sombre: #4a5217; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%234a5217%22 stroke=%22%234a5217%22 stroke-width=%222.2%22 d=%22M7 3h10v5.2a5 5 0 0 1-10 0z%22/%3E%3Cpath fill=%22none%22 stroke=%22%234a5217%22 stroke-width=%223.8%22 d=%22M7 5H4.6v1.4a3.2 3.2 0 0 0 3 3.2M17 5h2.4v1.4a3.2 3.2 0 0 1-3 3.2%22/%3E%3Cpath fill=%22%234a5217%22 stroke=%22%234a5217%22 stroke-width=%222.2%22 d=%22M10.8 13.4h2.4v3.8h-2.4z%22/%3E%3Crect fill=%22%234a5217%22 stroke=%22%234a5217%22 stroke-width=%222.2%22 x=%227.5%22 y=%2217.6%22 width=%229%22 height=%223%22 rx=%221%22/%3E%3Cpath fill=%22%23e8ff6a%22 d=%22M7 3h10v5.2a5 5 0 0 1-10 0z%22/%3E%3Cpath fill=%22none%22 stroke=%22%23e8ff6a%22 stroke-width=%221.6%22 d=%22M7 5H4.6v1.4a3.2 3.2 0 0 0 3 3.2M17 5h2.4v1.4a3.2 3.2 0 0 1-3 3.2%22/%3E%3Cpath fill=%22%23e8ff6a%22 d=%22M10.8 13.4h2.4v3.8h-2.4z%22/%3E%3Crect fill=%22%23e8ff6a%22 x=%227.5%22 y=%2217.6%22 width=%229%22 height=%223%22 rx=%221%22/%3E%3C/svg%3E"); }
+.plaque-jungle { --p-clair: #f6c052; --p-sombre: #624917; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%23624917%22 stroke=%22%23624917%22 stroke-width=%222.2%22 d=%22M5 19C5 10.5 10.5 4 20 4c0 9.5-6.5 15-15 15z%22/%3E%3Cpath fill=%22none%22 stroke=%22%23624917%22 stroke-width=%223.8%22 d=%22M3 21l5-5%22/%3E%3Cpath fill=%22%23f6c052%22 d=%22M5 19C5 10.5 10.5 4 20 4c0 9.5-6.5 15-15 15z%22/%3E%3Cpath fill=%22none%22 stroke=%22%23f6c052%22 stroke-width=%221.6%22 d=%22M3 21l5-5%22/%3E%3C/svg%3E"); }
+.plaque-ocean { --p-clair: #5ff2da; --p-sombre: #17564b; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Ccircle fill=%22none%22 stroke=%22%2317564b%22 stroke-width=%223.8%22 cx=%229%22 cy=%2215%22 r=%224.5%22/%3E%3Ccircle fill=%22none%22 stroke=%22%2317564b%22 stroke-width=%223.8%22 cx=%2216.5%22 cy=%227.5%22 r=%223%22/%3E%3Ccircle fill=%22none%22 stroke=%22%2317564b%22 stroke-width=%223.7%22 cx=%2218%22 cy=%2216.2%22 r=%221.8%22/%3E%3Ccircle fill=%22none%22 stroke=%22%235ff2da%22 stroke-width=%221.6%22 cx=%229%22 cy=%2215%22 r=%224.5%22/%3E%3Ccircle fill=%22none%22 stroke=%22%235ff2da%22 stroke-width=%221.6%22 cx=%2216.5%22 cy=%227.5%22 r=%223%22/%3E%3Ccircle fill=%22none%22 stroke=%22%235ff2da%22 stroke-width=%221.5%22 cx=%2218%22 cy=%2216.2%22 r=%221.8%22/%3E%3C/svg%3E"); }
+.plaque-patisserie { --p-clair: #f7a8b8; --p-sombre: #63434a; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%2363434a%22 stroke=%22%2363434a%22 stroke-width=%222.2%22 d=%22M4 10.2a8 4.6 0 0 1 16 0z%22/%3E%3Crect fill=%22%2363434a%22 stroke=%22%2363434a%22 stroke-width=%222.2%22 x=%224.6%22 y=%2211.4%22 width=%2214.8%22 height=%221.8%22 rx=%22.9%22/%3E%3Cpath fill=%22%2363434a%22 stroke=%22%2363434a%22 stroke-width=%222.2%22 d=%22M4 14.4h16a8 4.6 0 0 1-16 0z%22/%3E%3Cpath fill=%22%23f7a8b8%22 d=%22M4 10.2a8 4.6 0 0 1 16 0z%22/%3E%3Crect fill=%22%23f7a8b8%22 x=%224.6%22 y=%2211.4%22 width=%2214.8%22 height=%221.8%22 rx=%22.9%22/%3E%3Cpath fill=%22%23f7a8b8%22 d=%22M4 14.4h16a8 4.6 0 0 1-16 0z%22/%3E%3C/svg%3E"); }
+.plaque-gameboy { --p-clair: #658065; --p-sombre: #0f380f; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%230f380f%22 stroke=%22%230f380f%22 stroke-width=%222.2%22 d=%22M6 6h4v2H6zM14 6h4v2h-4zM4 8h16v4H4zM6 12h12v2H6zM8 14h8v2H8zM10 16h4v2h-4z%22/%3E%3Cpath fill=%22%23658065%22 d=%22M6 6h4v2H6zM14 6h4v2h-4zM4 8h16v4H4zM6 12h12v2H6zM8 14h8v2H8zM10 16h4v2h-4z%22/%3E%3C/svg%3E"); }
+.plaque-foret { --p-clair: #be572c; --p-sombre: #843413; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%23843413%22 stroke=%22%23843413%22 stroke-width=%222.2%22 d=%22M12 2.5l1.5 3.8 2.8-1.2-.6 3.4 3.3-.6-1.4 2.7 2.9 1.2-4.2 2.3.7 2-4-.7.4 5.6h-2.8l.4-5.6-4 .7.7-2-4.2-2.3 2.9-1.2-1.4-2.7 3.3.6-.6-3.4 2.8 1.2z%22/%3E%3Cpath fill=%22%23be572c%22 d=%22M12 2.5l1.5 3.8 2.8-1.2-.6 3.4 3.3-.6-1.4 2.7 2.9 1.2-4.2 2.3.7 2-4-.7.4 5.6h-2.8l.4-5.6-4 .7.7-2-4.2-2.3 2.9-1.2-1.4-2.7 3.3.6-.6-3.4 2.8 1.2z%22/%3E%3C/svg%3E"); }
+.plaque-carnaval { --p-clair: #9a61c7; --p-sombre: #6a24a0; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22none%22 stroke=%22%236a24a0%22 stroke-width=%224.1%22 d=%22M3 20c2.6-4.2 5.2-1.2 6.6-4.6S11.6 9 14.6 11s3.2-5.6 6.6-6.2%22/%3E%3Ccircle fill=%22%236a24a0%22 stroke=%22%236a24a0%22 stroke-width=%222.2%22 cx=%225.2%22 cy=%226.4%22 r=%221.7%22/%3E%3Cpath fill=%22%236a24a0%22 stroke=%22%236a24a0%22 stroke-width=%222.2%22 d=%22M10.4 3.2l2.6.8-.8 2.6-2.6-.8z%22/%3E%3Ccircle fill=%22%236a24a0%22 stroke=%22%236a24a0%22 stroke-width=%222.2%22 cx=%2218.6%22 cy=%2216.4%22 r=%221.7%22/%3E%3Cpath fill=%22none%22 stroke=%22%239a61c7%22 stroke-width=%221.9%22 d=%22M3 20c2.6-4.2 5.2-1.2 6.6-4.6S11.6 9 14.6 11s3.2-5.6 6.6-6.2%22/%3E%3Ccircle fill=%22%239a61c7%22 cx=%225.2%22 cy=%226.4%22 r=%221.7%22/%3E%3Cpath fill=%22%239a61c7%22 d=%22M10.4 3.2l2.6.8-.8 2.6-2.6-.8z%22/%3E%3Ccircle fill=%22%239a61c7%22 cx=%2218.6%22 cy=%2216.4%22 r=%221.7%22/%3E%3C/svg%3E"); }
+.plaque-plage { --p-clair: #ffb347; --p-sombre: #66481c; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Ccircle fill=%22%2366481c%22 stroke=%22%2366481c%22 stroke-width=%222.2%22 cx=%2212%22 cy=%229%22 r=%224.6%22/%3E%3Cpath fill=%22none%22 stroke=%22%2366481c%22 stroke-width=%224%22 d=%22M2.5 17.5q2.4-2.6 4.8 0t4.7 0 4.7 0 4.8 0%22/%3E%3Ccircle fill=%22%23ffb347%22 cx=%2212%22 cy=%229%22 r=%224.6%22/%3E%3Cpath fill=%22none%22 stroke=%22%23ffb347%22 stroke-width=%221.8%22 d=%22M2.5 17.5q2.4-2.6 4.8 0t4.7 0 4.7 0 4.8 0%22/%3E%3C/svg%3E"); }
+.plaque-licorne { --p-clair: #d7a8ff; --p-sombre: #564366; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%23564366%22 stroke=%22%23564366%22 stroke-width=%222.2%22 d=%22M8.6 21 12.4 3l3.4 18z%22/%3E%3Cpath fill=%22%23564366%22 stroke=%22%23564366%22 stroke-width=%222.2%22 d=%22M19 2.8l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z%22/%3E%3Cpath fill=%22%23d7a8ff%22 d=%22M8.6 21 12.4 3l3.4 18z%22/%3E%3Cpath fill=%22%23d7a8ff%22 d=%22M19 2.8l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z%22/%3E%3C/svg%3E"); }
+.plaque-heros { --p-clair: #db3a40; --p-sombre: #9a161b; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%239a161b%22 stroke=%22%239a161b%22 stroke-width=%222.2%22 d=%22M12 1.5l2.2 5.2 5.2-2.1-1.6 5.4 5.2 2-5.2 2 1.6 5.4-5.2-2.1L12 22.5l-2.2-5.2-5.2 2.1 1.6-5.4L1 12l5.2-2-1.6-5.4 5.2 2.1z%22/%3E%3Cpath fill=%22%23db3a40%22 d=%22M12 1.5l2.2 5.2 5.2-2.1-1.6 5.4 5.2 2-5.2 2 1.6 5.4-5.2-2.1L12 22.5l-2.2-5.2-5.2 2.1 1.6-5.4L1 12l5.2-2-1.6-5.4 5.2 2.1z%22/%3E%3C/svg%3E"); }
+.plaque-grimoire { --p-clair: #b06666; --p-sombre: #8b1e1e; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%238b1e1e%22 stroke=%22%238b1e1e%22 stroke-width=%222.2%22 d=%22M20.5 3C12.5 4 7.4 10 6.3 17.2l2 .9C10.2 11.7 14.3 7 20.5 3z%22/%3E%3Cpath fill=%22none%22 stroke=%22%238b1e1e%22 stroke-width=%223.8%22 d=%22M6.6 17.6 4.4 21.5%22/%3E%3Cpath fill=%22%23b06666%22 d=%22M20.5 3C12.5 4 7.4 10 6.3 17.2l2 .9C10.2 11.7 14.3 7 20.5 3z%22/%3E%3Cpath fill=%22none%22 stroke=%22%23b06666%22 stroke-width=%221.6%22 d=%22M6.6 17.6 4.4 21.5%22/%3E%3C/svg%3E"); }
+.plaque-filmnoir { --p-clair: #ff4a4a; --p-sombre: #4c4c4c; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%234c4c4c%22 stroke=%22%234c4c4c%22 stroke-width=%222.2%22 d=%22M2.5 16.2c3.5 2.6 15.5 2.6 19 0-1.7-1-3-1.2-3-1.2l-1-6.2c-.4-2-2.6-2.6-4.6-1.3-.6.4-1.2.4-1.8 0-2-1.3-4.2-.7-4.6 1.3l-1 6.2s-1.3.2-3 1.2z%22/%3E%3Cpath fill=%22%23ff4a4a%22 d=%22M2.5 16.2c3.5 2.6 15.5 2.6 19 0-1.7-1-3-1.2-3-1.2l-1-6.2c-.4-2-2.6-2.6-4.6-1.3-.6.4-1.2.4-1.8 0-2-1.3-4.2-.7-4.6 1.3l-1 6.2s-1.3.2-3 1.2z%22/%3E%3C/svg%3E"); }
+.plaque-disco { --p-clair: #ffd866; --p-sombre: #5c4b17; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Ccircle fill=%22none%22 stroke=%22%235c4b17%22 stroke-width=%223.8%22 cx=%2212%22 cy=%2213.5%22 r=%227%22/%3E%3Cpath fill=%22none%22 stroke=%22%235c4b17%22 stroke-width=%223.6%22 d=%22M5 13.5h14M12 6.5v14M6.6 10h10.8M6.6 17h10.8M12 2v4.5%22/%3E%3Ccircle fill=%22none%22 stroke=%22%23ffd866%22 stroke-width=%221.6%22 cx=%2212%22 cy=%2213.5%22 r=%227%22/%3E%3Cpath fill=%22none%22 stroke=%22%23ffd866%22 stroke-width=%221.4%22 d=%22M5 13.5h14M12 6.5v14M6.6 10h10.8M6.6 17h10.8M12 2v4.5%22/%3E%3C/svg%3E"); }
+.plaque-halloween { --p-clair: #ffa347; --p-sombre: #7a430c; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%237a430c%22 stroke=%22%237a430c%22 stroke-width=%222.2%22 d=%22M12 7.2c-1.2-.6-2.6-.7-3.8-.2C5 7.8 3 10.2 3 13.6S5.5 20 8.6 20c1.3 0 2.4-.4 3.4-1 1 .6 2.1 1 3.4 1 3.1 0 5.6-3 5.6-6.4S19 7.8 15.8 7c-1.2-.5-2.6-.4-3.8.2z%22/%3E%3Cpath fill=%22%237a430c%22 stroke=%22%237a430c%22 stroke-width=%222.2%22 d=%22M11.3 7.3c-.2-2 .3-3.6 1.8-4.6l1 1c-1 .8-1.4 2-1.3 3.6z%22/%3E%3Cpath fill=%22%23ffa347%22 d=%22M12 7.2c-1.2-.6-2.6-.7-3.8-.2C5 7.8 3 10.2 3 13.6S5.5 20 8.6 20c1.3 0 2.4-.4 3.4-1 1 .6 2.1 1 3.4 1 3.1 0 5.6-3 5.6-6.4S19 7.8 15.8 7c-1.2-.5-2.6-.4-3.8.2z%22/%3E%3Cpath fill=%22%23ffa347%22 d=%22M11.3 7.3c-.2-2 .3-3.6 1.8-4.6l1 1c-1 .8-1.4 2-1.3 3.6z%22/%3E%3C/svg%3E"); }
+.plaque-neige { --p-clair: #a8dcff; --p-sombre: #45535c; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22none%22 stroke=%22%2345535c%22 stroke-width=%223.9%22 d=%22M12 2.5v19M3.8 7.2l16.4 9.6M3.8 16.8l16.4-9.6%22/%3E%3Cpath fill=%22none%22 stroke=%22%2345535c%22 stroke-width=%223.7%22 d=%22M9.5 4 12 6.4 14.5 4M9.5 20l2.5-2.4 2.5 2.4%22/%3E%3Cpath fill=%22none%22 stroke=%22%23a8dcff%22 stroke-width=%221.7%22 d=%22M12 2.5v19M3.8 7.2l16.4 9.6M3.8 16.8l16.4-9.6%22/%3E%3Cpath fill=%22none%22 stroke=%22%23a8dcff%22 stroke-width=%221.5%22 d=%22M9.5 4 12 6.4 14.5 4M9.5 20l2.5-2.4 2.5 2.4%22/%3E%3C/svg%3E"); }
+.plaque-cerisiers { --p-clair: #f4a6bd; --p-sombre: #62424c; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Ccircle fill=%22%2362424c%22 stroke=%22%2362424c%22 stroke-width=%222.2%22 cx=%2212%22 cy=%227%22 r=%223.3%22/%3E%3Ccircle fill=%22%2362424c%22 stroke=%22%2362424c%22 stroke-width=%222.2%22 cx=%2216.8%22 cy=%2210.5%22 r=%223.3%22/%3E%3Ccircle fill=%22%2362424c%22 stroke=%22%2362424c%22 stroke-width=%222.2%22 cx=%2214.9%22 cy=%2216.1%22 r=%223.3%22/%3E%3Ccircle fill=%22%2362424c%22 stroke=%22%2362424c%22 stroke-width=%222.2%22 cx=%229.1%22 cy=%2216.1%22 r=%223.3%22/%3E%3Ccircle fill=%22%2362424c%22 stroke=%22%2362424c%22 stroke-width=%222.2%22 cx=%227.2%22 cy=%2210.5%22 r=%223.3%22/%3E%3Ccircle fill=%22%23f4a6bd%22 cx=%2212%22 cy=%227%22 r=%223.3%22/%3E%3Ccircle fill=%22%23f4a6bd%22 cx=%2216.8%22 cy=%2210.5%22 r=%223.3%22/%3E%3Ccircle fill=%22%23f4a6bd%22 cx=%2214.9%22 cy=%2216.1%22 r=%223.3%22/%3E%3Ccircle fill=%22%23f4a6bd%22 cx=%229.1%22 cy=%2216.1%22 r=%223.3%22/%3E%3Ccircle fill=%22%23f4a6bd%22 cx=%227.2%22 cy=%2210.5%22 r=%223.3%22/%3E%3C/svg%3E"); }
+.plaque-neon { --p-clair: #ff7ce8; --p-sombre: #852170; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%23852170%22 stroke=%22%23852170%22 stroke-width=%222.2%22 d=%22M14.5 2 7.5 13.2h4.6L10 22l7.6-11.5H13z%22/%3E%3Cpath fill=%22%23ff7ce8%22 d=%22M14.5 2 7.5 13.2h4.6L10 22l7.6-11.5H13z%22/%3E%3C/svg%3E"); }
+.plaque-olympe { --p-clair: #c9a23a; --p-sombre: #604e1c; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%23604e1c%22 stroke=%22%23604e1c%22 stroke-width=%222.2%22 d=%22M4 4h16v2.5H4zM6 7.5h12V9H6zM7 10h2v8H7zM11 10h2v8h-2zM15 10h2v8h-2zM5 19h14v2H5z%22/%3E%3Cpath fill=%22%23c9a23a%22 d=%22M4 4h16v2.5H4zM6 7.5h12V9H6zM7 10h2v8H7zM11 10h2v8h-2zM15 10h2v8h-2zM5 19h14v2H5z%22/%3E%3C/svg%3E"); }
+.plaque-braises { --p-clair: #ff8a3d; --p-sombre: #85370e; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%2385370e%22 stroke=%22%2385370e%22 stroke-width=%222.2%22 d=%22M12 2c1 4 5 6 5 11a5 5 0 0 1-10 0c0-3 2-4 2-7 1.5 1 2 2.5 2 4 1-2 1-5 1-8z%22/%3E%3Cpath fill=%22%23ff8a3d%22 d=%22M12 2c1 4 5 6 5 11a5 5 0 0 1-10 0c0-3 2-4 2-7 1.5 1 2 2.5 2 4 1-2 1-5 1-8z%22/%3E%3C/svg%3E"); }
+.plaque-cosmos { --p-clair: #aa9bff; --p-sombre: #50458f; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Ccircle fill=%22%2350458f%22 stroke=%22%2350458f%22 stroke-width=%222.2%22 cx=%2212%22 cy=%2212%22 r=%225.2%22/%3E%3Cellipse fill=%22none%22 stroke=%22%2350458f%22 stroke-width=%223.8%22 cx=%2212%22 cy=%2212%22 rx=%2210%22 ry=%223.4%22 transform=%22rotate(-22 12 12)%22/%3E%3Ccircle fill=%22%23aa9bff%22 cx=%2212%22 cy=%2212%22 r=%225.2%22/%3E%3Cellipse fill=%22none%22 stroke=%22%23aa9bff%22 stroke-width=%221.6%22 cx=%2212%22 cy=%2212%22 rx=%2210%22 ry=%223.4%22 transform=%22rotate(-22 12 12)%22/%3E%3C/svg%3E"); }
+.plaque-feudartifice { --p-clair: #ffd873; --p-sombre: #5c4b20; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22none%22 stroke=%22%235c4b20%22 stroke-width=%223.8%22 d=%22M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4M5.3 5.3l2.8 2.8M15.9 15.9l2.8 2.8M5.3 18.7l2.8-2.8M15.9 8.1l2.8-2.8%22/%3E%3Ccircle fill=%22%235c4b20%22 stroke=%22%235c4b20%22 stroke-width=%222.2%22 cx=%2212%22 cy=%2212%22 r=%222%22/%3E%3Cpath fill=%22none%22 stroke=%22%23ffd873%22 stroke-width=%221.6%22 d=%22M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4M5.3 5.3l2.8 2.8M15.9 15.9l2.8 2.8M5.3 18.7l2.8-2.8M15.9 8.1l2.8-2.8%22/%3E%3Ccircle fill=%22%23ffd873%22 cx=%2212%22 cy=%2212%22 r=%222%22/%3E%3C/svg%3E"); }
+.plaque-aurore { --p-clair: #6bffc2; --p-sombre: #1c5c41; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22none%22 stroke=%22%231c5c41%22 stroke-width=%224%22 d=%22M2 7.5q5-5 10 0t10 0%22/%3E%3Cpath fill=%22%231c5c41%22 stroke=%22%231c5c41%22 stroke-width=%222.2%22 d=%22M12 9.5 7.6 16.6h2.8L8 21h8l-2.4-4.4h2.8z%22/%3E%3Cpath fill=%22none%22 stroke=%22%236bffc2%22 stroke-width=%221.8%22 d=%22M2 7.5q5-5 10 0t10 0%22/%3E%3Cpath fill=%22%236bffc2%22 d=%22M12 9.5 7.6 16.6h2.8L8 21h8l-2.4-4.4h2.8z%22/%3E%3C/svg%3E"); }
+.plaque-kintsugi { --p-clair: #e0b54a; --p-sombre: #5d491a; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22none%22 stroke=%22%235d491a%22 stroke-width=%224.1%22 d=%22M3 4 9 10 7 14 13 16 11 21M9 10 15 8 20 12M13 16 19 15 22 19%22/%3E%3Cpath fill=%22none%22 stroke=%22%23e0b54a%22 stroke-width=%221.9%22 d=%22M3 4 9 10 7 14 13 16 11 21M9 10 15 8 20 12M13 16 19 15 22 19%22/%3E%3C/svg%3E"); }
+.plaque-theatre { --p-clair: #efc35c; --p-sombre: #5a481e; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%235a481e%22 stroke=%22%235a481e%22 stroke-width=%222.2%22 fill-rule=%22evenodd%22 d=%22M5 4c4.2-1.6 9.8-1.6 14 0 .3 8.4-2.2 15.4-7 16.6C7.2 19.4 4.7 12.4 5 4zM7.9 8.6c.6-1.2 2.6-1.2 3.2 0-.6.6-2.6.6-3.2 0zM12.9 8.6c.6-1.2 2.6-1.2 3.2 0-.6.6-2.6.6-3.2 0zM8.8 13c1.9 2.3 4.5 2.3 6.4 0-1.9 1-4.5 1-6.4 0z%22/%3E%3Cpath fill=%22%23efc35c%22 fill-rule=%22evenodd%22 d=%22M5 4c4.2-1.6 9.8-1.6 14 0 .3 8.4-2.2 15.4-7 16.6C7.2 19.4 4.7 12.4 5 4zM7.9 8.6c.6-1.2 2.6-1.2 3.2 0-.6.6-2.6.6-3.2 0zM12.9 8.6c.6-1.2 2.6-1.2 3.2 0-.6.6-2.6.6-3.2 0zM8.8 13c1.9 2.3 4.5 2.3 6.4 0-1.9 1-4.5 1-6.4 0z%22/%3E%3C/svg%3E"); }
+.plaque-babel { --p-clair: #dbb75e; --p-sombre: #604d24; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%23604d24%22 stroke=%22%23604d24%22 stroke-width=%222.2%22 d=%22M2 6c4-1 7 0 9.3 1.6V20C9 18.5 6 18 2 19z%22/%3E%3Cpath fill=%22%23604d24%22 stroke=%22%23604d24%22 stroke-width=%222.2%22 d=%22M22 6c-4-1-7 0-9.3 1.6V20c2.3-1.5 5.3-2 9.3-1z%22/%3E%3Cpath fill=%22%23dbb75e%22 d=%22M2 6c4-1 7 0 9.3 1.6V20C9 18.5 6 18 2 19z%22/%3E%3Cpath fill=%22%23dbb75e%22 d=%22M22 6c-4-1-7 0-9.3 1.6V20c2.3-1.5 5.3-2 9.3-1z%22/%3E%3C/svg%3E"); }
+.plaque-horloge { --p-clair: #e4c06a; --p-sombre: #5f4f28; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Ccircle fill=%22none%22 stroke=%22%235f4f28%22 stroke-width=%224%22 cx=%2212%22 cy=%2212%22 r=%228.5%22/%3E%3Cpath fill=%22none%22 stroke=%22%235f4f28%22 stroke-width=%224%22 d=%22M12 7v5l3.5 2.5%22/%3E%3Ccircle fill=%22none%22 stroke=%22%23e4c06a%22 stroke-width=%221.8%22 cx=%2212%22 cy=%2212%22 r=%228.5%22/%3E%3Cpath fill=%22none%22 stroke=%22%23e4c06a%22 stroke-width=%221.8%22 d=%22M12 7v5l3.5 2.5%22/%3E%3C/svg%3E"); }
+.plaque-ciel { --p-clair: #f6cd78; --p-sombre: #614e2a; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Ccircle fill=%22%23614e2a%22 stroke=%22%23614e2a%22 stroke-width=%222.2%22 cx=%2212%22 cy=%2212%22 r=%224.4%22/%3E%3Cpath fill=%22none%22 stroke=%22%23614e2a%22 stroke-width=%224.2%22 d=%22M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1%22/%3E%3Ccircle fill=%22%23f6cd78%22 cx=%2212%22 cy=%2212%22 r=%224.4%22/%3E%3Cpath fill=%22none%22 stroke=%22%23f6cd78%22 stroke-width=%222%22 d=%22M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1%22/%3E%3C/svg%3E"); }
+.plaque-heures { --p-clair: #c19a3e; --p-sombre: #1e4091; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%231e4091%22 stroke=%22%231e4091%22 stroke-width=%222.2%22 d=%22M12 2.5c-2.3 3.2-2.3 6.4 0 9.6 2.3-3.2 2.3-6.4 0-9.6zM3.5 8.5c.2 3.9 3 5.9 6.3 5.1-.7-3.2-3.2-5.3-6.3-5.1zM20.5 8.5c-.2 3.9-3 5.9-6.3 5.1.7-3.2 3.2-5.3 6.3-5.1zM10.2 16.6 12 21.5l1.8-4.9z%22/%3E%3Crect fill=%22%231e4091%22 stroke=%22%231e4091%22 stroke-width=%222.2%22 x=%226.5%22 y=%2214%22 width=%2211%22 height=%222%22 rx=%221%22/%3E%3Cpath fill=%22%23c19a3e%22 d=%22M12 2.5c-2.3 3.2-2.3 6.4 0 9.6 2.3-3.2 2.3-6.4 0-9.6zM3.5 8.5c.2 3.9 3 5.9 6.3 5.1-.7-3.2-3.2-5.3-6.3-5.1zM20.5 8.5c-.2 3.9-3 5.9-6.3 5.1.7-3.2 3.2-5.3 6.3-5.1zM10.2 16.6 12 21.5l1.8-4.9z%22/%3E%3Crect fill=%22%23c19a3e%22 x=%226.5%22 y=%2214%22 width=%2211%22 height=%222%22 rx=%221%22/%3E%3C/svg%3E"); }
+.plaque-sommet { --p-clair: #f6b475; --p-sombre: #6a4928; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%236a4928%22 stroke=%22%236a4928%22 stroke-width=%222.2%22 d=%22M2 20.5 9.2 8l4 6.6 2.6-3.8 6.2 9.7z%22/%3E%3Cpath fill=%22none%22 stroke=%22%236a4928%22 stroke-width=%223.5%22 d=%22M9.2 8V2.8%22/%3E%3Cpath fill=%22%236a4928%22 stroke=%22%236a4928%22 stroke-width=%222.2%22 d=%22M9.6 2.8h4.4l-1.3 1.5 1.3 1.5H9.6z%22/%3E%3Cpath fill=%22%23f6b475%22 d=%22M2 20.5 9.2 8l4 6.6 2.6-3.8 6.2 9.7z%22/%3E%3Cpath fill=%22none%22 stroke=%22%23f6b475%22 stroke-width=%221.3%22 d=%22M9.2 8V2.8%22/%3E%3Cpath fill=%22%23f6b475%22 d=%22M9.6 2.8h4.4l-1.3 1.5 1.3 1.5H9.6z%22/%3E%3C/svg%3E"); }
+/* ── Fin des emblèmes des plaques ── */
 
 /* Là où elle se choisit (la loge, onglet « Ma plaque » de la pièce « Thème »)
-   et là où elle se vend (la fiche d'un thème) : sa propre ligne, telle qu'un
-   classement la montrerait (`LigneDePlaque`). Elle n'entre pas en glissant —
-   on la regarde, on ne la découvre pas. Les choix de la loge étaient chacun
+   et là où elle se vend (la fiche d'un thème) : sa propre ligne de classement,
+   son avatar dans l'écrin de la plaque montrée (`LigneDePlaque`). Elle n'entre
+   pas en glissant — on la regarde, on ne la découvre pas. Les choix de la loge étaient chacun
    une ligne entière (`.plaque-choix`) jusqu'au 17 novembre 2026 : ils sont
    devenus des vignettes, leurs échantillons dans la section de la loge
    (`.loge-plaque-echantillon`). */
@@ -4252,7 +4317,7 @@ h3 > .icon {
 :root[data-sans~='bordure'] :is(.lb-avatar, .player-chip) .bo { display: none !important; }
 :root[data-sans~='medaillon'] :is(.lb-avatar, .player-chip) :is(.lg, .pt, .dv, .sc) { display: none !important; }
 :root[data-sans~='gemme'] :is(.lb-avatar, .player-chip .av).av-eclat::after { display: none !important; }
-:root[data-sans~='motif'] .lb-row.plaque > .plaque-motif { display: none !important; }
+:root[data-sans~='motif'] .ecrin.plaque::before { display: none !important; }
 
 /* Dans une phrase (`AvatarEnLigne`) — les vainqueurs du défi, le bilan,
    l'historique : un médaillon n'a pas de ligne de base, et se posait
@@ -9997,22 +10062,22 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-theme-case .loge-vignette-image { display: block; background: var(--surface-strong); }
 .loge-theme-case .loge-vignette-image img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
 .loge-theme-case .article-gemme { display: inline-block; margin: 0 6px 0 2px; vertical-align: 0.05em; }
-/* L'échantillon d'une plaque (`EchantillonDePlaque`) : un bout de sa ligne. Ce n'est pas une ligne `.lb-row` — la règle
-   des plaques ne le peint pas : il lit lui-même les jetons que sa classe lui donne (`--p-bg`, `--p-ink`, `--p-trait`,
-   `--p-motif`), en dur, quel que soit le thème de celui qui regarde. Sans plaque, la ligne de tous : le sol et l'encre
-   de la page. Son motif, comme sur la ligne, est une pièce après le prénom, jamais un fond sous lui. */
+/* L'échantillon d'une plaque (`EchantillonDePlaque`) : un bout de sa plaque du podium. Ce n'est pas une ligne `.lb-row`
+   — la règle des plaques ne le peint pas : il lit lui-même les jetons que sa classe lui donne (`--p-bg`, `--p-ink`,
+   `--p-trait`, `--p-embleme`), en dur, quel que soit le thème de celui qui regarde. Sans plaque, la ligne de tous : le
+   sol et l'encre de la page. Son emblème, comme sur la ligne, suit le nom, jamais un fond sous lui. */
 .loge-plaque-echantillon { display: flex; align-items: center; gap: 6px; width: 100%; height: 100%; box-sizing: border-box; padding: 0 0 0 8px; border: 1px solid var(--edge-strong); border-radius: inherit; background: var(--surface); color: var(--ink); overflow: hidden; }
-.loge-plaque-echantillon.plaque { border-color: var(--p-trait); background: var(--p-bg); color: var(--p-ink); }
+.loge-plaque-echantillon.plaque { border-color: var(--p-trait); background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.1)), var(--p-bg); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14); color: var(--p-ink); }
 /* Un nom long passe à la ligne, coupé à ses syllabes là où le téléphone sait le faire : « L'Horloge astronomique »
    laissait son « e » seul sur une troisième ligne. */
 .loge-plaque-texte { flex: 0 1 auto; min-width: 0; font-size: 0.78rem; font-weight: 700; line-height: 1.15; text-align: left; overflow-wrap: break-word; hyphens: auto; }
-.loge-plaque-echantillon > .plaque-motif { display: block; flex: 1 1 0; min-width: 0; align-self: stretch; background: linear-gradient(90deg, var(--p-bg), transparent 30%, transparent 70%, var(--p-bg)), var(--p-motif); opacity: 0.85; }
+.loge-plaque-echantillon > .plaque-embleme { display: block; flex: none; width: 18px; height: 18px; margin: 0 6px 0 auto; background: var(--p-embleme) center / contain no-repeat; }
 /* Les plaques, plus basses que les thèmes : une petite plaque, son nom dedans — sur deux lignes, « Comme mon thème »
    y tient. */
 .loge-plaques { --loge-vignette: 44px; }
-/* Dans l'onglet : l'échantillon en petit, son motif seul, sans fondu — il n'a pas la place d'un prénom. */
+/* Dans l'onglet : l'échantillon en petit, son emblème seul au milieu — il n'a pas la place d'un prénom. */
 .loge-theme-onglets .loge-plaque-echantillon { flex: none; width: 28px; height: 18px; padding: 0; border-radius: 5px; }
-.loge-theme-onglets .loge-plaque-echantillon > .plaque-motif { background: var(--p-motif); }
+.loge-theme-onglets .loge-plaque-echantillon > .plaque-embleme { width: 14px; height: 14px; margin: auto; }
 @media (max-height: 759px) {
   /* Le petit téléphone : l'aperçu des thèmes perd quatre pixels — deux rangées et le pied tiennent au-dessus du menu en
      360 × 640, sa niche au coin. */
@@ -10703,8 +10768,8 @@ button.duels-joue { cursor: pointer; }
 .duels-amis-sans { font-size: 0.8125rem; text-align: center; color: var(--muted); }
 .duels-podium { width: 100%; height: 52px; display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 0 14px; border: 1px solid rgba(var(--accent-rgb), 0.22); border-radius: 14px; background: none; color: var(--ink); font: inherit; cursor: pointer; }
 .duels-podium:hover { border-color: var(--edge-strong); }
-.duels-podium-avatars { display: flex; }
-.duels-podium-avatars .duels-anneau + .duels-anneau { margin-left: -6px; }
+/* Le Top 3 : trois petits écrins côte à côte — serrés l'un sous l'autre, ils cachaient chacun un bout du suivant. */
+.duels-podium-avatars { display: flex; gap: 6px; }
 .duels-tout-voir { margin-left: auto; color: var(--accent-text); font-size: 0.875rem; }
 /* Sous ses deux places, la liste choisie : ses pièces espacées d'un même pas, leurs marges d'ailleurs oubliées. */
 .duels-places-panneau { display: flex; flex-direction: column; gap: 14px; margin-top: 16px; }
@@ -10887,6 +10952,76 @@ button.duels-joue { cursor: pointer; }
 .duels-dos-aide { position: absolute; top: 262px; left: 0; right: 0; color: var(--muted); font-size: 0.8125rem; text-align: center; }
 .duels-semaine.sous-la-carte { margin-top: 30px; }
 .duels-semaine.sous-la-carte .duels-losanges i { width: 8px; height: 8px; }
+
+/* La grande plaque des duels (le 18 novembre 2026, la maquette posée sur les
+   vrais écrans d'un duel, `retours/2026-11-18/plaques/duels/`) : à un contre
+   un, la place qu'un classement n'a pas. Au duel à relever, chaque carte
+   s'habille de la plaque de son joueur — son fond, un double filet, son
+   emblème en semis, le « ? » à son or — ; au verdict, chacun monte sur son
+   socle à ses couleurs. Le nom s'écrit sur sa plaque, son emblème au bout :
+   il cède avant le prénom, coupé avec lui. Sans plaque, rien ne change —
+   un invité, Automate, un masqué n'en portent pas (invariant 8). Ses couleurs
+   sont celles de son thème, en dur (`.plaque-<clé>`) : la plaque d'en face ne
+   suit jamais le thème de celui qui regarde. Pas `.carte-plaque` : la plaque
+   du compagnon sur la carte d'un joueur, en absolu — empruntée par la
+   maquette, la carte d'en face sautait au coin de l'écran. */
+.duels-carte.plaque {
+  border-color: var(--p-trait);
+  background: radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, 0.1), transparent 60%), var(--p-bg);
+  box-shadow: inset 0 0 0 calc(3 * var(--u)) var(--p-bg), inset 0 0 0 calc(4 * var(--u)) var(--p-trait), 0 18px 40px color-mix(in srgb, var(--backdrop) 70%, transparent);
+  color: var(--p-ink);
+}
+/* L'emblème en semis : une image aux couleurs écrites dedans, ni masque ni filtre (règle `css.md`). Le premier de la
+   carte, peint sous ce qu'elle porte — en dernier, il passait par-dessus. À 8 %, l'encre de chaque plaque y garde 4,5:1
+   et son or 3:1, qui n'écrit qu'en grand ; à 10 %, l'encre atténuée de quatre plaques tombait sous 4,5 : la case, qui
+   l'écrit en petit, a son sol plein (`plaques.test.ts` relit les trois sur chaque plaque). */
+.duels-carte.plaque::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--p-embleme) calc(8 * var(--u)) calc(8 * var(--u)) / calc(30 * var(--u)) calc(30 * var(--u)) repeat;
+  opacity: 0.08;
+  pointer-events: none;
+}
+.duels-carte.plaque :is(.duels-carte-mystere, .duels-carte-sceau) { color: var(--p-or); }
+.duels-carte.plaque .duels-carte-mystere { text-shadow: 0 0 22px color-mix(in srgb, var(--p-or) 45%, transparent); }
+.duels-carte.plaque .duels-carte-case { border-color: color-mix(in srgb, var(--p-trait) 70%, transparent); background: var(--p-bg); color: var(--p-muted); }
+.duels-carte.plaque .duels-carte-case.joue { border-color: var(--p-or); background: linear-gradient(color-mix(in srgb, var(--p-or) 10%, transparent), color-mix(in srgb, var(--p-or) 10%, transparent)), var(--p-bg); }
+.duels-carte.plaque .duels-carte-case.joue b { color: var(--p-or); }
+/* Au verdict, le socle : la colonne de chacun, son score à l'or de sa plaque. */
+/* Deux socles côte à côte : le trait du milieu disparaît entre eux, un écart les sépare. */
+.duels-face-joueur.plaque {
+  margin: 0 3px;
+  padding: 8px 6px 10px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(0, 0, 0, 0.12)), var(--p-bg);
+  box-shadow: inset 0 0 0 1px var(--p-trait), inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+.duels-face-joueur.plaque > .duels-face-score { color: var(--p-muted); }
+.duels-face-joueur.plaque > .duels-face-score.devant { color: var(--p-or); }
+/* Le nom sur sa plaque : la carte d'en face, le socle du verdict. */
+.duels-carte.plaque .duels-carte-son-nom,
+.duels-face-joueur.plaque > .duels-face-nom {
+  max-width: 100%;
+  padding: 3px 9px;
+  border: 1px solid var(--p-trait);
+  border-radius: 9px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(0, 0, 0, 0.1)), var(--p-bg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 2px 6px rgba(0, 0, 0, 0.3);
+  color: var(--p-ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.duels-face-joueur.plaque > .duels-face-nom { margin-top: 6px; font-size: 0.8125rem; }
+:is(.duels-carte-son-nom, .duels-face-nom) > .plaque-embleme {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  margin-left: 0.35em;
+  vertical-align: -0.22em;
+  background: var(--p-embleme) center / contain no-repeat;
+}
 
 /* L'accueil, quand un duel qu'il a lancé vient d'être joué (A4) : la tuile
    des duels s'allume et luit, son résultat compté en rouge ; une bannière

@@ -173,7 +173,8 @@ test('la page des duels : le classement derrière « Tout voir », les amis derr
   const html = renderToStaticMarkup(React.createElement(FeuilleDuClassement, { classement, onOuvrir() {}, onFermer() {} }))
   assert.match(html, /<b class="feuille-titre">Le classement des duels<\/b>/)
   assert.match(html, /<b>Tu es 3ᵉ<\/b><span class="muted small">sur 5 · Argent · cote 1100<\/span>/, 'sa place d’abord : c’est ce qu’il vient chercher')
-  assert.match(html, /<button type="button" class="lb-row lb-ouvrable duels-ligne" aria-label="La carte de Tom — rang 2, ligue d’or, cote 1240">/)
+  // Les trois premiers sur le podium depuis le 18 novembre 2026 : sa marche s'ouvre comme sa ligne, sous le même nom.
+  assert.match(html, /<button type="button" class="pdc-joueur" aria-label="La carte de Tom — rang 2, ligue d’or, cote 1240">/)
   assert.doesNotMatch(html, /duels-epee|Défier/, 'plus d’épée sur les lignes : « Défier » est sur la carte')
   // Hors du classement, il le sait aussi.
   const sansLui = renderToStaticMarkup(React.createElement(FeuilleDuClassement, { classement: { ...classement, sienne: undefined }, onOuvrir() {}, onFermer() {} }))

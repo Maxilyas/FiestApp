@@ -43,7 +43,7 @@ Revenu plus tard, tu trouves **le jour joué** : ton résultat en une carte — 
 
 ### Le classement du jour et du mois
 
-Un seul classement pour tout le serveur, aux règles des soirées : rang partagé, tous les ex æquo en tête vainqueurs, « Camille (2) » pour deux homonymes. Trois onglets, chacun à son adresse — « Aujourd'hui » (`/jour#classement`), « Hier » (`#classement-hier`), le mois (`#classement-mois`, le total de ses jours) ; cinquante lignes, la tienne à part si tu es plus bas, « · en cours » pour une partie pas finie. Toucher un nom ouvre la carte du joueur. Un profil masqué par l'administrateur n'y paraît plus pour les autres, ni aux classements du défi et des duels — lui se voit toujours, sans en être averti.
+Un seul classement pour tout le serveur, aux règles des soirées : rang partagé, tous les ex æquo en tête vainqueurs, « Camille (2) » pour deux homonymes. **À points égaux, le plus rapide passe devant** (le choix du propriétaire du 19 novembre 2026) : le temps moyen de tes bonnes réponses, mesuré au serveur, au dixième de seconde — plus près, vous restez ex æquo (`DIXIEME_MS`). Le bonus de rapidité ne départageait presque personne : il reste plein pendant le temps de lecture, et quatre bonnes réponses sur cinq le touchaient entier. Ce temps se lit sous les points des seules lignes à égalité (« 4,1 s »), et compte pour le podium, le laurier, les victoires, le mois, son champion et ses coffres ; pas pour L'Élite ni le Phénix, qui se lisent aux points. Les jours d'avant la règle gardent leurs ex æquo, et le défi de la semaine n'en a pas : on y prend son temps. Trois onglets, chacun à son adresse — « Aujourd'hui » (`/jour#classement`), « Hier » (`#classement-hier`), le mois (`#classement-mois`, le total de ses jours) ; cinquante lignes, la tienne à part si tu es plus bas, « · en cours » pour une partie pas finie. Toucher un nom ouvre la carte du joueur. Un profil masqué par l'administrateur n'y paraît plus pour les autres, ni aux classements du défi et des duels — lui se voit toujours, sans en être averti.
 
 ### La nuit, et le lendemain
 
@@ -59,9 +59,9 @@ Le lendemain, **« Hier, au quiz du jour »** raconte ta place, tes points, l'ex
 
 ### Le laurier et le champion du mois
 
-Le vainqueur d'hier — tous les ex æquo en tête — porte **le laurier** toute la journée, juste après son prénom : au classement du jour, sur sa carte (« Vainqueur du quiz du jour d'hier »), sur sa page et dans les soirées où il joue. Il grandit avec ses victoires : vert à la première, d'or à cinq, serti à vingt, étoilé à cinquante (`SEUILS_DU_LAURIER`). Qui porte aussi l'argent du défi de la semaine montre celui d'hier.
+Le vainqueur d'hier — tous les ex æquo en tête, après le départage au temps — porte **le laurier** toute la journée, juste après son prénom : au classement du jour, sur sa carte (« Vainqueur du quiz du jour d'hier »), sur sa page et dans les soirées où il joue. Il grandit avec ses victoires : vert à la première, d'or à cinq, serti à vingt, étoilé à cinquante (`SEUILS_DU_LAURIER`). Qui porte aussi l'argent du défi de la semaine montre celui d'hier.
 
-**Le champion du mois** — le premier du classement du mois, ex æquo compris, à deux joueurs au moins — reçoit un titre daté, « Champion d'octobre 2026 », à porter sous son prénom. Sa carte le dit tout le mois suivant, et l'écran commun le salue quand il entre dans une soirée.
+**Le champion du mois** — le premier du classement du mois, départagé au temps comme lui, ex æquo compris, à deux joueurs au moins — reçoit un titre daté, « Champion d'octobre 2026 », à porter sous son prénom. Sa carte le dit tout le mois suivant, et l'écran commun le salue quand il entre dans une soirée.
 
 **Le coffre du mois** — chaque joueur classé au classement du mois reçoit à la clôture un coffre selon sa place : royal pour le premier, d'or du deuxième au quatrième, d'argent du cinquième au dixième, de bois au-delà (`PLACES_DU_COFFRE_DU_MOIS`). Il s'ouvre comme le coffre de la semaine : [les missions](les-missions.md#le-coffre-du-mois).
 
