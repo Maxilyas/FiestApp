@@ -19027,6 +19027,14 @@ button.gp-reponse:hover:not(:disabled) { border-color: var(--accent); }
 .gp-bandeau .affiche-scene { width: auto; height: auto; transform: none; }
 .gp-bandeau .affiche-titre::before { content: none; }
 .gp-bandeau .affiche-sur { transform: translateY(24px); }
+/* Le Grand Prix au QG : l'aperçu du flot tel que les joueurs le verront, le fantôme choisi, les rubans en pastilles. */
+.gp-qg-apercu { display: flex; align-items: center; gap: 14px; padding: 10px 12px; margin-bottom: 6px; border-radius: 14px; background: #0d1128; color: #f3ece2; }
+.gp-qg-apercu-titre { font-family: var(--serif); font-size: 1.35rem; line-height: 1.1; }
+.gp-qg-fantome { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.gp-qg-jour { max-width: 220px; }
+.gp-qg-ruban { display: inline-flex; align-items: center; gap: 6px; }
+.gp-qg-pastille { width: 12px; height: 12px; border-radius: 50%; flex: none; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35); }
+
 /* La feuille de la fêtée : sa nuit est un objet peint, qu'aucun thème ne repeint — comme la course. */
 .gp-fete { position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 14px 16px; border-radius: 18px; background: var(--gp-nuit, #0d1128); border: 1px solid rgba(217, 181, 106, 0.6); color: #f3ece2; text-align: center; }
 .gp-fete > *:not(.gp-ciel) { position: relative; }

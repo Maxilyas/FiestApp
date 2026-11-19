@@ -6,6 +6,7 @@ import { noterLeGeste } from './core/journalDesGestes'
 import { readPlayerToken } from './auth/http'
 import { PRIX_DES_GRANDS_PRIX, legendaire } from '../../shared/legendaires'
 import { RUBANS, type CleDeRuban, type PageDesGrandsPrix } from '../../shared/grandPrix'
+import { jourEnToutesLettres } from '../../shared/jour'
 
 /**
  * Les routes du Grand Prix (`core/grandPrix.ts`) : courir, pour les profils —
@@ -79,6 +80,7 @@ export function mountGrandPrix(app: Express, deps: { grandPrix: GrandPrixStore; 
   // ── Le QG ──────────────────────────────────────────────────────────────
 
   const page = async (): Promise<PageDesGrandsPrix> => ({
+    aujourdhui: deps.grandPrix.jourDuServeur(),
     grandsPrix: await deps.grandPrix.auQg(),
     prix: PRIX_DES_GRANDS_PRIX.map(cle => ({ cle, nom: legendaire(cle)?.nom ?? cle })),
     rubans: (Object.keys(RUBANS) as CleDeRuban[]).map(cle => ({ cle, nom: RUBANS[cle].nom, rond: RUBANS[cle].rond, pli: RUBANS[cle].pli })),
@@ -110,7 +112,7 @@ export function mountGrandPrix(app: Express, deps: { grandPrix: GrandPrixStore; 
     wrap(async (req, res) => {
       const g = await deps.grandPrix.programmer(req.body ?? {})
       const p = await deps.profiles.byId(g.fantome)
-      noterLeGeste(res, { sorte: 'annonce', resume: `Grand Prix programmé : « ${g.titre} », le ${g.jour}, contre le fantôme de ${p?.name ?? '?'}`, cible: g.id })
+      noterLeGeste(res, { sorte: 'annonce', resume: `Grand Prix programmé : « ${g.titre} », le ${jourEnToutesLettres(g.jour)}, contre le fantôme de ${p?.name ?? '?'}`, cible: g.id })
       res.json(await page())
     }),
   )
@@ -145,7 +147,7 @@ export function mountGrandPrix(app: Express, deps: { grandPrix: GrandPrixStore; 
     wrap(async (req, res) => {
       const g = deps.grandPrix.get(String(req.params.id))
       if (!g || !(await deps.grandPrix.retirer(g.id))) return res.status(404).json({ error: 'Ce Grand Prix est introuvable : recharge le QG' })
-      noterLeGeste(res, { sorte: 'annonce', resume: `Grand Prix retiré : « ${g.titre} », le ${g.jour}`, cible: g.id })
+      noterLeGeste(res, { sorte: 'annonce', resume: `Grand Prix retiré : « ${g.titre} », le ${jourEnToutesLettres(g.jour)}`, cible: g.id })
       res.json(await page())
     }),
   )

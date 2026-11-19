@@ -406,7 +406,8 @@ export interface FlotDuCarnet {
 /** Un Grand Prix au QG : ce qu'il est, et ce qui s'y est couru. */
 export interface GrandPrixAuQg {
   id: string
-  fantome: { id: string; nom: string; avatar: string } | null
+  /** Tel que les joueurs le verront au cœur du flot — figé, s'il a couru. */
+  fantome: FantomeVu | null
   jour: string
   titre: string
   ruban: CleDeRuban
@@ -421,6 +422,8 @@ export interface GrandPrixAuQg {
 
 /** La page du Grand Prix au QG : les Grands Prix, et ce qu'on peut y mettre en jeu. */
 export interface PageDesGrandsPrix {
+  /** Le jour de Paris à l'horloge du serveur : avant lui, un Grand Prix se change encore ; à lui, il court. */
+  aujourdhui: string
   grandsPrix: GrandPrixAuQg[]
   prix: { cle: string; nom: string }[]
   rubans: { cle: CleDeRuban; nom: string; rond: string; pli: string }[]

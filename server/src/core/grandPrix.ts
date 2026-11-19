@@ -345,6 +345,11 @@ export class GrandPrixStore {
     return jourDe(this.maintenant())
   }
 
+  /** Le jour de Paris à l'horloge du serveur — celle du quiz du jour : le QG en juge ce qui a couru, ce qui court, ce qui viendra. */
+  jourDuServeur(): string {
+    return this.aujourdhui()
+  }
+
   /** Le Grand Prix d'un jour, s'il y en a un qui court. */
   private duJour(jour: string): GrandPrixRec | null {
     for (const g of this.grandsPrix.values()) if (g.jour === jour && g.retireLe === null) return g
@@ -523,13 +528,14 @@ export class GrandPrixStore {
       'read',
     )
     const profils = await this.deps.profiles.byIds(tous.map(g => g.fantome))
+    // Le fantôme tel que les joueurs le verront sur le flot — figé s'il a couru —, l'aperçu du QG le montre.
+    const fantomes = await Promise.all(tous.map((g, i) => (profils[i] || g.apparence ? this.fantomeVu(g) : null)))
     return tous.map((g, i) => {
       const v = (source: string) => n(viviers.rows.find(r => String(r.grand_prix_id) === g.id && String(r.source) === source)?.n)
       const c = courses.rows.find(r => String(r.grand_prix_id) === g.id)
-      const p = profils[i]
       return {
         id: g.id,
-        fantome: p ? { id: p.id, nom: p.name, avatar: this.deps.profiles.avatarPorte(p) } : null,
+        fantome: fantomes[i],
         jour: g.jour,
         titre: g.titre,
         ruban: g.ruban,

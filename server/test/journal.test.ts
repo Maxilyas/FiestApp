@@ -19,6 +19,7 @@ import { EN_PLAN_MS, GESTES_PAR_PAGE, gestesParJour, type DirectDuQg, type Geste
 import { CATEGORIES } from '../../shared/categories'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import { toPlayable } from '../../shared/library'
+import { jourDe, jourEnToutesLettres } from '../../shared/jour'
 import type { PageDesErreurs } from '../../shared/triDesErreurs'
 import { JournalDesGestes, journaliser, noterLeGeste } from '../src/core/journalDesGestes'
 
@@ -202,6 +203,25 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       'mettre à l’affiche',
     )
     ok(await faire(banc, admin, '/api/admin/affiches/affiche-du-journal', undefined, 'DELETE'), 'retirer l’affiche')
+    // Un Grand Prix contre le fantôme de Léa — trois jours de son quiz du jour écrits dans ses journaux —,
+    // essayé avec son profil par l'administrateur, puis retiré avant son jour.
+    const passe = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+    for (const [j, jourDuPasse] of ['2026-01-05', '2026-01-06', '2026-01-07'].entries()) {
+      const questions = Array.from({ length: 10 }, (_, i) => ({ reserveId: `gp-${j}-${i}`, texte: `Question ${j}-${i} ?`, reponses: ['A', 'B', 'C', 'D'], bonne: 1, categorie: 'Histoire', duree: 20, lectureMs: 2000 }))
+      passe.prepare('INSERT INTO jour_tirages (jour, questions, annulees, tire_le) VALUES (?, ?, ?, ?)').run(jourDuPasse, JSON.stringify(questions), '[]', Date.now() - 30 * 24 * H)
+      for (let i = 0; i < 10; i++) {
+        passe.prepare('INSERT INTO jour_reponses (profile_id, jour, question, choix, ms, juste, points, repondue_le) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(idLea, jourDuPasse, i, 1, 5000, 1, 150, Date.now() - 30 * 24 * H)
+      }
+    }
+    passe.close()
+    const jourDuGrandPrix = jourDe(Date.now() + horloge.decalage + 2 * 24 * H)
+    const programme = await faire(banc, admin, '/api/admin/grand-prix', { fantome: idLea, jour: jourDuGrandPrix, titre: 'Le Grand Prix de Léa', ruban: 'bordeaux', mot: '', prix: null, prixFete: null })
+    ok(programme, 'programmer un Grand Prix')
+    const grandPrix = programme.corps.grandsPrix[0].id as string
+    // L'essai se court avec un profil : celui de Léa a perdu ses sessions à sa suspension, l'administrateur prend le sien.
+    const sonProfil = await inscrireProfil(banc.url, 'essayeur', 'Sam', '🐎')
+    ok(await faire(banc, `${admin}; ${sonProfil}`, `/api/admin/grand-prix/${grandPrix}/essai`), 'essayer un Grand Prix')
+    ok(await faire(banc, admin, `/api/admin/grand-prix/${grandPrix}`, undefined, 'DELETE'), 'retirer un Grand Prix')
     // Les erreurs : une vraie, que la base refuse — un 500 ne se note pas —, réglée avec son mot ;
     // puis un téléphone prévenu des pannes, essayé — son service ne répond pas —, et retiré.
     const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
@@ -300,6 +320,10 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       'Annonce retirée : « Le quiz du jour remarche : merci de votre patience ! » — ses confettis restent offerts',
       'Affiche posée : Le Cabinet de curiosités — « Le Cabinet ouvre ses portes », 14 jours — 20 confettis à la première visite',
       'Affiche retirée : Le Cabinet de curiosités — « Le Cabinet ouvre ses portes » — les confettis offerts restent',
+      // Renommée plus haut : « Léa B. ».
+      `Grand Prix programmé : « Le Grand Prix de Léa », le ${jourEnToutesLettres(jourDuGrandPrix)}, contre le fantôme de Léa B.`,
+      'Essai du Grand Prix « Le Grand Prix de Léa »',
+      `Grand Prix retiré : « Le Grand Prix de Léa », le ${jourEnToutesLettres(jourDuGrandPrix)}`,
       'Alertes de panne allumées sur un téléphone (un navigateur) — 1 téléphone prévenu',
       'Essai d’alerte : aucun téléphone n’a sonné (1 en échec)',
       'Alertes de panne coupées sur un téléphone — plus aucun téléphone prévenu',
@@ -345,8 +369,8 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     )
     assert.deepEqual(
       gestes.filter(g => g.sorte === 'annonce').map(g => g.cible),
-      ['annonce-du-journal', 'annonce-du-journal', 'annonce-a-question', 'annonce-a-question', 'affiche-du-journal', 'affiche-du-journal'],
-      'une annonce, faite puis retirée — ou sa question close —, se vise elle-même ; une affiche aussi',
+      ['annonce-du-journal', 'annonce-du-journal', 'annonce-a-question', 'annonce-a-question', 'affiche-du-journal', 'affiche-du-journal', grandPrix, grandPrix, grandPrix],
+      'une annonce, faite puis retirée — ou sa question close —, se vise elle-même ; une affiche aussi, un Grand Prix aussi',
     )
     assert.deepEqual(
       gestes.filter(g => g.sorte === 'erreur').map(g => g.cible),
