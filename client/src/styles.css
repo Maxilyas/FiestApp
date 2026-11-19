@@ -18542,12 +18542,32 @@ span.annonce-admin-merci { cursor: default; }
 .gp-terrain li { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 6px; padding: 10px 6px; border-radius: 14px; background: var(--bg-raised); border: 1px solid rgba(var(--accent-rgb), 0.22); font-size: 0.8125rem; font-weight: 600; line-height: 1.2; text-align: center; }
 .gp-terrain-icone { width: 36px; height: 36px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(var(--accent-rgb), 0.14); color: var(--accent-text); }
 
-/* Ceux qui l'ont battu : leurs visages et leurs prénoms, en pastilles. */
-.gp-vainqueurs ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-.gp-vainqueurs li { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 2px 10px 2px 4px; border-radius: 999px; background: var(--bg-raised); border: 1px solid rgba(var(--accent-rgb), 0.22); font-size: 0.8125rem; font-weight: 600; }
-.gp-vainqueurs .gp-autres { padding: 2px 10px; color: var(--muted); }
-.gp-mini { font-size: 1.25rem; }
-.gp-nom { max-width: 8em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Ceux qui l'ont battu, une ligne chacun : son rang d'arrivée, son visage, son prénom et à quel essai, son avance sur le
+   fantôme. Trois sur la page — deux sous 700 px de haut, où la troisième pousserait le bouton sous l'écran —, tous dans
+   la feuille que « Tous » ouvre. */
+.gp-vainqueurs-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.gp-vainqueurs-tete .gp-etiquette { margin: 0; }
+.gp-tous { display: inline-flex; align-items: center; gap: 2px; min-height: 32px; padding: 0 0 0 10px; border: none; background: none; color: var(--accent-text); font: 600 0.8125rem var(--sans); cursor: pointer; }
+.gp-lignes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.gp-ligne { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 3px 10px; border-radius: 12px; background: var(--bg-raised); border: 1px solid rgba(var(--accent-rgb), 0.18); }
+.gp-rang { width: 14px; flex: none; text-align: center; font-family: var(--serif); font-weight: 600; font-size: 1.125rem; color: var(--accent-text); font-variant-numeric: lining-nums; }
+.gp-mini { font-size: 1.25rem; flex: none; }
+.gp-ligne-nom { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.gp-ligne-nom b { font-size: 0.875rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gp-ligne-nom span { font-size: 0.75rem; color: var(--muted); }
+.gp-avance { margin-left: auto; flex: none; padding: 3px 9px; border-radius: 999px; background: rgba(var(--accent-rgb), 0.14); color: var(--accent-text-hover); font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+/* Le petit téléphone : deux lignes, et les tuiles du terrain un peu plus serrées — avec deux vainqueurs, le départ d'un
+   coureur passait l'écran de 4 px (le rendu du 19 novembre 2026, en 360 × 640). */
+@media (max-height: 700px) {
+  .gp-vainqueurs .gp-ligne:nth-child(3) { display: none; }
+  .gp-ligne { min-height: 38px; }
+  .gp-terrain li { gap: 4px; padding: 8px 6px; }
+  .gp-terrain-icone { width: 32px; height: 32px; }
+}
+@media (min-height: 701px) {
+  .gp-tous-petit-ecran { display: none; }
+}
+.gp-tous-feuille .gp-lignes { padding: 2px 0 8px; }
 
 /* Le bilan de la fêtée, dans sa nuit : deux chiffres, et ceux qui l'ont battue. */
 .gp-bilan { padding: 12px; border-radius: 16px; background: var(--gp-nuit); color: #f3ece2; border: 1px solid rgba(159, 182, 255, 0.35); display: flex; flex-direction: column; gap: 12px; }
@@ -18555,7 +18575,10 @@ span.annonce-admin-merci { cursor: default; }
 .gp-bilan-chiffres span { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 4px; border-radius: 12px; background: rgba(255, 255, 255, 0.06); font-size: 0.8125rem; text-align: center; }
 .gp-bilan-chiffres b { font-family: var(--serif); font-size: 2rem; line-height: 1; font-variant-numeric: lining-nums; }
 .gp-bilan .gp-etiquette { color: #c9d4f5; }
-.gp-bilan .gp-vainqueurs li { background: rgba(255, 255, 255, 0.06); border-color: rgba(159, 182, 255, 0.35); }
+.gp-bilan .gp-ligne { background: rgba(255, 255, 255, 0.06); border-color: rgba(159, 182, 255, 0.3); }
+.gp-bilan .gp-ligne-nom span { color: #c9d4f5; }
+.gp-bilan .gp-rang, .gp-bilan .gp-tous { color: var(--gp-or); }
+.gp-bilan .gp-avance { background: rgba(217, 181, 106, 0.18); color: #f0d79a; }
 
 /* Le geste du départ et de l'arrivée, au bas de l'écran — collé sous le pouce si la page déborde (`SousLePouce`). */
 .sous-le-pouce.gp-geste { margin-top: auto; }

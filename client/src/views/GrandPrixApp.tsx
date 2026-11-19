@@ -18,7 +18,7 @@ import { insister } from '../insister'
 import { confirmDialog } from '../components/Dialog'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
-import { Sortie, SousLePouce } from '../components/Pieces'
+import { Feuille, Sortie, SousLePouce } from '../components/Pieces'
 import { ChevalDEtoiles, CielDuGrandPrix, Flot, Obstacle } from '../components/GrandPrix'
 import { iconeDuSujet } from '../iconeDuSujet'
 import { sujetParCle } from '../../../shared/sujets'
@@ -26,13 +26,16 @@ import { gesteAccepte } from '../../../shared/console'
 import { legendaire } from '../../../shared/legendaires'
 import {
   PENALITE_D_UNE_BARRE,
+  avanceDite,
   chronoDit,
+  essaiDit,
   pointsDits,
   type CourseVue,
   type EtatDuGrandPrix,
   type RevelationDObstacle,
   type ScoreDeCourse,
   type ThemeDuTerrain,
+  type VainqueurVu,
 } from '../../../shared/grandPrix'
 
 /**
@@ -242,6 +245,8 @@ function Depart({ etat, enRoute, onPartir, refus, essai }: { etat: EtatDuGrandPr
   const g = etat.grandPrix!
   const nom = g.fantome.nom
   const fete = etat.fete
+  const titreDesVainqueurs = fete ? 'Ils t’ont battu' : `Ils ont battu ${nom}`
+  const [tous, setTous] = useState(false)
   return (
     <div className="player-shell gp-page gp-depart">
       <header className="gp-tete">
@@ -258,7 +263,7 @@ function Depart({ etat, enRoute, onPartir, refus, essai }: { etat: EtatDuGrandPr
         </div>
       </header>
 
-      {fete && etat.bilan && <BilanDuFantome etat={etat} />}
+      {fete && etat.bilan && <BilanDuFantome etat={etat} onTous={() => setTous(true)} />}
 
       {g.terrain.length > 0 && <Terrain terrain={g.terrain} fete={!!fete} />}
 
@@ -275,7 +280,7 @@ function Depart({ etat, enRoute, onPartir, refus, essai }: { etat: EtatDuGrandPr
 
       {!fete && <Regles />}
 
-      {!fete && !essai && etat.vainqueurs.length > 0 && <Vainqueurs etat={etat} titre={`Ils ont battu ${nom}`} />}
+      {!fete && !essai && etat.vainqueurs.length > 0 && <Vainqueurs etat={etat} titre={titreDesVainqueurs} onTous={() => setTous(true)} />}
 
       {refus && (
         <p className="error small" role="alert">
@@ -287,6 +292,8 @@ function Depart({ etat, enRoute, onPartir, refus, essai }: { etat: EtatDuGrandPr
           {fete ? 'Me battre moi-même' : etat.departs > 0 ? 'Recourir' : 'Prendre le départ'}
         </button>
       </SousLePouce>
+      {/* Hors du bilan de la fêtée : posée dans sa nuit, la feuille en aurait pris les couleurs. */}
+      {tous && <TousLesVainqueurs etat={etat} titre={titreDesVainqueurs} onFermer={() => setTous(false)} />}
     </div>
   )
 }
@@ -344,28 +351,67 @@ function Terrain({ terrain, fete }: { terrain: readonly ThemeDuTerrain[]; fete: 
   )
 }
 
-/** Ceux qui l'ont battu, dans l'ordre d'arrivée : leurs visages et leurs prénoms, les quatre premiers, puis combien d'autres. */
-function Vainqueurs({ etat, titre }: { etat: EtatDuGrandPrix; titre: string }) {
-  const montres = etat.vainqueurs.slice(0, 4)
-  const autres = etat.vainqueurs.length - montres.length
+/**
+ * Ceux qui l'ont battu, dans l'ordre d'arrivée, et comment : à quel essai, et
+ * de combien — des points, ou à points égaux, du temps (le propriétaire, le
+ * 19 novembre 2026 : « plus de détails par rapport à la personne battue »).
+ * Les trois premiers en lignes — deux sur un petit téléphone, pour que le
+ * départ tienne sur l'écran —, et « Tous » ouvre la liste entière.
+ */
+function Vainqueurs({ etat, titre, onTous }: { etat: EtatDuGrandPrix; titre: string; onTous: () => void }) {
+  const n = etat.vainqueurs.length
   return (
-    <section className="gp-vainqueurs" aria-label={titre}>
-      <span className="gp-etiquette">{titre}</span>
-      <ol>
-        {montres.map(v => (
-          <li key={v.id}>
-            <Avatar className="gp-mini" avatar={v.avatar} finition={v.finition} eclat={v.eclat} legendaire={v.legendaire} sceau={v.sceau} />
-            <span className="gp-nom">{v.nom}</span>
-          </li>
+    <section className="gp-vainqueurs" aria-labelledby="gp-vainqueurs">
+      <div className="gp-vainqueurs-tete">
+        <h2 id="gp-vainqueurs" className="gp-etiquette">
+          {titre}
+        </h2>
+        {/* À trois, la troisième ligne ne se cache que sur un petit téléphone : « Tous » n'a à se montrer que là. */}
+        {n > 2 && (
+          <button type="button" className={`gp-tous${n === 3 ? ' gp-tous-petit-ecran' : ''}`} onClick={onTous}>
+            Tous les {n}
+            <Icon name="chevron-right" />
+          </button>
+        )}
+      </div>
+      <ol className="gp-lignes">
+        {etat.vainqueurs.slice(0, 3).map(v => (
+          <LigneDuVainqueur key={v.id} v={v} />
         ))}
-        {autres > 0 && <li className="gp-autres">+{autres}</li>}
       </ol>
     </section>
   )
 }
 
-/** Le bilan de la fêtée : deux chiffres, et les visages de ceux qui l'ont battue. */
-function BilanDuFantome({ etat }: { etat: EtatDuGrandPrix }) {
+function LigneDuVainqueur({ v }: { v: VainqueurVu }) {
+  return (
+    <li className="gp-ligne">
+      <span className="gp-rang">{v.rang}</span>
+      <Avatar className="gp-mini" avatar={v.avatar} finition={v.finition} eclat={v.eclat} legendaire={v.legendaire} sceau={v.sceau} />
+      <span className="gp-ligne-nom">
+        <b>{v.nom}</b>
+        <span>{essaiDit(v.essai)}</span>
+      </span>
+      <span className="gp-avance">{avanceDite(v.avance)}</span>
+    </li>
+  )
+}
+
+/** Tous ceux qui l'ont battu, dans une feuille : la page n'en montre que les premiers. */
+function TousLesVainqueurs({ etat, titre, onFermer }: { etat: EtatDuGrandPrix; titre: string; onFermer: () => void }) {
+  return (
+    <Feuille titre={titre} onFermer={onFermer} className="gp-tous-feuille">
+      <ol className="gp-lignes">
+        {etat.vainqueurs.map(v => (
+          <LigneDuVainqueur key={v.id} v={v} />
+        ))}
+      </ol>
+    </Feuille>
+  )
+}
+
+/** Le bilan de la fêtée : deux chiffres, et ceux qui l'ont battue. */
+function BilanDuFantome({ etat, onTous }: { etat: EtatDuGrandPrix; onTous: () => void }) {
   const b = etat.bilan!
   return (
     <section className="gp-bilan" aria-label="Ton fantôme, aujourd’hui">
@@ -377,7 +423,7 @@ function BilanDuFantome({ etat }: { etat: EtatDuGrandPrix }) {
           <b>{b.vainqueurs}</b> {b.vainqueurs > 1 ? 't’ont battu' : 't’a battu'}
         </span>
       </div>
-      {etat.vainqueurs.length > 0 && <Vainqueurs etat={etat} titre="Ils t’ont battu" />}
+      {etat.vainqueurs.length > 0 && <Vainqueurs etat={etat} titre="Ils t’ont battu" onTous={onTous} />}
     </section>
   )
 }

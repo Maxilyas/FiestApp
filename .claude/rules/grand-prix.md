@@ -90,6 +90,13 @@ maquette et les décisions du propriétaire : `retours/2026-11-19/grand-prix/`.
   son `overflow-x: hidden` faisait d'elle le cadre qui défile, et le pied
   collé ne collait plus. Ce qui déborde se coupe à sa carte — les reflets
   animés de Pégase éclaté passaient le bas de la page de 6 px (`.gp-gain`).
+- **Ceux qui l'ont battu se disent par leur première victoire**
+  (`vainqueursDesLignes`, pure) : l'ordre d'arrivée, le départ où elle est
+  venue (`essai`), et l'avance sur le fantôme refaite sur les obstacles de
+  cette course-là (`avanceSur`, `avanceDite` : les points, le chrono à points
+  égaux) — le fantôme ne fait pas le même score d'une course à l'autre. Trois
+  lignes sur la page, deux sous 700 px de haut ; « Tous » ouvre la feuille,
+  posée hors du bilan de la fêtée, dont elle prendrait les couleurs.
 - **Sur l'accueil, il prend la place de l'affiche** (`BandeauDuGrandPrix`, les
   classes `.affiche .affiche-bandeau`) : l'accueil tient sur un écran (règle
   `profil.md`). La feuille de la fêtée s'ouvre par-dessus, une fois par

@@ -68,10 +68,14 @@ try {
   const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦄')
   const nina = await inscrireProfil(banc.url, 'nina', 'Nina', '🦊')
   const hugo = await inscrireProfil(banc.url, 'hugo', 'Hugo', '🐼')
+  // Trois de plus, qui courent par les routes : de quoi remplir « Ils ont battu Léa » et sa feuille.
+  const camille = await inscrireProfil(banc.url, 'camille', 'Camille', '🦉')
+  const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐯')
+  const ines = await inscrireProfil(banc.url, 'ines', 'Inès', '🐬')
   if (process.env.THEME) for (const c of [lea, nina, hugo]) await ecrire(banc.url, '/api/joueur/moi', { theme: process.env.THEME }, c, 'PUT')
   const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
   const id = (login: string) => (db.prepare('SELECT id FROM profiles WHERE login = ?').get(login) as { id: string }).id
-  const ids: Record<string, string> = { lea: id('lea'), nina: id('nina'), hugo: id('hugo') }
+  const ids: Record<string, string> = Object.fromEntries(['lea', 'nina', 'hugo', 'camille', 'tom', 'ines'].map(l => [l, id(l)]))
   const leaId = ids.lea
   // Ses temps du quiz du jour, d'où se tire son rythme : plus lente quand elle se trompe.
   const tirage = db.prepare('INSERT INTO jour_tirages (jour, questions, annulees, tire_le) VALUES (?, ?, ?, ?)')
@@ -106,14 +110,29 @@ try {
   }, admin)
   if (!programme.ok) throw new Error(`programmer : ${programme.status} ${await programme.text()}`)
 
-  const bonneDe = (login: string): number => {
+  /** L'obstacle en cours d'un coureur : sa bonne réponse, et si le fantôme y avait sauté juste. */
+  const obstacleDe = (login: string): { bonne: number; fantomeJuste: boolean } => {
     const d = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true })
     try {
       const c = d.prepare('SELECT grand_prix_id, obstacles, position FROM grand_prix_courses WHERE profile_id = ? AND finie_le IS NULL').get(ids[login]) as { grand_prix_id: string; obstacles: string; position: number }
-      const q = d.prepare('SELECT question FROM grand_prix_questions WHERE grand_prix_id = ? AND rang = ?').get(c.grand_prix_id, JSON.parse(c.obstacles)[c.position]) as { question: string }
-      return JSON.parse(q.question).bonne
+      const q = d.prepare('SELECT question, juste FROM grand_prix_questions WHERE grand_prix_id = ? AND rang = ?').get(c.grand_prix_id, JSON.parse(c.obstacles)[c.position]) as { question: string; juste: number }
+      return { bonne: JSON.parse(q.question).bonne, fantomeJuste: q.juste === 1 }
     } finally {
       d.close()
+    }
+  }
+  const bonneDe = (login: string): number => obstacleDe(login).bonne
+  /** Une course entière par les routes ; `juste` dit, obstacle par obstacle, s'il saute juste — et voit si le fantôme l'a fait. */
+  const courir = async (cookie: string, login: string, juste: (i: number, fantomeJuste: boolean) => boolean) => {
+    const json = async (r: Response): Promise<{ course: { id: string } }> => {
+      if (!r.ok) throw new Error(`${login} : ${r.status} ${await r.text()}`)
+      return (await r.json()) as { course: { id: string } }
+    }
+    let e = await json(await ecrire(banc.url, '/api/grand-prix/depart', {}, cookie))
+    for (let i = 0; i < 10; i++) {
+      if (i > 0) e = await json(await ecrire(banc.url, `/api/grand-prix/course/${e.course.id}/suivante`, {}, cookie))
+      const o = obstacleDe(login)
+      e = await json(await ecrire(banc.url, `/api/grand-prix/course/${e.course.id}/reponse`, { position: i, choix: juste(i, o.fantomeJuste) ? o.bonne : (o.bonne + 1) % 4 }, cookie))
     }
   }
 
@@ -195,11 +214,22 @@ try {
   await n.locator('.carnet-flots-titre').scrollIntoViewIfNeeded()
   await photo(n, '08b-carnet-nina')
 
-  // Hugo : il rate tout ce qu'il peut, et perd.
+  // Trois autres la battent : Camille d'une faute, Tom à son deuxième essai, Inès à points égaux — elle saute là où Léa
+  // a sauté, et plus vite.
+  await courir(camille, 'camille', i => i !== 3)
+  await courir(tom, 'tom', i => i % 2 === 0)
+  await courir(tom, 'tom', () => true)
+  await courir(ines, 'ines', (_, fantomeJuste) => fantomeJuste)
+
+  // Hugo : son départ — ceux qui ont battu Léa, et tous dans leur feuille —, puis il rate tout ce qu'il peut, et perd.
   const h = await contexte(hugo)
   await h.goto(`${banc.url}/grand-prix`)
   await h.waitForSelector('.gp-partir')
   await photo(h, '09-depart-hugo', true)
+  await h.locator('.gp-tous').tap()
+  await h.waitForSelector('.gp-tous-feuille')
+  await photo(h, '09b-tous-ceux-qui-ont-battu-lea', true)
+  await h.locator('.carte-fermer').tap()
   await h.locator('.gp-partir').tap()
   for (let i = 0; i < 10; i++) {
     if (i > 0) await h.locator('.gp-suivant').tap()

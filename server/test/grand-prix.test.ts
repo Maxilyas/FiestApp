@@ -11,11 +11,15 @@ import Database from 'better-sqlite3'
 import { connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { ProfileStore } from '../src/auth/profiles'
 import { GRACE_MS } from '../src/games/quiz'
+import { vainqueursDesLignes } from '../src/core/grandPrix'
 import {
   OBSTACLES_DU_GRAND_PRIX,
   PENALITE_D_UNE_BARRE,
+  avanceDite,
+  avanceSur,
   bat,
   cleDuFlot,
+  essaiDit,
   flotDe,
   flotsDe,
   scoreDe,
@@ -40,6 +44,31 @@ test('une barre ou un refus coûtent quatre points, et le chrono ne dépasse jam
     { saut: { choix: 0, juste: true, ms: 21_000 }, dureeMs: 20_000 },
   ])
   assert.deepEqual(s, { points: 2 * PENALITE_D_UNE_BARRE, tempsMs: 4200 + 6000 + 20_000 + 20_000, barres: 2, sautes: 4 })
+})
+
+test('ceux qui l’ont battu : dans l’ordre d’arrivée, à quel essai, et de combien — les points d’abord, le chrono à points égaux', () => {
+  const ligne = (profil: string, finieLe: number, points: number, tempsMs: number, battu: boolean) => ({ profil, finieLe, points, tempsMs, battu, obstacles: [] })
+  const vainqueurs = vainqueursDesLignes([
+    ligne('tom', 1, 20, 9_000, false),
+    ligne('nina', 2, 0, 12_000, true),
+    ligne('tom', 3, 12, 9_000, false),
+    ligne('tom', 4, 4, 30_000, true),
+    // Une victoire de plus ne change ni son essai ni son rang : le flot est tombé à la première.
+    ligne('nina', 5, 0, 8_000, true),
+    ligne('hugo', 6, 16, 5_000, false),
+  ])
+  assert.deepEqual(
+    vainqueurs.map(v => [v.profil, v.essai, v.departs, v.victoire.finieLe, v.meilleure.finieLe]),
+    [
+      ['nina', 1, 2, 2, 5],
+      ['tom', 3, 3, 4, 4],
+    ],
+  )
+  // Son avance se dit comme le barème la juge : à points égaux seulement, le chrono.
+  assert.equal(avanceDite(avanceSur({ points: 4, tempsMs: 30_000 }, { points: 12, tempsMs: 20_000 })), '8 pts d’avance')
+  assert.equal(avanceDite(avanceSur({ points: 4, tempsMs: 41_600 }, { points: 4, tempsMs: 45_000 })), '3,4 s plus vite')
+  assert.equal(essaiDit(1), 'du premier coup')
+  assert.equal(essaiDit(3), 'au 3ᵉ essai')
 })
 
 test('battre, c’est moins de points, ou autant et plus vite — une égalité parfaite ne bat pas', () => {
@@ -321,6 +350,7 @@ test('le Grand Prix, de la programmation au flot : le fantôme rejoue, le chrono
     assert.deepEqual(etat.course.toi, { points: 0, tempsMs: 10_000, barres: 0, sautes: 10 })
     assert.ok(etat.course.fantome.points >= 3 * PENALITE_D_UNE_BARRE, 'le fantôme fait tomber ses barres de mythes et légendes : trois obstacles au moins par thème')
     assert.deepEqual(etat.course.fin, { battu: true, rang: 1, flot: true, prix: 'lg:pegase' })
+    const fantomeBattu = etat.course.fantome
     // Une réponse renvoyée — l'accusé perdu en route — rend la même révélation, sans rien réécrire ni repayer.
     const renvoi = await poster(banc, nina, `/api/grand-prix/course/${course}/reponse`, { position: 9, choix: 0 })
     assert.equal(renvoi.status, 200)
@@ -334,6 +364,9 @@ test('le Grand Prix, de la programmation au flot : le fantôme rejoue, le chrono
     // La page la classe première à la battre ; son meilleur départ est celui-là.
     etat = (await lire(banc, nina, '/api/grand-prix')).corps
     assert.deepEqual([etat.departs, etat.rang, etat.vainqueurs.length, etat.vainqueurs[0].nom, etat.coureurs], [1, 1, 1, 'Nina', 1])
+    // Du premier coup, et son avance sur le fantôme de sa course à elle : il ne fait pas le même score d'une course à l'autre.
+    assert.equal(etat.vainqueurs[0].essai, 1)
+    assert.deepEqual(etat.vainqueurs[0].avance, { points: fantomeBattu.points, ms: fantomeBattu.tempsMs - 10_000 })
 
     // Un deuxième départ : un parcours neuf, rien de la course d'avant.
     etat = (await poster(banc, nina, '/api/grand-prix/depart')).corps

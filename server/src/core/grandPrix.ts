@@ -36,6 +36,7 @@ import {
   OBSTACLES_DU_GRAND_PRIX,
   RUBAN_PAR_DEFAUT,
   TITRE_DU_GRAND_PRIX_MAX,
+  avanceSur,
   bat,
   cleDuFlot,
   cleDuPrix,
@@ -144,12 +145,46 @@ interface SautRec extends Saut {
 }
 
 /** Ce que le bilan d'un Grand Prix garde de ses courses finies, hors essais. */
-interface LigneDuBilan {
+export interface LigneDuBilan {
   profil: string
   finieLe: number
   points: number
   tempsMs: number
   battu: boolean
+  /** Ses obstacles, des rangs du vivier : de quoi refaire le score du fantôme sur cette course-là. */
+  obstacles: number[]
+}
+
+/** Un vainqueur du jour, tel que le bilan le tire de ses lignes. */
+export interface Vainqueur {
+  profil: string
+  /** Quand il a battu le fantôme la première fois : l'ordre d'arrivée. */
+  premiere: number
+  /** Cette première victoire, et le départ où elle est venue (le premier est 1). */
+  victoire: LigneDuBilan
+  essai: number
+  meilleure: LigneDuBilan
+  departs: number
+}
+
+/**
+ * Les vainqueurs, dans l'ordre d'arrivée : le premier à avoir battu le fantôme d'abord. Chacun avec sa première
+ * victoire — celle qui lui a valu le flot — et le départ où elle est venue : les lignes arrivent dans l'ordre où les
+ * courses ont fini, et seules comptent les courses finies, hors abandons. Pure : le bilan la nourrit de ses lignes.
+ */
+export function vainqueursDesLignes(lignes: readonly LigneDuBilan[]): Vainqueur[] {
+  const parProfil = new Map<string, Vainqueur>()
+  const departs = new Map<string, number>()
+  for (const l of lignes) {
+    departs.set(l.profil, (departs.get(l.profil) ?? 0) + 1)
+    if (!l.battu) continue
+    const v = parProfil.get(l.profil)
+    if (!v) parProfil.set(l.profil, { profil: l.profil, premiere: l.finieLe, victoire: l, essai: departs.get(l.profil)!, meilleure: l, departs: 0 })
+    else if (bat(l, v.meilleure)) v.meilleure = l
+  }
+  return [...parProfil.values()]
+    .map(v => ({ ...v, departs: departs.get(v.profil) ?? 0 }))
+    .sort((a, b) => a.premiere - b.premiere || a.profil.localeCompare(b.profil))
 }
 
 /** Le QG, à la programmation : ce qu'il demande. */
@@ -716,31 +751,17 @@ export class GrandPrixStore {
     if (garde && now - garde.le < BILAN_GARDE_MS) return garde.lignes
     const lignes = this.client
       .execute({
-        sql: `SELECT profile_id, finie_le, points, temps_ms, battu FROM grand_prix_courses
+        sql: `SELECT profile_id, finie_le, points, temps_ms, battu, obstacles FROM grand_prix_courses
               WHERE grand_prix_id = ? AND essai = 0 AND finie_le IS NOT NULL AND abandonnee = 0 AND profile_id <> ?
               ORDER BY finie_le, id`,
         args: [g.id, g.fantome],
       })
-      .then(res => res.rows.map(r => ({ profil: String(r.profile_id), finieLe: n(r.finie_le), points: n(r.points), tempsMs: n(r.temps_ms), battu: n(r.battu) === 1 })))
+      .then(res =>
+        res.rows.map(r => ({ profil: String(r.profile_id), finieLe: n(r.finie_le), points: n(r.points), tempsMs: n(r.temps_ms), battu: n(r.battu) === 1, obstacles: lireJson<number[]>(r.obstacles, []) })),
+      )
     lignes.catch(() => this.bilans.delete(g.id))
     this.bilans.set(g.id, { le: now, lignes })
     return lignes
-  }
-
-  /** Les vainqueurs, dans l'ordre d'arrivée : le premier à avoir battu le fantôme d'abord. */
-  private vainqueursDe(lignes: readonly LigneDuBilan[]): { profil: string; premiere: number; meilleure: LigneDuBilan; departs: number }[] {
-    const parProfil = new Map<string, { profil: string; premiere: number; meilleure: LigneDuBilan; departs: number }>()
-    const departs = new Map<string, number>()
-    for (const l of lignes) departs.set(l.profil, (departs.get(l.profil) ?? 0) + 1)
-    for (const l of lignes) {
-      if (!l.battu) continue
-      const v = parProfil.get(l.profil)
-      if (!v) parProfil.set(l.profil, { profil: l.profil, premiere: l.finieLe, meilleure: l, departs: 0 })
-      else if (bat(l, v.meilleure)) v.meilleure = l
-    }
-    return [...parProfil.values()]
-      .map(v => ({ ...v, departs: departs.get(v.profil) ?? 0 }))
-      .sort((a, b) => a.premiere - b.premiere || a.profil.localeCompare(b.profil))
   }
 
   // ── L'accueil ──────────────────────────────────────────────────────────
@@ -751,7 +772,7 @@ export class GrandPrixStore {
     if (!g) return null
     await this.ouvrirLeJour(g)
     const lignes = await this.bilanDe(g)
-    const vainqueurs = this.vainqueursDe(lignes)
+    const vainqueurs = vainqueursDesLignes(lignes)
     const fete = g.fantome === profileId
     return {
       id: g.id,
@@ -923,7 +944,7 @@ export class GrandPrixStore {
     if (!battu || c.essai || c.profil === g.fantome) return { battu, rang: null, flot: false, prix: null }
     const cles = [cleDuFlot(g.id), ...(g.prix ? [cleDuPrix(g.prix)] : [])]
     const neuves = await this.deps.profiles.ranger(c.profil, rangementDuGrandPrix(g.id), cles, this.maintenant())
-    const vainqueurs = this.vainqueursDe(await this.bilanDe(g))
+    const vainqueurs = vainqueursDesLignes(await this.bilanDe(g))
     const rang = vainqueurs.findIndex(v => v.profil === c.profil) + 1
     return {
       battu,
@@ -962,11 +983,19 @@ export class GrandPrixStore {
     const finies = courses.filter(c => c.finieLe !== null && !c.abandonnee)
     const meilleure = finies.reduce<CourseRec | null>((m, c) => (m === null || bat(c, m) ? c : m), null)
     const lignes = essai ? [] : await this.bilanDe(g)
-    const vainqueurs = this.vainqueursDe(lignes)
+    const vainqueurs = vainqueursDesLignes(lignes)
     const profils = await this.deps.profiles.byIds(vainqueurs.map(v => v.profil))
+    // Le fantôme ne fait pas le même score d'une course à l'autre : son avance se mesure sur les obstacles de la victoire.
+    const fantomeSur = (obstacles: readonly number[]) =>
+      scoreDe(obstacles.flatMap(rang => {
+        const q = vivier.get(rang)
+        return q ? [{ saut: q.fantome, dureeMs: q.duree * 1000 }] : []
+      }))
     const vus: VainqueurVu[] = vainqueurs.flatMap((v, i) => {
       const p = profils[i]
-      return p ? [{ id: p.id, nom: p.name, avatar: this.deps.profiles.avatarPorte(p), ...apparenceDeLAvatar(this.deps.profiles.apparenceDe(p)), rang: i + 1, points: v.meilleure.points, tempsMs: v.meilleure.tempsMs, departs: v.departs }] : []
+      if (!p) return []
+      const avance = avanceSur(v.victoire, fantomeSur(v.victoire.obstacles))
+      return [{ id: p.id, nom: p.name, avatar: this.deps.profiles.avatarPorte(p), ...apparenceDeLAvatar(this.deps.profiles.apparenceDe(p)), rang: i + 1, points: v.meilleure.points, tempsMs: v.meilleure.tempsMs, departs: v.departs, essai: v.essai, avance }]
     })
     const estLaFete = !essai && g.fantome === profileId
     const rang = vainqueurs.findIndex(v => v.profil === profileId)
@@ -1138,7 +1167,7 @@ export class GrandPrixStore {
   private async finDejaEcrite(g: GrandPrixRec, c: CourseRec): Promise<FinDeCourse> {
     const battu = c.battu === true
     if (!battu || c.essai || c.profil === g.fantome) return { battu, rang: null, flot: false, prix: null }
-    const vainqueurs = this.vainqueursDe(await this.bilanDe(g))
+    const vainqueurs = vainqueursDesLignes(await this.bilanDe(g))
     const rang = vainqueurs.findIndex(v => v.profil === c.profil) + 1
     return { battu, rang: rang > 0 ? rang : null, flot: false, prix: null }
   }

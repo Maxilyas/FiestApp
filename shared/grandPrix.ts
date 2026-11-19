@@ -187,6 +187,25 @@ export function chronoDit(ms: number): string {
 /** Des points de pénalité à la française : « 0 pt », « 8 pts ». */
 export const pointsDits = (points: number) => `${points} ${points > 1 ? 'pts' : 'pt'}`
 
+/**
+ * De combien une course a battu le fantôme, sur ses obstacles à elle : des
+ * points, et du temps — ce que `bat` départage, dans le même ordre.
+ */
+export function avanceSur(toi: Pick<ScoreDeCourse, 'points' | 'tempsMs'>, fantome: Pick<ScoreDeCourse, 'points' | 'tempsMs'>): AvanceSurLeFantome {
+  return { points: fantome.points - toi.points, ms: fantome.tempsMs - toi.tempsMs }
+}
+
+/**
+ * Cette avance en mots, comme le barème la juge : les points d'abord
+ * (« 8 pts d'avance »), le chrono seulement à points égaux (« 3,1 s plus
+ * vite ») — dire « 12 s plus vite » de qui a gagné aux points mentirait sur ce
+ * qui a compté.
+ */
+export const avanceDite = (a: AvanceSurLeFantome): string => (a.points > 0 ? `${pointsDits(a.points)} d’avance` : `${chronoDit(Math.max(0, a.ms))} plus vite`)
+
+/** Le départ d'une victoire : « du premier coup », « au 3ᵉ essai ». */
+export const essaiDit = (essai: number): string => (essai <= 1 ? 'du premier coup' : `au ${essai}ᵉ essai`)
+
 // ── Le rythme du fantôme ─────────────────────────────────────────────────
 
 /**
@@ -392,6 +411,16 @@ export interface VainqueurVu extends ApparenceDeLAvatar {
   tempsMs: number
   /** Ses départs, victoire comprise. */
   departs: number
+  /** Le départ de sa première victoire, celle qui lui a valu le flot : le premier est 1. */
+  essai: number
+  /** Son avance sur le fantôme ce jour-là, sur les obstacles de cette course (`avanceSur`). */
+  avance: AvanceSurLeFantome
+}
+
+/** De combien on a battu le fantôme : des points de pénalité de moins, et du temps (`avanceDite`). */
+export interface AvanceSurLeFantome {
+  points: number
+  ms: number
 }
 
 /** Ce que la personne fêtée lit de sa journée : le bilan de son fantôme — ceux qui l'ont battue sont dans `vainqueurs` de la page. */
