@@ -114,9 +114,10 @@ const CLE_DU_RELEVE = 'collectionneurs'
  * valeur. La 4 compte les bordures serties à la règle du 10 novembre 2026 —
  * une victoire sertit aussi les ligues d'en dessous (`releverLesDuels`) : le
  * relevé d'avant aurait classé six heures chacun à sa valeur de la veille,
- * contre sa propre fiche, refaite à sa visite avec ses bordures neuves.
+ * contre sa propre fiche, refaite à sa visite avec ses bordures neuves. La 5
+ * compte les flots des Grands Prix comme des timbres (le 19 novembre 2026).
  */
-const VERSION_DU_RELEVE = 4
+const VERSION_DU_RELEVE = 5
 
 /**
  * Le barème avec lequel un relevé a été compté : relu sous un autre — une

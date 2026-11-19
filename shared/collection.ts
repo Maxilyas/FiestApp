@@ -66,9 +66,19 @@ export function compteDeLaCollection(p: ProfilDeLaCollection): { familles: Famil
   const avatars: LigneDuCompte[] = [{ partie: 'avatars', ...compteDeLAlbum(p) }]
   // Le carnet des fêtes à côté des trophées (le 1er novembre 2026) : un timbre par fête et par an, compté sur les pages
   // de son carnet — l'année en cours entière. Un serveur d'avant ne le dit pas : pas de ligne.
+  // Ses flots des Grands Prix y entrent comme des timbres (le 19 novembre 2026) : chacun se compte gagné et à gagner
+  // — un Grand Prix couru sans lui ne se rattrape pas, et ceux à venir ne se savent pas : rien qui manque, rien de promis.
+  const flots = p.carnet?.flots?.length ?? 0
   const trophees: LigneDuCompte[] = [
     { partie: 'trophees', ...compteDesTrophees(p) },
-    ...(p.carnet ? [{ partie: 'timbres' as const, ...compteDuCarnet(p.carnet.timbres, p.carnet.jour) }] : []),
+    ...(p.carnet
+      ? [
+          (() => {
+            const c = compteDuCarnet(p.carnet.timbres, p.carnet.jour)
+            return { partie: 'timbres' as const, acquis: c.acquis + flots, total: c.total + flots }
+          })(),
+        ]
+      : []),
   ]
   const style: LigneDuCompte[] = [
     ...(p.boutique ? [{ partie: 'themes' as const, acquis: p.boutique.possedes.length, total: THEMES.length }] : []),

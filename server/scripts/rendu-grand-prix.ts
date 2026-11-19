@@ -142,6 +142,12 @@ try {
   await photo(n, '07-arrivee-gagnee')
   await n.evaluate('window.scrollTo(0, document.body.scrollHeight)')
   await photo(n, '08-arrivee-gagnee-bas')
+  // Son flot, rangé dans « Ma collection », au carnet des fêtes.
+  await n.goto(`${banc.url}/profil#collection-timbres`)
+  await n.waitForSelector('.carnet-flots-titre')
+  await n.waitForSelector('.timbres-grille .gp-flot, .carnet-flots-titre + .timbres-grille')
+  await n.locator('.carnet-flots-titre').scrollIntoViewIfNeeded()
+  await photo(n, '08b-carnet-nina')
 
   // Hugo : il rate tout ce qu'il peut, et perd.
   const h = await contexte(hugo)

@@ -8263,6 +8263,8 @@ textarea.signaler-anecdote { font-family: var(--sans); }
 .timbres-legende { font-size: var(--t-label); font-weight: 600; letter-spacing: 0.02em; line-height: 1.25; color: var(--muted); }
 .timbres-legende-gagne { color: var(--accent-text); }
 .timbres-legende-en-cours { color: var(--ink); }
+/* Ses flots des Grands Prix, sous les timbres de l'année : la même grille, un titre à eux. */
+.carnet-flots-titre { margin: 18px 0 10px; font-family: var(--serif); font-size: 1.125rem; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) {
   .timbre-tombe .timbre { animation: none; }
 }

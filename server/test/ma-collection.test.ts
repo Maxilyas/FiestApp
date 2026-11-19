@@ -511,7 +511,8 @@ test('l’album des avatars : six gemmes et leur compte, ce qu’il a en couleur
   // Cinquante-trois cases : le Phénix d'abord, porté — sa coche —, puis ce qui reste — les légendaires, les
   // formes ultimes des sentiers et des cinq compagnons, leurs cinq métamorphoses —, chacun dit où il se gagne.
   const cases = [...html.matchAll(/<button type="button" class="album-case([^"]*)" aria-expanded="false" aria-label="([^"]+)"/g)].map(m => ({ classes: m[1], nom: m[2] }))
-  assert.equal(cases.length, LEGENDAIRES.length + 12 + 5 + 5)
+  // Ceux des Grands Prix sont secrets : ni case ni silhouette à qui ne les a pas (`taitA`, `shared/album.ts`).
+  assert.equal(cases.length, LEGENDAIRES.filter(l => !l.secret).length + 12 + 5 + 5)
   assert.deepEqual(cases[0], { classes: '', nom: 'Le Phénix, légendaire, porté' })
   assert.equal(html.match(/class="album-coche"/g)?.length, 1)
   assert.ok(cases.slice(1).every(c => c.classes.includes('album-manque')))

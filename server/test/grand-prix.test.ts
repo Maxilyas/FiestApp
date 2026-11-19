@@ -17,6 +17,7 @@ import {
   bat,
   cleDuFlot,
   flotDe,
+  flotsDe,
   scoreDe,
   tirerLeParcours,
   tirerUnRythme,
@@ -88,6 +89,11 @@ test('Pégase est secret : il ne se montre qu’à qui l’a, et ce qu’un Gran
   assert.ok(PREFIXES_DES_VOIES_RANGEES.includes('flot:' as never) && PREFIXES_DES_VOIES_RANGEES.includes('grandprix:' as never))
   assert.deepEqual(flotDe(cleDuFlot('abc', true)), { grandPrix: 'abc', honneur: true })
   assert.deepEqual(flotDe(cleDuFlot('abc')), { grandPrix: 'abc', honneur: false })
+  // Un flot par Grand Prix : la fêtée qui bat son propre fantôme garde celui d'honneur ; une ligne reprise ne compte pas.
+  assert.deepEqual(
+    flotsDe(new Map([[cleDuFlot('abc'), 1], [cleDuFlot('abc', true), 1], [cleDuFlot('def'), 1], [cleDuFlot('ghi'), 0], ['timbre:noel:2026', 1]])),
+    [cleDuFlot('abc', true), cleDuFlot('def')],
+  )
 })
 
 // ── Sur un serveur ────────────────────────────────────────────────────────
@@ -311,6 +317,11 @@ test('le Grand Prix, de la programmation au flot : le fantôme rejoue, le chrono
     assert.equal(carnetNina[0].grandPrix.fantome.avatar, '🦄', 'le flot garde l’avatar du fantôme de ce jour-là')
     const carnetLea = (await lire(banc, lea, '/api/grand-prix/carnet')).corps.flots
     assert.deepEqual(carnetLea.map((f: any) => f.honneur), [true])
+    // Leur profil le dit à « Ma collection », comme un timbre de plus au carnet des fêtes ; Hugo, battu, n'en a pas.
+    const flotsDuProfil = async (cookie: string) => (await lire(banc, cookie, '/api/joueur/moi')).corps.profile.carnet?.flots
+    assert.deepEqual(await flotsDuProfil(nina), [cleDuFlot(gp.id)])
+    assert.deepEqual(await flotsDuProfil(lea), [cleDuFlot(gp.id, true)])
+    assert.equal(await flotsDuProfil(hugo), undefined)
 
     // Le jour couru, le Grand Prix ne se reprogramme ni ne se retire plus : ses flots sont rangés.
     assert.equal((await poster(banc, admin, '/api/admin/grand-prix', { id: gp.id, fantome: leaId, jour: '2026-12-12' })).status, 400)

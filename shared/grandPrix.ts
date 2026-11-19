@@ -87,6 +87,23 @@ export function flotDe(cle: unknown): { grandPrix: string; honneur: boolean } | 
   return /^[A-Za-z0-9_-]{1,64}$/.test(grandPrix) ? { grandPrix, honneur } : null
 }
 
+/**
+ * Ses flots, lus dans ses récompenses : un par Grand Prix — le flot d'honneur
+ * et celui d'un fantôme battu ne font qu'un, s'il a couru contre lui-même et
+ * gagné. Ils comptent dans « Ma collection » et dans sa valeur comme un
+ * timbre du carnet (le choix du propriétaire, le 19 novembre 2026).
+ */
+export function flotsDe(recompenses: ReadonlyMap<string, number>): string[] {
+  const parGrandPrix = new Map<string, string>()
+  for (const [cle, n] of recompenses) {
+    const f = n > 0 ? flotDe(cle) : null
+    if (f && !parGrandPrix.has(f.grandPrix)) parGrandPrix.set(f.grandPrix, cle)
+    // L'honneur l'emporte : c'est celui que son carnet montre.
+    if (f?.honneur) parGrandPrix.set(f.grandPrix, cle)
+  }
+  return [...parGrandPrix.values()]
+}
+
 /** La clé rangée qui donne un avatar en plus : `lg:pegase` → `grandprix:pegase`. */
 export const cleDuPrix = (legendaire: string) => `${PREFIXE_D_UN_PRIX}${legendaire.replace(/^lg:/, '')}`
 
