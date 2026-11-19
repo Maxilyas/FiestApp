@@ -108,3 +108,18 @@ propriétaire, le 19 novembre 2026).
 - **La feuille du réveil** : le paragraphe sous la carte — son terrain, les
   règles, « toi aussi, tu peux courir » — est remplacé par une ligne dans la
   carte, « Toute la bande court contre ton fantôme ».
+
+## Ceux qui l'ont battu
+
+« Est-ce que dans "Ils ont battu" il pourrait y avoir plus de détails par
+rapport à la personne battue ? » (le propriétaire, le 19 novembre 2026).
+
+- **Une ligne par vainqueur** à la place des pastilles : son rang d'arrivée,
+  son visage et son prénom, à quel essai il l'a battue (« du premier coup »,
+  « au 3ᵉ essai »), et de combien — « 8 pts d'avance », ou à points égaux
+  « 3,4 s plus vite » : les points d'abord, comme le barème départage.
+- **L'avance se mesure sur la course de la victoire**, celle qui a valu le
+  flot : le fantôme ne fait pas le même score d'une course à l'autre.
+- **Trois lignes sur la page, deux sur un petit téléphone** — le départ
+  tient toujours sur l'écran —, et « Tous les N » ouvre la liste entière.
+
