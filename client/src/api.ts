@@ -734,7 +734,7 @@ export const api = {
         body: JSON.stringify({ position, choix }),
       }),
     abandon: (course: string) => req<EtatDuGrandPrix>(`/api/grand-prix/course/${encodeURIComponent(course)}/abandon`, { method: 'POST' }),
-    /** Ses flots, pour le carnet des Grands Prix de « Ma collection ». */
+    /** Ses flots, pour le carnet des fêtes de « Ma collection » (« Tes Grands Prix »). */
     carnet: () => req<{ flots: FlotDuCarnet[] }>('/api/grand-prix/carnet'),
     /** L'essai de l'administrateur, à tout jour, hors classement. */
     essai: (id: string) => avecLHeure(() => req<EtatDuGrandPrix>(`/api/admin/grand-prix/${encodeURIComponent(id)}/essai`)),

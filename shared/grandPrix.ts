@@ -406,7 +406,7 @@ export interface GrandPrixDAccueil {
   prix: string | null
 }
 
-/** Un flot du carnet des Grands Prix, dans « Ma collection » : le Grand Prix — l'avatar du fantôme tel qu'il le portait ce jour-là —, et sa course. */
+/** Un flot de « Tes Grands Prix », au carnet des fêtes de « Ma collection » : le Grand Prix — l'avatar du fantôme tel qu'il le portait ce jour-là —, et sa course. */
 export interface FlotDuCarnet {
   grandPrix: GrandPrixVu
   /** Le flot d'honneur : il était la personne fêtée, le fantôme. */

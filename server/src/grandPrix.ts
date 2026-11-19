@@ -34,7 +34,7 @@ export function mountGrandPrix(app: Express, deps: { grandPrix: GrandPrixStore; 
     }),
   )
 
-  // Ses flots, pour le carnet des Grands Prix de « Ma collection ».
+  // Ses flots, pour le carnet des fêtes de « Ma collection » (« Tes Grands Prix »).
   app.get(
     '/api/grand-prix/carnet',
     wrap(async (req, res) => {

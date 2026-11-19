@@ -559,7 +559,7 @@ function Arrivee({ etat, course, enRoute, onRecourir, refus, essai }: { etat: Et
           <span className="gp-gain-texte">
             <b id="gp-gagnes">{fin.flot ? 'Le flot est à toi' : 'Ton flot t’attendait déjà'}</b>
             <span className="muted small">
-              Rangé dans ton carnet des Grands Prix{fin.rang ? ` · ${fin.rang === 1 ? '1ʳᵉ' : `${fin.rang}ᵉ`} place à l’arrivée` : ''}.
+              Rangé dans ta collection, au carnet des fêtes{fin.rang ? ` · ${fin.rang === 1 ? '1ʳᵉ' : `${fin.rang}ᵉ`} place à l’arrivée` : ''}.
             </span>
           </span>
         </section>

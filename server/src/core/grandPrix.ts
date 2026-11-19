@@ -1087,7 +1087,7 @@ export class GrandPrixStore {
   // ── Le carnet ──────────────────────────────────────────────────────────
 
   /**
-   * Ses flots, pour le carnet des Grands Prix de « Ma collection » : chaque
+   * Ses flots, pour le carnet des fêtes de « Ma collection » (« Tes Grands Prix ») : chaque
    * Grand Prix qu'il a gagné — sa meilleure course, son rang d'arrivée — et
    * celui dont il était le fantôme, le flot d'honneur. Le flot garde l'avatar
    * du fantôme tel qu'il le portait ce jour-là.

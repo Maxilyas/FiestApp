@@ -624,6 +624,10 @@ Une partie est une série de la campagne (`mode = 'cabinet'`), qui n'y touche qu
 - `server/test/cabinet-calibrage-parties.test.ts` — le même modèle, ses parties et le musée : les quatre œuvres de départ au tableau des jeux, le chasseur qui éveille son gardien avant l'occasionnel, le musée qui se remplit jour après jour, jamais plus de parties parfaites qu'à sept étoiles. Les trois se coupent sur leurs thèmes : en un seul fichier, 117 s à huit fichiers à la fois (le 1er novembre 2026). Le musée qui se remplit vient de `cabinet-calibrage.test.ts` (le 9 novembre 2026), qui avait passé les deux minutes d'un fichier sur une machine lente de la CI : son script lisait toute la base à chaque lancement, quatorze fois (`themesDuContenu`, à la première carte tracée désormais).
 - `server/test/calibrage-du-cabinet.ts` — pas un fichier de tests : le calibrage lancé et lu comme ses deux fichiers d'épreuves le font — un seul en durait plus d'une minute.
 
+### Le Grand Prix
+
+- `server/test/grand-prix.test.ts` — les règles pures : une barre ou un refus à quatre points, le chrono plafonné à l'obstacle, qui bat qui, le parcours — la moitié du quiz du jour, le jamais couru d'abord —, le rythme du fantôme, les légendaires secrets et leurs voies rangées, les flots ; puis une journée au banc, l'horloge au jour du Grand Prix : le QG qui le programme — un fantôme qui n'a pas assez joué, un avatar hors de la liste, un second le même jour, refusés —, une course gagnée obstacle par obstacle, une réponse renvoyée qui rend la même révélation, une réponse trop tard, un obstacle laissé au temps, un abandon, Pégase portable par qui l'a gagné seulement, le bilan et le flot d'honneur de la fêtée, le carnet et le profil qui le dit, puis le lendemain.
+
 ## Pour aller plus loin
 
 - [Les commandes](../reference/commandes.md) — chaque script npm et chaque script de `server/scripts/`
