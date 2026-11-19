@@ -125,12 +125,33 @@ try {
     page.on('pageerror', (e: Error) => console.error('[page]', e.message))
     return page
   }
-  const photo = async (page: any, n: string) => {
+  /**
+   * Une photo de l'écran, et ce qu'il fait : la hauteur de la page, ce qui l'élargit. `tient` : l'écran doit tenir
+   * sans défiler — le départ, l'arrivée, la feuille de la fêtée (le propriétaire, le 19 novembre 2026 : « Je veux que
+   * tout soit visible sur un écran ») ; sinon, le script sort en erreur.
+   */
+  const photo = async (page: any, n: string, tient = false) => {
     await page.waitForTimeout(600)
     await page.screenshot({ path: path.join(sortie, `${n}.png`) })
     const large = await page.evaluate('document.documentElement.scrollWidth > window.innerWidth')
-    const haut = await page.evaluate('document.documentElement.scrollHeight')
-    console.log(`${n}.png — page ${haut} px${large ? ' — DÉBORDE EN LARGEUR' : ''}`)
+    const haut: number = await page.evaluate('document.documentElement.scrollHeight')
+    // Une feuille ouverte défile dans son corps, pas la page.
+    const feuille: number = await page.evaluate("(() => { const c = document.querySelector('.carte-corps'); return c ? c.scrollHeight - c.clientHeight : 0 })()")
+    const defile = Math.max(haut - hauteur, feuille)
+    console.log(`${n}.png — page ${haut} px${defile > 1 ? ` — défile de ${defile} px` : ''}${large ? ' — DÉBORDE EN LARGEUR' : ''}`)
+    if (large || (tient && defile > 1)) {
+      // Ce qui la fait défiler : la hauteur de la page sans chacun de ses blocs. Une boîte n'y suffit pas — les
+      // reflets animés d'un légendaire éclaté débordaient de 6 px sans qu'aucune boîte ne passe le bas de l'écran.
+      const sansLui: string = await page.evaluate(`(() => [...document.querySelectorAll('.gp-page > *')].map(e => {
+        const avant = e.style.display
+        e.style.display = 'none'
+        const h = document.documentElement.scrollHeight
+        e.style.display = avant
+        return String(e.className || e.tagName).split(' ')[0] + ' ' + h
+      }).join(' · '))()`)
+      console.log(`  ✗ ${n} ${large ? 'déborde en largeur' : `ne tient pas sur l’écran ${largeur} × ${hauteur}`} — la page sans chaque bloc : ${sansLui}`)
+      process.exitCode = 1
+    }
   }
   /** Répond à l'obstacle en cours : juste ou faux, après une demi-seconde (la garde du toucher). */
   const sauter = async (page: any, login: string, juste: boolean) => {
@@ -147,7 +168,7 @@ try {
   await photo(n, '01-accueil-nina')
   await n.goto(`${banc.url}/grand-prix`)
   await n.waitForSelector('.gp-partir')
-  await photo(n, '02-depart')
+  await photo(n, '02-depart', true)
   await n.locator('.gp-partir').tap()
   await n.waitForSelector('button.gp-reponse')
   await photo(n, '03-course')
@@ -162,9 +183,11 @@ try {
   await photo(n, '06-derniere-revelation')
   await n.locator('.gp-suivant').tap()
   await n.waitForSelector('.gp-arrivee')
-  await photo(n, '07-arrivee-gagnee')
-  await n.evaluate('window.scrollTo(0, document.body.scrollHeight)')
-  await photo(n, '08-arrivee-gagnee-bas')
+  await photo(n, '07-arrivee-gagnee', true)
+  // Recourir, puis revenir au départ : celui d'une gagnante, son prénom parmi ceux qui ont battu Léa.
+  await n.goto(`${banc.url}/grand-prix`)
+  await n.waitForSelector('.gp-partir')
+  await photo(n, '08-depart-apres-la-victoire', true)
   // Son flot, rangé dans « Ma collection », au carnet des fêtes.
   await n.goto(`${banc.url}/profil#collection-timbres`)
   await n.waitForSelector('.carnet-flots-titre')
@@ -176,7 +199,7 @@ try {
   const h = await contexte(hugo)
   await h.goto(`${banc.url}/grand-prix`)
   await h.waitForSelector('.gp-partir')
-  await photo(h, '09-depart-hugo')
+  await photo(h, '09-depart-hugo', true)
   await h.locator('.gp-partir').tap()
   for (let i = 0; i < 10; i++) {
     if (i > 0) await h.locator('.gp-suivant').tap()
@@ -185,14 +208,14 @@ try {
   await photo(h, '10-revelation-fausse')
   await h.locator('.gp-suivant').tap()
   await h.waitForSelector('.gp-arrivee')
-  await photo(h, '11-arrivee-perdue')
+  await photo(h, '11-arrivee-perdue', true)
 
   // Léa : son accueil — la feuille de son réveil, puis, fermée, le bandeau —, sa page : le bilan de son fantôme.
   const l = await contexte(lea)
   await l.goto(`${banc.url}/`)
   await l.waitForSelector('.gp-fete-feuille')
   await l.waitForTimeout(1200)
-  await photo(l, '12-accueil-lea-sa-feuille')
+  await photo(l, '12-accueil-lea-sa-feuille', true)
   await l.locator('.carte-fermer').tap()
   await photo(l, '12b-accueil-lea')
   await l.reload()
@@ -200,7 +223,7 @@ try {
   if (await l.locator('.gp-fete-feuille').count()) console.log('LA FEUILLE REVIENT après avoir été fermée')
   await l.goto(`${banc.url}/grand-prix`)
   await l.waitForSelector('.gp-partir')
-  await photo(l, '13-bilan-lea')
+  await photo(l, '13-bilan-lea', true)
 
   // Le QG : la page du Grand Prix, au téléphone puis à l'ordinateur — le formulaire, son aperçu, la liste ; un fantôme cherché.
   const q = await contexte(admin)

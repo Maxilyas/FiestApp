@@ -76,9 +76,6 @@ import {
  */
 export const QUESTIONS_DU_VIVIER = 600
 
-/** Les tenus en échec que le bilan de la fêtée nomme : les plus obstinés. */
-const TENUS_MONTRES = 3
-
 /** Le bilan de la journée — vainqueurs, coureurs — se relit au plus toutes les vingt secondes pour l'accueil de chacun. */
 const BILAN_GARDE_MS = 20_000
 
@@ -982,42 +979,18 @@ export class GrandPrixStore {
       rang: rang >= 0 ? rang + 1 : null,
       vainqueurs: vus,
       coureurs: new Set(lignes.map(l => l.profil)).size,
-      bilan: estLaFete ? await this.bilanDuFantome(g, lignes, vainqueurs.length) : null,
+      bilan: estLaFete ? this.bilanDuFantome(lignes, vainqueurs.length) : null,
       fete: estLaFete ? { prix: g.prixFete, mot: g.mot } : null,
     }
   }
 
-  private async bilanDuFantome(g: GrandPrixRec, lignes: readonly LigneDuBilan[], vainqueurs: number): Promise<BilanDuFantome> {
-    const departs = new Map<string, number>()
-    const vainqueursIds = new Set(lignes.filter(l => l.battu).map(l => l.profil))
-    for (const l of lignes) departs.set(l.profil, (departs.get(l.profil) ?? 0) + 1)
-    const tenusIds = [...departs.entries()]
-      .filter(([p]) => !vainqueursIds.has(p))
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .slice(0, TENUS_MONTRES)
-    const profils = await this.deps.profiles.byIds(tenusIds.map(([p]) => p))
-    const tenus = tenusIds.flatMap(([, d], i) => {
-      const p = profils[i]
-      return p ? [{ id: p.id, nom: p.name, avatar: this.deps.profiles.avatarPorte(p), ...apparenceDeLAvatar(this.deps.profiles.apparenceDe(p)), departs: d }] : []
-    })
-    // Sa question la plus redoutable : celle où le plus de coureurs ont fait tomber la barre, deux sauts au moins.
-    const res = await this.client.execute({
-      sql: `SELECT r.rang, COUNT(*) AS sur, SUM(CASE WHEN r.juste = 1 THEN 0 ELSE 1 END) AS tombees
-            FROM grand_prix_reponses r JOIN grand_prix_courses c ON c.id = r.course_id
-            WHERE c.grand_prix_id = ? AND c.essai = 0 AND c.profile_id <> ?
-            GROUP BY r.rang HAVING COUNT(*) >= 2
-            ORDER BY tombees DESC, sur DESC, r.rang LIMIT 1`,
-      args: [g.id, g.fantome],
-    })
-    const r = res.rows[0]
-    const q = r ? (await this.vivierDe(g.id)).find(x => x.rang === n(r.rang)) : undefined
-    return {
-      coureurs: departs.size,
-      departs: lignes.length,
-      vainqueurs,
-      tenus,
-      redoutable: q && r && n(r.tombees) > 0 ? { texte: q.texte, tombees: n(r.tombees), sur: n(r.sur) } : null,
-    }
+  /**
+   * Le bilan de la fêtée : des comptes, tirés des lignes déjà lues. Les tenus en échec et sa question la plus redoutable
+   * — deux lectures de plus, et deux phrases — sont partis avec l'épuration de sa page (le 19 novembre 2026) : on voit
+   * ceux qui l'ont battue, pas ceux qui ne l'ont pas fait.
+   */
+  private bilanDuFantome(lignes: readonly LigneDuBilan[], vainqueurs: number): BilanDuFantome {
+    return { coureurs: new Set(lignes.map(l => l.profil)).size, departs: lignes.length, vainqueurs }
   }
 
   /**
