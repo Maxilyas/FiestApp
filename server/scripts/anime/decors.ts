@@ -551,6 +551,9 @@ export const COFFRES_A_PEINDRE: { rang: string; matiere: string }[] = [
  * celui que le thème ne porte pas : le vert pour les roses et les violets, le
  * magenta pour les autres — le détourage efface le fond et ses traits.
  */
+// Le rappel de géométrie, le 20 novembre 2026 : repeintes avec de petits objets aux coins, quinze marches sur
+// trente-sept se sont peintes en boîtes entières, leur pied visible, leur dessus vu d'en haut, leur médaillon plus bas
+// que le cercle — un milieu vide invitait le modèle à montrer le dessus. Au premier passage, sept sur trente-cinq.
 const MARCHE = (sujet: string, finition: string, fond: FondDUneMarche) => {
   const couleur = fond === 'magenta' ? 'magenta (#FF00FF)' : 'green (#00FF00)'
   const interdit = fond === 'magenta' ? 'pink, magenta or violet' : 'green'
@@ -558,14 +561,19 @@ const MARCHE = (sujet: string, finition: string, fond: FondDUneMarche) => {
     'Paint one step of a winners podium for a mobile party quiz game, following the attached layout sketch exactly. The sketch is drawn in ' +
     `darker lines on a flat chroma-key ${couleur} background: the large rectangle is the front face of the step, and it continues past the bottom ` +
     'edge of the canvas (we never see its base); the narrow band just above it is the flat top surface, seen slightly from above; the circle is ' +
-    'an empty round medallion on the front face; the two dashed boxes at the top left and top right are where the decorations stand, on the top ' +
-    'surface — they may also hang down the sides of the step; the crossed dashed box in the middle must stay completely empty, because the winner ' +
-    'stands there. Paint the step exactly over the sketch — the same position, the same size, the same proportions, its front face filling the ' +
+    'an empty round medallion on the front face; the two small, low dashed boxes at the outer top corners are the only places where decorations ' +
+    'stand, on the top surface; the wide crossed dashed box in the middle must stay completely empty, because the winner floats there. Paint the step exactly over the sketch — the same position, the same size, the same proportions, its front face filling the ' +
     'rectangle edge to edge — and let no sketch line remain visible. Strictly front-facing and orthographic, like an architectural elevation: ' +
     'only the front face and the narrow top band are visible — no side faces, no box corners in perspective, no visible base, no floor; the ' +
     'front face reaches the left, right and bottom edges of the rectangle, and the bottom edge of the image cuts it, like a tall plinth seen from ' +
     'close: its lower edge is never visible. The dashed boxes and the cross are only guides: paint nothing along them, no dashed line, no frame.\n\n' +
-    `${sujet}\n\n${finition} The medallion is exactly the circle of the sketch — the same place, the same size, near the top of the front ` +
+    `${sujet}\n\nThe decorations are small and low: one single small object per corner, standing inside the small dashed box at that ` +
+    'outer corner and no taller than it; nothing stands above those boxes, nothing hangs down the sides of the step. The wide middle of the top ' +
+    'surface stays bare and open, so the winner has room to breathe.\n\nGeometry first, whatever the theme: the step is seen strictly from the ' +
+    'front, like a flat elevation drawing — its front face is exactly the large rectangle of the sketch and runs down past the bottom edge of the ' +
+    'image (never show its base or its bottom edge); the top surface is only the thin band of the sketch, seen almost edge-on, never a deep ' +
+    'surface seen from above; the medallion sits exactly on the circle of the sketch, at the same size. Small objects on the corners change ' +
+    `none of this.\n\n${finition} The medallion is exactly the circle of the sketch — the same place, the same size, near the top of the front ` +
     'face —, and its center stays a plain, calm, uncluttered disc: a number will be placed on it later.\n\n' +
     'Painted in a luminous, richly detailed storybook miniature diorama style, crisp readable shapes at small size, soft light from the upper ' +
     `left. No light rays, no beams, no glow spilling onto the background. Background: keep the single perfectly flat, uniform chroma-key ${couleur} ` +
@@ -583,18 +591,18 @@ const MARCHE = (sujet: string, finition: string, fond: FondDUneMarche) => {
  */
 const FINITIONS: Record<string, string> = {
   offert:
-    'Craft: elegant and simple — a handsome step in fine materials with a few well-chosen props on its two top corners; the medallion has a simple rim in the material of the step.',
+    'Craft: elegant and simple — a handsome step in fine materials with a small well-chosen object on each top corner; the medallion has a simple rim in the material of the step.',
   commune:
-    'Craft: charming and simple — a handsome step with a few well-chosen props on its two top corners, clean shapes, modest materials; the medallion has a simple rim in the material of the step.',
+    'Craft: charming and simple — a handsome step with a small well-chosen object on each top corner, clean shapes, modest materials; the medallion has a simple rim in the material of the step.',
   peucommune:
-    'Craft: richer — more props and finer details on the corners, quality materials, a little sparkle; the medallion has a neat carved rim.',
+    'Craft: richer — finer details on the front face, quality materials, a little sparkle; the medallion has a neat carved rim.',
   rare: 'Craft: precious — fine materials, intricate ornament along the edges of the front face and around the medallion, delicate details, a soft warm inner glow from the theme’s own light sources; the medallion has a fine gilded rim.',
   epique:
-    'Craft: spectacular — luminous precious materials, intricate sculpted or inlaid ornament all over the front face, glowing accents and a few floating sparkles around the decorations; the medallion has a gilded rim set with small gems.',
+    'Craft: spectacular — luminous precious materials, intricate sculpted or inlaid ornament all over the front face, glowing accents and a few sparkles on the front face; the medallion has a gilded rim set with small gems.',
   legendaire:
-    'Craft: a legendary masterpiece — the most precious and magnificent podium step imaginable: jewel-like gilded and gem-set ornament, breathtaking detail, radiant light, a whole miniature world on its two top corners; the medallion is framed by an ornate gold rim set with gems.',
+    'Craft: a legendary masterpiece — the most precious and magnificent podium step imaginable: jewel-like gilded and gem-set ornament, breathtaking detail, radiant light, its two small corner objects tiny exquisite jewels; the medallion is framed by an ornate gold rim set with gems.',
   gagne:
-    'Craft: a legendary masterpiece, a trophy that only the most dedicated players ever earn — the most precious and magnificent podium step imaginable: jewel-like gilded and gem-set ornament, breathtaking detail, radiant light, a whole miniature world on its two top corners, a fine filigree of gold leaf running along every edge; the medallion is framed by an ornate gold rim set with gems and tiny rays of gold.',
+    'Craft: a legendary masterpiece, a trophy that only the most dedicated players ever earn — the most precious and magnificent podium step imaginable: jewel-like gilded and gem-set ornament, breathtaking detail, radiant light, its two small corner objects tiny exquisite jewels, a fine filigree of gold leaf running along every edge; the medallion is framed by an ornate gold rim set with gems and tiny rays of gold.',
 }
 
 /**
@@ -608,121 +616,129 @@ export const MARCHES_A_PEINDRE: { cle: string; fond: FondDUneMarche; sujet: stri
     cle: 'velours',
     fond: 'vert',
     sujet:
-      'Theme — Velvet, the house theme of a night party quiz: the step is draped in deep wine and plum velvet whose heavy soft folds hang over its front, with champagne-gold braided trim and small tassels along the top edge, a row of small brass studs, two small gilded finials and a tiny brass candlestick on the top corners; elegant and warm, like a theatre stage at night. Palette: near-black plum (#1c1416), wine-red velvet, champagne gold (#d4b06a).',
+      'Theme — Velvet, the house theme of a night party quiz: the step is draped in deep wine and plum velvet whose heavy soft folds hang over its front, with champagne-gold braided trim and small tassels along the top edge, a row of small brass studs, a small gilded finial on each top corner; elegant and warm, like a theatre stage at night. Palette: near-black plum (#1c1416), wine-red velvet, champagne gold (#d4b06a).',
   },
   {
     cle: 'ivoire',
     fond: 'magenta',
     sujet:
-      'Theme — Ivory, the daylight version of the house theme: the front face of the step is a wall of polished ivory marble with soft veins, gilded edges and a carved classical moulding along its top; on its top corners, a golden laurel wreath and a few delicate white flowers and leaves. Palette: ivory (#f9f5ec), warm gold (#ac8536), soft beige.',
+      'Theme — Ivory, the daylight version of the house theme: the front face of the step is a wall of polished ivory marble with soft veins, gilded edges and a carved classical moulding along its top; on its top corners, one small object each: a small golden laurel wreath on one side, a little sprig of white flowers on the other. Palette: ivory (#f9f5ec), warm gold (#ac8536), soft beige.',
   },
   {
     cle: 'cahier',
     fond: 'magenta',
     sujet:
-      'Theme — the French school notebook: the front face of the step is a wall of crisp white paper ruled in the French Seyès grid (fine blue lines) with a red margin line down its left side, bound by a cobalt-blue notebook edge; on its top corners, a four-colour ballpoint pen on one side, a yellow pencil, an eraser and a small ink blot on the other; the middle of the top stays bare. No writing anywhere. Palette: paper white (#fdfdf8), ink blue (#2342a8), a red margin line.',
+      // Repeinte deux fois le 20 novembre 2026 : « bound by a notebook edge » donnait un cahier posé, vu d'en haut, et un
+      // médaillon en double anneau décalé — la face est une page plate, le dessus la tranche du cahier, vue de face.
+      'Theme — the French school notebook: the front face of the step is one flat page of crisp white paper ruled in the French Seyès grid (fine blue lines) with a red margin line down its left side, pinned flat like a sheet on a wall, filling the rectangle edge to edge; the top band is only the thin cobalt-blue edge of the notebook, seen edge-on; the medallion is a single plain ring drawn in blue ink on the paper, exactly the circle of the sketch; on its top corners, one small object each: a four-colour ballpoint pen lying on one side, a small eraser on the other. No writing anywhere. Palette: paper white (#fdfdf8), ink blue (#2342a8), a red margin line.',
   },
   {
     cle: 'carnet',
     fond: 'magenta',
     sujet:
-      'Theme — the travel journal: the step is wrapped in kraft paper, stamped with travel stamps made only of abstract shapes and wavy lines (no text), a postage stamp and a luggage label; on its top corners, a small vintage typewriter on one side, a brass compass and a folded map tied with string on the other. Palette: kraft (#e8d9ba), rust red (#b5452f), dark brown.',
+      'Theme — the travel journal: the step is wrapped in kraft paper, stamped with travel stamps made only of abstract shapes and wavy lines (no text), a postage stamp and a luggage label; on its top corners, one small object each: a small vintage typewriter on one side, a brass compass on the other. Palette: kraft (#e8d9ba), rust red (#b5452f), dark brown.',
   },
   {
     cle: 'guinguette',
     fond: 'magenta',
     sujet:
-      'Theme — the Guinguette, a 1930s French riverside open-air dance hall on a summer night: the step is painted navy wood like a little bandstand with cream pillars, a string of warm glowing festoon bulbs draped along its top edge, small paper bunting flags in navy, white and yellow; on its top corners, a tiny accordion and a straw boater hat. Palette: night navy (#14213d), warm yellow light (#ffd166), cream.',
+      // Le kiosque à piliers et sa guirlande de fanions sous le dessus repoussaient le médaillon au milieu de la face
+      // (le 20 novembre 2026) : une face pleine, les ampoules sur l'arête seulement, le médaillon en haut.
+      'Theme — the Guinguette, a 1930s French riverside open-air dance hall on a summer night: the front face of the step is one solid panel of navy painted wood, with slim cream pilasters at its two sides, filling the rectangle edge to edge; a string of small warm festoon bulbs runs only along the edge of its top band, nothing hangs below it; the medallion is a round cream-rimmed navy plaque near the top of the front face, exactly the circle of the sketch; on its top corners, one small object each: a tiny accordion on one side, a straw boater hat on the other. Palette: night navy (#14213d), warm yellow light (#ffd166), cream.',
   },
   {
     cle: 'pyjama',
     fond: 'magenta',
     sujet:
-      'Theme — the Pyjama, a gentle bedtime night: the step is a soft quilted cushion of deep indigo-blue fabric with a crescent moon and little stars stitched on in peach thread, a satin piping along its edges; on its top corners, a tiny fluffy sheep leaping over a little wooden fence on one side, a small sleepy moon night-lamp on the other. Palette: deep indigo blue (#1f1b3a), peach (#ffdcaa), cream.',
+      // Le coussin rebondi et sa lune brodée faisaient descendre le médaillon (le 20 novembre 2026) : un panneau plat,
+      // le médaillon un rond brodé en haut, les étoiles autour.
+      'Theme — the Pyjama, a gentle bedtime night: the front face of the step is a flat quilted panel of deep indigo-blue fabric, filling the rectangle edge to edge, little stars stitched on it in peach thread, a satin piping along its edges; the medallion is a round patch with a peach piped rim near the top of the front face, exactly the circle of the sketch; on its top corners, one small object each: a tiny fluffy sheep on one side, a small sleepy moon night-lamp on the other. Palette: deep indigo blue (#1f1b3a), peach (#ffdcaa), cream.',
   },
   {
     cle: 'stade',
     fond: 'magenta',
     sujet:
-      'Theme — the Stadium, a night match under the floodlights: the front face of the step is the dark green painted wall of a stadium stand with a lime-green trim and two thin white stripes, its top covered with striped green turf and crisp white chalk lines; on its top corners, a small floodlight tower glowing white on one side, a classic leather football and a little trophy cup on the other. No digits. Palette: deep pitch green (#0e2616), lime (#e8ff47), white.',
+      // Le gazon du dessus se peignait en terrain vu d'en haut, la marche tombait au milieu de l'image (le
+      // 20 novembre 2026) : le gazon n'est plus que la bande mince du dessus.
+      'Theme — the Stadium, a night match under the floodlights: the front face of the step is the dark green painted wall of a stadium stand with a lime-green trim and two thin white stripes, filling the rectangle edge to edge; its top band is only a thin strip of green turf seen edge-on; the medallion is a round dark green badge with a lime rim near the top of the front face, exactly the circle of the sketch; on its top corners, one small object each: a small leather football on one side, a little trophy cup on the other. No digits. Palette: deep pitch green (#0e2616), lime (#e8ff47), white.',
   },
   {
     cle: 'jungle',
     fond: 'magenta',
     sujet:
-      'Theme — the Jungle: the step is carved from ancient mossy stone, wrapped with tropical leaves, ferns and hanging vines down its sides; on its top corners, among small white and golden orchids and a ripe mango, perch three or four tiny colourful birds (a hummingbird, two little parrots, a baby toucan), dew drops glinting. Palette: deep emerald and jungle greens, warm golden light (#f6c052).',
+      'Theme — the Jungle: the step is carved from ancient mossy stone, with moss and small ferns growing on its front face; on its top corners, one small object each: a tiny colourful parrot on one side, a small white orchid on the other. Palette: deep emerald and jungle greens, warm golden light (#f6c052).',
   },
   {
     cle: 'ocean',
     fond: 'magenta',
     sujet:
-      'Theme — the Ocean, the abyss: the step is a block of pale stone under the sea, encrusted with coral; on its top corners, orange, yellow and teal coral, sea anemones and swaying seaweed, two tiny tropical fish and a little seahorse, a few rising bubbles. Palette: deep teal-black (#03202b), glowing aqua (#5ff2da), warm coral orange accents.',
+      'Theme — the Ocean, the abyss: the step is a block of pale stone under the sea, encrusted with coral; on its top corners, one small object each: a small cluster of orange coral on one side, a little seahorse on the other. Palette: deep teal-black (#03202b), glowing aqua (#5ff2da), warm coral orange accents.',
   },
   {
     cle: 'patisserie',
     fond: 'vert',
     sujet:
-      'Theme — the Pastry tea room: the step is a tiered cream cake with smooth vanilla icing, raspberry glaze dripping along its top edge and piped cream rosettes; on its top corners, a stack of macarons (raspberry, vanilla, chocolate, lemon) and a fresh raspberry tart on one side, a small porcelain teapot and teacup on the other. Palette: cream (#fff7f0), raspberry (#b0305a), soft rose, chocolate brown.',
+      'Theme — the Pastry tea room: the step is a tiered cream cake with smooth vanilla icing, raspberry glaze dripping along its top edge and piped cream rosettes; on its top corners, one small object each: a small stack of macarons on one side, a little porcelain teacup on the other. Palette: cream (#fff7f0), raspberry (#b0305a), soft rose, chocolate brown.',
   },
   {
     cle: 'gameboy',
     fond: 'magenta',
     sujet:
-      'Theme — the pocket game console: the whole step is chunky pixel art drawn with exactly four shades of green (#0f380f, #306230, #8bac0f, #9bbc0f) — a pixel brick block with a little pixel border; on its top corners, a pixel tree and a pixel mushroom on one side, a spinning pixel coin and a tiny pixel hero on the other. Only those four greens, crisp square pixels.',
+      'Theme — the pocket game console: the whole step is chunky pixel art drawn with exactly four shades of green (#0f380f, #306230, #8bac0f, #9bbc0f) — a pixel brick block with a little pixel border; on its top corners, one small object each: a pixel mushroom on one side, a spinning pixel coin on the other. Only those four greens, crisp square pixels.',
   },
   {
     cle: 'foret',
     fond: 'magenta',
     sujet:
-      'Theme — the Russet forest on an autumn afternoon: the step is carved from a thick oak stump with its bark and growth rings, moss along its base; on its top corners, a little hedgehog among red-capped mushrooms and acorns on one side, a squirrel holding a hazelnut and a pile of russet leaves on the other, a few leaves twirling down. Palette: cream (#f7ead8), rust (#b8481a), warm browns and gold.',
+      'Theme — the Russet forest on an autumn afternoon: the step is carved from a thick oak stump with its bark and growth rings, moss along its base; on its top corners, one small object each: a little hedgehog on one side, a small red-capped mushroom on the other. Palette: cream (#f7ead8), rust (#b8481a), warm browns and gold.',
   },
   {
     cle: 'carnaval',
     fond: 'vert',
     sujet:
-      'Theme — the Carnival: the step is painted with bold harlequin diamonds in purple, gold and turquoise-blue, gold trim along its edges; on its top corners, a Venetian carnival mask with feathers and a jester hat with bells on one side, a burst of streamers, pennants and confetti on the other. Palette: cream (#fff6e9), deep purple (#6a24a0), gold, turquoise blue.',
+      'Theme — the Carnival: the step is painted with bold harlequin diamonds in purple, gold and turquoise-blue, gold trim along its edges; on its top corners, one small object each: a small Venetian carnival mask on one side, a little burst of streamers on the other. Palette: cream (#fff6e9), deep purple (#6a24a0), gold, turquoise blue.',
   },
   {
     cle: 'plage',
     fond: 'magenta',
     sujet:
-      'Theme — the Beach in summer: the step is a little beach cabin painted with wide blue and white stripes, its top covered with golden sand; on its top corners, a striped orange-and-white parasol with a beach ball on one side, a small sandcastle with a starfish and seashells on the other, a curl of sea foam. Palette: warm sand (#fff4dc), deep sea blue (#0f3b4a), sunny orange (#ffb347).',
+      'Theme — the Beach in summer: the step is a little beach cabin painted with wide blue and white stripes, its top covered with golden sand; on its top corners, one small object each: a small beach ball on one side, a little sandcastle on the other. Palette: warm sand (#fff4dc), deep sea blue (#0f3b4a), sunny orange (#ffb347).',
   },
   {
     cle: 'licorne',
     fond: 'vert',
     sujet:
-      'Theme — the Unicorn: the step is iridescent mother-of-pearl with holographic pastel reflections (lilac, pink, sky blue), its edges trimmed with pearls; on its top corners, a small white unicorn with a golden horn and a pastel mane on one side, a fluffy pastel cloud with a little rainbow and glittering crystals on the other, tiny sparkles. Palette: pearl white (#fbf6ff), lilac (#d7a8ff), violet (#9b2fc0), soft pink and sky blue.',
+      'Theme — the Unicorn: the step is iridescent mother-of-pearl with holographic pastel reflections (lilac, pink, sky blue), its edges trimmed with pearls; on its top corners, one small object each: a small white unicorn on one side, a little rainbow cloud on the other. Palette: pearl white (#fbf6ff), lilac (#d7a8ff), violet (#9b2fc0), soft pink and sky blue.',
   },
   {
     cle: 'heros',
     fond: 'magenta',
     sujet:
-      'Theme — the comic book Hero: the step is drawn like a comic book panel come to life, thick black ink outlines, bold flat colours and halftone dots, a jagged action burst shape on its front (shape only, no letters); on its top corners, a red hero cape draped over a little mask on one side, a small lightning bolt and speed lines on the other. Palette: pale yellow (#fff4c7), hero red (#d61f26), black ink, a touch of blue.',
+      'Theme — the comic book Hero: the step is drawn like a comic book panel come to life, thick black ink outlines, bold flat colours and halftone dots, a jagged action burst shape on its front (shape only, no letters); on its top corners, one small object each: a little hero mask on one side, a small lightning bolt on the other. Palette: pale yellow (#fff4c7), hero red (#d61f26), black ink, a touch of blue.',
   },
   {
     cle: 'grimoire',
     fond: 'magenta',
     sujet:
-      'Theme — the Grimoire: the step is a giant closed spellbook of worn red-brown leather with brass corners and a brass clasp, the gilded edges of its parchment pages showing; on its top corners, a quill in an inkwell beside a dripping candle on one side, a few small potion bottles and a rolled scroll sealed with red wax on the other, faint swirls of magic. Palette: parchment (#efe2c2), deep red (#8b1e1e), brass, dark brown.',
+      'Theme — the Grimoire: the step is a giant closed spellbook of worn red-brown leather with brass corners and a brass clasp, the gilded edges of its parchment pages showing; on its top corners, one small object each: a quill in an inkwell on one side, a small potion bottle on the other. Palette: parchment (#efe2c2), deep red (#8b1e1e), brass, dark brown.',
   },
   {
     cle: 'filmnoir',
     fond: 'magenta',
     sujet:
-      'Theme — the Film noir, in black and white only, with a single colour, red: the step is a dark polished detective’s desk, the slanted shadows of venetian blinds across its front, raindrops beading on it; on its top corners, a vintage telephone and a fedora hat on one side, a magnifying glass and a single red rose on the other. Everything in black, white and greys, except the rose. Palette: black (#111111), greys, white, one red (#ff4a4a).',
+      'Theme — the Film noir, in black and white only, with a single colour, red: the front face of the step is the dark polished wooden front of a detective’s desk, filling the rectangle edge to edge, the slanted shadows of venetian blinds across its front, raindrops beading on it; on its top corners, one small object each: a fedora hat on one side, a single red rose on the other. Everything in black, white and greys, except the rose. Palette: black (#111111), greys, white, one red (#ff4a4a).',
   },
   {
     cle: 'disco',
     fond: 'vert',
     sujet:
-      'Theme — the Disco: the step is a glowing dance floor block whose front face is made of lit square tiles in gold, pink and violet, with chrome edges; on its top corners, a sparkling mirror ball on a little stand on one side, a pair of roller skates and two vinyl records on the other, glitter in the air. Palette: deep night violet (#1a0b2e), gold (#ffd866), hot pink, violet.',
+      'Theme — the Disco: the step is a glowing dance floor block whose front face is made of lit square tiles in gold, pink and violet, with chrome edges; on its top corners, one small object each: a small sparkling mirror ball on one side, a pair of small roller skates on the other. Palette: deep night violet (#1a0b2e), gold (#ffd866), hot pink, violet.',
   },
   {
     cle: 'halloween',
     fond: 'vert',
     sujet:
-      'Theme — Halloween, a haunted manor: the step is old dark stone and rotting wood draped with cobwebs, a little iron-barred window glowing orange on its side; on its top corners, carved jack-o’-lantern pumpkins glowing orange with a black cat on one side, a twisted candlestick with dripping candles and a small bat on the other, a crescent moon cut-out. Palette: night purple (#120a18), pumpkin orange (#ff8c1a), bone white.',
+      'Theme — Halloween, a haunted manor: the step is old dark stone and rotting wood draped with cobwebs, a little iron-barred window glowing orange on its side; on its top corners, one small object each: a small glowing jack-o’-lantern on one side, a tiny black cat on the other. Palette: night purple (#120a18), pumpkin orange (#ff8c1a), bone white.',
   },
   {
     cle: 'neige',
@@ -731,61 +747,63 @@ export const MARCHES_A_PEINDRE: { cle: string; fond: FondDUneMarche; sujet: stri
       // Repeinte le 19 novembre 2026 : son médaillon sortait plus grand et plus bas que le cercle, puis un ovale de
       // travers, sa face se rétrécissait sous les glaçons, puis les cases en pointillés du croquis se peignaient sur sa
       // neige — la consigne dit la face pleine, le médaillon et un dessus de neige nu.
-      'Theme — the Snowy winter night: the front face of the step is one wide wall of blue ice and packed snow, frost patterns on it, filling the rectangle edge to edge, a few short icicles hanging only from the edge of its top band, and the top band itself plain smooth snow with nothing drawn on it — no line, no dash, no frame, no box; the medallion is a perfectly round porthole of clear ice with a thin silver rim, exactly the circle of the sketch; on its top corners, little snow-covered fir trees with a warm glowing lantern on one side, a small snowman with a scarf on the other, snowflakes falling. Palette: midnight blue (#0b1627), ice blue (#a8dcff), white.',
+      'Theme — the Snowy winter night: the front face of the step is one wide wall of blue ice and packed snow, frost patterns on it, filling the rectangle edge to edge, a few short icicles hanging only from the edge of its top band, and the top band itself plain smooth snow with nothing drawn on it — no line, no dash, no frame, no box; the medallion is a perfectly round porthole of clear ice with a thin silver rim, exactly the circle of the sketch; on its top corners, one small object each: a small snow-covered fir tree on one side, a little snowman with a scarf on the other. Palette: midnight blue (#0b1627), ice blue (#a8dcff), white.',
   },
   {
     cle: 'cerisiers',
     fond: 'vert',
     sujet:
-      'Theme — the Cherry blossoms of hanami: the step is a black lacquered Japanese wooden platform with fine gold accents; on its top corners, blossoming cherry branches heavy with soft pink flowers on dark bare branches (no leaves), a small paper lantern and a tiny stone lantern, pink petals drifting down. Palette: lacquer black, gold, blossom pink (#f4a6bd), deep rose (#a82d5a).',
+      'Theme — the Cherry blossoms of hanami: the step is a black lacquered Japanese wooden platform with fine gold accents; on its top corners, one small object each: a small blossoming cherry branch on one side, a tiny stone lantern on the other. Palette: lacquer black, gold, blossom pink (#f4a6bd), deep rose (#a82d5a).',
   },
   {
     cle: 'neon',
     fond: 'vert',
     sujet:
-      'Theme — the Neon arcade, cyberpunk: the front face of the step is a wall of dark metal panels like the front of a futuristic arcade tower, its edges outlined by glowing hot-pink and violet neon tubes, tiny lit windows, cables and vents, a faint glowing grid; on its top corners, a tiny skyline of neon skyscrapers and a small friendly robot standing guard, little holographic signs with abstract glyphs only (no readable text). Palette: near-black indigo (#0b0616), hot pink (#ff3fd8), violet, a touch of cyan.',
+      'Theme — the Neon arcade, cyberpunk: the front face of the step is a wall of dark metal panels like the front of a futuristic arcade tower, its edges outlined by glowing hot-pink and violet neon tubes, tiny lit windows, cables and vents, a faint glowing grid; on its top corners, one small object each: a tiny neon skyscraper on one side, a small friendly robot on the other. Palette: near-black indigo (#0b0616), hot pink (#ff3fd8), violet, a touch of cyan.',
   },
   {
     cle: 'olympe',
     fond: 'magenta',
     sujet:
-      'Theme — Mount Olympus: the front face of the step is a wall of white veined marble with a Greek key frieze inlaid in gold along its top and slender fluted pilasters at its two sides; on its top corners, a golden lyre and an olive branch on one side, a golden laurel wreath on a little altar with an amphora on the other, soft white clouds curling at its sides. Palette: marble white (#f4f2ee), gold (#c9a23a), deep navy (#1f2a36).',
+      'Theme — Mount Olympus: the front face of the step is a wall of white veined marble with a Greek key frieze inlaid in gold along its top and slender fluted pilasters at its two sides; on its top corners, one small object each: a small golden lyre on one side, a small Greek amphora on the other. Palette: marble white (#f4f2ee), gold (#c9a23a), deep navy (#1f2a36).',
   },
   {
     cle: 'braises',
     fond: 'magenta',
     sujet:
-      'Theme — the Embers of the Phoenix: the step is dark volcanic stone cracked with veins of glowing embers, small flames licking its top edge; on its top corners, a small fiery phoenix rising with spread wings of flame on one side, a nest of glowing coals with a golden feather on the other, sparks rising. Palette: charcoal black (#140806), ember orange (#ff6a1a), gold, deep red.',
+      'Theme — the Embers of the Phoenix: the step is dark volcanic stone cracked with veins of glowing embers, small flames licking its top edge; on its top corners, one small object each: a small fiery phoenix on one side, a little nest of glowing coals on the other. Palette: charcoal black (#140806), ember orange (#ff6a1a), gold, deep red.',
   },
   {
     cle: 'cosmos',
     fond: 'vert',
     sujet:
-      'Theme — the Cosmos: the step is a slab of dark crystal full of stars and swirling nebulae in violet, blue and pink, its edges catching starlight; on its top corners, a small ringed planet and a little moon on one side, a tiny comet with a long tail and a cluster of glowing stars on the other, stardust floating. Palette: deep space (#070b1f), periwinkle violet (#8f7bff), blue, pink.',
+      'Theme — the Cosmos: the step is a slab of dark crystal full of stars and swirling nebulae in violet, blue and pink, its edges catching starlight; on its top corners, one small object each: a small ringed planet on one side, a tiny comet on the other. Palette: deep space (#070b1f), periwinkle violet (#8f7bff), blue, pink.',
   },
   {
     cle: 'feudartifice',
     fond: 'vert',
     sujet:
-      'Theme — the New Year’s fireworks at midnight: the step is a midnight-blue rooftop terrace with a gold balustrade; on its top corners, a tiny silhouette of city rooftops with a clock tower on one side, a pair of champagne coupes and a bottle on the other, fireworks bursting above them in gold, red and blue, a few golden sparks. Palette: midnight blue (#0a0f2c), gold (#ffcf5a), white, red, blue.',
+      'Theme — the New Year’s fireworks at midnight: the step is a midnight-blue rooftop terrace with a gold balustrade; on its top corners, one small object each: a tiny clock tower on one side, a pair of champagne coupes on the other. Palette: midnight blue (#0a0f2c), gold (#ffcf5a), white, red, blue.',
   },
   {
     cle: 'aurore',
     fond: 'magenta',
     sujet:
-      'Theme — the Northern lights: the step is a block of snow and clear blue ice with frosted edges; on its top corners, snow-covered fir trees and a small reindeer on one side, a little wooden cabin with a warm glowing window on the other, and above them ribbons of the aurora in green and teal only, starry glints. Palette: arctic night (#06141f), aurora mint (#6bffc2), teal, ice white.',
+      'Theme — the Northern lights: the step is a block of snow and clear blue ice with frosted edges, the green and teal ribbons of the aurora reflected in its ice; on its top corners, one small object each: a small snow-covered fir tree on one side, a little wooden cabin with a glowing window on the other. Palette: arctic night (#06141f), aurora mint (#6bffc2), teal, ice white.',
   },
   {
     cle: 'kintsugi',
     fond: 'magenta',
     sujet:
-      'Theme — Kintsugi: the front face of the step is a wall of matte black ceramic, cracked and repaired with shining veins of gold that flow like rivers across it; on its top corners, a tiny bonsai pine in a gold-mended pot on one side, a black tea bowl mended with gold and a bamboo whisk on the other, a few drifting gold leaves. Serene and precious. Palette: black, charcoal, warm gold (#e0b54a).',
+      'Theme — Kintsugi: the front face of the step is a wall of matte black ceramic, cracked and repaired with shining veins of gold that flow like rivers across it; on its top corners, one small object each: a tiny bonsai pine in a small gold-mended pot on one side, a small black tea bowl mended with gold on the other. Serene and precious. Palette: black, charcoal, warm gold (#e0b54a).',
   },
   {
     cle: 'theatre',
     fond: 'vert',
     sujet:
-      'Theme — the Grand theatre: the step is a miniature stage, its front framed by a gilded carved proscenium, crimson velvet curtains drawn and tied on both sides with gold ropes, a row of small glowing footlights along its top edge; on its top corners, golden comedy and tragedy masks on one side, a small gilded opera box with a candelabra on the other. Palette: theatre crimson (#1c0508 in the shadows), velvet red, gold (#e0b34a).',
+      // La scène en miniature mettait le médaillon dans son ouverture, au milieu de la face (le 20 novembre 2026) : il
+      // est pendu au sommet du cadre de scène.
+      'Theme — the Grand theatre: the front face of the step is a miniature stage, framed by a gilded carved proscenium that fills the rectangle edge to edge, crimson velvet curtains drawn and tied on both sides with gold ropes, a row of small glowing footlights along the edge of its top band; the medallion is a gilded round cartouche set at the top centre of the proscenium arch, exactly the circle of the sketch, and nothing else round on the front; on its top corners, one small object each: small golden comedy and tragedy masks on one side, a tiny candelabra on the other. Palette: theatre crimson (#1c0508 in the shadows), velvet red, gold (#e0b34a).',
   },
   // Les Deux Bannières : une marche par camp, chacune son emblème dessiné (`LES_DEUX_EMBLEMES`), joint après le croquis.
   {
@@ -793,44 +811,46 @@ export const MARCHES_A_PEINDRE: { cle: string; fond: FondDUneMarche; sujet: stri
     fond: 'magenta',
     references: ['embleme-clans', 'embleme-royaume'],
     sujet:
-      'Theme — The Two Banners, the war clans of the Ember: the front face of the step is a wall of dark riveted iron plates and rough red canyon rock, bound by spiked iron bands, with carved bone and curved tusk ornaments at its two upper corners; on its top corners, a roaring iron brazier and a horned war helm on one side, a tall red-and-black war banner bearing the clans’ sigil — the boar head of the second attached image — beside a hide war drum on the other. Palette: ember red (#c8361e), black iron, bone ivory, ember orange (#f08a3a).',
+      'Theme — The Two Banners, the war clans of the Ember: the front face of the step is a wall of dark riveted iron plates and rough red canyon rock, bound by spiked iron bands, with carved bone and curved tusk ornaments at its two upper corners; on its top corners, one small object each: a small roaring iron brazier on one side, a short red-and-black war banner bearing the clans’ sigil — the boar head of the second attached image — on the other. Palette: ember red (#c8361e), black iron, bone ivory, ember orange (#f08a3a).',
   },
   {
     cle: 'bannieres-royaume',
     fond: 'magenta',
     references: ['embleme-clans', 'embleme-royaume'],
     sujet:
-      'Theme — The Two Banners, the Azure kingdom: the front face of the step is a wall of white carved stone with fine gold tracery and deep blue enamel inlays, a gilded moulding along its top; on its top corners, a tall blue-and-gold banner bearing the kingdom’s sigil — the golden lion rampant of the third attached image — and a gilded kite shield bearing the same lion on one side, a slender white tower with a golden dome and a glowing lantern on the other. Palette: azure blue (#2f6fd1), gold (#d4a24c), white stone.',
+      'Theme — The Two Banners, the Azure kingdom: the front face of the step is a wall of white carved stone with fine gold tracery and deep blue enamel inlays, a gilded moulding along its top; on its top corners, one small object each: a short blue-and-gold banner bearing the kingdom’s sigil — the golden lion rampant of the third attached image — on one side, a small gilded kite shield bearing the same lion on the other. Palette: azure blue (#2f6fd1), gold (#d4a24c), white stone.',
   },
   {
     cle: 'babel',
     fond: 'magenta',
     sujet:
-      'Theme — Babel, the infinite library, earned by mastering every path of knowledge: the step is built of stacked leather-bound books with gilded spines (no titles), carved bookcase pillars at its corners; on its top corners, a tiny spiralling tower of Babel made of books reaching up on one side, a green banker’s lamp glowing warmly over an open book and an hourglass on the other. Palette: dark leather (#15110d), gold (#dbb75e), a single glowing green lampshade.',
+      'Theme — Babel, the infinite library, earned by mastering every path of knowledge: the step is built of stacked leather-bound books with gilded spines (no titles), carved bookcase pillars at its corners; on its top corners, one small object each: a tiny spiralling tower of books on one side, a small green banker’s lamp on the other. Palette: dark leather (#15110d), gold (#dbb75e), a single glowing green lampshade.',
   },
   {
     cle: 'horloge',
     fond: 'magenta',
     sujet:
-      'Theme — the Astronomical clock, earned by winning the daily quiz fifty times: the step is lapis-lazuli blue enamel and gold, a ring of the twelve zodiac signs in gold leaf circling the medallion, gilded clockwork ornaments; on its top corners, small brass gears and a golden armillary sphere on one side, a little gilded astrolabe and a sun with a serene face on the other. Palette: lapis blue (#0a1024), gold (#e4c06a), ivory.',
+      'Theme — the Astronomical clock, earned by winning the daily quiz fifty times: the step is lapis-lazuli blue enamel and gold, a ring of the twelve zodiac signs in gold leaf circling the medallion, gilded clockwork ornaments; on its top corners, one small object each: a small golden armillary sphere on one side, a little gilded astrolabe on the other. Palette: lapis blue (#0a1024), gold (#e4c06a), ivory.',
   },
   {
     cle: 'ciel',
     fond: 'magenta',
     sujet:
-      'Theme — the Sky of the day, earned by playing thirty days in a row: the step is a window onto a luminous painted landscape of rolling hills and a river under a golden sky, framed in deep blue and gold; on its top corners, a radiant golden sun on one side, a silver crescent moon with little stars on the other, small soft clouds drifting between them. Palette: deep blue (#0e1430), gold (#f6cd78), sky blue, warm dawn tones.',
+      'Theme — the Sky of the day, earned by playing thirty days in a row: the step is a window onto a luminous painted landscape of rolling hills and a river under a golden sky, framed in deep blue and gold; on its top corners, one small object each: a small radiant golden sun on one side, a small silver crescent moon on the other. Palette: deep blue (#0e1430), gold (#f6cd78), sky blue, warm dawn tones.',
   },
   {
     cle: 'heures',
     fond: 'magenta',
     sujet:
-      'Theme — the Very Rich Hours, a fifteenth-century illuminated manuscript, earned by completing the whole calendar: the step is a page of vellum with a border of lapis-lazuli blue and burnished gold leaf, fine gothic filigree and painted acanthus; on its top corners, a tiny gothic castle with slender towers and blue slate roofs on one side, a golden zodiac tympanum arch with a radiant sun on the other. Palette: vellum (#f3e8cf), lapis blue (#1e4091), burnished gold (#c19a3e), vermilion.',
+      // « The step is a page » faisait tenir une page debout au milieu du dessus (le 20 novembre 2026) : la page
+      // couvre la face, et rien ne monte du dessus que ses deux petits objets.
+      'Theme — the Very Rich Hours, a fifteenth-century illuminated manuscript, earned by completing the whole calendar: the front face of the step is covered by an illuminated vellum panel with a border of lapis-lazuli blue and burnished gold leaf, fine gothic filigree and painted acanthus, filling the rectangle edge to edge; nothing stands up from the top band except the two small corner objects — no page, no panel, no sign in the middle; on its top corners, one small object each: a tiny gothic castle on one side, a small golden sun on the other. Palette: vellum (#f3e8cf), lapis blue (#1e4091), burnished gold (#c19a3e), vermilion.',
   },
   {
     cle: 'sommet',
     fond: 'magenta',
     sujet:
-      'Theme — the Summit, earned by a twenty-question streak: the step is carved from a block of mountain granite with snow and ice on its top; on its top corners, a ridge of tiny snowy peaks with a small orange tent glowing warm on one side, a string of tiny prayer flags in blue, white, red, green and yellow fluttering on the other, dawn light on the snow. Palette: night blue (#0b1322), dawn apricot (#f2a65a), snow white.',
+      'Theme — the Summit, earned by a twenty-question streak: the step is carved from a block of mountain granite with snow and ice on its top; on its top corners, one small object each: a small snowy peak with a tiny orange tent on one side, a short string of tiny prayer flags on the other. Palette: night blue (#0b1322), dawn apricot (#f2a65a), snow white.',
   },
 ]
 

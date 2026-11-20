@@ -163,26 +163,39 @@ paths:
   tous les thèmes […] par rapport à ceux qui sont dur à obtenir je veux que
   ce soit encore plus beau »). Une par thème, Velours compris — la marche de
   la maison, sous le podium entier, pour qui n'a pas de plaque ou une plaque
-  encore sans peinture : personne n'y a l'air d'avoir moins. Le gagnant se
-  tient debout sur le dessus, le décor posé sur les deux coins monte derrière
-  lui (`.pdc-avatar`, `z-index: 1`), et le rang est une pièce d'or, d'argent
-  ou de bronze sertie dans le médaillon peint : la marche dit le thème, la
-  pièce la place. **Tout se pose par le gabarit, jamais par ce qu'une image a
+  encore sans peinture : personne n'y a l'air d'avoir moins. **Le gagnant
+  flotte au-dessus de sa marche**, son ombre posée sur le dessus, un cran
+  plus grand qu'au premier jour, **un seul petit objet sur chaque coin**,
+  bas, aux angles extérieurs (le retour du propriétaire du 20 novembre 2026
+  : « trop chargé et ça ne fait pas respirer l'avatar », puis, sur la
+  maquette des trois hauteurs, « Je préfère F pour que ça soit plus aérien,
+  c'est bien que l'avatar flotte », `retours/2026-11-20/podium-aere/` ;
+  jusque-là, les objets des coins montaient aussi haut que lui, collés à
+  lui). Le rang est une pièce d'or, d'argent ou de bronze sertie dans le
+  médaillon peint : la marche dit le thème, la pièce la place. **Tout se pose par le gabarit, jamais par ce qu'une image a
   peint** (`server/scripts/anime/gabarit-marche.ts`, `GABARIT_DE_LA_MARCHE`) :
   la face avant fait 94 % de la largeur de l'image, son dessus est à 35 % de
   sa largeur, le médaillon à 24 % de la face sous le dessus — la feuille en
   tire ses pourcents (`.pdc-socle::before`, des marges : un pourcent de marge
   se compte sur la largeur), `plaques.test.ts` les recompte. **Le modèle peint
   sur un croquis** — ce qu'il ne tient pas en mots se dessine, la leçon des
-  ornements de la niche : la face, le dessus, le médaillon, les deux cases du
-  décor et la case barrée du milieu, tracés d'une couleur plus sombre que le
+  ornements de la niche : la face, le dessus, le médaillon, les deux petites
+  cases basses du décor aux angles (`decor` : 21 % de large, 16 % de haut) et
+  la case barrée du milieu, tracés d'une couleur plus sombre que le
   fond uni, que le détourage efface ; le fond est le magenta, ou le vert pour
   un thème rose ou violet (`MARCHES_A_PEINDRE`, `fond`). Sans croquis, il
   peignait des colonnes trop étroites, des boîtes en perspective, des
   médaillons où il voulait ; avec, et la consigne « orthographique, la face
   coupée par le bas de l'image, le médaillon exactement le cercle », 28 sur
   35 sont tombées juste du premier coup, les sept autres au deuxième ou au
-  troisième. L'assemblage relit chaque peinture (`profilDUneMarche` : sa
+  troisième. Repeintes aux petits objets, quinze sur trente-sept se sont
+  peintes en boîtes entières — leur pied visible, leur dessus vu d'en haut,
+  leur médaillon plus bas que le cercle : un milieu vide invite le modèle à
+  montrer le dessus ; la consigne a gagné un rappel de géométrie (« Geometry
+  first »), qui en a rattrapé huit, et les sept dernières leur sujet réécrit :
+  ce qui se pose devant la face — une guirlande, un kiosque, une scène
+  ouverte — repousse le médaillon, et un dessus « couvert de » gazon se
+  peint vu d'en haut. L'assemblage relit chaque peinture (`profilDUneMarche` : sa
   face, son dessus) et signale celle qui s'écarte (⚠) — à juger à l'œil sur la
   planche avant de livrer, une face organique (la souche de la Forêt) se lit
   de travers sans l'être. **Le médaillon ne se mesure pas : il se regarde**,
@@ -197,16 +210,31 @@ paths:
   gagné, un chef-d'œuvre, le gagné cerné d'or) : un thème qui change de
   rareté se repeint. **Ses proportions, pas sa hauteur** (`aspect-ratio` :
   96, 72 et 56 points sur un téléphone de 360) : sur une tablette, une
-  hauteur fixe laissait le sol couper le médaillon de la troisième. La case
-  de l'avatar monte au moins aussi haut que le décor (`.pdc-avatar::before`,
-  39 % de la largeur), sinon il touchait le score sur une tablette. La pièce
+  hauteur fixe laissait le sol couper le médaillon de la troisième. L'avatar
+  flotte de 14 % de la largeur de sa marche (`.pdc-avatar`, `padding-bottom`)
+  et garde de l'air au-dessus de lui (`padding-top`, 20 et 22 px) : la
+  couronne d'une bordure de ligue et les étincelles d'une finition débordent
+  de son cercle, et montaient sur le score — à 14 px, les rayons du Prisme
+  restaient à 1 px de lui ; sa case monte au moins aussi
+  haut que le décor des coins (`.pdc-avatar::before`), sinon il touchait le
+  score sur une tablette. La pièce
   de rang garde 4,5:1 sur tout son métal, son bord le plus sombre compris
   (écrit en dur, `--piece-*` : le bronze tombait à 2,9). Rien ne cerne sa
   propre marche : son prénom se lit à l'or. `server/scripts/rendu-podium.ts`
-  photographie les trente-cinq trois par trois, Velours et Ivoire, et le
-  premier podium sur une tablette, et sort en erreur si une marche n'a pas sa
-  peinture, si un avatar ou un décor touche le score, ou si une pièce sort de
-  sa marche. Le podium d'une soirée (`Podium.tsx`) n'en montre jamais
+  photographie les trente-sept trois par trois, Velours et Ivoire, et le
+  premier podium sur une tablette, les trois premiers habillés comme ceux de
+  la production (un Phénix éclaté en obsidienne, Constellation, bordure de
+  diamant ; Anubis ; le panda des cerisiers), et sort en erreur si une marche
+  n'a pas sa peinture, si un décor touche le score, si une pièce sort de sa
+  marche, ou s'il reste moins de 5 points d'air entre le score et ce que peint
+  l'avatar, ses ornements compris (`AIR_SOUS_LE_SCORE`) — **mesuré au pixel,
+  jamais aux boîtes** : il photographie l'avatar seul sur un fond
+  transparent et cherche sa première rangée peinte ; les images de lumière
+  d'une finition (un voile de l'Aurore, une orbite de la Constellation) sont
+  plus grandes que ce qu'elles peignent, et leurs boîtes touchaient le score
+  de 10 à 13 points quand l'œil y voyait de l'air. Il dit l'air de chaque
+  podium : 7 à 10 points au téléphone, 30 sur une tablette, le 20 novembre
+  2026. Le podium d'une soirée (`Podium.tsx`) n'en montre jamais
   (invariant 8).
 - **La carte d'un duel est la seule où l'emblème passe sous un texte**, en
   semis, et chaque texte s'y mesure sur ce qu'il y a vraiment dessous

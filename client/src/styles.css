@@ -975,7 +975,7 @@ h3 > .icon {
 .cl-carte-illu.plaque > * { position: relative; }
 
 /* Le podium : trois marches posées sur un sol, la liste juste dessous —
-   chacune une peinture de son thème, le gagnant debout dessus (le choix du
+   chacune une peinture de son thème, le gagnant au-dessus d'elle (le choix du
    propriétaire du 19 novembre 2026, `retours/2026-11-19/podium-peint/` : « un
    vrai décor de podium détaillé […] je veux que ce soit encore plus beau »
    pour les thèmes durs à obtenir). Sans plaque, la marche de la maison, le
@@ -1003,16 +1003,31 @@ h3 > .icon {
 .pdc-valeur { display: inline-flex; align-items: center; gap: 4px; color: var(--accent-text); font-family: var(--serif); font-size: 1.15rem; line-height: 1.1; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
 .pdc-valeur .blason { flex: none; }
 .pdc-unite { color: var(--muted); font-family: var(--sans); font-size: 0.8125rem; }
-/* Lui, les pieds sur le dessus de sa marche : devant ce qui est posé sur ses coins, qui monte derrière lui. Sa case
-   est au moins aussi haute que ce décor — 37,23 % de la largeur de la marche, plus un peu d'air : un pourcent de
-   remplissage se compte sur la largeur, que la case prend entière (`::before`, dans la même cellule que lui) —, et il
-   ne touche jamais le score, même sur une tablette où la marche du premier fait près de 200 points. */
-.pdc-avatar { position: relative; z-index: 1; display: grid; place-items: end center; align-self: stretch; min-height: 50px; margin-bottom: -2px; }
-.pdc-avatar::before { content: ''; padding-top: 39%; }
+/* Lui, au-dessus de sa marche : il flotte, son ombre posée sur le dessus — le choix du propriétaire du 20 novembre
+   2026, sur la maquette des trois hauteurs (`retours/2026-11-20/podium-aere/` : « Je préfère F pour que ça soit plus
+   aérien, c'est bien que l'avatar flotte ») ; posé sur elle, il se tenait au niveau des objets de ses coins, collé à
+   eux, « trop chargé ». Il flotte de 14 % de la largeur de la marche (`padding-bottom` : un pourcent de remplissage se
+   compte sur la largeur), au-dessus des petits objets des coins (le gabarit, `decor`), et un cran plus grand qu'avant.
+   Au-dessus de lui, de l'air pour ses ornements — la couronne d'une bordure de ligue, les étincelles d'une finition
+   débordent de son cercle, et montaient sur le score : à 14 points, les rayons du Prisme restaient à 1 point de lui
+   (`rendu-podium.ts` mesure ce qu'ils peignent, au pixel). Sa case est au moins aussi haute que le décor des coins
+   (`::before`, dans la même cellule que lui), même sur une tablette où la marche du premier fait près de 200 points. */
+.pdc-avatar {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: end center;
+  align-self: stretch;
+  min-height: 50px;
+  margin-bottom: -2px;
+  padding: 20px 0 14%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0)) center bottom / 62% 10px no-repeat;
+}
+.pdc-avatar::before { content: ''; padding-top: 42%; }
 .pdc-avatar::before, .pdc-avatar > * { grid-area: 1 / 1; }
-.pdc-avatar .lb-avatar { font-size: 2.1rem; }
-.pdc-1 .pdc-avatar { min-height: 60px; }
-.pdc-1 .pdc-avatar .lb-avatar { font-size: 2.6rem; }
+.pdc-avatar .lb-avatar { font-size: 2.45rem; }
+.pdc-1 .pdc-avatar { min-height: 60px; padding-top: 22px; }
+.pdc-1 .pdc-avatar .lb-avatar { font-size: 3.05rem; }
 /* Ses proportions, pas sa hauteur : 96, 72 et 56 points sur un téléphone de 360 de large, et sur une tablette, où la
    marche s'élargit, elle grandit avec — à hauteur fixe, le sol y coupait le médaillon de la troisième. */
 .pdc-socle { position: relative; align-self: stretch; container-type: inline-size; }
@@ -4869,43 +4884,43 @@ h3 > .icon {
 .carte-fond.fond-epices { --fond-peint: url(/decors/fond-epices-720.0af27890fb.webp); }
 .carte-fond.fond-table-de-jeux { --fond-peint: url(/decors/fond-table-de-jeux-720.1c5b3b3a0d.webp); }
 .carte-fond.fond-annees-folles { --fond-peint: url(/decors/fond-annees-folles-720.2efc802b5c.webp); }
-.podium-du-classement { --marche-peinte: url(/decors/marche-velours-360.6e069c85f7.webp); }
-.pdc-marche.plaque-ivoire { --marche-peinte: url(/decors/marche-ivoire-360.ff289c747e.webp); }
-.pdc-marche.plaque-cahier { --marche-peinte: url(/decors/marche-cahier-360.1bf08fbad3.webp); }
-.pdc-marche.plaque-carnet { --marche-peinte: url(/decors/marche-carnet-360.05734ec20b.webp); }
-.pdc-marche.plaque-guinguette { --marche-peinte: url(/decors/marche-guinguette-360.2ce31c6144.webp); }
-.pdc-marche.plaque-pyjama { --marche-peinte: url(/decors/marche-pyjama-360.7834cadcb2.webp); }
-.pdc-marche.plaque-stade { --marche-peinte: url(/decors/marche-stade-360.35c59bde5c.webp); }
-.pdc-marche.plaque-jungle { --marche-peinte: url(/decors/marche-jungle-360.26d66428f9.webp); }
-.pdc-marche.plaque-ocean { --marche-peinte: url(/decors/marche-ocean-360.a65bcf8da9.webp); }
-.pdc-marche.plaque-patisserie { --marche-peinte: url(/decors/marche-patisserie-360.95fe2dab82.webp); }
-.pdc-marche.plaque-gameboy { --marche-peinte: url(/decors/marche-gameboy-360.b74cae4470.webp); }
-.pdc-marche.plaque-foret { --marche-peinte: url(/decors/marche-foret-360.cae4d19411.webp); }
-.pdc-marche.plaque-carnaval { --marche-peinte: url(/decors/marche-carnaval-360.aff4035b10.webp); }
-.pdc-marche.plaque-plage { --marche-peinte: url(/decors/marche-plage-360.9cfebb2cbf.webp); }
-.pdc-marche.plaque-licorne { --marche-peinte: url(/decors/marche-licorne-360.3e8b758b4e.webp); }
-.pdc-marche.plaque-heros { --marche-peinte: url(/decors/marche-heros-360.9ce9022d5b.webp); }
-.pdc-marche.plaque-grimoire { --marche-peinte: url(/decors/marche-grimoire-360.5fa1f5f6cb.webp); }
-.pdc-marche.plaque-filmnoir { --marche-peinte: url(/decors/marche-filmnoir-360.ef340684c8.webp); }
-.pdc-marche.plaque-disco { --marche-peinte: url(/decors/marche-disco-360.067b66471d.webp); }
-.pdc-marche.plaque-halloween { --marche-peinte: url(/decors/marche-halloween-360.9e2d15d01e.webp); }
-.pdc-marche.plaque-neige { --marche-peinte: url(/decors/marche-neige-360.e80561ae90.webp); }
-.pdc-marche.plaque-cerisiers { --marche-peinte: url(/decors/marche-cerisiers-360.d14f171258.webp); }
-.pdc-marche.plaque-neon { --marche-peinte: url(/decors/marche-neon-360.661ab48091.webp); }
-.pdc-marche.plaque-olympe { --marche-peinte: url(/decors/marche-olympe-360.8d565e57df.webp); }
-.pdc-marche.plaque-braises { --marche-peinte: url(/decors/marche-braises-360.cd3799d451.webp); }
-.pdc-marche.plaque-cosmos { --marche-peinte: url(/decors/marche-cosmos-360.2c2cb834cb.webp); }
-.pdc-marche.plaque-feudartifice { --marche-peinte: url(/decors/marche-feudartifice-360.56c8f3cc5a.webp); }
-.pdc-marche.plaque-aurore { --marche-peinte: url(/decors/marche-aurore-360.1e5f5adec9.webp); }
-.pdc-marche.plaque-kintsugi { --marche-peinte: url(/decors/marche-kintsugi-360.1c9f217a2e.webp); }
-.pdc-marche.plaque-theatre { --marche-peinte: url(/decors/marche-theatre-360.8781897ba0.webp); }
-.pdc-marche.plaque-bannieres-clans { --marche-peinte: url(/decors/marche-bannieres-clans-360.e1c881b38a.webp); }
-.pdc-marche.plaque-bannieres-royaume { --marche-peinte: url(/decors/marche-bannieres-royaume-360.8af19245b5.webp); }
-.pdc-marche.plaque-babel { --marche-peinte: url(/decors/marche-babel-360.b33fd838ba.webp); }
-.pdc-marche.plaque-horloge { --marche-peinte: url(/decors/marche-horloge-360.3688562533.webp); }
-.pdc-marche.plaque-ciel { --marche-peinte: url(/decors/marche-ciel-360.aecbb902fc.webp); }
-.pdc-marche.plaque-heures { --marche-peinte: url(/decors/marche-heures-360.5e5c537d69.webp); }
-.pdc-marche.plaque-sommet { --marche-peinte: url(/decors/marche-sommet-360.d6eeea1b21.webp); }
+.podium-du-classement { --marche-peinte: url(/decors/marche-velours-360.1d38c8fdc3.webp); }
+.pdc-marche.plaque-ivoire { --marche-peinte: url(/decors/marche-ivoire-360.680fed2ca9.webp); }
+.pdc-marche.plaque-cahier { --marche-peinte: url(/decors/marche-cahier-360.5955c4cead.webp); }
+.pdc-marche.plaque-carnet { --marche-peinte: url(/decors/marche-carnet-360.9cfb3d26c1.webp); }
+.pdc-marche.plaque-guinguette { --marche-peinte: url(/decors/marche-guinguette-360.5e8a17c231.webp); }
+.pdc-marche.plaque-pyjama { --marche-peinte: url(/decors/marche-pyjama-360.354fca98a4.webp); }
+.pdc-marche.plaque-stade { --marche-peinte: url(/decors/marche-stade-360.72331441f2.webp); }
+.pdc-marche.plaque-jungle { --marche-peinte: url(/decors/marche-jungle-360.422dd5f82d.webp); }
+.pdc-marche.plaque-ocean { --marche-peinte: url(/decors/marche-ocean-360.1217d4da2e.webp); }
+.pdc-marche.plaque-patisserie { --marche-peinte: url(/decors/marche-patisserie-360.b2e042cbc1.webp); }
+.pdc-marche.plaque-gameboy { --marche-peinte: url(/decors/marche-gameboy-360.66beff3ad6.webp); }
+.pdc-marche.plaque-foret { --marche-peinte: url(/decors/marche-foret-360.c1bb15ceca.webp); }
+.pdc-marche.plaque-carnaval { --marche-peinte: url(/decors/marche-carnaval-360.2d7b8a3ed3.webp); }
+.pdc-marche.plaque-plage { --marche-peinte: url(/decors/marche-plage-360.48f9ec8cee.webp); }
+.pdc-marche.plaque-licorne { --marche-peinte: url(/decors/marche-licorne-360.db81e4d658.webp); }
+.pdc-marche.plaque-heros { --marche-peinte: url(/decors/marche-heros-360.2ffd0e74b7.webp); }
+.pdc-marche.plaque-grimoire { --marche-peinte: url(/decors/marche-grimoire-360.6fd760eddb.webp); }
+.pdc-marche.plaque-filmnoir { --marche-peinte: url(/decors/marche-filmnoir-360.0091760ef1.webp); }
+.pdc-marche.plaque-disco { --marche-peinte: url(/decors/marche-disco-360.4856966258.webp); }
+.pdc-marche.plaque-halloween { --marche-peinte: url(/decors/marche-halloween-360.c383d7d819.webp); }
+.pdc-marche.plaque-neige { --marche-peinte: url(/decors/marche-neige-360.045a5b5087.webp); }
+.pdc-marche.plaque-cerisiers { --marche-peinte: url(/decors/marche-cerisiers-360.fc111b2e47.webp); }
+.pdc-marche.plaque-neon { --marche-peinte: url(/decors/marche-neon-360.cf769ff04b.webp); }
+.pdc-marche.plaque-olympe { --marche-peinte: url(/decors/marche-olympe-360.66a5fef3cc.webp); }
+.pdc-marche.plaque-braises { --marche-peinte: url(/decors/marche-braises-360.6a7071fbaf.webp); }
+.pdc-marche.plaque-cosmos { --marche-peinte: url(/decors/marche-cosmos-360.acb86e5ddd.webp); }
+.pdc-marche.plaque-feudartifice { --marche-peinte: url(/decors/marche-feudartifice-360.b2a4312dce.webp); }
+.pdc-marche.plaque-aurore { --marche-peinte: url(/decors/marche-aurore-360.f68a9bf6b0.webp); }
+.pdc-marche.plaque-kintsugi { --marche-peinte: url(/decors/marche-kintsugi-360.c90d328e84.webp); }
+.pdc-marche.plaque-theatre { --marche-peinte: url(/decors/marche-theatre-360.2f9e51f172.webp); }
+.pdc-marche.plaque-bannieres-clans { --marche-peinte: url(/decors/marche-bannieres-clans-360.54d7b8f198.webp); }
+.pdc-marche.plaque-bannieres-royaume { --marche-peinte: url(/decors/marche-bannieres-royaume-360.bfe8a56f8d.webp); }
+.pdc-marche.plaque-babel { --marche-peinte: url(/decors/marche-babel-360.e0fbbae147.webp); }
+.pdc-marche.plaque-horloge { --marche-peinte: url(/decors/marche-horloge-360.3c28003325.webp); }
+.pdc-marche.plaque-ciel { --marche-peinte: url(/decors/marche-ciel-360.71d687ea79.webp); }
+.pdc-marche.plaque-heures { --marche-peinte: url(/decors/marche-heures-360.2d81a2ddb4.webp); }
+.pdc-marche.plaque-sommet { --marche-peinte: url(/decors/marche-sommet-360.65fb645692.webp); }
 /* ── Fin des décors peints ── */
 .carte-fond.fond-triomphe,
 .carte-fond.fond-cadran,

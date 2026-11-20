@@ -7,8 +7,14 @@
 //   npx tsx scripts/rendu-podium.ts [dossier]
 //
 // Il dit, pour chaque podium, si une marche sort de la colonne de la page, si
-// un avatar touche le score au-dessus de lui, et si une pièce de rang n'est
-// pas sur sa marche — et sort en erreur pour l'une ou l'autre.
+// un avatar — ses ornements compris — touche le score au-dessus de lui, et si
+// une pièce de rang n'est pas sur sa marche — et sort en erreur pour l'une ou
+// l'autre. Les trois premiers portent ce que portent les premiers de la
+// production (relevé le 20 novembre 2026, en lecture seule) : un Phénix éclaté
+// en obsidienne, finition Constellation, bordure de diamant ; Anubis, Aurore,
+// bordure d'or ; le panda des cerisiers, Prisme, bordure de bronze, éclaté —
+// la couronne d'une bordure et les étincelles d'une finition débordent du
+// cercle, et montaient sur le score.
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync } from 'node:fs'
@@ -17,35 +23,94 @@ import Database from 'better-sqlite3'
 import { demarrer, ecrire, inscrireProfil } from '../test/banc'
 import { ProfileStore } from '../src/auth/profiles'
 import { THEMES } from '../../shared/themes'
+import { PLAQUES } from '../../shared/plaques'
+import { FACE, GABARIT_DE_LA_MARCHE } from './anime/gabarit-marche'
 
 ProfileStore.tirageEclat = () => false
 
 /**
  * Ce que la page dit de son podium, mesuré dans le navigateur (du JavaScript
  * en chaîne : le serveur se vérifie sans les types du navigateur) — sa place,
- * s'il sort de sa colonne, et pour chaque marche : si l'avatar ou le haut de
- * ce qui est posé sur ses coins (37,23 % de sa largeur au-dessus d'elle, le
+ * s'il sort de sa colonne, et pour chaque marche : où finit son score, la
+ * colonne de son avatar, si le haut de ce qui est posé sur ses coins (le
  * gabarit) touche le score, si la pièce du rang sort de la marche, sa peinture.
  */
+const HAUT_DU_DECOR = (GABARIT_DE_LA_MARCHE.decor.hauteur / FACE).toFixed(4)
 const MESURER = String.raw`() => {
   const e = document.querySelector('.podium-du-classement')
   const r = e.getBoundingClientRect()
   const col = e.parentElement.getBoundingClientRect()
   const marches = [...e.querySelectorAll('.pdc-marche')].map(m => {
     const valeur = m.querySelector('.pdc-valeur').getBoundingClientRect()
-    const avatar = m.querySelector('.pdc-avatar > *')?.getBoundingClientRect()
+    const avatar = m.querySelector('.pdc-avatar').getBoundingClientRect()
     const socle = m.querySelector('.pdc-socle').getBoundingClientRect()
     const piece = m.querySelector('.pdc-socle b').getBoundingClientRect()
-    const decor = socle.top - 0.3723 * socle.width
+    const decor = socle.top - ${HAUT_DU_DECOR} * socle.width
     return {
       classe: m.className,
-      avatarTouche: (!!avatar && avatar.top < valeur.bottom) || decor < valeur.bottom,
+      basDuScore: valeur.bottom + scrollY,
+      colonne: [avatar.left, avatar.right],
+      airDuDecor: Math.round(decor - valeur.bottom),
       pieceDehors: piece.left < socle.left || piece.right > socle.right || piece.bottom > socle.bottom,
       peinture: getComputedStyle(m.querySelector('.pdc-socle'), '::before').backgroundImage,
     }
   })
   return { y: r.top + scrollY, h: r.height, deborde: r.left < col.left - 1 || r.right > col.right + 1, marches }
 }`
+
+/**
+ * Ce qui reste d'air, au moins, entre le score et ce que peint l'avatar :
+ * collé à lui, il ne flotte plus (le choix du 20 novembre 2026). À 14 points
+ * de case au-dessus de lui, les rayons du Prisme en laissaient 1.
+ */
+const AIR_SOUS_LE_SCORE = 5
+
+/**
+ * L'avatar seul, ses ornements compris — la couronne d'une bordure, la lumière
+ * d'une finition, les étincelles d'un Éclat —, sur un fond transparent : tout
+ * le reste de la page caché, le temps d'une photo. Leurs boîtes ne disent pas
+ * où ils s'arrêtent : un voile de l'Aurore, une orbite de la Constellation
+ * sont des images plus grandes que ce qu'elles peignent — mesurées en boîtes,
+ * les trois premiers touchaient leur score de 10 à 13 points, quand l'œil y
+ * voyait de l'air.
+ */
+const L_AVATAR_SEUL = `
+  body * { visibility: hidden !important; }
+  .pdc-avatar, .pdc-avatar * { visibility: visible !important; }
+  .pdc-avatar { background: none !important; }
+  html, body { background: transparent !important; }
+  html::before, html::after, body::before, body::after { display: none !important; }`
+
+/**
+ * La première rangée peinte de chaque colonne d'une photo (en points depuis
+ * son haut) : un pixel compte dès qu'il couvre un dixième de ce qui est
+ * dessous — une lueur plus pâle ne se voit pas sous un score. Sur une page
+ * vierge : celle de l'application refuse les images qu'elle ne sert pas.
+ */
+const HAUT_PEINT = String.raw`async ({ url, echelle, colonnes }) => {
+  const image = new Image()
+  image.src = url
+  await image.decode()
+  const toile = document.createElement('canvas')
+  toile.width = image.width
+  toile.height = image.height
+  const g = toile.getContext('2d')
+  g.drawImage(image, 0, 0)
+  const { data } = g.getImageData(0, 0, toile.width, toile.height)
+  return colonnes.map(([gauche, droite]) => {
+    const x0 = Math.max(0, Math.floor(gauche * echelle))
+    const x1 = Math.min(toile.width, Math.ceil(droite * echelle))
+    for (let y = 0; y < toile.height; y++) for (let x = x0; x < x1; x++) if (data[(y * toile.width + x) * 4 + 3] > 25) return y / echelle
+    return null
+  })
+}`
+
+/** Ce que portent les trois premiers de la production (en lecture seule, le 20 novembre 2026 ; aucun prénom). */
+const AVATARS_CHARGES = [
+  { legendaire: 'lg:phenix', finition: 'constellation', bordure: { ligue: 'diamant', crans: 12 }, eclat: 'obsidienne' },
+  { legendaire: 'br:anubis', finition: 'aurore', bordure: { ligue: 'or', crans: 9 } },
+  { legendaire: 'cp:panda-sakura', finition: 'prisme', bordure: { ligue: 'bronze', crans: 5 }, eclat: true },
+]
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-podium')
 mkdirSync(sortie, { recursive: true })
@@ -80,8 +145,9 @@ try {
   }
   await ecrire(banc.url, '/api/joueur/moi', { theme: 'ivoire' }, cookies.ines, 'PUT')
 
-  // Trois par trois, dans l'ordre du catalogue : Velours (sans plaque) d'abord.
-  const cles: (string | null)[] = THEMES.map(t => (t.key === 'velours' ? null : t.key))
+  // Trois par trois, dans l'ordre du catalogue : Velours (sans plaque) d'abord, puis chaque plaque — une par camp des
+  // Deux Bannières.
+  const cles: (string | null)[] = [null, ...PLAQUES.map(p => p.cle)]
   const trios: (string | null)[][] = []
   for (let i = 0; i < cles.length; i += 3) trios.push(cles.slice(i, i + 3))
   while (trios[trios.length - 1].length < 3) trios[trios.length - 1].push(null)
@@ -104,6 +170,14 @@ try {
       const contexte = await navigateur.newContext({ viewport: { width: largeur, height: hauteur }, deviceScaleFactor: 2 })
       const [nom, valeur] = cookies[qui].split('=')
       await contexte.addCookies([{ name: nom, value: valeur, url: banc.url }])
+      // Les trois premiers habillés comme les premiers de la production, et chacun sur la marche de sa plaque — celle
+      // d'un camp des Deux Bannières n'est pas une clé de thème : la ligne du classement la porte telle quelle.
+      await contexte.route(/\/api\/jour\/classement/, async (route: any) => {
+        const reponse = await route.fetch()
+        const j = await reponse.json()
+        for (const l of j.lignes ?? []) if (l.rang <= 3) Object.assign(l, AVATARS_CHARGES[l.rang - 1], trio[l.rang - 1] ? { plaque: trio[l.rang - 1] } : {})
+        await route.fulfill({ response: reponse, json: j })
+      })
       const page = await contexte.newPage()
       page.on('pageerror', (e: Error) => defauts.push(`[page] ${e.message}`))
       await page.goto(`${banc.url}/jour#classement`)
@@ -115,17 +189,31 @@ try {
         y: number
         h: number
         deborde: boolean
-        marches: { classe: string; avatarTouche: boolean; pieceDehors: boolean; peinture: string }[]
+        marches: { classe: string; basDuScore: number; colonne: [number, number]; airDuDecor: number; pieceDehors: boolean; peinture: string }[]
       }
       const quoi = `podium ${n + 1} (${trio.map(c => c ?? 'velours').join(', ')}), ${theme}`
       if (mesure.deborde) defauts.push(`${quoi} : le podium sort de la colonne`)
-      for (const m of mesure.marches) {
-        if (m.avatarTouche) defauts.push(`${quoi} : ${m.classe} — l'avatar ou le décor touche le score`)
+      const cadre = { x: 0, y: mesure.y - 12, width: largeur, height: mesure.h + 24 }
+      await page.screenshot({ path: path.join(sortie, `podium-${String(n + 1).padStart(2, '0')}-${theme}.png`), clip: cadre })
+      if (n === 0) await page.screenshot({ path: path.join(sortie, `ecran-${theme}.png`) })
+      // Puis l'avatar seul, et où commence ce qu'il peint, colonne par colonne.
+      await page.addStyleTag({ content: L_AVATAR_SEUL })
+      const seul = await page.screenshot({ clip: cadre, omitBackground: true })
+      const atelier = await contexte.newPage()
+      const arguments_ = { url: `data:image/png;base64,${seul.toString('base64')}`, echelle: 2, colonnes: mesure.marches.map(m => m.colonne) }
+      const hauts = (await atelier.evaluate(`(${HAUT_PEINT})(${JSON.stringify(arguments_)})`)) as (number | null)[]
+      for (const [i, m] of mesure.marches.entries()) {
+        // L'air qui reste sous le score, en points, dit pour savoir de combien il manque : l'avatar flotte, il ne se colle
+        // pas au score (AIR_SOUS_LE_SCORE).
+        const haut = hauts[i]
+        const air = haut === null ? 0 : Math.round(cadre.y + haut - m.basDuScore)
+        if (haut === null) defauts.push(`${quoi} : ${m.classe} — pas d'avatar`)
+        else if (air < AIR_SOUS_LE_SCORE) defauts.push(`${quoi} : ${m.classe} — l'avatar est à ${air} pt du score (${AIR_SOUS_LE_SCORE} au moins)`)
+        if (m.airDuDecor < 0) defauts.push(`${quoi} : ${m.classe} — le décor touche le score (${m.airDuDecor} pt)`)
         if (m.pieceDehors) defauts.push(`${quoi} : ${m.classe} — la pièce de rang sort de sa marche`)
         if (!/url\(/.test(m.peinture)) defauts.push(`${quoi} : ${m.classe} — sans peinture`)
       }
-      await page.screenshot({ path: path.join(sortie, `podium-${String(n + 1).padStart(2, '0')}-${theme}.png`), clip: { x: 0, y: mesure.y - 12, width: largeur, height: mesure.h + 24 } })
-      if (n === 0) await page.screenshot({ path: path.join(sortie, `ecran-${theme}.png`) })
+      console.log(`${quoi} — l'air sous le score : ${mesure.marches.map((m, i) => `${Math.round(cadre.y + (hauts[i] ?? 0) - m.basDuScore)} pt`).join(', ')}`)
       await contexte.close()
     }
   }
