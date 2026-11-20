@@ -11,6 +11,14 @@
 // tous les thèmes […] par rapport à ceux qui sont dur à obtenir je veux que ce
 // soit encore plus beau ».
 //
+// Puis le 20 novembre 2026, sur le classement d'un joueur : « ça fait trop
+// chargé et ça ne fait pas respirer l'avatar ». Les objets des coins montaient
+// aussi haut que l'avatar, collés à lui : leurs cases sont devenues basses et
+// poussées aux angles extérieurs, un seul petit objet chacune, le milieu plus
+// large — et l'avatar flotte au-dessus de sa marche (« Je préfère F pour que
+// ça soit plus aérien, c'est bien que l'avatar flotte », le propriétaire, sur
+// la maquette `retours/2026-11-20/podium-aere/`).
+//
 // Toutes les mesures sont des parts de la largeur de l'image : la feuille de
 // style ne connaît que la largeur d'une marche.
 
@@ -27,10 +35,16 @@ export const GABARIT_DE_LA_MARCHE = {
   /** Le centre du médaillon sous le bord avant, et son rayon — en parts de la largeur de la face avant. */
   medaillon: 0.24,
   rayon: 0.13,
-  /** Le milieu du dessus, laissé vide : le gagnant s'y tient. */
-  libre: [0.32, 0.68] as const,
-  /** Le haut du décor : il ne monte pas plus haut. */
+  /** Le milieu du dessus, laissé vide : le gagnant s'y tient, et flotte au-dessus. */
+  libre: [0.26, 0.74] as const,
+  /** Le haut de la case du milieu, qui reste vide. */
   plafond: 0.02,
+  /**
+   * Les deux cases du décor, aux angles extérieurs du dessus : leur largeur
+   * depuis le bord de l'image, et leur hauteur au-dessus du bord avant — un
+   * seul petit objet chacune, jamais plus haut.
+   */
+  decor: { largeur: 0.21, hauteur: 0.16 },
 } as const
 
 /** La largeur de la face avant, en part de la largeur de l'image. */
@@ -46,8 +60,9 @@ export type FondDUneMarche = keyof typeof FONDS_DES_MARCHES
 
 /**
  * Le croquis : la face avant, le dessus vu d'un peu au-dessus, le médaillon,
- * les deux cases du décor et la case du milieu qui reste vide — tracés sur
- * le fond uni d'une couleur plus sombre que lui, que le détourage efface.
+ * les deux petites cases basses du décor, aux angles, et la case du milieu
+ * qui reste vide — tracés sur le fond uni d'une couleur plus sombre que lui,
+ * que le détourage efface.
  */
 export function croquisDeLaMarche(fond: FondDUneMarche): string {
   const g = GABARIT_DE_LA_MARCHE
@@ -65,7 +80,7 @@ export function croquisDeLaMarche(fond: FondDUneMarche): string {
   const epais = Math.round(W / 140)
   const tirets = `stroke-dasharray="${epais * 4} ${epais * 3}"`
   const caseDuDecor = (a: number, b: number) =>
-    `<rect x="${a.toFixed(1)}" y="${haut.toFixed(1)}" width="${(b - a).toFixed(1)}" height="${(y - haut).toFixed(1)}" fill="none" stroke="${trait}" stroke-width="${epais}" ${tirets}/>`
+    `<rect x="${a.toFixed(1)}" y="${(y - g.decor.hauteur * W).toFixed(1)}" width="${(b - a).toFixed(1)}" height="${(g.decor.hauteur * W).toFixed(1)}" fill="none" stroke="${trait}" stroke-width="${epais}" ${tirets}/>`
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">` +
     `<rect width="${W}" height="${H}" fill="${couleur}"/>` +
@@ -74,8 +89,8 @@ export function croquisDeLaMarche(fond: FondDUneMarche): string {
     // Le dessus, vu d'un peu au-dessus.
     `<path d="M${x0},${y} L${x0 + p * 0.6},${y - p} L${x1 - p * 0.6},${y - p} L${x1},${y}" fill="none" stroke="${trait}" stroke-width="${epais * 1.2}"/>` +
     `<circle cx="${W / 2}" cy="${cy.toFixed(1)}" r="${r.toFixed(1)}" fill="none" stroke="${trait}" stroke-width="${epais * 1.4}"/>` +
-    caseDuDecor(x0, (0.3 * W)) +
-    caseDuDecor(0.7 * W, x1) +
+    caseDuDecor(x0, g.decor.largeur * W) +
+    caseDuDecor((1 - g.decor.largeur) * W, x1) +
     // La case du milieu, qui reste vide : barrée d'une croix.
     `<rect x="${g.libre[0] * W}" y="${haut}" width="${(g.libre[1] - g.libre[0]) * W}" height="${(y - p - haut).toFixed(1)}" fill="none" stroke="${trait}" stroke-width="${epais}" ${tirets}/>` +
     `<path d="M${g.libre[0] * W},${haut} L${g.libre[1] * W},${(y - p).toFixed(1)} M${g.libre[1] * W},${haut} L${g.libre[0] * W},${(y - p).toFixed(1)}" stroke="${trait}" stroke-width="${epais * 0.7}" ${tirets}/>` +
