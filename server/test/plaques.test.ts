@@ -264,15 +264,23 @@ test('le podium : chaque marche, une peinture de son thème posée par le gabari
   // La peinture se pose par le gabarit, jamais par ce qu'une image a peint : sa face avant à la largeur de la marche, son
   // dessus au haut de la marche — ce qui est posé sur ses coins monte derrière l'avatar, devant elle.
   const peinture = regle('.pdc-socle::before')
-  const { bord, dessus, medaillon, rayon } = GABARIT_DE_LA_MARCHE
+  const { bord, dessus, medaillon, rayon, decor } = GABARIT_DE_LA_MARCHE
   assert.match(peinture, /background: var\(--marche-peinte\) top center \/ 100% auto no-repeat;/)
   assert.match(peinture, new RegExp(`left: -${pourcent(bord / FACE).replace('%', '')}%;`), 'elle déborde de ce que le gabarit laisse sur les côtés')
   assert.match(peinture, new RegExp(`right: -${pourcent(bord / FACE).replace('%', '')}%;`))
   assert.match(peinture, new RegExp(`margin-top: -${pourcent(dessus / FACE).replace('%', '')}%;`), 'son dessus au haut de la marche')
-  assert.match(regle('.pdc-avatar'), /z-index: 1;/, 'il se tient devant ce qui est posé sur les coins')
-  // Sa case monte au moins aussi haut que ce décor, sur toute largeur : il ne touche jamais le score.
+  const avatar = regle('.pdc-avatar')
+  assert.match(avatar, /z-index: 1;/, 'il passe devant ce qui est posé sur les coins')
+  // Il flotte au-dessus de sa marche, son ombre posée sur le dessus (le choix du 20 novembre 2026), et garde de l'air
+  // au-dessus de lui pour ses ornements — la couronne d'une bordure, les étincelles d'une finition : à 14 px, les rayons
+  // du Prisme restaient à 1 px du score (`rendu-podium.ts` mesure ce qu'ils peignent).
+  const [hautDeLAir, flotte] = (/padding: (\d+)px 0 ([\d.]+)%;/.exec(avatar) ?? assert.fail('son air et sa hauteur')).slice(1).map(Number)
+  assert.ok(flotte >= 10, `il flotte de ${flotte} % de la largeur de la marche`)
+  assert.ok(hautDeLAir >= 20, `${hautDeLAir} px d'air au-dessus de lui`)
+  assert.match(avatar, /background: radial-gradient\(closest-side, rgba\(0, 0, 0, [\d.]+\), rgba\(0, 0, 0, 0\)\) center bottom \/ [\d.]+% \d+px no-repeat;/, 'son ombre sur le dessus')
+  // Sa case monte au moins aussi haut que le décor des coins, sur toute largeur : il ne touche jamais le score.
   const air = Number(/padding-top: ([\d.]+)%;/.exec(regle('.pdc-avatar::before'))?.[1])
-  assert.ok(air >= (dessus / FACE) * 100, `la case de l'avatar, ${air} % de la largeur`)
+  assert.ok(air + flotte >= (decor.hauteur / FACE) * 100, `la case de l'avatar, ${air} + ${flotte} % de la largeur`)
   // La pièce de rang, au centre du médaillon peint, un peu moins large que lui : sa monture peinte reste autour.
   const piece = regle('.pdc-socle b')
   const largeur = Number(/width: ([\d.]+)%;/.exec(piece)?.[1]) / 100
