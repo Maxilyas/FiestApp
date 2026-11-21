@@ -1,10 +1,9 @@
 // Ce que la partie et le mois du quiz du jour décernent (le 5 octobre
 // 2026) : le Lève-tôt et le Dernier Métro à l'heure de Paris ; la page du
-// calendrier au vingtième jour joué du mois ; Chronos, le Divin du quiz du
-// jour, après une série sans une faute ; et, quand un mois se clôt, son
+// calendrier au vingtième jour joué du mois ; et, quand un mois se clôt, son
 // champion — un titre daté, une marque que la salle verra — et ses mois
 // complets, qui ouvrent le Scarabée solaire. Et la série, que des sabliers
-// gardent d'un jour manqué.
+// gardent d'un jour manqué. Les Divins du quiz du jour : `divins.test.ts`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
@@ -122,27 +121,6 @@ test('au vingtième jour joué du mois, la page du calendrier s’ouvre — une 
     // Ni sur l'étagère, ni dans le compte des badges : elle a sa page.
     const moi = (await lire(banc, alice, '/api/joueur/moi')).corps.profile
     assert.ok(!moi.vitrine.some((b: any) => b.key.startsWith('heures:')))
-  }))
-
-test('Chronos descend sur le septième jour d’affilée sans une faute — à lui seul, avec son récit', () =>
-  avecBanc(Date.UTC(2026, 8, 26, 10, 0), async (banc, horloge) => {
-    const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
-    const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
-    joues(banc, 'alice', septembre(20, 25))
-    // Bob : six jours aussi, mais une faute l'avant-veille.
-    joues(banc, 'bob', septembre(20, 23))
-    joues(banc, 'bob', ['2026-09-24'], { justes: 9 })
-    joues(banc, 'bob', ['2026-09-25'])
-    const fin = await jouer(banc, horloge, alice)
-    assert.deepEqual(fin.divins.map((d: any) => d.key), ['dv:chronos'])
-    assert.ok(fin.divins[0].legende, 'son récit, à lui seul')
-    const finBob = await jouer(banc, horloge, bob)
-    assert.equal(finBob.divins, undefined)
-    const moi = (await lire(banc, alice, '/api/joueur/moi')).corps.profile
-    assert.deepEqual(moi.divins.map((d: any) => d.key), ['dv:chronos'])
-    // Un Divin ne va pas sur l'étagère, et se porte comme les autres.
-    assert.ok(!moi.vitrine.some((b: any) => b.key.startsWith('dv:')))
-    assert.equal((await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'dv:chronos' }, alice, 'PUT')).status, 200)
   }))
 
 test('le mois se clôt : son champion reçoit un titre daté et la marque du mois suivant, qui a joué chaque jour le Mois complet', () =>

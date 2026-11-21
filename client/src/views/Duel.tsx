@@ -3,6 +3,7 @@ import { api, motifDe } from '../api'
 import { Icon, type IconName } from '../components/Icon'
 import { Feuille, Sortie, SousLePouce } from '../components/Pieces'
 import { SerieCorrigee } from '../components/SerieCorrigee'
+import { DivinDescendu } from '../components/DivinDescendu'
 import { BoutonCopier, BoutonPartager } from '../components/Partage'
 import { BlasonDeLigue } from '../components/Blason'
 import { Visage } from '../components/Avatar'
@@ -1042,6 +1043,12 @@ export function PageDuDuel({
           onReponses={(duel.corrige || !ouvert) && !correction ? () => void voirCorrection(t.id) : undefined}
           onFermer={onRetour}
           erreur={erreur}
+          // Un Divin que l'issue de son duel a fait descendre : il a joué le premier, et l'apprend ici, sous sa carte retournée.
+          extra={
+            duel.divins &&
+            duel.divins.length > 0 &&
+            duel.divins.map(d => <DivinDescendu key={d.key} cle={d.key} legende={d.legende} ton={d.ton} dejaPorte={moi.legendaire === d.key} />)
+          }
           apres={correction && <SerieCorrigee correction={correction} />}
         />
       )

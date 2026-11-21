@@ -383,8 +383,8 @@ démarrage plutôt que de remettre des lignes au barème sans les relire.
 ne reprend rien à personne.** Un légendaire durci ajoute une entrée à
 `DURCISSEMENTS`, une courbe des niveaux à `COURBES_D_AVANT`, sous un drapeau
 neuf, sans jamais en modifier une ; un palier validé ne se perd jamais, et
-tout niveau passe par `niveauDuProfil`. Un portrait, un haut fait de soirée,
-un prix ou un Divin n'ont pas de tel registre : durcis, ils reprendraient ce
+tout niveau passe par `niveauDuProfil`. Un portrait, un haut fait de soirée
+ou un prix n'ont pas de tel registre : durcis, ils reprendraient ce
 qu'ils ont donné — on retient d'abord ce que chacun a.
 Légendaires et niveaux se dérivent à chaque lecture : relever un seuil
 reprenait le légendaire porté, durcir la courbe faisait redescendre de niveau.

@@ -3,7 +3,6 @@ import { recapOfArchive } from './archive'
 import type { PlayerRec } from './party'
 import { buildProgress } from './progress'
 import { hautsFaitsDeSoiree, xpDesHautsFaits } from './hautsfaits'
-import { divinsDeSoiree, laureatsDivins } from './divins'
 import { laureatsDeSaison } from './saisons'
 import { pourquoiInjoignable } from './distante'
 import { LIGNE_CAMPAGNE, LIGNE_JOUR, LIGNE_MISSIONS, LIGNE_PALIERS, LIGNE_RATTRAPAGE, cleDeSoiree, decodeDetail, revaloriser, type PrixDeSoiree, type ProfileStore } from '../auth/profiles'
@@ -13,7 +12,8 @@ import type { PartyArchive } from '../../../shared/archive'
 /**
  * Ce qu'une soirée archivée rapporte à ses profils, relu avec les règles du
  * jour : l'expérience de la soirée entière (clôture comprise), et les
- * récompenses à ranger — prix du palmarès, hauts faits, Divins et saisons.
+ * récompenses à ranger — prix du palmarès, hauts faits et saisons (plus de
+ * Divin depuis le 21 novembre 2026 : ils ne descendent plus sur une soirée).
  * La même lecture que la clôture d'une soirée en cours
  * (`SpaceRuntime.creditDeCloture`), sur les journaux que l'archive a gardés.
  */
@@ -44,7 +44,6 @@ export function creditDArchive(archive: PartyArchive) {
       if (h) laureats.push({ profileId, badge: h.key, emoji: h.emoji, title: h.title })
     }
   }
-  laureats.push(...laureatsDivins(divinsDeSoiree(live), profilDuJoueur))
   laureats.push(...laureatsDeSaison(live.answers, gains))
   return { gains, laureats }
 }

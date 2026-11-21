@@ -308,7 +308,12 @@ jour a sa notification (règle `rappel-et-installation.md`).
   résultat par qui l'a lancé écrit `campagne_duels.vu_le` et répond
   `nouveau` : la carte se retourne, puis l'accueil, la bannière et « En
   cours » ne le comptent plus. Ne la précharge pas, ne la lis pas « pour
-  voir » : le résultat serait vu sans l'avoir été.
+  voir » : le résultat serait vu sans l'avoir été. Cette lecture-là juge
+  aussi ce que l'issue du duel fait descendre sur lui (`divinsDeSaVictoire`,
+  `DuelEntreAmis.divins`, depuis le 21 novembre 2026 — règle
+  `recompenses.md`) : il n'était pas là quand l'autre a fini, et rien
+  d'autre ne le lui dirait. Rangé sous sa tentative, annoncé sur la carte du
+  verdict (`VerdictDuDuel` `extra`), une fois (`divins-duels.test.ts`).
 - **Le dé : un aller-retour avant de répondre, pas un de plus** — un
   `batch` de lectures (sa rencontre laissée, et ce qui est arrivé au journal
   des réponses depuis sa dernière lecture, d'où ses vues et ses premières

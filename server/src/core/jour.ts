@@ -41,7 +41,7 @@ import {
   type VersionLue,
 } from '../../../shared/qgSignalements'
 import { HORS_LIGNES_A_PART, cleDuJour, cleDuMois, type ProfileRec, type ProfileStore } from '../auth/profiles'
-import { JOURS_DE_CHRONOS, chronosDescend, raconter } from './divins'
+import { JOURS_QUE_LA_FIN_RELIT, divinsDeLaFin, divinsDuDebut, raconter, type JourDuDivin } from './divins'
 import { JOURS_POUR_UNE_PAGE, cleDeLaPage, moisDeLaPage } from '../../../shared/calendrier'
 import { GRACE_MS, POINTS_MAX_PAR_QUESTION, bonusDeRapidite, pointsDuChoix, tempsDeLecture } from '../games/quiz'
 import { lireModeles } from './seed'
@@ -660,6 +660,27 @@ const RECUEIL_DES_JOURS = `SELECT json_group_array(json_array(jour, question, ch
 /** Combien de profils gardent leur jour d'hier en mémoire (`sonsHier`) : ceux du jour, et de la marge. */
 const SONS_HIER_GARDES = 2000
 const HEURE_MS = 3600_000
+
+/**
+ * L'heure qu'il était à Paris, de 0 à 23 — gardée par heure d'horloge : le
+ * début d'une partie relit l'heure de toutes celles du joueur, et demandée à
+ * `Intl` pour chacune, une année de parties coûtait des dizaines de
+ * millisecondes au dixième de cœur de l'hébergeur, juste avant sa première
+ * question. Paris est toujours à un nombre entier d'heures de l'horloge
+ * universelle : une heure d'horloge n'y a qu'une heure du jour.
+ */
+const heuresDeParis = new Map<number, number>()
+const HEURES_DE_PARIS_GARDEES = 20_000
+function heureDeParis(instant: number): number {
+  const heure = Math.floor(instant / HEURE_MS)
+  let h = heuresDeParis.get(heure)
+  if (h === undefined) {
+    h = Math.floor(minutesDeParis(heure * HEURE_MS) / 60)
+    if (heuresDeParis.size >= HEURES_DE_PARIS_GARDEES) heuresDeParis.clear()
+    heuresDeParis.set(heure, h)
+  }
+  return h
+}
 
 /** Pas deux fois la même : l'intitulé, sans casse, sans accents, sans ponctuation. */
 export function empreinteDe(texte: string): string {
@@ -2359,8 +2380,31 @@ export class JourStore {
       // Son compagnon grandit à la fin de la partie, jamais pendant une
       // question ; une base qui hoquette le laisse grandir à la lecture suivante.
       await this.deps.profiles.faireGrandir(partie.profileId).catch(e => console.error('[jour] compagnon :', e))
+      // Et ce que cette fin fait descendre de plus que ce que le quiz du jour juge chez lui : ici, pas dans
+      // `decernerALaFin`, que la relecture des jours rejoue — ce sont des faits d'aujourd'hui, pas du jour relu.
+      // Après sa croissance, dont il juge les comptes sans les relire (`ProfileStore.divinsAuDela`).
+      const comptees = tirage.questions.length - tirage.annulees.length
+      await this.decernerAuDela(partie.profileId, partie.jour, maintenant, comptees > 0 && justes >= comptees)
     }
     return lu
+  }
+
+  /**
+   * Ce que la fin d'une partie fait descendre et qui se lit de plusieurs
+   * modes à la fois (`ProfileStore.divinsAuDela`, les règles dans
+   * `core/divins.ts`) : ses bonnes réponses avec chacun de ses compagnons, et
+   * sa journée entière — dont son sans-faute d'aujourd'hui, qu'il vient de
+   * faire ou non. Rangé sous le jour, comme le reste : la fin de la partie le
+   * relit et l'annonce. Une lecture qui tombe ne fait pas tomber la partie,
+   * déjà rangée : la partie d'après, dans n'importe quel mode, rejugera.
+   */
+  private async decernerAuDela(profileId: string, jour: string, quand: number, sansFaute: boolean): Promise<void> {
+    try {
+      const cles = await this.deps.profiles.divinsAuDela(profileId, jour, { sansFaute })
+      if (cles.length > 0) await this.deps.profiles.ranger(profileId, cleDuJour(jour), cles, quand)
+    } catch (e) {
+      console.error('[jour] ce que la journée fait descendre ne se range pas :', e)
+    }
   }
 
   /**
@@ -3900,34 +3944,67 @@ export class JourStore {
    * série). La page se range sous le mois : une seule par mois et par an.
    */
   private async decernerAuDebut(profileId: string, jour: string, quand: number): Promise<void> {
-    if (minutesDeParis(quand) >= DEPUIS_LE_DERNIER_METRO) await this.deps.profiles.ranger(profileId, cleDuJour(jour), ['hf:dernier-metro'], quand)
+    const cles: string[] = []
+    if (minutesDeParis(quand) >= DEPUIS_LE_DERNIER_METRO) cles.push('hf:dernier-metro')
     const mois = moisDe(jour)
-    const res = await this.client.execute({
-      sql: `SELECT COUNT(*) AS n FROM jour_parties WHERE profile_id = ? AND jour >= ? AND jour <= ?`,
-      args: [profileId, `${mois}-01`, `${mois}-31`],
-    })
-    if (Number(res.rows[0]?.n ?? 0) >= JOURS_POUR_UNE_PAGE) {
+    // D'un seul aller-retour, avant sa première question : ses jours du mois,
+    // l'heure de chacune de ses parties jusqu'à celle-ci, et celles de ses
+    // questions qu'on avait acceptées à cette heure-là — rien d'après : relu,
+    // un jour ne lit que ce qui le précède, et ce qu'il fait descendre se
+    // range sous lui.
+    const [duMois, departs, acceptees] = await this.client.batch(
+      [
+        {
+          sql: `SELECT COUNT(*) AS n FROM jour_parties WHERE profile_id = ? AND jour >= ? AND jour <= ?`,
+          args: [profileId, `${mois}-01`, `${mois}-31`],
+        },
+        { sql: 'SELECT commencee_le FROM jour_parties WHERE profile_id = ? AND jour <= ?', args: [profileId, jour] },
+        // Retirée depuis, une question n'est plus acceptée : seul ce statut compte.
+        { sql: `SELECT COUNT(*) AS n FROM jour_propositions WHERE profile_id = ? AND statut = 'acceptee' AND relue_le <= ?`, args: [profileId, quand] },
+      ],
+      'read',
+    )
+    // Ce que le début d'une partie fait descendre (`core/divins.ts`, où vit la règle).
+    cles.push(
+      ...divinsDuDebut(
+        departs.rows.map(r => heureDeParis(Number(r.commencee_le))),
+        Number(acceptees.rows[0]?.n ?? 0),
+      ),
+    )
+    if (cles.length > 0) await this.deps.profiles.ranger(profileId, cleDuJour(jour), cles, quand)
+    if (Number(duMois.rows[0]?.n ?? 0) >= JOURS_POUR_UNE_PAGE) {
       await this.deps.profiles.ranger(profileId, cleDuMois(mois), [cleDeLaPage(mois.slice(5, 7))], quand)
     }
   }
 
   /**
    * Ce qu'une partie fait tomber en finissant : le Lève-tôt, avant huit
-   * heures à Paris ; et Chronos, le Divin du quiz du jour, au dernier jour
-   * d'une série sans une faute assez longue (`chronosDescend` — la règle vit
-   * dans `core/divins.ts`, avec celle des autres Divins).
+   * heures à Paris ; et les Divins du quiz du jour qui se jugent sur ses
+   * derniers jours et sur ses réponses (`divinsDeLaFin` — leurs règles vivent
+   * dans `core/divins.ts`, et nulle part ailleurs).
    */
   private async decernerALaFin(profileId: string, jour: string, quand: number): Promise<void> {
     const cles: string[] = []
     if (minutesDeParis(quand) < AVANT_LE_LEVE_TOT) cles.push('hf:leve-tot')
-    const res = await this.client.execute({
-      sql: `SELECT p.jour FROM jour_parties p JOIN jour_tirages t ON t.jour = p.jour
-            WHERE p.profile_id = ? AND p.jour > ? AND p.jour <= ? AND p.finie_le IS NOT NULL
-              AND json_array_length(t.questions) > json_array_length(t.annulees)
-              AND p.justes >= json_array_length(t.questions) - json_array_length(t.annulees)`,
-      args: [profileId, jourAvant(jour, JOURS_DE_CHRONOS), jour],
-    })
-    if (chronosDescend(new Set(res.rows.map(r => String(r.jour))), jour)) cles.push('dv:chronos')
+    const [parties, reponses] = await this.client.batch(
+      [
+        {
+          sql: `SELECT p.jour, p.justes, json_array_length(t.questions) - json_array_length(t.annulees) AS comptees
+                FROM jour_parties p JOIN jour_tirages t ON t.jour = p.jour
+                WHERE p.profile_id = ? AND p.jour > ? AND p.jour <= ? AND p.finie_le IS NOT NULL`,
+          args: [profileId, jourAvant(jour, JOURS_QUE_LA_FIN_RELIT), jour],
+        },
+        { sql: 'SELECT question, ms, juste FROM jour_reponses WHERE profile_id = ? AND jour = ?', args: [profileId, jour] },
+      ],
+      'read',
+    )
+    const jours = new Map<string, JourDuDivin>(parties.rows.map(r => [String(r.jour), { justes: Number(r.justes), comptees: Number(r.comptees) }]))
+    // Ses réponses aux questions qui comptent : une question annulée pour tous ne juge personne.
+    const annulees = (await this.tirageLu(jour))?.annulees ?? []
+    const sesReponses = reponses.rows
+      .filter(r => !annulees.includes(Number(r.question)))
+      .map(r => ({ juste: Number(r.juste) === 1, ms: r.ms == null ? null : Number(r.ms) }))
+    cles.push(...divinsDeLaFin(jour, jours, sesReponses))
     if (cles.length > 0) await this.deps.profiles.ranger(profileId, cleDuJour(jour), cles, quand)
   }
 

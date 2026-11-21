@@ -248,8 +248,8 @@ Le serveur n'en laisse porter un qu'au niveau qui l'ouvre, jamais à un anonyme.
 | Les compagnons | 5, quatre formes chacun | adoptés en boutique — la luciole aussi depuis le 31 octobre 2026 ; avant, une expédition menée au bout l'offrait, ou la première salle complète du musée du Cabinet —, puis grandis dans sa niche | [la boutique](la-boutique.md), et ci-dessous |
 
 - **Un seul à la fois**, à la place de ton emoji, qui reste dessous : choisir un emoji l'ôte.
-- **Le serveur vérifie** qu'il est à toi quand tu le prends, et refuse en clair (« Ce Divin n'est pas encore descendu sur toi », « Ce portrait se gagne au palier 8 du sentier de la forêt », « Le Loup s'achète d'abord, à la boutique »). Ensuite, un légendaire et un Divin se relisent à chaque affichage — une soirée retirée peut les reprendre — ; un portrait et une forme de compagnon atteinte ne se perdent jamais.
-- **Un Divin** s'annonce quand il descend — à toute la salle, pour ceux d'une soirée — ; ta carte montre ceux que tu as, et seul ton téléphone reçoit leur récit.
+- **Le serveur vérifie** qu'il est à toi quand tu le prends, et refuse en clair (« Ce Divin n'est pas encore descendu sur toi », « Ce portrait se gagne au palier 8 du sentier de la forêt », « Le Loup s'achète d'abord, à la boutique »). Ensuite, un légendaire se relit à chaque affichage — une soirée retirée peut le reprendre — ; un Divin descendu, un portrait et une forme de compagnon atteinte ne se perdent jamais.
+- **Un Divin** s'annonce quand il descend, à la fin de la partie qui l'a fait descendre — jamais sur une soirée, depuis le 21 novembre 2026 — ; ta carte montre ceux que tu as, et seul ton téléphone reçoit leur récit.
 
 ### Les compagnons
 

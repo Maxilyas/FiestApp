@@ -22,6 +22,7 @@ import type { JournalDesReponses } from './journalDesReponses'
 import type { Recompenses } from './campagne'
 import type { MesureDUneQuestion } from '../../../shared/campagne'
 import type { Categorie } from '../../../shared/categories'
+import type { DivinDescendu } from '../../../shared/divins'
 import type { EvenementDeLaFrise } from '../../../shared/frise'
 import type { RIEN_DU_CABINET, StatsDeCampagne } from '../../../shared/profil'
 
@@ -90,6 +91,13 @@ export interface PorteDeLaCampagne {
    * le Cabinet ne la recopie pas.
    */
   rangerDesExploits(profileId: string, sous: string, cles: readonly string[], quand: number): Promise<string[]>
+  /**
+   * Une traversée vient d'être gagnée (le 21 novembre 2026) : le Cabinet en dit des faits (`TraverseeGagnee`), et ce
+   * qu'elle fait descendre se juge de l'autre côté — les règles des Divins vivent dans `core/divins.ts`, que le Cabinet
+   * ne tire pas, même de proche en proche (`cabinet-catalogue.test.ts`). Rangé sous elle (`cleDeSerie`), une fois par
+   * profil ; rend ce qui vient de descendre, avec son récit, pour son seul joueur — l'écran de sa fin le lui dit.
+   */
+  traverseeGagnee(profileId: string, sous: string, faits: TraverseeGagnee, quand: number): Promise<DivinDescendu[]>
   /** La base, ses mesures, ses tirages et le journal lus en fond, une fois par processus : la page du Cabinet la lance comme l'accueil. */
   prechauffer(): void
   /**
@@ -99,6 +107,16 @@ export interface PorteDeLaCampagne {
    * refuse — une erreur de branchement, pas un refus à dire au joueur.
    */
   secretDuCabinet(): string
+}
+
+/**
+ * Ce que le Cabinet dit d'une traversée gagnée : des faits, sans un seuil ni une règle. Gagnée les mains vides —
+ * sans ouvrir un coffre ni rien acheter chez le marchand —, et combien de ses traversées gagnées l'ont été ainsi,
+ * celle-ci comprise : zéro quand elle ne l'est pas, les autres ne se relisent alors pas.
+ */
+export interface TraverseeGagnee {
+  celleCi: boolean
+  mainsVides: number
 }
 
 /** La fin d'une partie, pour le rituel (`ecrireDesReponses`) : ce qu'il faut créditer et ranger une fois les réponses écrites. */

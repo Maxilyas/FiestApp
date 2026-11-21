@@ -40,7 +40,7 @@ import { DE_LA_PRODUCTION, RIEN, sousCesStatistiques, UN_DUEL_DE_CINQUANTE } fro
 import { CATEGORIES } from '../../shared/categories'
 import { MODES_DE_SERIE } from '../../shared/campagne'
 import { activiteDesJours, MODES_QUE_LES_MISSIONS_COMPTENT } from '../../shared/missions'
-import { CampagneStore } from '../src/core/campagne'
+import { CampagneStore, lectureDesRevisionsPleines } from '../src/core/campagne'
 import { ProfileStore } from '../src/auth/profiles'
 
 ProfileStore.tirageEclat = () => false
@@ -284,6 +284,12 @@ test('toute recherche d’une partie d’un profil et d’un mode, triée par sa
 
     const modes = new Set([...triees.keys()].map(rechercheTriee))
     for (const mode of ['defi', 'duel', 'rencontre']) assert.ok(modes.has(mode), `aucune recherche triée du mode ${mode} :\n${[...triees.keys()].map(s => s.replace(/\s+/g, ' ')).join('\n')}`)
+    // La fin d'une révision pleine relit ses dernières révisions pleines (`lectureDesRevisionsPleines`, le 21 novembre
+    // 2026) : aucune page de ce parcours n'en finit une, et sa condition sur ses questions échappe au motif des recherches
+    // triées — son plan se lit de l'instruction même, ici sans statistiques, puis sous celles qui égareraient, avec les autres.
+    const revisions = lectureDesRevisionsPleines('qui')
+    assert.match(revisions.sql, /\bcampagne_series\s+WHERE profile_id = \? AND mode = 'revision'[^]*ORDER BY commencee_le DESC LIMIT \?$/)
+    triees.set(revisions.sql, revisions.args as unknown[])
     for (const [sql, args] of triees) {
       const plan = unPlan(db, sql, args)
       assert.equal(cequeLePlanLit(plan, sql), null, ditLePlan(plan, sql))
