@@ -14,6 +14,7 @@ import { Shape } from '../components/Shape'
 import { GesteDuBas, PieceTete, Sortie, SousLePouce } from '../components/Pieces'
 import { Vies } from '../components/Vies'
 import { EclatTombe, LegendaireOuvert } from '../components/Ouverts'
+import { DivinDescendu } from '../components/DivinDescendu'
 import { SerieCorrigee } from '../components/SerieCorrigee'
 import { APorter, CeQueTuGagnes, MissionsAccomplies, NouveauxTrophees, emojisAPorter, retenirLeNiveau, useNiveauRelu } from '../components/Gains'
 import { GerbeDeJuste } from '../components/Gerbe'
@@ -144,6 +145,8 @@ type Ecran =
       recompenses: NonNullable<ReponseDeCampagne['recompenses']>
       /** Et les légendaires qu'ils ouvrent, qu'on porte d'ici. */
       legendaires: string[]
+      /** Le Divin qui est descendu sur sa partie, avec son récit — à lui seul. */
+      divins?: NonNullable<ReponseDeCampagne['divins']>
       /** Un défi — de la semaine, ou entre amis —, et sa place au classement pour l'instant. */
       defi?: true
       place?: { rang: number; joueurs: number }
@@ -544,6 +547,7 @@ export function CampagneApp() {
         xp: de.xp,
         recompenses: fin.recompenses ?? [],
         legendaires: fin.legendaires ?? [],
+        ...(fin.divins && { divins: fin.divins }),
       })
     } catch (e) {
       setErreur(motifDe(e))
@@ -625,6 +629,7 @@ export function CampagneApp() {
         xp: ecran.xp,
         recompenses: r.recompenses ?? [],
         legendaires: r.legendaires ?? [],
+        ...(r.divins && { divins: r.divins }),
         ...(ecran.defi && { defi: true as const }),
         ...(ecran.duel && { duel: ecran.duel }),
         ...(ecran.lance && { lance: true as const }),
@@ -1667,6 +1672,10 @@ function GainsDeCampagne({ fin, profil, duel = false }: { fin: Extract<Ecran, { 
           niveau={niveau}
         />
       )}
+      {/* Un Divin descendu sur sa partie : avant tout le reste, comme au quiz du jour. */}
+      {(fin.divins ?? []).map(d => (
+        <DivinDescendu key={d.key} cle={d.key} legende={d.legende} ton={d.ton} dejaPorte={profil?.legendaire === d.key} />
+      ))}
       {/* L'Éclat du défi : une chance sur vingt, à sa tentative finie. */}
       {fin.eclat && <EclatTombe cle={fin.eclat} avatar={profil?.avatar ?? ''} finition={profil?.finition} chance={CHANCE_ECLAT_DU_DEFI} porte={profil ? sonAvatar(profil) : undefined} />}
       {fin.legendaires.map(cle => (

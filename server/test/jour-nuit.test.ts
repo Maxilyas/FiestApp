@@ -51,10 +51,14 @@ function base<T>(banc: Banc, fn: (db: Database.Database) => T): T {
 const idDe = (banc: Banc, login: string) =>
   base(banc, db => (db.prepare('SELECT id FROM profiles WHERE login = ?').get(login) as { id: string }).id)
 
-/** Ce qui est rangé sous un jour pour ce profil. */
+/**
+ * Ce qui est rangé sous un jour pour ce profil — sans les Divins : la nuit
+ * n'en décerne aucun, et celui qu'une partie sans faute jouée aussi vite fait
+ * descendre à sa fin se regarde dans son fichier (`divins.test.ts`).
+ */
 const rangesSous = (banc: Banc, login: string, sous: string) =>
   base(banc, db =>
-    (db.prepare('SELECT badge FROM profile_badges WHERE profile_id = ? AND soiree_id = ? ORDER BY badge').all(idDe(banc, login), sous) as {
+    (db.prepare(`SELECT badge FROM profile_badges WHERE profile_id = ? AND soiree_id = ? AND badge NOT LIKE 'dv:%' ORDER BY badge`).all(idDe(banc, login), sous) as {
       badge: string
     }[]).map(r => r.badge),
   )

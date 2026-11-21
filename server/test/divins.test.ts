@@ -1,295 +1,124 @@
-// Les Divins : cinq avatars au-dessus des légendaires, dont personne ne
+// Les Divins : six avatars au-dessus des légendaires, dont personne ne
 // connaît la règle.
 //
-// Deux promesses à tenir. La première : ils sont rares — des salles plus
-// grandes que celles des hauts faits, des soirées entières, et rien qu'un
-// quiz de cinq questions ne fabrique. La seconde : leur règle ne quitte
-// jamais le serveur. Ni le paquet du navigateur, ni une réponse d'API, ni
-// l'étagère d'un profil ne doit la laisser deviner.
+// Trois promesses à tenir. La première : ils sont rares, et ne se mesurent
+// qu'à ce que leur joueur a fait lui-même — ni rang, ni salle (le 21 novembre
+// 2026 : ils ont quitté les soirées pour le quiz du jour, le défi de la
+// semaine et les sentiers). La deuxième : leur règle ne quitte jamais le
+// serveur. Ni le paquet du navigateur, ni une réponse d'API, ni l'étagère
+// d'un profil ne doit la laisser deviner. La troisième : descendu, un Divin
+// ne redescend pas — sa condition tenue le reste, et chaque partie d'après
+// l'aurait annoncé de nouveau.
 //
-// Les règles se testent comme les hauts faits, en dérivation pure ; le reste
-// sur un serveur jetable.
+// Les règles se testent en dérivation pure ; ce qui descend au quiz du jour,
+// sur un serveur jetable. Hélios se joue dans `campagne-defi.test.ts`,
+// l'Arbre-Monde dans `sentiers-trophees.test.ts`, où vivent leurs parties.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
-import type { AnswerRow } from '../src/core/answers'
-import type { ScoreEntry } from '../src/core/scores'
-import type { PlayerRec } from '../src/core/party'
-import { DOUZE_LEGENDAIRES, divinsDebloques, divinsDeSoiree, raconter } from '../src/core/divins'
-import { ProfileStore } from '../src/auth/profiles'
+import {
+  JOURS_QUE_LA_FIN_RELIT,
+  divinsDebloques,
+  divinsDeLaFin,
+  divinsDesSentiers,
+  divinsDuDebut,
+  divinsDuDefi,
+  estUnDivin,
+  raconter,
+  type JourDuDivin,
+  type ReponseDuDivin,
+} from '../src/core/divins'
+import { ProfileStore, cleDuJour } from '../src/auth/profiles'
 import { DIVINS } from '../../shared/divins'
 import { LEGENDAIRES, partiesDe } from '../../shared/legendaires'
 import { clePalier } from '../../shared/hautsfaits'
-import {
-  ADMIN,
-  attendre,
-  connexionAnimateur,
-  creerQuiz,
-  demarrer,
-  ecranCommun,
-  ecrire,
-  emitAck,
-  inscrireProfil,
-  instantane,
-  invite,
-  lancerQuiz,
-  patienter,
-  qcm,
-  type Banc,
-  type Invite,
-  type Socket,
-} from './banc'
+import { jourAvant } from '../../shared/jour'
+import { demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 
 // Un Éclat tiré au hasard ferait tomber un palier : rien ici n'en dépend.
 ProfileStore.tirageEclat = () => false
 
-// ── De quoi écrire une soirée ─────────────────────────────────────────────
+// ── 1. Les règles, en dérivation pure ─────────────────────────────────────
 
-let horloge = 1_000
-const tic = () => ++horloge
+const JOUR = '2026-10-10'
+const heures = (n: number) => Array.from({ length: n }, (_, h) => h)
+/** Ses derniers jours finis, du plus ancien à celui-ci : leurs bonnes réponses sur dix. */
+const jours = (...justes: (number | null)[]) =>
+  new Map<string, JourDuDivin>(
+    justes.flatMap((j, i): [string, JourDuDivin][] => (j === null ? [] : [[jourAvant(JOUR, justes.length - 1 - i), { justes: j, comptees: 10 }]])),
+  )
+const reponses = (ms: number, n = 10): ReponseDuDivin[] => Array.from({ length: n }, () => ({ juste: true, ms }))
+const fin = (j: ReadonlyMap<string, JourDuDivin>, r: readonly ReponseDuDivin[] = reponses(8000)) => divinsDeLaFin(JOUR, j, r)
 
-function joueur(id: string): PlayerRec {
-  return { id, name: id, avatar: '🦊', token: `jeton-${id}`, teamId: null, profileId: `profil-${id}`, createdAt: tic() }
-}
-
-function ligne(playerId: string, extra: Partial<AnswerRow> = {}): AnswerRow {
-  return {
-    sessionId: 's1',
-    quizTitle: 'Quiz',
-    qIndex: 0,
-    kind: 'choice',
-    playerId,
-    answered: true,
-    correct: true,
-    choice: 0,
-    value: null,
-    target: null,
-    ms: 5_000,
-    changes: 0,
-    points: 0,
-    durationMs: 20_000,
-    observed: false,
-    createdAt: tic(),
-    ...extra,
-  }
-}
-
-type Reponse = Partial<AnswerRow> | null
-const FAUX: Reponse = { correct: false, choice: 1 }
-type Partie = { answers: AnswerRow[]; scores: ScoreEntry[] }
-
-/** Un quiz joué : une bonne réponse vaut `points` s'il est donné, 100 sinon. */
-function quiz(sessionId: string, questions: number, joueurs: string[], qui: (q: number, id: string) => Reponse): Partie {
-  const answers: AnswerRow[] = []
-  const scores: ScoreEntry[] = []
-  for (let q = 0; q < questions; q++) {
-    for (const id of joueurs) {
-      const r = qui(q, id)
-      const l =
-        r === null
-          ? ligne(id, { sessionId, qIndex: q, answered: false, correct: null, choice: null, ms: null })
-          : ligne(id, { sessionId, qIndex: q, ...r })
-      if (l.answered && l.correct === true && l.points === 0) l.points = 100
-      answers.push(l)
-      if (l.points !== 0) scores.push({ playerId: id, sessionId, points: l.points, reason: `Q${q + 1}`, createdAt: tic() })
-    }
-  }
-  return { answers, scores }
-}
-
-const ids = (n: number) => Array.from({ length: n }, (_, i) => `j${i + 1}`)
-
-function divins(joueurs: string[], ...parties: Partie[]) {
-  return divinsDeSoiree({
-    players: joueurs.map(joueur),
-    answers: parties.flatMap(p => p.answers),
-    scores: parties.flatMap(p => p.scores),
-  })
-}
-
-const de = (resultat: Map<string, string[]>, id: string) => resultat.get(id) ?? []
-
-// ── 1. La salle ───────────────────────────────────────────────────────────
-
-test('une salle de moins de six joueurs ne voit descendre aucun Divin, même quand tout y est', () => {
-  const cinq = ids(5)
-  const eclair = quiz('s1', 8, cinq, (_, id) => (id === 'j1' ? { ms: 800 } : FAUX))
-  assert.equal(divins(cinq, eclair).size, 0, 'à cinq, rien ne descend')
-
-  const six = ids(6)
-  const memeChose = quiz('s1', 8, six, (_, id) => (id === 'j1' ? { ms: 800 } : FAUX))
-  assert.deepEqual(de(divins(six, memeChose), 'j1'), ['dv:seraphin'], 'à six, le Séraphin')
+test('Chronos : une partie commencée à chacune des vingt-quatre heures', () => {
+  assert.deepEqual(divinsDuDebut(heures(24)), ['dv:chronos'])
+  assert.deepEqual(divinsDuDebut(heures(23)), [], 'il en manque une')
+  // Mille parties à la même heure n'en font qu'une.
+  assert.deepEqual(divinsDuDebut([...heures(23), ...Array<number>(100).fill(12)]), [])
+  assert.deepEqual(divinsDuDebut([...heures(24), 3, 3, 17]), ['dv:chronos'])
 })
 
-// ── 2. Hélios ─────────────────────────────────────────────────────────────
-
-test('Hélios : toutes les questions à choix d’une soirée justes, vingt au moins, dont trois contre la salle', () => {
-  const six = ids(6)
-  // j1 trouve tout, la salle rien : vingt questions où la majorité se trompe.
-  const seul = (q: number, id: string) => (id === 'j1' ? { ms: 4_000 + q } : FAUX)
-  const vingt = [quiz('s1', 10, six, seul), quiz('s2', 10, six, seul)]
-  assert.ok(de(divins(six, ...vingt), 'j1').includes('dv:helios'))
-
-  const dixNeuf = [quiz('s1', 10, six, seul), quiz('s2', 9, six, seul)]
-  assert.ok(!de(divins(six, ...dixNeuf), 'j1').includes('dv:helios'), 'dix-neuf questions ne suffisent pas')
-
-  const uneFaute = [quiz('s1', 10, six, seul), quiz('s2', 10, six, (q, id) => (q === 9 && id === 'j1' ? FAUX : seul(q, id)))]
-  assert.ok(!de(divins(six, ...uneFaute), 'j1').includes('dv:helios'), 'une seule erreur, et il ne descend pas')
-
-  const passe = [quiz('s1', 10, six, seul), quiz('s2', 10, six, (q, id) => (q === 9 && id === 'j1' ? null : seul(q, id)))]
-  assert.ok(!de(divins(six, ...passe), 'j1').includes('dv:helios'), 'laisser passer une question non plus')
+test('le Séraphin : sans une faute, et chaque réponse avant trois secondes', () => {
+  assert.deepEqual(fin(jours(10), reponses(2999)), ['dv:seraphin'])
+  assert.deepEqual(fin(jours(10), reponses(3000)), [], 'trois secondes pile, c’est trop')
+  // Une seule réponse lente suffit à le retenir.
+  assert.deepEqual(fin(jours(10), [...reponses(1000, 9), { juste: true, ms: 3400 }]), [])
+  // Une faute, même rapide ; une réponse sans chronomètre ; une réponse qui manque.
+  assert.deepEqual(fin(jours(9), [...reponses(1000, 9), { juste: false, ms: 900 }]), [])
+  assert.deepEqual(fin(jours(10), [...reponses(1000, 9), { juste: true, ms: null }]), [])
+  assert.deepEqual(fin(jours(10), reponses(1000, 9)), [])
+  // Une question annulée pour tous ne compte plus : neuf qui comptent, neuf rapides.
+  const neuf = new Map<string, JourDuDivin>([[JOUR, { justes: 9, comptees: 9 }]])
+  assert.deepEqual(divinsDeLaFin(JOUR, neuf, reponses(1000, 9)), ['dv:seraphin'])
 })
 
-test('Hélios ne descend pas sur un quiz trop facile : il faut avoir eu raison contre la salle trois fois', () => {
-  const six = ids(6)
-  // Toute la salle trouve tout : personne n'a raison contre personne.
-  const facile = [quiz('s1', 10, six, () => ({})), quiz('s2', 10, six, () => ({}))]
-  assert.equal([...divins(six, ...facile).values()].flat().filter(k => k === 'dv:helios').length, 0)
-
-  // Deux questions piégeuses ne suffisent pas ; trois, oui — et seul j1 y
-  // a échappé.
-  const piege = (n: number) => (q: number, id: string) => (q < n && id !== 'j1' ? FAUX : {})
-  const deux = [quiz('s1', 10, six, piege(2)), quiz('s2', 10, six, () => ({}))]
-  assert.ok(!de(divins(six, ...deux), 'j1').includes('dv:helios'))
-  const trois = [quiz('s1', 10, six, piege(3)), quiz('s2', 10, six, () => ({}))]
-  assert.deepEqual(
-    [...divins(six, ...trois)].filter(([, cles]) => cles.includes('dv:helios')).map(([id]) => id),
-    ['j1'],
-  )
+test('le Lotus Sacré : cinq jours d’affilée, chacun meilleur que la veille, le dernier sans faute', () => {
+  assert.equal(JOURS_QUE_LA_FIN_RELIT, 5, 'la fin d’une partie relit ce qu’il lui faut')
+  assert.deepEqual(fin(jours(2, 4, 6, 8, 10)), ['dv:lotus'])
+  assert.deepEqual(fin(jours(6, 7, 8, 9, 10)), ['dv:lotus'])
+  assert.deepEqual(fin(jours(4, 6, 8, 10)), [], 'quatre jours ne suffisent pas')
+  assert.deepEqual(fin(jours(2, 4, 6, 6, 10)), [], 'faire aussi bien que la veille n’est pas monter')
+  assert.deepEqual(fin(jours(2, 4, 3, 8, 10)), [], 'une rechute en chemin')
+  assert.deepEqual(fin(jours(1, 3, 5, 7, 9)), [], 'il faut finir sans faute')
+  assert.deepEqual(fin(jours(2, 4, null, 8, 10)), [], 'un jour manqué casse la montée')
 })
 
-// ── 3. Le Séraphin ────────────────────────────────────────────────────────
-
-test('le Séraphin : le plus rapide à trouver sur chaque question à choix d’un quiz de huit', () => {
-  const six = ids(6)
-  // Tout le monde trouve ; j1 arrive toujours le premier.
-  const toujours = quiz('s1', 8, six, (_, id) => ({ ms: id === 'j1' ? 900 : 2_000 + Number(id.slice(1)) * 100 }))
-  assert.deepEqual(de(divins(six, toujours), 'j1'), ['dv:seraphin'])
-  assert.deepEqual(de(divins(six, toujours), 'j2'), [])
-
-  const sept = quiz('s1', 7, six, (_, id) => ({ ms: id === 'j1' ? 900 : 2_000 }))
-  assert.equal(divins(six, sept).size, 0, 'sept questions ne font pas un Séraphin')
-
-  // j2 le devance une seule fois : c'est fini.
-  const devance = quiz('s1', 8, six, (q, id) => ({ ms: id === 'j1' ? 900 : id === 'j2' && q === 5 ? 700 : 2_000 }))
-  assert.ok(!de(divins(six, devance), 'j1').includes('dv:seraphin'))
-
-  // À la milliseconde près, les deux sont les plus rapides — comme au réflexe.
-  const egalite = quiz('s1', 8, six, (_, id) => ({ ms: id === 'j1' || id === 'j2' ? 900 : 2_000 }))
-  assert.ok(de(divins(six, egalite), 'j1').includes('dv:seraphin'))
-  assert.ok(de(divins(six, egalite), 'j2').includes('dv:seraphin'))
-
-  // Seul à trouver, on est aussi le plus rapide.
-  const seul = quiz('s1', 8, six, (_, id) => (id === 'j1' ? { ms: 15_000 } : FAUX))
-  assert.ok(de(divins(six, seul), 'j1').includes('dv:seraphin'))
+test('l’Ange Déchu : un sans-faute la veille, trois bonnes réponses au plus ce jour-ci', () => {
+  assert.deepEqual(fin(jours(10, 3)), ['dv:dechu'])
+  assert.deepEqual(fin(jours(10, 0)), ['dv:dechu'])
+  assert.deepEqual(fin(jours(10, 4)), [], 'quatre, ce n’est pas tomber assez bas')
+  assert.deepEqual(fin(jours(9, 2)), [], 'la veille n’était pas sans faute')
+  assert.deepEqual(fin(jours(10, null, 2)), [], 'pas le lendemain')
+  assert.equal(raconter(['dv:dechu'])[0].ton, 'ombre', 'il se gagne en tombant')
 })
 
-// ── 4. Les retournements ──────────────────────────────────────────────────
-
-/** Trois quiz de cinq questions : quinze en tout, le compte d'une soirée. */
-function soireeEnTrois(joueurs: string[], premier: (q: number, id: string) => Reponse, suite: (q: number, id: string) => Reponse) {
-  return [quiz('s1', 5, joueurs, premier), quiz('s2', 5, joueurs, suite), quiz('s3', 5, joueurs, suite)]
-}
-
-test('le Lotus Sacré : dernier du premier quiz, premier de la soirée', () => {
-  const huit = ids(8)
-  // j1 rate tout le premier quiz, puis gagne tout le reste, largement.
-  const remontee = soireeEnTrois(
-    huit,
-    (_, id) => (id === 'j1' ? FAUX : {}),
-    (_, id) => (id === 'j1' ? { points: 150 } : FAUX),
-  )
-  assert.ok(de(divins(huit, ...remontee), 'j1').includes('dv:lotus'))
-
-  const sept = ids(7)
-  const petiteSalle = soireeEnTrois(
-    sept,
-    (_, id) => (id === 'j1' ? FAUX : {}),
-    (_, id) => (id === 'j1' ? { points: 150 } : FAUX),
-  )
-  assert.ok(!de(divins(sept, ...petiteSalle), 'j1').includes('dv:lotus'), 'à sept, un retournement ne se juge pas')
-
-  const deuxQuiz = [quiz('s1', 8, huit, (_, id) => (id === 'j1' ? FAUX : {})), quiz('s2', 8, huit, (_, id) => (id === 'j1' ? { points: 150 } : FAUX))]
-  assert.ok(!de(divins(huit, ...deuxQuiz), 'j1').includes('dv:lotus'), 'il faut trois quiz au moins')
-
-  // Arrivé après les deux premières questions : un retardataire n'est pas
-  // un dernier.
-  const [q1, ...suite] = remontee
-  const retard = { answers: q1.answers.filter(r => !(r.playerId === 'j1' && r.qIndex < 2)), scores: q1.scores }
-  assert.ok(!de(divins(huit, retard, ...suite), 'j1').includes('dv:lotus'))
+test('Hélios au défi de la semaine, l’Arbre-Monde sur les sentiers : leurs seuils', () => {
+  assert.deepEqual(divinsDuDefi(20), ['dv:helios'])
+  assert.deepEqual(divinsDuDefi(31), ['dv:helios'])
+  assert.deepEqual(divinsDuDefi(19), [])
+  assert.deepEqual(divinsDesSentiers(12), ['dv:arbre'])
+  assert.deepEqual(divinsDesSentiers(11), [])
 })
 
-test('l’Ange Déchu : premier du premier quiz, dernier de la soirée — en jouant jusqu’au bout', () => {
-  const huit = ids(8)
-  const chute = soireeEnTrois(
-    huit,
-    (_, id) => (id === 'j1' ? {} : FAUX),
-    (_, id) => (id === 'j1' ? FAUX : {}),
-  )
-  assert.ok(de(divins(huit, ...chute), 'j1').includes('dv:dechu'))
-
-  // S'en aller tôt, ce n'est pas tomber.
-  const parti = soireeEnTrois(
-    huit,
-    (_, id) => (id === 'j1' ? {} : FAUX),
-    (_, id) => (id === 'j1' ? null : {}),
-  )
-  assert.ok(!de(divins(huit, ...parti), 'j1').includes('dv:dechu'))
-
-  // Rattrapé mais pas dépassé par tous : il n'est pas le dernier.
-  const rattrape = soireeEnTrois(
-    huit,
-    (_, id) => (id === 'j1' ? {} : FAUX),
-    (q, id) => (id === 'j1' || (id === 'j8' && q > 0) ? FAUX : {}),
-  )
-  assert.ok(!de(divins(huit, ...rattrape), 'j1').includes('dv:dechu'))
-})
-
-// ── 5. L'Arbre-Monde, et ce qu'un profil garde ────────────────────────────
-
-/** Les récompenses rangées qui débloquent exactement ces légendaires. */
-function recompensesPour(cles: string[]): Map<string, number> {
-  const m = new Map<string, number>()
-  for (const l of LEGENDAIRES.filter(x => cles.includes(x.key))) {
-    for (const c of partiesDe(l.condition)) {
-      if ('fois' in c) m.set(c.hautFait, Math.max(m.get(c.hautFait) ?? 0, c.fois))
-      else for (let p = 1; p <= c.palier; p++) m.set(clePalier(c.hautFait, p), 1)
-    }
-  }
-  return m
-}
-
-test('l’Arbre-Monde descend avec le douzième légendaire, et repart avec lui', () => {
-  const tous = LEGENDAIRES.map(l => l.key)
-  assert.deepEqual(divinsDebloques(recompensesPour(tous)), ['dv:arbre'])
-  assert.equal(DOUZE_LEGENDAIRES.length, 12)
-  for (const manquant of DOUZE_LEGENDAIRES) {
-    assert.deepEqual(
-      divinsDebloques(recompensesPour(DOUZE_LEGENDAIRES.filter(k => k !== manquant))),
-      [],
-      `sans ${manquant}, pas d’Arbre`,
-    )
-  }
-  // Depuis le 5 octobre 2026, neuf des douze ont une voie au quiz du jour :
-  // elle compte pour l'Arbre comme la voie de soirée — le propriétaire l'a
-  // voulu plus accessible. Le Renard par L'Assidu · Argent, sans dix soirées.
-  const sansLeRenard = recompensesPour(DOUZE_LEGENDAIRES.filter(k => k !== 'lg:renard'))
-  for (const p of [1, 2]) sansLeRenard.set(clePalier('hf:assidu', p), 1)
-  assert.deepEqual(divinsDebloques(sansLeRenard), ['dv:arbre'], 'le Renard par sa voie du quiz du jour')
-  // Ceux venus après les douze — le Sphinx — ne lui sont pas demandés : l'Arbre
-  // qu'on porte ne repart pas parce que le catalogue a grandi.
-  const venusApres = tous.filter(k => !DOUZE_LEGENDAIRES.includes(k))
-  assert.ok(venusApres.includes('lg:sphinx'))
-  assert.deepEqual(divinsDebloques(recompensesPour([...DOUZE_LEGENDAIRES])), ['dv:arbre'], 'sans le Sphinx, l’Arbre reste')
-  // Ceux d'une soirée se lisent dans l'étagère, comme les hauts faits.
-  const rangees = new Map([['dv:seraphin', 1], ['dv:dechu', 2]])
+test('un profil garde les Divins que son étagère a rangés — et plus aucun ne se déduit de ses légendaires', () => {
+  const rangees = new Map([['dv:seraphin', 1], ['dv:dechu', 1], ['hf:laurier', 12]])
   assert.deepEqual(divinsDebloques(rangees), ['dv:seraphin', 'dv:dechu'])
+  // Jusqu'au 21 novembre 2026, l'Arbre-Monde se déduisait des légendaires : tous réunis, il ne descend plus.
+  const tous = new Map<string, number>()
+  for (const l of LEGENDAIRES) {
+    for (const c of partiesDe(l.condition)) {
+      if ('fois' in c) tous.set(c.hautFait, Math.max(tous.get(c.hautFait) ?? 0, c.fois))
+      else for (let p = 1; p <= c.palier; p++) tous.set(clePalier(c.hautFait, p), 1)
+    }
+  }
+  assert.deepEqual(divinsDebloques(tous), [])
+  assert.ok(estUnDivin('dv:arbre') && !estUnDivin('lg:phenix') && !estUnDivin('hf:defi'))
 })
 
-// ── 6. Le secret ──────────────────────────────────────────────────────────
+// ── 2. Le secret ──────────────────────────────────────────────────────────
 
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 
@@ -301,7 +130,14 @@ function sources(dossier: string): string[] {
   })
 }
 
+/** Les constantes des règles, lues dans le module même : aucune ne s'écrit ailleurs, pas même en commentaire. */
+const CONSTANTES_DES_REGLES = [...readFileSync(path.join(racine, 'server/src/core/divins.ts'), 'utf8').matchAll(/^(?:export )?const ([A-Z][A-Z0-9_]{5,}) =/gm)]
+  .map(m => m[1])
+  .filter(nom => nom !== 'RECITS')
+
 test('ni les règles ni les légendes des Divins ne partent dans le navigateur', () => {
+  assert.ok(CONSTANTES_DES_REGLES.length >= 6, `seulement ${CONSTANTES_DES_REGLES.length} constantes lues dans core/divins.ts`)
+  const regles = new RegExp(CONSTANTES_DES_REGLES.join('|'))
   // Tout ce que le client emporte vient de client/ et de shared/ : aucun de
   // ces fichiers ne doit importer le module des règles…
   const emporte = [...sources(path.join(racine, 'client/src')), ...sources(path.join(racine, 'shared'))].map(f => ({
@@ -323,10 +159,8 @@ test('ni les règles ni les légendes des Divins ne partent dans le navigateur',
     const debut = legende.slice(0, 24)
     assert.deepEqual(emporte.filter(({ texte }) => texte.includes(debut)).map(({ f }) => f), [], legende)
   }
-  // …ni un commentaire qui la raconte : celui de `shared/legendaires.ts`,
-  // un fichier que le client importe, disait la condition de l'Arbre-Monde
-  // (relevé le 14 octobre 2026).
-  assert.deepEqual(emporte.filter(({ texte }) => /DOUZE_LEGENDAIRES|douze d.origine/.test(texte)).map(({ f }) => f), [])
+  // …ni le nom d'une constante de leurs règles, qui en dirait le sujet.
+  assert.deepEqual(emporte.filter(({ texte }) => regles.test(texte)).map(({ f }) => f), [])
   // Le catalogue public ne porte que de quoi dessiner et nommer.
   for (const d of DIVINS) assert.deepEqual(Object.keys(d).sort(), ['key', 'nom'])
   // Et la documentation ne l'écrit pas non plus : la règle de l'Arbre-Monde
@@ -334,7 +168,7 @@ test('ni les règles ni les légendes des Divins ne partent dans le navigateur',
   // que les règles vivent dans core/divins.ts « et nulle part ailleurs »
   // (invariants-4). Tout ce qui se lit hors du serveur se relit donc : le
   // README, le CLAUDE.md et ses règles (`.claude/rules/`), et chaque page de
-  // `docs/`, la vitrine comprise — ni la règle, ni le début d'une légende.
+  // `docs/`, la vitrine comprise — ni une constante, ni le début d'une légende.
   const documentation = [
     'README.md',
     'CLAUDE.md',
@@ -348,155 +182,143 @@ test('ni les règles ni les légendes des Divins ne partent dans le navigateur',
   assert.ok(documentation.length > 30, `seulement ${documentation.length} pages relues`)
   for (const doc of documentation) {
     const texte = readFileSync(path.join(racine, doc), 'utf8')
-    assert.doesNotMatch(texte, /DOUZE_LEGENDAIRES|douze d.origine/, doc)
+    assert.doesNotMatch(texte, regles, doc)
     for (const legende of legendes) assert.ok(!texte.includes(legende.slice(0, 24)), `${doc} recopie le début d'une légende`)
   }
 })
 
-// ── 7. Sur un vrai serveur ────────────────────────────────────────────────
+// ── 3. Au quiz du jour, sur un vrai serveur ───────────────────────────────
 
-async function avecBanc(scenario: (banc: Banc) => Promise<void>) {
-  const banc = await demarrer()
+interface Horloge {
+  t: number
+}
+
+async function avecBanc(debut: number, scenario: (banc: Banc, horloge: Horloge) => Promise<void>) {
+  const horloge = { t: debut }
+  const banc = await demarrer({ horlogeDuJour: () => horloge.t })
   try {
-    await scenario(banc)
+    await scenario(banc, horloge)
   } finally {
     await banc.close()
   }
 }
 
-/** Joue un quiz de bout en bout depuis l'écran commun, puis le referme. */
-async function jouerQuiz(host: Socket, quizId: string, questions: [Invite, number][][]) {
-  const vue = (sessionId: string, pred: (v: any) => boolean, label: string) =>
-    attendre<any>(host, 'session:view', p => p.sessionId === sessionId && pred(p.view), label, 15_000)
-  const sessionId = await lancerQuiz(host, quizId)
-  let suivante = vue(sessionId, v => v.phase === 'question' && v.qIndex === 0, 'la première question')
-  for (let q = 0; q < questions.length; q++) {
-    await suivante
-    const revelee = vue(sessionId, v => v.phase === 'reveal' && v.qIndex === q, `la révélation ${q + 1}`)
-    for (const [qui, choice] of questions[q]) {
-      const ack = await emitAck<any>(qui.socket, 'player:action', { sessionId, action: { type: 'answer', choice } })
-      assert.equal(ack.ok, true, `réponse ${q + 1} refusée : ${ack.error}`)
+const lire = (banc: Banc, cookie: string, chemin: string) =>
+  fetch(`${banc.url}${chemin}`, { headers: { Cookie: cookie } }).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
+const poster = (banc: Banc, cookie: string, chemin: string, corps: unknown = {}) =>
+  ecrire(banc.url, chemin, corps, cookie).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
+
+function base<T>(banc: Banc, fn: (db: Database.Database) => T): T {
+  const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  try {
+    return fn(db)
+  } finally {
+    db.close()
+  }
+}
+
+const idDe = (banc: Banc, login: string) => base(banc, db => (db.prepare('SELECT id FROM profiles WHERE login = ?').get(login) as { id: string }).id)
+const divinsRanges = (banc: Banc, login: string) =>
+  base(banc, db =>
+    (db.prepare(`SELECT badge, soiree_id FROM profile_badges WHERE profile_id = ? AND badge LIKE 'dv:%' ORDER BY created_at`).all(idDe(banc, login)) as {
+      badge: string
+      soiree_id: string
+    }[]).map(r => `${r.badge} sous ${r.soiree_id}`),
+  )
+
+/** Joue toute la partie du jour : `juste(i)` dit s'il trouve la question i, chaque réponse part au bout de `delai(i)` millisecondes. */
+async function jouer(banc: Banc, horloge: Horloge, cookie: string, juste: (i: number) => boolean = () => true, delai: (i: number) => number = () => 5000) {
+  let etat = (await poster(banc, cookie, '/api/jour/commencer')).corps
+  const questions = base(banc, db =>
+    JSON.parse((db.prepare('SELECT questions FROM jour_tirages WHERE jour = ?').get(etat.jour) as { questions: string }).questions),
+  ) as { bonne: number; reponses: string[] }[]
+  while (etat.question) {
+    const i = etat.question.index
+    horloge.t += delai(i)
+    const bonne = questions[i].bonne
+    const r = await poster(banc, cookie, '/api/jour/repondre', { jour: etat.jour, index: i, choix: juste(i) ? bonne : (bonne + 1) % questions[i].reponses.length })
+    assert.equal(r.status, 200, r.corps.error)
+    etat = (await poster(banc, cookie, '/api/jour/suivante')).corps
+  }
+  return etat
+}
+
+/** Une partie finie d'un jour d'avant, écrite en base : ses bonnes réponses sur dix, et l'instant où elle a commencé. */
+function joue(banc: Banc, login: string, jour: string, justes: number, commenceeLe: number) {
+  const id = idDe(banc, login)
+  base(banc, db => {
+    db.prepare(`INSERT OR IGNORE INTO jour_tirages (jour, questions, annulees, tire_le) VALUES (?, ?, '[]', 1)`).run(
+      jour,
+      JSON.stringify(Array.from({ length: 10 }, () => ({ reponses: ['a', 'b'], bonne: 0 }))),
+    )
+    db.prepare(
+      `INSERT INTO jour_parties (profile_id, jour, commencee_le, question, servie_le, points, justes, finie_le, xp) VALUES (?, ?, ?, 10, NULL, ?, ?, ?, 0)`,
+    ).run(id, jour, commenceeLe, justes * 100, justes, commenceeLe + 120_000)
+  })
+}
+
+/** Midi à Paris, un jour de septembre 2026 (heure d'été, UTC+2). */
+const midi = (jour: number) => Date.UTC(2026, 8, jour, 10, 0)
+const septembre = (jour: number) => `2026-09-${String(jour).padStart(2, '0')}`
+const cles = (etat: any): string[] => (etat.divins ?? []).map((d: any) => d.key)
+
+test('Chronos descend à la vingt-quatrième heure du cadran — à lui seul, avec son récit, et une seule fois', () =>
+  // Samedi 26 septembre 2026, 23 h à Paris : la seule heure où Alice n'a jamais joué.
+  avecBanc(Date.UTC(2026, 8, 26, 21, 0), async (banc, horloge) => {
+    const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
+    // Vingt-trois jours, de minuit à 22 h, à l'heure de Paris ; Bob, toujours à midi.
+    for (let h = 0; h < 23; h++) {
+      joue(banc, 'alice', septembre(h + 1), 5, Date.UTC(2026, 8, h + 1, h - 2, 0))
+      joue(banc, 'bob', septembre(h + 1), 5, midi(h + 1))
     }
-    await revelee
-    suivante =
-      q + 1 < questions.length
-        ? vue(sessionId, v => v.phase === 'question' && v.qIndex === q + 1, `la question ${q + 2}`)
-        : vue(sessionId, v => v.phase === 'finished', 'le podium')
-    ;(host as any).emit('host:command', { sessionId, command: { type: 'next' } })
-  }
-  await suivante
-  ;(host as any).emit('host:endSession', { sessionId })
-}
+    const fin = await jouer(banc, horloge, alice, i => i < 5)
+    assert.deepEqual(cles(fin), ['dv:chronos'])
+    assert.ok(fin.divins[0].legende.length > 0 && fin.divins[0].ton === 'eclat', 'son récit, à lui seul')
+    assert.deepEqual(cles(await jouer(banc, horloge, bob, i => i < 5)), [], 'vingt-quatre parties à la même heure n’y font rien')
 
-async function rangee(banc: Banc): Promise<string> {
-  for (const limite = Date.now() + 8000; ; await patienter(100)) {
-    const { current } = (await (await fetch(`${banc.url}/s/${ADMIN.slug}/soirees.json`)).json()) as any
-    if (current?.id) return current.id
-    if (Date.now() > limite) assert.fail('la soirée aurait dû se ranger toute seule après son quiz')
-  }
-}
+    // Le profil le garde — la liste, rien d'autre : ni sur l'étagère, ni dans le compte des badges.
+    const moi = (await lire(banc, alice, '/api/joueur/moi')).corps.profile
+    assert.deepEqual(moi.divins.map((d: any) => d.key), ['dv:chronos'])
+    assert.ok(!moi.vitrine.some((b: any) => b.key.startsWith('dv:')), 'l’étagère dirait le jour où il est descendu')
+    assert.equal((await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'dv:seraphin' }, alice, 'PUT')).status, 400, 'le Séraphin ne s’est pas montré')
+    assert.equal((await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'dv:chronos' }, alice, 'PUT')).status, 200)
 
-async function clore(host: Socket) {
-  const toast = attendre<any>(host, 'toast', () => true, 'la soirée close', 15_000)
-  ;(host as any).emit('host:closeParty', {})
-  const t = await toast
-  assert.equal(t.kind, 'info', `la clôture a échoué : ${t.message}`)
-}
-
-const moi = async (banc: Banc, cookie: string) =>
-  ((await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: cookie } })).json()) as any).profile
-
-/** Alice et cinq invités anonymes, qui se trompent à chaque question. */
-async function salleDeSix(banc: Banc, aliceCookie: string) {
-  const alice = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
-  const salle: Invite[] = []
-  for (const [nom, avatar] of [
-    ['Bob', '🐻'],
-    ['Dora', '🐙'],
-    ['Eve', '🐝'],
-    ['Fred', '🐸'],
-    ['Gus', '🐧'],
-  ]) {
-    salle.push(await invite(banc.url, nom, avatar))
-  }
-  return { alice, salle }
-}
-
-test('un Divin descend à la clôture : son téléphone et la salle le voient, l’étagère n’en dit rien, et il se porte', () =>
-  avecBanc(async banc => {
-    const cookie = await connexionAnimateur(banc.url)
-    const huit = await creerQuiz(banc.url, cookie, Array.from({ length: 8 }, (_, i) => qcm(`Question ${i + 1} ?`)), 'Huit')
-    const aliceCookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
-    const porter = (legendaire: string | null) => ecrire(banc.url, '/api/joueur/moi', { legendaire }, aliceCookie, 'PUT')
-    assert.equal((await moi(banc, aliceCookie)).divins.length, 0)
-    const refuse = await porter('dv:seraphin')
-    assert.equal(refuse.status, 400, 'un Divin pas encore descendu ne se porte pas')
-    assert.match(((await refuse.json()) as any).error, /pas encore descendu/)
-
-    const host = await ecranCommun(banc.url, cookie)
-    const { alice, salle } = await salleDeSix(banc, aliceCookie)
-    // Alice répond la première, juste, à chaque question : la plus rapide à
-    // trouver, huit fois sur huit, dans une salle de six.
-    await jouerQuiz(host, huit, Array.from({ length: 8 }, () => [[alice, 0], ...salle.map((i): [Invite, number] => [i, 1])]))
-    await rangee(banc)
-
-    const finAlice = attendre<any>(alice.socket, 'soiree:fin', () => true, 'la fin de soirée d’Alice', 15_000)
-    const cloture = attendre<any>(host, 'soiree:cloture', () => true, 'la clôture sur l’écran commun', 15_000)
-    await clore(host)
-    // Son téléphone le lui raconte ; la salle le voit, sans le récit.
-    const [descendu] = (await finAlice).profil?.divins ?? []
-    assert.equal(descendu?.key, 'dv:seraphin')
-    assert.ok(descendu.legende.length > 0 && descendu.ton === 'eclat')
-    const c = await cloture
-    assert.deepEqual(c.divins.map((d: any) => [d.nom, d.gagne]), [['Alice', 'dv:seraphin']], 'toute la salle le voit descendre')
-    assert.ok(!JSON.stringify(c).includes(descendu.legende), 'le récit reste à son porteur')
-
-    // Le profil le garde — la liste, rien d'autre : ni sur l'étagère, ni
-    // dans le compte des badges.
-    const profil = await moi(banc, aliceCookie)
-    assert.deepEqual(profil.divins.map((d: any) => d.key), ['dv:seraphin'])
-    assert.ok(!profil.vitrine.some((b: any) => b.key.startsWith('dv:')), 'l’étagère dirait le soir où il est descendu')
-    assert.equal(profil.badges, profil.vitrine.length, 'un badge de plus sans rien de neuf sur l’étagère le trahirait')
-
-    assert.equal((await porter('dv:helios')).status, 400, 'Hélios ne s’est pas montré')
-    const porte = await porter('dv:seraphin')
-    assert.equal(porte.status, 200)
-    assert.equal(((await porte.json()) as any).profile.legendaire, 'dv:seraphin')
-
-    // À la soirée suivante, la salle le voit à la place de son emoji.
-    const retour = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
-    const snap = await instantane<any>(host, s => s.players.some((p: any) => p.id === retour.playerId), 'Alice dans la salle')
-    assert.equal(snap.players.find((p: any) => p.id === retour.playerId)?.legendaire, 'dv:seraphin')
+    // Le lendemain, sa condition tient toujours : il ne redescend pas, et rien ne s'annonce.
+    horloge.t = Date.UTC(2026, 8, 27, 10, 0)
+    assert.deepEqual(cles(await jouer(banc, horloge, alice, i => i < 5)), [])
+    assert.deepEqual(divinsRanges(banc, 'alice'), [`dv:chronos sous ${cleDuJour('2026-09-26')}`])
+    assert.deepEqual(divinsRanges(banc, 'bob'), [])
   }))
 
-test('un Divin descend aussi sur une soirée d’avant les Divins, au démarrage qui les apporte', () =>
-  avecBanc(async banc => {
-    const cookie = await connexionAnimateur(banc.url)
-    const huit = await creerQuiz(banc.url, cookie, Array.from({ length: 8 }, (_, i) => qcm(`Question ${i + 1} ?`)), 'Huit')
-    const aliceCookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
-    const host = await ecranCommun(banc.url, cookie)
-    const { alice, salle } = await salleDeSix(banc, aliceCookie)
-    await jouerQuiz(host, huit, Array.from({ length: 8 }, () => [[alice, 0], ...salle.map((i): [Invite, number] => [i, 1])]))
-    await rangee(banc)
-    await clore(host)
-    const cles = async () => (await moi(banc, aliceCookie)).divins.map((d: any) => d.key)
-    assert.deepEqual(await cles(), ['dv:seraphin'])
+test('le Séraphin descend sur un sans-faute dont aucune réponse n’a attendu trois secondes', () =>
+  avecBanc(midi(26), async (banc, horloge) => {
+    const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
+    const cleo = await inscrireProfil(banc.url, 'cleo', 'Cléo', '🐙')
+    assert.deepEqual(cles(await jouer(banc, horloge, alice, () => true, () => 2000)), ['dv:seraphin'])
+    // Une seule réponse à trois secondes ; une seule faute, même rapide.
+    assert.deepEqual(cles(await jouer(banc, horloge, bob, () => true, i => (i === 7 ? 3000 : 2000))), [])
+    assert.deepEqual(cles(await jouer(banc, horloge, cleo, i => i !== 4, () => 1000)), [])
+    assert.deepEqual(divinsRanges(banc, 'alice'), [`dv:seraphin sous ${cleDuJour('2026-09-26')}`])
+  }))
 
-    // On remonte le temps : la soirée a été close sous le barème 3, quand les
-    // Divins n'existaient pas encore.
-    const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
-    try {
-      db.prepare(`DELETE FROM profile_badges WHERE badge LIKE 'dv:%'`).run()
-      for (const { profile_id, soiree_id, detail } of db.prepare('SELECT profile_id, soiree_id, detail FROM profile_xp').all() as any[]) {
-        db.prepare('UPDATE profile_xp SET detail = ? WHERE profile_id = ? AND soiree_id = ?').run(
-          String(detail).replace(/^\{"v":\d+,/, '{"v":3,'),
-          profile_id,
-          soiree_id,
-        )
-      }
-    } finally {
-      db.close()
-    }
-    await banc.redemarrer()
-    assert.deepEqual(await cles(), ['dv:seraphin'], 'la relecture de l’historique le fait descendre')
+test('le Lotus Sacré descend au cinquième jour de progrès, l’Ange Déchu au lendemain d’un sans-faute', () =>
+  avecBanc(midi(26), async (banc, horloge) => {
+    const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
+    const cleo = await inscrireProfil(banc.url, 'cleo', 'Cléo', '🐙')
+    const dede = await inscrireProfil(banc.url, 'dede', 'Dédé', '🐸')
+    // Alice monte depuis quatre jours ; Bob a fait aussi bien deux jours de suite.
+    ;[2, 4, 6, 8].forEach((justes, i) => joue(banc, 'alice', septembre(22 + i), justes, midi(22 + i)))
+    ;[2, 4, 8, 8].forEach((justes, i) => joue(banc, 'bob', septembre(22 + i), justes, midi(22 + i)))
+    assert.deepEqual(cles(await jouer(banc, horloge, alice)), ['dv:lotus'])
+    assert.deepEqual(cles(await jouer(banc, horloge, bob)), [])
+    // Cléo et Dédé sortent d'un sans-faute : trois bonnes réponses pour l'une, quatre pour l'autre.
+    joue(banc, 'cleo', septembre(25), 10, midi(25))
+    joue(banc, 'dede', septembre(25), 10, midi(25))
+    const chute = await jouer(banc, horloge, cleo, i => i < 3)
+    assert.deepEqual(cles(chute), ['dv:dechu'])
+    assert.equal(chute.divins[0].ton, 'ombre')
+    assert.deepEqual(cles(await jouer(banc, horloge, dede, i => i < 4)), [])
   }))

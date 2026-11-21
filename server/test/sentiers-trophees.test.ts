@@ -13,12 +13,12 @@ import { randomUUID } from 'node:crypto'
 import Database from 'better-sqlite3'
 import { baseDEssai, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { hautsFaitsDeLEpreuve } from '../src/core/campagne'
-import { ProfileStore } from '../src/auth/profiles'
+import { ProfileStore, cleDeSerie } from '../src/auth/profiles'
 import { HAUTS_FAITS_DE_CARRIERE, clePalier, hautFaitDeSoiree, paliersDeCampagneAtteints } from '../../shared/hautsfaits'
 import { pageDuTrophee } from '../../shared/pagesDesTrophees'
 import { AUCUNE_CAMPAGNE } from '../../shared/profil'
 import { PALIER_DU_CARTOGRAPHE, PALIER_DU_MAITRE, QUESTIONS_PAR_EPREUVE, SANS_VRAI_FAUX_DES, couleurDePiste, statsDesSentiers, type EtatDesSentiers } from '../../shared/sentiers'
-import type { CleDeBranche } from '../../shared/branches'
+import { BRANCHES, type CleDeBranche } from '../../shared/branches'
 
 // Un Éclat tiré au hasard ferait tomber La Pluie d'Éclats parmi les trophées comptés.
 ProfileStore.tirageEclat = () => false
@@ -332,6 +332,62 @@ test('au démarrage, les épreuves d’avant se relisent une fois : les étapes 
     // Relue une fois : un autre démarrage n'y revient pas, et rien ne se double.
     await banc.redemarrer()
     assert.deepEqual(await vu(banc, lea, 'hf:impeccable'), [1, undefined, 'sentiers'])
+  } finally {
+    await banc.close()
+  }
+})
+
+test('l’Arbre-Monde descend sur le douzième maître validé — annoncé à la fin de l’épreuve, rattrapé par un rejeu, une seule fois', async () => {
+  // Le 21 novembre 2026 : les Divins ont quitté les soirées, et celui-ci se
+  // gagne sur les sentiers. Sa règle vit dans `core/divins.ts` ; ici, ce qu'elle fait.
+  const banc = await demarrer({ horlogeDuJour: () => DEBUT, baseDeLaCampagne: baseDEssai(160, { categories: ['Nature'] }) })
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const hugo = await inscrireProfil(banc.url, 'hugo', 'Hugo', '🐻')
+    const zoe = await inscrireProfil(banc.url, 'zoe', 'Zoé', '🐙')
+    const [idLea, idHugo, idZoe] = await Promise.all([lea, hugo, zoe].map(c => idDuProfil(banc, c)))
+    const toutes = BRANCHES.map(b => b.key)
+    const sansLaForet = toutes.filter(b => b !== 'foret')
+    const maitres = (branches: readonly CleDeBranche[]) => branches.map((b): [CleDeBranche, number, number] => [b, PALIER_DU_MAITRE, 10])
+    const auSommet = Object.fromEntries(toutes.map(b => [b, PALIER_DU_MAITRE - 1]))
+    const divinsRanges = (id: string) =>
+      base(banc, db =>
+        (db.prepare(`SELECT badge, soiree_id FROM profile_badges WHERE profile_id = ? AND badge LIKE 'dv:%'`).all(id) as { badge: string; soiree_id: string }[]).map(
+          r => `${r.badge} sous ${r.soiree_id}`,
+        ),
+      )
+    const sesDivins = async (cookie: string) => ((await lire(banc, cookie, '/api/joueur/moi')).corps.profile.divins as any[]).map(d => d.key)
+    const annonces = (fin: any): string[] => (fin.divins ?? []).map((d: any) => d.key)
+
+    // Léa est maître de onze sentiers, Hugo de dix ; la forêt les attend tous deux au sommet.
+    for (const id of [idLea, idHugo, idZoe]) acquerir(banc, id, auSommet)
+    valider(banc, idLea, maitres(sansLaForet))
+    valider(banc, idHugo, maitres(sansLaForet.slice(1)))
+
+    // Le douzième maître de Léa : la fin de l'épreuve l'annonce, à part de ses trophées.
+    const fin = await jouer(banc, lea, await commencer(banc, lea, 'foret', PALIER_DU_MAITRE), 9)
+    assert.deepEqual([fin.epreuve.issue, fin.epreuve.rejeu], ['validee', false])
+    assert.deepEqual(annonces(fin), ['dv:arbre'])
+    assert.ok(fin.divins[0].legende.length > 0 && fin.divins[0].ton === 'eclat', 'son récit, à elle seule')
+    assert.ok(!tombes(fin).some(cle => cle.startsWith('dv:')), 'un Divin n’est pas un trophée')
+    assert.deepEqual(await sesDivins(lea), ['dv:arbre'])
+    assert.deepEqual(divinsRanges(idLea), [`dv:arbre sous ${cleDeSerie(fin.epreuve.id)}`])
+    // Le onzième d'Hugo : rien.
+    const finHugo = await jouer(banc, hugo, await commencer(banc, hugo, 'foret', PALIER_DU_MAITRE), 9)
+    assert.deepEqual([finHugo.epreuve.issue, annonces(finHugo)], ['validee', []])
+    assert.deepEqual(await sesDivins(hugo), [])
+
+    // Rejoué et validé de nouveau, il ne redescend pas.
+    const rejeu = await jouer(banc, lea, await commencer(banc, lea, 'foret', PALIER_DU_MAITRE), 9)
+    assert.deepEqual([rejeu.epreuve.issue, rejeu.epreuve.rejeu, annonces(rejeu)], ['validee', true, []])
+    assert.deepEqual(divinsRanges(idLea), [`dv:arbre sous ${cleDeSerie(fin.epreuve.id)}`])
+
+    // Zoé tenait ses douze maîtres avant lui — ou un rangement s'est perdu : un maître rejoué le rattrape.
+    valider(banc, idZoe, maitres(toutes))
+    assert.deepEqual(await sesDivins(zoe), [])
+    const rattrape = await jouer(banc, zoe, await commencer(banc, zoe, 'foret', PALIER_DU_MAITRE), 9)
+    assert.deepEqual([rattrape.epreuve.issue, rattrape.epreuve.rejeu, annonces(rattrape)], ['validee', true, ['dv:arbre']])
+    assert.deepEqual(await sesDivins(zoe), ['dv:arbre'])
   } finally {
     await banc.close()
   }

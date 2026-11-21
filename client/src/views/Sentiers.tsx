@@ -4,6 +4,7 @@ import { Icon } from '../components/Icon'
 import { Shape } from '../components/Shape'
 import { Feuille, GesteDuBas, Sortie, SousLePouce } from '../components/Pieces'
 import { LegendaireOuvert } from '../components/Ouverts'
+import { DivinDescendu } from '../components/DivinDescendu'
 import { SerieCorrigee } from '../components/SerieCorrigee'
 import { APorter, CeQueTuGagnes, MissionsAccomplies, NouveauxTrophees, emojisAPorter, useNiveauRelu } from '../components/Gains'
 import { Etoiles } from '../components/Etoiles'
@@ -1671,6 +1672,10 @@ function FinDEpreuve({
   // Puis les légendaires, en grand ; les trophées, les plus rares d'abord ; ce qu'ils ouvrent à porter.
   const tombees = (
     <>
+      {/* Un Divin descendu sur son épreuve : avant tout le reste, comme au quiz du jour. */}
+      {(r.divins ?? []).map(d => (
+        <DivinDescendu key={d.key} cle={d.key} legende={d.legende} ton={d.ton} dejaPorte={false} />
+      ))}
       {(r.legendaires ?? []).map(cle => (
         <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
       ))}

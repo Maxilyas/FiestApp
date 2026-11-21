@@ -21,6 +21,7 @@ import type { BordureDeLigue, CleDeLigue, CoteApresLeDuel, EnjeuDuDuel, JoueurCr
 import type { IssueDUnSignalement } from './qgSignalements'
 import { QUESTIONS_D_UNE_TRANCHE, dUneTraite, type CalculEnTranches } from './tranches'
 import type { EclatPorte } from './matieres'
+import type { DivinDescendu } from './divins'
 
 /** Les vies d'une série : la troisième erreur la termine. */
 export const VIES = 3
@@ -535,6 +536,8 @@ export interface ReponseDeCampagne {
   recompenses?: { key: string; emoji: string; title: string }[]
   /** Et les légendaires qu'ils ouvrent : la Salamandre, le Serpent à plumes, l'Éléphant… */
   legendaires?: string[]
+  /** Le Divin qui est descendu sur sa partie — à lui seul, avec son récit (invariant 21). */
+  divins?: DivinDescendu[]
   /** À la fin d'un défi — de la semaine, ou entre amis : sa place à son classement, pour l'instant. */
   defi?: { rang: number; joueurs: number }
   /** À la fin d'un défi entre amis qu'il a lancé : les amis choisis au lancement, à qui il vient de partir (`campagne_envois_prevus`). */
@@ -586,6 +589,7 @@ export interface FinDeSerie {
   niveauAtteint?: Niveau
   recompenses?: { key: string; emoji: string; title: string }[]
   legendaires?: string[]
+  divins?: DivinDescendu[]
 }
 
 /**

@@ -29,7 +29,7 @@ En haut de `/jour` : « ← Accueil », la pastille de ta **série** (une flamme
 **La fin de la partie** ne se voit qu'une fois. En tête, ton résultat : tes points, tes bonnes réponses, tes **étoiles** — la note de la partie, comme aux sentiers : « Deux étoiles · la troisième au sans-faute » —, ta place pour l'instant (« Pour l'instant : 3ᵉ place sur 12 · à 70 pts de Lucas »), la part des points possibles et ta série. Puis l'écran des gains, le même à la fin de chaque mode :
 
 - **« Ce que tu gagnes »** : l'expérience en un total, et ce qui la fait quand elle vient de plusieurs côtés (« ta partie +124 · ta série de 7 jours +70 · tes trophées +175 ») ; tes confettis, un par bonne réponse ; ton niveau, sa barre, « Niveau 12 ! » s'il monte et la finition qu'il ouvre ;
-- en grand, ce qui est rare : Chronos s'il descend, l'Éclat, une page du calendrier, un légendaire ;
+- en grand, ce qui est rare : un Divin s'il descend, l'Éclat, une page du calendrier, un légendaire ;
 - **« Nouveaux trophées »** : trois au plus, les plus rares d'abord, chacun menant à sa page de l'album des trophées ; « Et 2 autres » déplie le reste ;
 - **« À porter »** : ce que leurs étapes de piste viennent d'ouvrir — un fond, une gerbe, un thème — et l'emoji de collection d'un niveau gagné ; « Essayer » ouvre la loge, l'essai déjà sur ta carte.
 
@@ -119,7 +119,7 @@ Ils se regagnent et rapportent leur expérience à chaque fois ; l'album les ran
 | Le Dernier Métro | la commencer à 23 h 30 passées (Paris) | 10 | au « Jouer » |
 | Le Mois complet | jouer chaque jour de quiz d'un mois qui en a eu 28 au moins | 250 | à la clôture du mois |
 
-Le quiz du jour ouvre aussi des légendaires — le Sphinx (L'Assidu ou Le Sans-Faute à l'or), l'Aigle, l'Ouroboros, le Scarabée, le Coq, la Chauve-souris, et des voies vers d'autres —, ceux des huit fêtes (la Saint-Valentin, Pâques, la Fête de la musique, l'été, la rentrée, Halloween, Noël, le Nouvel An : quelques jours joués dans la période), des titres, des gerbes, des fonds et trois thèmes. Pendant une fête, la page dit où tu en es — « 1 jour sur 2 » — et, le légendaire à toi, le timbre de l'année à gagner par les mêmes jours : un par fête et par an, rangé dans le carnet des fêtes de « Ma collection » ([les saisons](les-recompenses.md#les-saisons)). **Chronos**, l'un des six Divins, peut descendre sur une partie : la fin de la partie te le révèle, à toi seul, avec son récit ; ses règles sont secrètes.
+Le quiz du jour ouvre aussi des légendaires — le Sphinx (L'Assidu ou Le Sans-Faute à l'or), l'Aigle, l'Ouroboros, le Scarabée, le Coq, la Chauve-souris, et des voies vers d'autres —, ceux des huit fêtes (la Saint-Valentin, Pâques, la Fête de la musique, l'été, la rentrée, Halloween, Noël, le Nouvel An : quelques jours joués dans la période), des titres, des gerbes, des fonds et trois thèmes. Pendant une fête, la page dit où tu en es — « 1 jour sur 2 » — et, le légendaire à toi, le timbre de l'année à gagner par les mêmes jours : un par fête et par an, rangé dans le carnet des fêtes de « Ma collection » ([les saisons](les-recompenses.md#les-saisons)). Un **Divin** peut descendre sur une partie ([les Divins](les-recompenses.md#les-divins)) : sa fin te le révèle, à toi seul, avec son récit ; leurs règles sont secrètes.
 
 ## Les questions du public
 

@@ -9,7 +9,7 @@ import path from 'node:path'
 import Database from 'better-sqlite3'
 import { baseDEssai, connexionAnimateur, demarrer, ecranCommun, ecrire, inscrireProfil, instantane, invite, type Banc } from './banc'
 import { SERVEUR } from '../src/racine'
-import { ProfileStore, cleDuDefi } from '../src/auth/profiles'
+import { ProfileStore, cleDeSerie, cleDuDefi } from '../src/auth/profiles'
 import { minutesAvantLundi, semaineAvant, semaineDe } from '../../shared/campagne'
 
 ProfileStore.tirageEclat = () => false
@@ -203,6 +203,53 @@ test('des ex æquo en tête gagnent tous ; seul, on n’a battu personne', () =>
     assert.deepEqual(seule.vainqueurs, [])
     assert.equal(seule.saSemainePassee.rang, 1)
     assert.deepEqual(seule.saSemainePassee.recompenses, [])
+  }))
+
+test('Hélios descend sur la tentative qui atteint vingt bonnes réponses — annoncé à sa fin, rattrapé à la clôture, une seule fois', () =>
+  // Le 21 novembre 2026 : les Divins ont quitté les soirées, et celui-ci se
+  // gagne au défi. Sa règle vit dans `core/divins.ts` ; ici, ce qu'elle fait.
+  avecBanc(async (banc, horloge) => {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
+    const hugo = await inscrireProfil(banc.url, 'hugo', 'Hugo')
+    const zoe = await inscrireProfil(banc.url, 'zoe', 'Zoé')
+    const divinsRanges = (login: string) =>
+      base(banc, db =>
+        (db.prepare(`SELECT badge, soiree_id FROM profile_badges WHERE profile_id = ? AND badge LIKE 'dv:%'`).all(idDe(banc, login)) as { badge: string; soiree_id: string }[]).map(
+          r => `${r.badge} sous ${r.soiree_id}`,
+        ),
+      )
+    const sesDivins = async (cookie: string) => (await lire(banc, cookie, '/api/joueur/moi')).corps.profile.divins.map((d: any) => d.key)
+
+    // Léa : vingt bonnes réponses, puis ses trois erreurs. Sa fin l'annonce, à part de ses trophées.
+    const leaFin = await relever(banc, lea, i => i < 20)
+    assert.equal(leaFin.derniere.justes, 20)
+    assert.deepEqual(leaFin.derniere.divins.map((d: any) => d.key), ['dv:helios'])
+    assert.ok(leaFin.derniere.divins[0].legende.length > 0 && leaFin.derniere.divins[0].ton === 'eclat', 'son récit, à elle seule')
+    assert.ok(!(leaFin.derniere.recompenses ?? []).some((r: any) => r.key.startsWith('dv:')), 'un Divin n’est pas un trophée')
+    assert.deepEqual(await sesDivins(lea), ['dv:helios'])
+    // Hugo s'arrête à dix-neuf : rien.
+    const hugoFin = await relever(banc, hugo, i => i < 19)
+    assert.equal(hugoFin.derniere.justes, 19)
+    assert.equal(hugoFin.derniere.divins, undefined)
+    assert.deepEqual(await sesDivins(hugo), [])
+    // Zoé en trouve vingt et laisse sa tentative en route : pas de fin pour le lui dire.
+    const zoeEnRoute = await relever(banc, zoe, () => true, 20)
+    assert.ok(!zoeEnRoute.derniere.finie && zoeEnRoute.derniere.justes === 20)
+    assert.deepEqual(divinsRanges('zoe'), [])
+
+    // Lundi : la clôture arrête sa tentative, et range ce qu'elle avait fait descendre.
+    horloge.t = Date.UTC(2026, 9, 12, 7, 0)
+    await lire(banc, hugo, '/api/campagne/defi')
+    assert.deepEqual(divinsRanges('zoe'), [`dv:helios sous ${cleDeSerie(zoeEnRoute.serie)}`])
+    assert.deepEqual(await sesDivins(zoe), ['dv:helios'])
+    assert.deepEqual(divinsRanges('lea'), [`dv:helios sous ${cleDeSerie(leaFin.serie)}`], 'celui de Léa ne se range pas deux fois')
+    assert.deepEqual(divinsRanges('hugo'), [])
+
+    // La semaine d'après, Léa refait vingt : il ne redescend pas, et rien ne s'annonce.
+    const encore = await relever(banc, lea, i => i < 20)
+    assert.equal(encore.derniere.justes, 20)
+    assert.equal(encore.derniere.divins, undefined)
+    assert.deepEqual(divinsRanges('lea'), [`dv:helios sous ${cleDeSerie(leaFin.serie)}`])
   }))
 
 test('les vainqueurs de la semaine passée se montrent avec ce qu’ils portent, comme au classement : un portrait, pas l’emoji d’en dessous', () =>

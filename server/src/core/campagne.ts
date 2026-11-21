@@ -141,7 +141,8 @@ import {
   type SemaineDesDuels,
   type BordureDeLigue,
 } from '../../../shared/duels'
-import { divin } from '../../../shared/divins'
+import { divin, type DivinDescendu } from '../../../shared/divins'
+import { divinsDesSentiers, divinsDuDefi, estUnDivin, raconter } from './divins'
 import {
   AJOUTS_MONTRES,
   AMIS_MONTRES,
@@ -897,6 +898,8 @@ export interface AccueilDeCampagne {
 export interface Recompenses {
   recompenses?: PalierTombe[]
   legendaires?: string[]
+  /** Le Divin qui vient de descendre — à son seul joueur, avec son récit (invariant 21). */
+  divins?: DivinDescendu[]
 }
 
 /** Ce que la fin d'un défi annonce en plus : l'Éclat, s'il est tombé. */
@@ -2661,6 +2664,8 @@ export class CampagneStore {
       // d'après — « Nouveau haut fait » à chaque fin, et maintenant qu'il
       // paie, de l'expérience à chaque série perdue en trois questions.
       if (!this.recompenses.recompensesOf(profileId).has('hf:tour-du-monde') && (await this.tourDuMondeFait(profileId))) cles.push('hf:tour-du-monde')
+      // Ce que sa tentative du défi de la semaine fait descendre (`core/divins.ts`, où vit la règle).
+      if (s.mode === 'defi') cles.push(...divinsDuDefi(s.justes))
       return await this.recompenser(profileId, s.id, cles, s.finieLe ?? this.maintenant())
     } catch (e) {
       // La série est rangée : une étagère muette n'y change rien, la relecture rattrapera.
@@ -2679,14 +2684,18 @@ export class CampagneStore {
   private async recompenser(profileId: string, serieId: string, cles: readonly string[], quand: number): Promise<Recompenses> {
     if (!this.recompenses) return {}
     const sous = cleDeSerie(serieId)
-    const neufs = await this.recompenses.ranger(profileId, sous, cles, quand)
+    const ranges = await this.recompenses.ranger(profileId, sous, cles, quand)
+    // Un Divin s'annonce à part, à lui seul et avec son récit : jamais dans
+    // la liste des trophées, où il se lirait comme un haut fait de plus.
+    const divins = raconter(ranges.filter(estUnDivin))
+    const neufs = ranges.filter(cle => !estUnDivin(cle))
     const paliers = await this.recompenses.accorderPaliersDeCampagne(profileId, sous, await this.statsDe(profileId))
     const tombees = [...neufs, ...paliers]
-    if (tombees.length === 0) return {}
-    const legendaires = this.recompenses.legendairesOuverts(profileId, tombees)
+    const legendaires = tombees.length > 0 ? this.recompenses.legendairesOuverts(profileId, tombees) : []
     return {
-      recompenses: tombees.map(tombee),
+      ...(tombees.length > 0 && { recompenses: tombees.map(tombee) }),
       ...(legendaires.length > 0 && { legendaires }),
+      ...(divins.length > 0 && { divins }),
     }
   }
 
@@ -4216,7 +4225,7 @@ export class CampagneStore {
 
   private async cloreLeDefi(semaine: string): Promise<void> {
     const res = await this.client.execute({
-      sql: `SELECT profile_id, justes FROM campagne_series WHERE mode = 'defi' AND semaine = ? AND position > 0`,
+      sql: `SELECT id, profile_id, justes FROM campagne_series WHERE mode = 'defi' AND semaine = ? AND position > 0`,
       args: [semaine],
     })
     const joueurs = res.rows.map(r => ({ id: String(r.profile_id), justes: Number(r.justes) })).filter(j => !this.masque?.(j.id))
@@ -4224,6 +4233,14 @@ export class CampagneStore {
     const vainqueurs = joueurs.length >= JOUEURS_POUR_LE_DEFI ? classes.filter(c => c.rang === 1 && c.item.justes > 0).map(c => c.item.id) : []
     const maintenant = this.maintenant()
     for (const id of vainqueurs) await this.recompenses?.ranger(id, cleDuDefi(semaine), ['hf:defi'], maintenant)
+    // Ce qu'une tentative a fait descendre sans que sa fin l'ait rangé —
+    // laissée en route passé le seuil, ou un rangement que la base a refusé
+    // ce soir-là : rien ne relit les défis, la clôture est leur seul filet.
+    // Sous sa tentative, comme à sa fin : rangé une fois, il ne se range plus.
+    for (const r of res.rows) {
+      const cles = divinsDuDefi(Number(r.justes))
+      if (cles.length > 0) await this.recompenses?.ranger(String(r.profile_id), cleDeSerie(String(r.id)), cles, maintenant)
+    }
     await this.client.batch(
       [
         { sql: `UPDATE campagne_series SET finie_le = ? WHERE mode = 'defi' AND semaine = ? AND finie_le IS NULL`, args: [maintenant, semaine] },
@@ -6898,7 +6915,23 @@ export class CampagneStore {
           ).rows[0]?.n ?? 0,
         )
       : 0
-    return hautsFaitsDeLEpreuve({ palier: e.palier, rejeu: e.rejeu, issue: e.issue, chance: e.chance }, e.justes, echecs)
+    return [...hautsFaitsDeLEpreuve({ palier: e.palier, rejeu: e.rejeu, issue: e.issue, chance: e.chance }, e.justes, echecs), ...(await this.divinsDeLEpreuve(e))]
+  }
+
+  /**
+   * Ce que la validation d'un maître fait descendre (`divinsDesSentiers`, la
+   * règle vit dans `core/divins.ts`) : ses maîtres se comptent alors, celui-ci
+   * compris — une lecture de plus pour une épreuve de maître validée, aucune
+   * pour les autres. Un rejeu la relit aussi : ce qu'un rangement raté a
+   * laissé se rattrape, et un Divin ne se range qu'une fois (`ranger`).
+   */
+  private async divinsDeLEpreuve(e: Serie): Promise<string[]> {
+    if (e.palier !== PALIER_DU_MAITRE || e.issue !== 'validee' || !e.branche) return []
+    const res = await this.client.execute({
+      sql: `SELECT DISTINCT branche FROM campagne_series WHERE profile_id = ? AND mode = 'sentier' AND palier = ? AND issue = 'validee'`,
+      args: [e.profileId, PALIER_DU_MAITRE],
+    })
+    return divinsDesSentiers(new Set([...res.rows.map(r => String(r.branche)), e.branche]).size)
   }
 
   /**
@@ -8956,6 +8989,7 @@ function ensemble(serie: Recompenses, defi: RecompensesDuDefi): RecompensesDuDef
   return {
     ...(recompenses.length > 0 && { recompenses }),
     ...(legendaires.length > 0 && { legendaires }),
+    ...(serie.divins && { divins: serie.divins }),
     ...(defi.eclat && { eclat: defi.eclat }),
   }
 }

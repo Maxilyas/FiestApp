@@ -661,6 +661,15 @@ Le détail : [les récompenses](../produit/les-recompenses.md).
 
 *Fichiers : `server/src/core/divins.ts`, `shared/divins.ts`, `server/test/divins.test.ts`*
 
+### Les Divins quittent les soirées
+**Contexte** : le 21 novembre 2026, aucun profil de la production n'en tenait un — quarante-deux profils, cinquante-quatre soirées, relevés en lecture seule. Cinq sur six ne descendaient qu'à la clôture d'une soirée, et leurs règles demandaient une salle que les soirées n'ont pas ; or la soirée est faite pour jouer ensemble, et l'essentiel du jeu se passe hors d'elle — le quiz du jour, le défi de la semaine, la campagne. Le propriétaire a posé deux bornes : aucune règle que quelqu'un tienne déjà, et rien qui dépende des autres — ni rang, ni salle.
+
+**Décision** : les six gardent leur nom et leur bijou, et changent de règle : chacun descend sur une partie jouée seul, jugé sur ce que son joueur a fait lui-même, à un seuil posé juste au-dessus de ce que la production avait vu de mieux. Descendu, il se range une fois, sous la partie qui l'a fait descendre (`ProfileStore.ranger` : une seule ligne par Divin et par profil), et sa fin l'annonce par la même carte dans chaque mode (`DivinDescendu.tsx`). Plus rien d'eux ne se juge à la clôture d'une soirée ni au recalcul de l'historique.
+
+**Conséquence** : `VERSION_BAREME` ne les connaît plus — durcir une règle de Divin ne reprend rien, sa ligne est rangée —, et une règle qui change vaut pour les parties à venir : le quiz du jour relit ses jours sous `VERSION_DES_JOURS`, le défi rattrape à sa clôture, un maître rejoué rattrape le sien. Personne n'en tenait : rien n'a été repris, et aucune version n'a monté. La clôture d'une soirée garde de quoi en annoncer un, qui ne sert plus.
+
+*Fichiers : `server/src/core/divins.ts`, `server/src/core/jour.ts`, `server/src/core/campagne.ts`, `server/src/auth/profiles.ts`, `client/src/components/DivinDescendu.tsx`*
+
 ### Les trophées se rangent par mode, et se disent avec les mêmes mots
 **Contexte** : « très confus, les trophées que les gens gagnent » — dix lignes les rangeaient selon la logique du code (« Paliers des soirées », « Paliers de toujours »…), un même exploit tombait sous deux noms (Le Laurier et le palier du Champion du jour, aux mêmes seuils), et chaque fin de partie montrait ses gains à sa façon.
 

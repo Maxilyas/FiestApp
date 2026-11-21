@@ -184,7 +184,7 @@ import { additionnerCategories, additionnerSavoirs, justesParCategorie, type Par
 import { moyennesDuSavoir } from '../../../shared/carte'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import { sansAccent } from '../../../shared/homonymes'
-import { divinsDebloques, raconter } from '../core/divins'
+import { divinsDebloques, estUnDivin, raconter } from '../core/divins'
 import { CATALOGUE_DES_PRIX, titreDuPrix } from '../core/stats'
 import type { AutresDeLaCollection, ProfilDuCollectionneur } from '../core/collectionneurs'
 import type { ResumeDuCollectionneur } from '../../../shared/collectionneurs'
@@ -3698,7 +3698,7 @@ export class ProfileStore {
 
   /** Les Divins descendus sur ce profil — la liste, jamais ce qui les a fait descendre. */
   divinsOf(id: string): string[] {
-    return divinsDebloques(this.recompensesOf(id), this.acquis.get(id))
+    return divinsDebloques(this.recompensesOf(id))
   }
 
   /**
@@ -3737,7 +3737,7 @@ export class ProfileStore {
       else avant.delete(cle)
     }
     const acquis = this.acquis.get(id)
-    return { legendaires: legendairesDebloques(avant, acquis), divins: divinsDebloques(avant, acquis) }
+    return { legendaires: legendairesDebloques(avant, acquis), divins: divinsDebloques(avant) }
   }
 
   /**
@@ -5846,6 +5846,19 @@ export class ProfileStore {
     const res = await this.client.batch(
       uniques.map(cle => {
         const { emoji, title } = etiquetteDe(cle)
+        // Un Divin ne descend qu'une fois : rangé sous une partie, il ne se
+        // range pas sous la suivante — une condition tenue peut le rester,
+        // et chaque partie d'après l'aurait fait « redescendre », annonce
+        // comprise. C'est la base qui le garde : deux serveurs, une mémoire
+        // en retard n'y changent rien.
+        if (estUnDivin(cle)) {
+          return {
+            sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
+                  SELECT ?, ?, ?, '', ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM profile_badges WHERE profile_id = ? AND badge = ?)
+                  ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
+            args: [profileId, cle, sous, emoji, title, now, profileId, cle],
+          }
+        }
         return {
           sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
                 VALUES (?, ?, ?, '', ?, ?, ?) ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
