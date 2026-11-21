@@ -5,6 +5,7 @@ import { Shape } from '../components/Shape'
 import { Feuille, Sortie, SousLePouce } from '../components/Pieces'
 import { Onglets } from '../components/Onglets'
 import { LegendaireOuvert } from '../components/Ouverts'
+import { DivinDescendu } from '../components/DivinDescendu'
 import { SerieCorrigee } from '../components/SerieCorrigee'
 import { APorter, CeQueTuGagnes, MissionsAccomplies, NouveauxTrophees, emojisAPorter, useNiveauRelu } from '../components/Gains'
 import { Etoiles } from '../components/Etoiles'
@@ -553,6 +554,10 @@ export function FinDeLEtape({
         confettis={fin.justesIci}
         niveau={niveau}
       />
+      {/* Un Divin descendu sur son étape : avant tout le reste, comme à la fin de chaque mode. */}
+      {(r.divins ?? []).map(d => (
+        <DivinDescendu key={d.key} cle={d.key} legende={d.legende} ton={d.ton} dejaPorte={false} />
+      ))}
       {(r.legendaires ?? []).map(cle => (
         <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
       ))}

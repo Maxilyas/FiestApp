@@ -974,6 +974,8 @@ export interface DuelEntreAmis {
    * (`campagne_duels.vu_le`) : l'accueil ne le compte plus.
    */
   nouveau?: true
+  /** Le Divin que sa victoire a fait descendre, apprise ici — à lui seul, avec son récit (invariant 21) : il a joué le premier, sa fin n'en savait rien. */
+  divins?: DivinDescendu[]
   /** Joué des deux côtés : sa cote juste après ce duel, sa ligue, sa place au classement des duels aujourd'hui, et sa semaine. */
   apres?: { cote: number; ligue: CleDeLigue; rang?: number; semaine?: SemaineDesDuels }
   /** Joué des deux côtés : celui d'en face, pour la revanche — absent d'un masqué ou d'un profil parti, qu'on ne défie pas —, avec ce qu'il porte. */

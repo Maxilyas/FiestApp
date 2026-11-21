@@ -1,5 +1,6 @@
-// Les Divins : six avatars au-dessus des légendaires, dont personne ne
-// connaît la règle.
+// Les Divins : des avatars au-dessus des légendaires, dont personne ne
+// connaît la règle — six au catalogue, et douze dont la règle est écrite et
+// dort jusqu'à leur bijou (le 21 novembre 2026).
 //
 // Trois promesses à tenir. La première : ils sont rares, et ne se mesurent
 // qu'à ce que leur joueur a fait lui-même — ni rang, ni salle (le 21 novembre
@@ -12,7 +13,9 @@
 //
 // Les règles se testent en dérivation pure ; ce qui descend au quiz du jour,
 // sur un serveur jetable. Hélios se joue dans `campagne-defi.test.ts`,
-// l'Arbre-Monde dans `sentiers-trophees.test.ts`, où vivent leurs parties.
+// l'Arbre-Monde dans `sentiers-trophees.test.ts`, où vivent leurs parties ;
+// les douze, chacun dans son mode : `divins-campagne.test.ts`,
+// `divins-duels.test.ts`, `divins-au-dela.test.ts`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
@@ -21,14 +24,24 @@ import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
 import {
   JOURS_QUE_LA_FIN_RELIT,
+  REVISIONS_QUE_LA_FIN_RELIT,
   divinsDebloques,
   divinsDeLaFin,
+  divinsDeLaJournee,
+  divinsDeLaJourneeEntiere,
+  divinsDeLaPartie,
+  divinsDeLaTraversee,
+  divinsDesCompagnons,
+  divinsDesRevisions,
   divinsDesSentiers,
   divinsDuDebut,
   divinsDuDefi,
+  divinsDuPalier,
   estUnDivin,
   raconter,
+  revisionQuiCompte,
   type JourDuDivin,
+  type PartieDuDivin,
   type ReponseDuDivin,
 } from '../src/core/divins'
 import { ProfileStore, cleDuJour } from '../src/auth/profiles'
@@ -76,7 +89,6 @@ test('le Séraphin : sans une faute, et chaque réponse avant trois secondes', (
 })
 
 test('le Lotus Sacré : cinq jours d’affilée, chacun meilleur que la veille, le dernier sans faute', () => {
-  assert.equal(JOURS_QUE_LA_FIN_RELIT, 5, 'la fin d’une partie relit ce qu’il lui faut')
   assert.deepEqual(fin(jours(2, 4, 6, 8, 10)), ['dv:lotus'])
   assert.deepEqual(fin(jours(6, 7, 8, 9, 10)), ['dv:lotus'])
   assert.deepEqual(fin(jours(4, 6, 8, 10)), [], 'quatre jours ne suffisent pas')
@@ -101,6 +113,107 @@ test('Hélios au défi de la semaine, l’Arbre-Monde sur les sentiers : leurs s
   assert.deepEqual(divinsDuDefi(19), [])
   assert.deepEqual(divinsDesSentiers(12), ['dv:arbre'])
   assert.deepEqual(divinsDesSentiers(11), [])
+})
+
+// ── Les douze du 21 novembre 2026 ─────────────────────────────────────────
+
+test('Thot : dix de ses questions acceptées, dit au début de sa partie suivante', () => {
+  assert.deepEqual(divinsDuDebut([], 10), ['dv:thot'])
+  assert.deepEqual(divinsDuDebut([], 9), [])
+  assert.deepEqual(divinsDuDebut(heures(24), 12), ['dv:chronos', 'dv:thot'])
+})
+
+test('Athéna : six jours d’affilée, une faute au plus chacun', () => {
+  assert.equal(JOURS_QUE_LA_FIN_RELIT, 6, 'la fin d’une partie relit ce qu’il faut au plus long des siens')
+  assert.deepEqual(fin(jours(9, 10, 9, 9, 10, 9)), ['dv:athena'])
+  assert.deepEqual(fin(jours(9, 10, 9, 9, 9)), [], 'cinq jours ne suffisent pas')
+  assert.deepEqual(fin(jours(9, 10, 8, 9, 10, 9)), [], 'deux fautes un seul jour')
+  assert.deepEqual(fin(jours(9, 9, 9, null, 9, 9, 9)), [], 'un jour manqué casse la suite')
+  // Une question annulée pour tous ne compte plus : huit sur neuf, c'est encore une seule faute.
+  const avecUneAnnulee = jours(9, 10, 9, 9, 10, 9)
+  avecUneAnnulee.set(jourAvant(JOUR, 2), { justes: 8, comptees: 9 })
+  assert.deepEqual(fin(avecUneAnnulee), ['dv:athena'])
+  // Elle ne demande pas de monter, le Lotus ne demande pas de tenir : l'un n'entraîne pas l'autre.
+  assert.deepEqual(fin(jours(1, 6, 7, 8, 9, 10)), ['dv:lotus'])
+  assert.deepEqual(fin(jours(10, 10, 10, 10, 10, 10)), ['dv:athena'])
+})
+
+const justes = (n: number) => Array<boolean>(n).fill(true)
+const partie = (mode: PartieDuDivin['mode'], reponses: boolean[], gagne?: PartieDuDivin['gagne']) =>
+  divinsDeLaPartie({ mode, justes: reponses.filter(Boolean).length, reponses, ...(gagne && { gagne }) })
+
+test('le Démiurge : une série menée au bout, soixante sur soixante', () => {
+  // Soixante d'affilée tiennent aussi le fil d'Ariane.
+  assert.deepEqual(partie('serie', justes(60)), ['dv:demiurge', 'dv:ariane'])
+  assert.deepEqual(partie('serie', justes(59)), ['dv:ariane'], 'il en manque une')
+  assert.deepEqual(partie('serie', [...justes(30), false, ...justes(30)]), ['dv:ariane'], 'soixante bonnes, mais une faute en chemin')
+  // Ni le défi ni un duel : soixante bonnes réponses n'y sont pas une série menée au bout.
+  assert.deepEqual(partie('defi', justes(60)), ['dv:helios', 'dv:ariane'])
+  assert.deepEqual(partie('duel', justes(60)), ['dv:ariane'])
+})
+
+test('Ariane : vingt-cinq bonnes réponses d’affilée dans une même partie, où qu’elle se joue', () => {
+  assert.deepEqual(partie('serie', [...justes(25), false, false, false]), ['dv:ariane'])
+  assert.deepEqual(partie('serie', [...justes(24), false, ...justes(24), false, false]), [], 'quarante-huit bonnes, jamais vingt-cinq de suite')
+  // Le fil peut commencer n'importe où, et la partie se perdre : elle ne demande pas de gagner.
+  assert.deepEqual(partie('duel', [false, false, false, ...justes(25)]), ['dv:ariane'])
+  assert.deepEqual(partie('rencontre', [true, false, ...justes(25), false]), ['dv:ariane'])
+})
+
+test('Nikê : un duel classé gagné avec trente bonnes réponses', () => {
+  const trente = [...justes(12), false, ...justes(18), false, false]
+  assert.deepEqual(partie('duel', trente, 'classe'), ['dv:nike'])
+  assert.deepEqual(partie('duel', trente.slice(1), 'classe'), [], 'vingt-neuf')
+  assert.deepEqual(partie('duel', trente), [], 'perdu, ou à égalité')
+  assert.deepEqual(partie('rencontre', trente, 'de'), [], 'au dé, on choisit son adversaire autant qu’on veut')
+})
+
+test('Osiris : un duel gagné après avoir raté ses deux premières questions', () => {
+  const revenu = [false, false, ...justes(8), false]
+  assert.deepEqual(partie('duel', revenu, 'classe'), ['dv:osiris'])
+  assert.deepEqual(partie('rencontre', revenu, 'de'), ['dv:osiris'], 'au dé aussi')
+  assert.deepEqual(partie('duel', revenu), [], 'revenu de loin, mais battu')
+  assert.deepEqual(partie('duel', [false, true, false, ...justes(8)], 'classe'), [], 'la deuxième était bonne')
+  assert.deepEqual(partie('duel', [false], 'classe'), [], 'une seule réponse n’en fait pas deux')
+  // Tout à la fois : deux fautes, puis trente d'affilée, et la victoire.
+  assert.deepEqual(partie('duel', [false, false, ...justes(30)], 'classe'), ['dv:ariane', 'dv:nike', 'dv:osiris'])
+})
+
+test('Mnémosyne : ses cinq dernières révisions pleines sans une faute', () => {
+  assert.equal(REVISIONS_QUE_LA_FIN_RELIT, 5)
+  assert.deepEqual(divinsDesRevisions([10, 10, 10, 10, 10]), ['dv:mnemosyne'])
+  assert.deepEqual(divinsDesRevisions([10, 10, 10, 10]), [], 'quatre')
+  assert.deepEqual(divinsDesRevisions([10, 10, 9, 10, 10]), [], 'une faute au milieu')
+  // La plus récente d'abord : une faute d'il y a six révisions est oubliée, celle de tout à l'heure non.
+  assert.deepEqual(divinsDesRevisions([10, 10, 10, 10, 10, 3]), ['dv:mnemosyne'])
+  assert.deepEqual(divinsDesRevisions([9, 10, 10, 10, 10, 10]), [])
+  // Ce qui compte : une révision pleine, et due tout entière. Cinq passes le même matin sur les mêmes dix questions,
+  // revues en avance, la faisaient descendre (relevé au banc le 21 novembre 2026).
+  assert.ok(revisionQuiCompte({ questions: 10, enAvance: 0 }))
+  assert.ok(!revisionQuiCompte({ questions: 9, enAvance: 0 }), 'trop courte')
+  assert.ok(!revisionQuiCompte({ questions: 10, enAvance: 1 }), 'une seule question revue en avance')
+})
+
+test('Héraclès, Artémis, Sisyphe, Hécate : leurs seuils', () => {
+  assert.deepEqual(divinsDeLaJournee(1000), ['dv:heracles'])
+  assert.deepEqual(divinsDeLaJournee(999), [])
+  // Le même compagnon : deux qui s'en partagent le double n'y font rien.
+  assert.deepEqual(divinsDesCompagnons([120, 30_000]), ['dv:artemis'])
+  assert.deepEqual(divinsDesCompagnons([29_999, 29_999]), [])
+  assert.deepEqual(divinsDesCompagnons([]), [])
+  assert.deepEqual(divinsDuPalier(11), ['dv:sisyphe'])
+  assert.deepEqual(divinsDuPalier(10), [])
+  assert.deepEqual(divinsDeLaTraversee({ celleCi: true, mainsVides: 2 }), ['dv:hecate'])
+  assert.deepEqual(divinsDeLaTraversee({ celleCi: true, mainsVides: 1 }), [], 'une seule')
+  assert.deepEqual(divinsDeLaTraversee({ celleCi: false, mainsVides: 5 }), [], 'celle qui finit ne l’est pas')
+})
+
+test('le Panthéon : les quatre le même jour, pas une de moins', () => {
+  const tout = { sansFaute: true, troisEtoiles: true, duel: true, traversee: true }
+  assert.deepEqual(divinsDeLaJourneeEntiere(tout), ['dv:pantheon'])
+  for (const part of Object.keys(tout) as (keyof typeof tout)[]) {
+    assert.deepEqual(divinsDeLaJourneeEntiere({ ...tout, [part]: false }), [], `sans ${part}`)
+  }
 })
 
 test('un profil garde les Divins que son étagère a rangés — et plus aucun ne se déduit de ses légendaires', () => {
@@ -130,10 +243,19 @@ function sources(dossier: string): string[] {
   })
 }
 
+const MODULE_DES_REGLES = readFileSync(path.join(racine, 'server/src/core/divins.ts'), 'utf8')
+
 /** Les constantes des règles, lues dans le module même : aucune ne s'écrit ailleurs, pas même en commentaire. */
-const CONSTANTES_DES_REGLES = [...readFileSync(path.join(racine, 'server/src/core/divins.ts'), 'utf8').matchAll(/^(?:export )?const ([A-Z][A-Z0-9_]{5,}) =/gm)]
+const CONSTANTES_DES_REGLES = [...MODULE_DES_REGLES.matchAll(/^(?:export )?const ([A-Z][A-Z0-9_]{5,}) =/gm)]
   .map(m => m[1])
   .filter(nom => nom !== 'RECITS')
+
+/**
+ * Chaque Divin qui a son récit, au catalogue ou non : un récit écrit avant
+ * que son bijou soit peint en dit déjà autant que sa règle, et ne doit pas
+ * fuir davantage.
+ */
+const CLES_DES_RECITS = [...MODULE_DES_REGLES.matchAll(/^ {2}'(dv:[a-z]+)': \{ legende:/gm)].map(m => m[1])
 
 test('ni les règles ni les légendes des Divins ne partent dans le navigateur', () => {
   assert.ok(CONSTANTES_DES_REGLES.length >= 6, `seulement ${CONSTANTES_DES_REGLES.length} constantes lues dans core/divins.ts`)
@@ -153,8 +275,13 @@ test('ni les règles ni les légendes des Divins ne partent dans le navigateur',
   // `shared/divins.ts` qui en citait une, pour dire de ne pas le faire, la
   // laissait dans un fichier que le client importe (relevé le 14 octobre
   // 2026) : on cherche donc ses premiers mots, pas la légende entière.
-  const legendes = raconter(DIVINS.map(d => d.key)).map(d => d.legende)
-  assert.equal(legendes.length, DIVINS.length, 'chaque Divin a son récit')
+  assert.ok(CLES_DES_RECITS.length >= 18, `seulement ${CLES_DES_RECITS.length} récits lus dans core/divins.ts`)
+  assert.deepEqual(DIVINS.map(d => d.key).filter(cle => !CLES_DES_RECITS.includes(cle)), [], 'chaque Divin du catalogue a son récit')
+  const recits = raconter(CLES_DES_RECITS)
+  assert.equal(recits.length, CLES_DES_RECITS.length)
+  // Un seul se gagne en tombant.
+  assert.deepEqual(recits.filter(r => r.ton === 'ombre').map(r => r.key), ['dv:dechu'])
+  const legendes = recits.map(d => d.legende)
   for (const legende of legendes) {
     const debut = legende.slice(0, 24)
     assert.deepEqual(emporte.filter(({ texte }) => texte.includes(debut)).map(({ f }) => f), [], legende)
@@ -321,4 +448,89 @@ test('le Lotus Sacré descend au cinquième jour de progrès, l’Ange Déchu au
     assert.deepEqual(cles(chute), ['dv:dechu'])
     assert.equal(chute.divins[0].ton, 'ombre')
     assert.deepEqual(cles(await jouer(banc, horloge, dede, i => i < 4)), [])
+  }))
+
+// ── 4. Les deux du quiz du jour parmi les douze, et la porte du catalogue ──
+
+/**
+ * Le temps d'une épreuve, les Divins qui se rangent sont ceux que dit
+ * `auCatalogue` — tous, d'office : les douze du 21 novembre 2026 ont leur
+ * règle avant leur bijou, et le catalogue ne les nomme pas encore.
+ */
+async function catalogue<T>(epreuve: () => Promise<T>, auCatalogue: (cle: string) => boolean = () => true): Promise<T> {
+  const avant = ProfileStore.divinAuCatalogue
+  ProfileStore.divinAuCatalogue = auCatalogue
+  try {
+    return await epreuve()
+  } finally {
+    ProfileStore.divinAuCatalogue = avant
+  }
+}
+
+test('Athéna descend au sixième jour d’affilée à une faute au plus — et dort tant que le catalogue ne la nomme pas', () =>
+  avecBanc(midi(26), async (banc, horloge) => {
+    // La porte d'office : le catalogue, et rien d'autre.
+    assert.ok(ProfileStore.divinAuCatalogue('dv:helios') && !ProfileStore.divinAuCatalogue('dv:inconnu'))
+    const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
+    const cleo = await inscrireProfil(banc.url, 'cleo', 'Cléo', '🐙')
+    // Cinq jours à une faute au plus pour Alice et Cléo ; Bob en a fait deux, il y a trois jours.
+    for (const qui of ['alice', 'cleo']) [9, 10, 9, 9, 10].forEach((justes, i) => joue(banc, qui, septembre(21 + i), justes, midi(21 + i)))
+    ;[9, 10, 8, 9, 10].forEach((justes, i) => joue(banc, 'bob', septembre(21 + i), justes, midi(21 + i)))
+
+    // Cléo tient la règle, mais son bijou n'est pas au catalogue : rien ne descend, rien ne se range.
+    await catalogue(async () => assert.deepEqual(cles(await jouer(banc, horloge, cleo, i => i !== 3)), []), cle => cle !== 'dv:athena')
+    assert.deepEqual(divinsRanges(banc, 'cleo'), [])
+
+    await catalogue(async () => {
+      const fin = await jouer(banc, horloge, alice, i => i !== 3)
+      assert.deepEqual(cles(fin), ['dv:athena'])
+      assert.ok(fin.divins[0].legende.length > 0 && fin.divins[0].ton === 'eclat', 'son récit, à elle seule')
+      assert.deepEqual(cles(await jouer(banc, horloge, bob, i => i !== 3)), [])
+      // Le lendemain, sa suite tient toujours : elle ne redescend pas. Et Cléo, à qui la règle n'a rien repris en
+      // dormant, la reçoit à sa partie suivante.
+      horloge.t = midi(27)
+      assert.deepEqual(cles(await jouer(banc, horloge, alice, i => i !== 3)), [])
+      assert.deepEqual(cles(await jouer(banc, horloge, cleo, i => i !== 3)), ['dv:athena'])
+    })
+    assert.deepEqual(divinsRanges(banc, 'alice'), [`dv:athena sous ${cleDuJour('2026-09-26')}`])
+    assert.deepEqual(divinsRanges(banc, 'cleo'), [`dv:athena sous ${cleDuJour('2026-09-27')}`])
+    assert.deepEqual(divinsRanges(banc, 'bob'), [])
+  }))
+
+/** Des questions de `login` acceptées pour le quiz du jour, relues à `quand` — ou retirées depuis (`statut`). */
+function accepter(banc: Banc, login: string, combien: number, quand: number, statut = 'acceptee') {
+  const id = idDe(banc, login)
+  base(banc, db => {
+    const ecrire = db.prepare(`INSERT INTO jour_propositions (id, profile_id, question, proposee_le, statut, relue_le) VALUES (?, ?, ?, ?, ?, ?)`)
+    for (let i = 0; i < combien; i++) {
+      ecrire.run(`${login}-${statut}-${quand}-${i}`, id, JSON.stringify({ text: `Question ${i} de ${login} ?`, answers: ['a', 'b'], correct: 0 }), quand - 1000, statut, quand)
+    }
+  })
+}
+
+test('Thot descend au début de la partie qui suit sa dixième question acceptée', () =>
+  avecBanc(midi(26), async (banc, horloge) => {
+    const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
+    const cleo = await inscrireProfil(banc.url, 'cleo', 'Cléo', '🐙')
+    accepter(banc, 'alice', 10, midi(25))
+    accepter(banc, 'bob', 9, midi(25))
+    // Dix pour Cléo aussi, mais l'une a été retirée depuis : elle n'est plus acceptée.
+    accepter(banc, 'cleo', 9, midi(25))
+    accepter(banc, 'cleo', 1, midi(25), 'retiree')
+    await catalogue(async () => {
+      const fin = await jouer(banc, horloge, alice, i => i < 5)
+      assert.deepEqual(cles(fin), ['dv:thot'])
+      assert.ok(fin.divins[0].legende.length > 0)
+      assert.deepEqual(cles(await jouer(banc, horloge, bob, i => i < 5)), [])
+      assert.deepEqual(cles(await jouer(banc, horloge, cleo, i => i < 5)), [])
+      // La dixième de Bob est acceptée après sa partie du jour : c'est celle de demain qui le lui dit.
+      accepter(banc, 'bob', 1, horloge.t)
+      horloge.t = midi(27)
+      assert.deepEqual(cles(await jouer(banc, horloge, bob, i => i < 5)), ['dv:thot'])
+      assert.deepEqual(cles(await jouer(banc, horloge, alice, i => i < 5)), [], 'il ne redescend pas')
+    })
+    assert.deepEqual(divinsRanges(banc, 'alice'), [`dv:thot sous ${cleDuJour('2026-09-26')}`])
+    assert.deepEqual(divinsRanges(banc, 'bob'), [`dv:thot sous ${cleDuJour('2026-09-27')}`])
   }))

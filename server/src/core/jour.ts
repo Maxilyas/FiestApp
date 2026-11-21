@@ -2380,8 +2380,31 @@ export class JourStore {
       // Son compagnon grandit à la fin de la partie, jamais pendant une
       // question ; une base qui hoquette le laisse grandir à la lecture suivante.
       await this.deps.profiles.faireGrandir(partie.profileId).catch(e => console.error('[jour] compagnon :', e))
+      // Et ce que cette fin fait descendre de plus que ce que le quiz du jour juge chez lui : ici, pas dans
+      // `decernerALaFin`, que la relecture des jours rejoue — ce sont des faits d'aujourd'hui, pas du jour relu.
+      // Après sa croissance, dont il juge les comptes sans les relire (`ProfileStore.divinsAuDela`).
+      const comptees = tirage.questions.length - tirage.annulees.length
+      await this.decernerAuDela(partie.profileId, partie.jour, maintenant, comptees > 0 && justes >= comptees)
     }
     return lu
+  }
+
+  /**
+   * Ce que la fin d'une partie fait descendre et qui se lit de plusieurs
+   * modes à la fois (`ProfileStore.divinsAuDela`, les règles dans
+   * `core/divins.ts`) : ses bonnes réponses avec chacun de ses compagnons, et
+   * sa journée entière — dont son sans-faute d'aujourd'hui, qu'il vient de
+   * faire ou non. Rangé sous le jour, comme le reste : la fin de la partie le
+   * relit et l'annonce. Une lecture qui tombe ne fait pas tomber la partie,
+   * déjà rangée : la partie d'après, dans n'importe quel mode, rejugera.
+   */
+  private async decernerAuDela(profileId: string, jour: string, quand: number, sansFaute: boolean): Promise<void> {
+    try {
+      const cles = await this.deps.profiles.divinsAuDela(profileId, jour, { sansFaute })
+      if (cles.length > 0) await this.deps.profiles.ranger(profileId, cleDuJour(jour), cles, quand)
+    } catch (e) {
+      console.error('[jour] ce que la journée fait descendre ne se range pas :', e)
+    }
   }
 
   /**
@@ -3925,21 +3948,29 @@ export class JourStore {
     if (minutesDeParis(quand) >= DEPUIS_LE_DERNIER_METRO) cles.push('hf:dernier-metro')
     const mois = moisDe(jour)
     // D'un seul aller-retour, avant sa première question : ses jours du mois,
-    // et l'heure de chacune de ses parties jusqu'à celle-ci — pas celles
-    // d'après : relu, un jour ne lit que ce qui le précède, et ce qu'il fait
-    // descendre se range sous lui.
-    const [duMois, departs] = await this.client.batch(
+    // l'heure de chacune de ses parties jusqu'à celle-ci, et celles de ses
+    // questions qu'on avait acceptées à cette heure-là — rien d'après : relu,
+    // un jour ne lit que ce qui le précède, et ce qu'il fait descendre se
+    // range sous lui.
+    const [duMois, departs, acceptees] = await this.client.batch(
       [
         {
           sql: `SELECT COUNT(*) AS n FROM jour_parties WHERE profile_id = ? AND jour >= ? AND jour <= ?`,
           args: [profileId, `${mois}-01`, `${mois}-31`],
         },
         { sql: 'SELECT commencee_le FROM jour_parties WHERE profile_id = ? AND jour <= ?', args: [profileId, jour] },
+        // Retirée depuis, une question n'est plus acceptée : seul ce statut compte.
+        { sql: `SELECT COUNT(*) AS n FROM jour_propositions WHERE profile_id = ? AND statut = 'acceptee' AND relue_le <= ?`, args: [profileId, quand] },
       ],
       'read',
     )
     // Ce que le début d'une partie fait descendre (`core/divins.ts`, où vit la règle).
-    cles.push(...divinsDuDebut(departs.rows.map(r => heureDeParis(Number(r.commencee_le)))))
+    cles.push(
+      ...divinsDuDebut(
+        departs.rows.map(r => heureDeParis(Number(r.commencee_le))),
+        Number(acceptees.rows[0]?.n ?? 0),
+      ),
+    )
     if (cles.length > 0) await this.deps.profiles.ranger(profileId, cleDuJour(jour), cles, quand)
     if (Number(duMois.rows[0]?.n ?? 0) >= JOURS_POUR_UNE_PAGE) {
       await this.deps.profiles.ranger(profileId, cleDuMois(mois), [cleDeLaPage(mois.slice(5, 7))], quand)

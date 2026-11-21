@@ -175,8 +175,9 @@ import {
   type StyleDOrnement,
 } from '../../../shared/ornements'
 import { formatNumber } from '../../../shared/typographie'
-import { PRIX_D_UNE_VIE, VIES_PAR_ACHAT_MAX, brancheDuMaitre, maitresDe } from '../../../shared/sentiers'
+import { PRIX_D_UNE_VIE, QUESTIONS_PAR_EPREUVE, VIES_PAR_ACHAT_MAX, brancheDuMaitre, maitresDe } from '../../../shared/sentiers'
 import { PRIX_D_UN_SABLIER, SABLIERS_MAX, jourAvant, jourDe, moisDuChampion, niveauDuLaurier, titreDuChampion, titresDeChampion, type LaurierPorte, type NiveauDeLaurier } from '../../../shared/jour'
+import { minuitDuJour } from '../../../shared/qgJoueurs'
 import type { Achat, Mouvement, SorteDeVente } from '../../../shared/qgEconomie'
 import type { SoireeDUnProfil } from '../../../shared/qgActivite'
 import { PAGES, PREFIXE_DES_PAGES, moisDeLaPage, pagesDorees, pagesOuvertes } from '../../../shared/calendrier'
@@ -184,7 +185,7 @@ import { additionnerCategories, additionnerSavoirs, justesParCategorie, type Par
 import { moyennesDuSavoir } from '../../../shared/carte'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import { sansAccent } from '../../../shared/homonymes'
-import { divinsDebloques, estUnDivin, raconter } from '../core/divins'
+import { divinsDeLaJourneeEntiere, divinsDebloques, divinsDesCompagnons, estUnDivin, raconter, type JourneeDuDivin } from '../core/divins'
 import { CATALOGUE_DES_PRIX, titreDuPrix } from '../core/stats'
 import type { AutresDeLaCollection, ProfilDuCollectionneur } from '../core/collectionneurs'
 import type { ResumeDuCollectionneur } from '../../../shared/collectionneurs'
@@ -1193,6 +1194,14 @@ export class ProfileStore {
    * grandir.
    */
   private justesDesSoireesGardees = new Map<string, Promise<Readonly<Record<string, number>>>>()
+  /**
+   * Ses bonnes réponses avec chacun de ses compagnons, telles que sa
+   * croissance vient de les lire (`croissance`) — ce que la fin d'une partie
+   * du quiz du jour juge ensuite sans les relire (`divinsAuDela`) : relues,
+   * elles coûtaient un aller-retour de plus au journal de la campagne à
+   * chaque partie finie, pour qui a un compagnon.
+   */
+  private justesAvecEuxLues = new Map<string, readonly number[]>()
   /**
    * Ce que ses coffres de la semaine lui ont donné (`fond:dragon`,
    * `gerbe:papillons`, `theme:jungle`…), par profil. Chargé avec le profil :
@@ -2902,6 +2911,31 @@ export class ProfileStore {
   ): Promise<CompagnonAcquis[]> {
     const possedes = this.compagnonsOf(p.id)
     if (possedes.length === 0) return []
+    const justesDe = await this.justesAvecEux(p, lireSesSoirees, deCampagne)
+    const acquis = possedes.map(({ montree, paliers: avant, ...a }) => {
+      const justes = justesDe(a.compagnon)
+      const rang = Math.max(a.rang, rangAtteint(justes))
+      const paliers = Math.max(avant ?? 0, paliersDeLaNicheAtteints(justes))
+      // Une forme atteinte reprend la place de celle qu'il montrait (`grandir`) ;
+      // un palier de sa niche, non : c'est elle qui s'embellit, lui ne change pas.
+      return { ...a, rang, justes, ...(montree !== undefined && rang === a.rang && { montree }), ...(paliers > 0 && { paliers }) }
+    })
+    this.justesAvecEuxLues.set(p.id, acquis.map(a => a.justes))
+    const grandis = acquis.filter((a, i) => a.rang > possedes[i].rang || (a.paliers ?? 0) > (possedes[i].paliers ?? 0))
+    if (grandis.length > 0) await this.grandir(p, grandis, possedes)
+    return acquis
+  }
+
+  /**
+   * Ses bonnes réponses avec chacun de ses compagnons, ses trois sources
+   * ensemble — ses soirées, le quiz du jour, la campagne : le compte qui les
+   * fait grandir (`croissance`). Une source illisible se tait et vaut zéro.
+   */
+  private async justesAvecEux(
+    p: ProfileRec,
+    lireSesSoirees: () => Promise<Readonly<Record<string, number>>>,
+    deCampagne?: () => Promise<Record<string, number>>,
+  ): Promise<(c: CleDeCompagnon) => number> {
     const muette = (mode: string) => (e: unknown): Record<string, number> => {
       console.error(`[profil] ${mode} illisible pour ses compagnons :`, e)
       return {}
@@ -2913,18 +2947,85 @@ export class ProfileStore {
       this.compagnonsDuJour?.(p.id).catch(muette('quiz du jour')) ?? rien,
       lireLaCampagne?.().catch(muette('campagne')) ?? rien,
     ])
-    const justesDe = (c: CleDeCompagnon) => (deSesSoirees[c] ?? 0) + (duJour[c] ?? 0) + (deLaCampagne[c] ?? 0)
-    const acquis = possedes.map(({ montree, paliers: avant, ...a }) => {
-      const justes = justesDe(a.compagnon)
-      const rang = Math.max(a.rang, rangAtteint(justes))
-      const paliers = Math.max(avant ?? 0, paliersDeLaNicheAtteints(justes))
-      // Une forme atteinte reprend la place de celle qu'il montrait (`grandir`) ;
-      // un palier de sa niche, non : c'est elle qui s'embellit, lui ne change pas.
-      return { ...a, rang, justes, ...(montree !== undefined && rang === a.rang && { montree }), ...(paliers > 0 && { paliers }) }
-    })
-    const grandis = acquis.filter((a, i) => a.rang > possedes[i].rang || (a.paliers ?? 0) > (possedes[i].paliers ?? 0))
-    if (grandis.length > 0) await this.grandir(p, grandis, possedes)
-    return acquis
+    return c => (deSesSoirees[c] ?? 0) + (duJour[c] ?? 0) + (deLaCampagne[c] ?? 0)
+  }
+
+  /**
+   * A-t-il gagné un duel ce jour-là, classé ou au dé ? Le journal des duels de
+   * la campagne le sait de mémoire (`CampagneStore.duelGagneLe`), branché au
+   * démarrage comme `compagnonsDeCampagne`.
+   */
+  duelGagneLe?: (profileId: string, jour: string) => Promise<boolean>
+
+  /**
+   * Ce que la fin d'une partie jouée seul fait descendre de plus que ce que
+   * son mode juge chez lui — ce qui se lit de plusieurs modes à la fois, et
+   * que ce magasin est seul à voir d'un bout à l'autre : ses bonnes réponses
+   * avec chacun de ses compagnons (le compte de `croissance`, de mémoire à la
+   * fin d'une partie), et sa journée, mode par mode. Les règles vivent dans
+   * `core/divins.ts` (`divinsDesCompagnons`, `divinsDeLaJourneeEntiere`) : ici,
+   * des faits. `acquis` dit ce que la partie qui finit vient de faire — sans
+   * lui, sa journée ne se lit pas : une partie qui n'y ajoute rien ne peut pas
+   * la compléter, et la lire coûterait un aller-retour à chaque fin.
+   *
+   * Ses compagnons : la campagne passe ses comptes tels que sa partie vient
+   * de les laisser (`deCampagne`, sans aller-retour) ; le quiz du jour, qui
+   * n'a pas cette porte, fait grandir d'abord (`faireGrandir`) et juge ici
+   * ce que cette croissance vient de lire (`justesAvecEuxLues`).
+   */
+  async divinsAuDela(profileId: string, jour: string, acquis: Partial<JourneeDuDivin> = {}, deCampagne?: () => Promise<Record<string, number>>): Promise<string[]> {
+    const p = this.profiles.get(profileId)
+    if (!p) return []
+    const cles: string[] = []
+    const possedes = this.compagnonsOf(profileId)
+    if (possedes.length > 0) {
+      let justes = deCampagne ? undefined : this.justesAvecEuxLues.get(profileId)
+      if (!justes) {
+        const justesDe = await this.justesAvecEux(p, () => this.justesDeSesSoirees(profileId), deCampagne)
+        justes = possedes.map(a => justesDe(a.compagnon))
+      }
+      cles.push(...divinsDesCompagnons(justes))
+    }
+    if (Object.values(acquis).some(Boolean)) cles.push(...divinsDeLaJourneeEntiere(await this.saJournee(profileId, jour, acquis)))
+    return cles
+  }
+
+  /**
+   * Ce qu'il a fait ce jour de Paris, mode par mode : un sans-faute au quiz
+   * du jour, un palier de sentier validé sans une faute — ses trois étoiles,
+   * rejeu compris —, un duel gagné, une traversée du Cabinet gagnée. Trois
+   * lectures d'une ligne au plus, d'un seul aller-retour, et le journal des
+   * duels, en mémoire ; ce que la partie qui finit vient de faire (`acquis`)
+   * ne se relit pas. Les tables des trois modes vivent dans la même base, et
+   * celles du Cabinet y naissent avec la campagne, ouvert ou non.
+   */
+  private async saJournee(profileId: string, jour: string, acquis: Partial<JourneeDuDivin>): Promise<JourneeDuDivin> {
+    const debut = minuitDuJour(jour)
+    const fin = minuitDuJour(jourAvant(jour, -1))
+    const [sansFaute, etoiles, traversee] = await this.client.batch(
+      [
+        {
+          sql: `SELECT 1 FROM jour_parties p JOIN jour_tirages t ON t.jour = p.jour
+                WHERE p.profile_id = ? AND p.jour = ? AND p.finie_le IS NOT NULL
+                  AND json_array_length(t.questions) > json_array_length(t.annulees)
+                  AND p.justes >= json_array_length(t.questions) - json_array_length(t.annulees)`,
+          args: [profileId, jour],
+        },
+        {
+          sql: `SELECT 1 FROM campagne_series WHERE profile_id = ? AND mode = 'sentier' AND issue = 'validee' AND justes >= ?
+                  AND finie_le >= ? AND finie_le < ? LIMIT 1`,
+          args: [profileId, QUESTIONS_PAR_EPREUVE, debut, fin],
+        },
+        { sql: `SELECT 1 FROM cabinet_traversees WHERE profile_id = ? AND issue = 'gagnee' AND finie_le >= ? AND finie_le < ? LIMIT 1`, args: [profileId, debut, fin] },
+      ],
+      'read',
+    )
+    return {
+      sansFaute: acquis.sansFaute || sansFaute.rows.length > 0,
+      troisEtoiles: acquis.troisEtoiles || etoiles.rows.length > 0,
+      duel: acquis.duel || ((await this.duelGagneLe?.(profileId, jour)) ?? false),
+      traversee: acquis.traversee || traversee.rows.length > 0,
+    }
   }
 
   /**
@@ -5515,6 +5616,17 @@ export class ProfileStore {
   }
 
   /**
+   * Un Divin est-il de ceux qui se rangent ? Ceux que le catalogue nomme
+   * (`shared/divins.ts`) — sans nom ni bijou, il ne se montrerait nulle part.
+   * Une règle écrite avant que son bijou soit peint dort ainsi jusqu'à lui :
+   * les épreuves de ces règles-là ouvrent la porte ici, comme elles font
+   * taire le tirage de l'Éclat (`divins-*.test.ts`).
+   */
+  static divinAuCatalogue(cle: string): boolean {
+    return !!divin(cle)
+  }
+
+  /**
    * L'Éclat hors d'une soirée — à la fin d'une partie du quiz du jour, d'une
    * tentative du défi de la semaine —, tiré par qui l'appelle une seule fois
    * par partie : une partie ne finit qu'une fois. Il tombe, comme en soirée,
@@ -5839,7 +5951,10 @@ export class ProfileStore {
    * réécrivait la même ligne pour rien (`cabinet-gardiens.test.ts`).
    */
   async ranger(profileId: string, sous: string, cles: readonly string[], quand = Date.now()): Promise<string[]> {
-    const uniques = [...new Set(cles)]
+    // Un Divin que le catalogue ne nomme pas ne se range pas (`divinAuCatalogue`) : sans nom ni bijou, il ne se
+    // montrerait nulle part, et sa ligne serait une tombe. Une règle écrite avant que son bijou soit peint dort
+    // ainsi jusqu'à lui — les douze du 21 novembre 2026 ont attendu les leurs.
+    const uniques = [...new Set(cles)].filter(cle => !estUnDivin(cle) || ProfileStore.divinAuCatalogue(cle))
     if (uniques.length === 0) return []
     const now = quand
     const enMemoire = this.recompenses.get(profileId)
@@ -6787,6 +6902,7 @@ export class ProfileStore {
     for (const carte of [
       this.profiles,
       this.justesDesSoireesGardees,
+      this.justesAvecEuxLues,
       this.eclats,
       this.eteints,
       this.reserves,

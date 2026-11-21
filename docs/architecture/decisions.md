@@ -670,6 +670,15 @@ Le détail : [les récompenses](../produit/les-recompenses.md).
 
 *Fichiers : `server/src/core/divins.ts`, `server/src/core/jour.ts`, `server/src/core/campagne.ts`, `server/src/auth/profiles.ts`, `client/src/components/DivinDescendu.tsx`*
 
+### Douze Divins de plus, leur règle avant leur bijou
+**Contexte** : six Divins ne couvraient qu'une part des modes où l'on joue seul. Le propriétaire en a retenu douze de plus, triés avec lui sur une centaine d'idées (le 21 novembre 2026), sous les deux mêmes bornes : personne ne tient la règle le jour où elle arrive — chacune rejouée sur la production, en lecture seule, avec la vraie fonction du serveur —, et rien qui dépende des autres.
+
+**Décision** : chaque règle est une fonction pure de `core/divins.ts`, à qui son mode apporte des faits — la fin d'une série, d'une révision, d'un duel, d'une épreuve, d'une traversée du Cabinet, d'une partie du jour. Ce qui se juge d'un mode à l'autre passe par le magasin des profils, seul à tout voir (`ProfileStore.divinsAuDela`) : la partie qui finit lui dit ce qu'elle vient de faire, et il ne relit le reste que si elle y ajoute quelque chose. Le Cabinet n'importe toujours ni la campagne ni les règles : il passe des faits par sa porte (`PorteDeLaCampagne.traverseeGagnee`), la campagne juge. Celui qui a lancé un duel classé n'en apprend l'issue qu'en ouvrant sa page : c'est cette première lecture qui juge ce qu'elle fait descendre, et la carte du verdict l'annonce. **Un Divin que le catalogue ne nomme pas ne se range pas** (`ProfileStore.divinAuCatalogue`) : sans nom ni bijou, il ne se montrerait nulle part. Les douze règles sont donc livrées endormies, et s'éveillent d'elles-mêmes le jour où leur bijou est peint et leur nom ajouté à `shared/divins.ts`.
+
+**Conséquence** : une règle tenue pendant qu'elle dort ne perd rien — tenue encore à la partie suivante, elle descend alors ; un exploit d'une seule partie passé entre-temps, lui, n'est pas rattrapé. Les épreuves de ces règles ouvrent la porte elles-mêmes (`divins-campagne.test.ts`, `divins-duels.test.ts`, `divins-au-dela.test.ts`, la section 4 de `divins.test.ts`). La page d'un duel écrivait déjà à sa première lecture (`vu_le`) : elle range aussi, et ne se précharge toujours pas.
+
+*Fichiers : `server/src/core/divins.ts`, `server/src/auth/profiles.ts`, `server/src/core/campagne.ts`, `server/src/core/jour.ts`, `server/src/core/cabinet/magasin.ts`, `server/src/core/porteDeLaCampagne.ts`*
+
 ### Les trophées se rangent par mode, et se disent avec les mêmes mots
 **Contexte** : « très confus, les trophées que les gens gagnent » — dix lignes les rangeaient selon la logique du code (« Paliers des soirées », « Paliers de toujours »…), un même exploit tombait sous deux noms (Le Laurier et le palier du Champion du jour, aux mêmes seuils), et chaque fin de partie montrait ses gains à sa façon.
 

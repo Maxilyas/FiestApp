@@ -105,7 +105,10 @@ import {
   lecturesDesParties,
   lecturesDesTraversees,
   lecturesDesTraverseesVivantes,
+  gagneesLesMainsVides,
+  lecturesDesAutresGagnees,
   lesLignesAuQg,
+  lesMainsVides,
   lesPartiesLues,
   lesPiecesLues,
   lesTraverseesLues,
@@ -128,6 +131,7 @@ import { themeDuPlan, tirerLePlan } from './tirages/index'
 import { categoriesDuFiletALAnnee } from './tirages/filetEnDeuxTemps'
 import { leDetailSePromet } from './tirages/detail'
 import type { Categorie } from '../../../../shared/categories'
+import type { DivinDescendu } from '../../../../shared/divins'
 import { CHANGEMENTS_PAR_PARTIE, DEPARTS_PAR_HEURE, MANCHES_PAR_PARTIE } from '../../../../shared/cabinet/bareme'
 import { lireLeBilan, lireUnGeste } from '../../../../shared/cabinet/lecture'
 import {
@@ -349,6 +353,12 @@ export interface TraverseeGardee {
    * la fin se tait, et l'album les montre.
    */
   paliers?: readonly string[]
+  /**
+   * Ce que sa victoire a fait descendre, tel que la porte le raconte à son seul joueur (`traverseeGagnee`) : l'écran de
+   * fin le dit. En mémoire seulement, comme ses paliers — relue après un réveil, la fin se tait, et sa collection le
+   * montre ; rien d'un Divin ne s'écrit au Cabinet.
+   */
+  divins?: readonly DivinDescendu[]
 }
 
 /** Ce que la page de la traversée lit (`vueDeLaTraversee`) : la dernière, la partie de son épreuve, ses légendaires. */
@@ -1707,12 +1717,41 @@ export class CabinetStore {
           this.garder(this.traversees, profileId, suite, MUSEES_GARDES)
         }
       }
+      // Gagnée : ce qu'elle fait descendre se juge de l'autre côté de la porte — le Cabinet n'apporte que des faits.
+      if (fin?.issue === 'gagnee') {
+        const divins = await this.ceQuElleFaitDescendre(profileId, suite, t)
+        if (divins.length > 0) {
+          suite = { ...suite, divins }
+          this.garder(this.traversees, profileId, suite, MUSEES_GARDES)
+        }
+      }
       // Seule une épreuve conclue fait tomber un défi (`defisDeLaTraversee`) : ils se rangent aussitôt.
       if (geste.quoi === 'conclure') await this.rangerLesDefis(profileId, suite, t)
     } finally {
       finDesTrophees?.()
     }
     return { traversee: suite }
+  }
+
+  /**
+   * Ce qu'une traversée gagnée fait descendre (le 21 novembre 2026) : le Cabinet dit ses faits à la porte
+   * (`traverseeGagnee`) — menée les mains vides ou non (`lesMainsVides`), et, si elle l'est, combien de ses autres
+   * traversées gagnées l'ont été : un lot de plus pour celles-là, rien pour les autres —, la campagne juge, et rend ce
+   * qui est descendu, que l'écran de fin dit. Les règles des Divins ne passent pas la porte dans ce sens. Une lecture
+   * qui tombe se dit au journal sans faire tomber le geste, déjà écrit : une partie d'après rejugera sa journée.
+   */
+  private async ceQuElleFaitDescendre(profileId: string, tr: TraverseeGardee, t: number): Promise<DivinDescendu[]> {
+    try {
+      const celleCi = lesMainsVides(
+        tr.depart,
+        tr.gestes.map(g => g.geste),
+      )
+      const mainsVides = celleCi ? 1 + gagneesLesMainsVides(await this.porte.client.batch(lecturesDesAutresGagnees(profileId, tr.id), 'read')) : 0
+      return await this.porte.traverseeGagnee(profileId, tr.id, { celleCi, mainsVides }, t)
+    } catch (e) {
+      console.error(`[cabinet] ce que la traversée ${tr.id} fait descendre ne se range pas`, e)
+      return []
+    }
   }
 
   /**

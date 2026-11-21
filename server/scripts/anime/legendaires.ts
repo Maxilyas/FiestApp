@@ -615,7 +615,7 @@ export const LEGENDAIRES_PEINTS: LegendairePeint[] = [
   },
 ]
 
-/** Les six Divins : chacun sa silhouette de bijou. Rien de leurs règles, qui ne quittent jamais le serveur. */
+/** Les dix-huit Divins : chacun sa silhouette de bijou. Rien de leurs règles, qui ne quittent jamais le serveur. */
 export const DIVINS_PEINTS: { id: string; sujet: string; fond?: FondUni }[] = [
   {
     id: 'helios',
@@ -666,6 +666,108 @@ export const DIVINS_PEINTS: { id: string; sujet: string; fond?: FondUni }[] = [
       'crescent moon set side by side, a slim ring of deep blue enamel engraved with the twelve signs of the zodiac in fine gold orbiting ' +
       'diagonally around its waist like the ring of a planet, sapphires and rubies set into its base. The upright hourglass, the sun and ' +
       'the moon above it and the tilted ring make its silhouette.',
+  },
+  // Les douze du 21 novembre 2026. Chacun sa silhouette, lisible à vingt
+  // pixels à côté des six premiers : un casque, un oiseau de profil, deux
+  // mains, un losange, un livre, une massue en biais, une montagne, une
+  // couronne creuse, une tiare, une clé, un arc, un temple. Aucun vert sur
+  // eux : tous se peignent sur le fond vert.
+  {
+    id: 'athena',
+    sujet:
+      'the divine badge of Athena, goddess of wisdom — a great Corinthian war helmet of polished gold seen straight on, its two almond eye ' +
+      'openings filled with deep night-blue enamel, its nose guard long, crowned by a tall arched horsehair crest of deep blue and white enamel ' +
+      'running from front to back, a sapphire set on its brow, two olive branches of gold curling up its cheek guards, a fine engraved meander ' +
+      'along its rim. The helmet and its tall crest make its silhouette.',
+  },
+  {
+    id: 'thot',
+    sujet:
+      'the divine badge of Thoth, the scribe of the gods — a sacred ibis standing in profile, facing left, its body of white pearl enamel edged ' +
+      'with gold, its head, its neck and its long down-curved beak of black onyx and gold, crowned by a silver crescent moon cradling a full ' +
+      'moon disc of glowing moonstone, a golden reed pen held under its wing, standing on a small rolled papyrus scroll of gold banded with ' +
+      'lapis lazuli. The ibis, its long curved beak and its moon crown make its silhouette.',
+  },
+  {
+    id: 'demiurge',
+    sujet:
+      'the divine badge of the Demiurge, maker of worlds — two open hands of polished gold, cupped upward side by side, holding a newborn ' +
+      'world between them: a small globe of deep blue enamel with continents of gold, circled by a thin tilted golden ring set with tiny ' +
+      'diamonds, and above the globe a single large four-pointed star of diamond and gold being lit. Fine engraved lines on the palms, a ' +
+      'sapphire at each wrist. The two cupped hands, the globe and the star above it make its silhouette.',
+  },
+  {
+    id: 'ariane',
+    sujet:
+      'the divine badge of Ariadne — a labyrinth shaped as a diamond (a square set on its point), its walls of polished gold and its paths of ' +
+      'deep crimson enamel, a single thread of glowing rubies running through every turn from its heart, where a small golden star shines, ' +
+      'and spilling out of its lower point to hang straight below it, ending in a golden spindle wound with red silk thread. The ' +
+      'diamond-shaped labyrinth and the spindle hanging beneath it make its silhouette.',
+  },
+  {
+    // Un livre appelle des lettres : la consigne les interdit deux fois.
+    id: 'mnemosyne',
+    sujet:
+      'the divine badge of Mnemosyne, goddess of memory — a great open book of gold seen straight on, its two spread pages of mother-of-pearl ' +
+      'enamel engraved only with fine abstract wavy golden lines (no writing, no letters, no symbols on the pages), a ribbon bookmark of ' +
+      'sapphire-blue enamel falling from its spine below the book, and rising from between its pages a tall teardrop-shaped flame of blue ' +
+      'sapphire and diamond, crowned by an arc of nine small golden stars. The open book, the flame rising from it and the arc of stars make ' +
+      'its silhouette.',
+  },
+  {
+    id: 'heracles',
+    sujet:
+      'the divine badge of Heracles — a mighty gnarled club of solid gold set diagonally, from the lower left to the upper right, knotted and ' +
+      'studded with twelve gemstones (rubies, sapphires, topaz and amethysts), the pelt of a great lion in amber and golden enamel knotted ' +
+      'around its grip, the lion’s head with ruby eyes resting against the club and its two front paws hanging down. The slanted club and ' +
+      'the lion pelt draped on it make its silhouette.',
+  },
+  {
+    id: 'sisyphe',
+    sujet:
+      'the divine badge of Sisyphus — a steep, sharp mountain of polished gold and slate-blue enamel, a narrow path of silver zigzagging up ' +
+      'its flank, and balanced on its very summit a great round boulder of black obsidian veined with glowing golden cracks, a ruby set ' +
+      'where the path reaches it. The pointed mountain and the round boulder on its peak make its silhouette.',
+  },
+  {
+    id: 'nike',
+    sujet:
+      'the divine badge of Nike, the winged victory — a victor’s laurel wreath of golden leaves, round and open at the top, its center left ' +
+      'hollow and empty, tied at its base with a ribbon of crimson enamel whose two ends flutter down, and springing from its two sides a ' +
+      'pair of great wings of white pearl enamel and gold raised straight upward like a V, a single diamond star between their tips. The ' +
+      'hollow wreath and the two raised wings make its silhouette.',
+  },
+  {
+    id: 'osiris',
+    sujet:
+      'the divine badge of Osiris — the tall Atef crown of the pharaohs seen straight on: a high white crown of pearl enamel flanked by two ' +
+      'curling ostrich plumes of gold and lapis-blue enamel, a small golden sun disc at its tip and a rearing golden cobra on its brow, ' +
+      'resting on a broad collar of gold, lapis lazuli and carnelian, and crossed beneath it a shepherd’s crook and a three-tailed flail ' +
+      'striped in gold and blue enamel. The tall plumed crown and the crossed crook and flail beneath it make its silhouette.',
+  },
+  {
+    id: 'hecate',
+    sujet:
+      'the divine badge of Hecate, keeper of the crossroads — a great antique key of blackened silver and gold standing upright, its bow (the ' +
+      'head of the key) formed by a triple moon: a full moon of glowing moonstone between a waxing and a waning crescent of silver; its long ' +
+      'shaft twined by a slender silver serpent, its bit (the teeth of the key) cut in the shape of a three-way crossroads, and two small ' +
+      'torches with violet amethyst flames crossed behind the shaft. The upright key with its triple-moon head makes its silhouette.',
+  },
+  {
+    id: 'artemis',
+    sujet:
+      'the divine badge of Artemis, huntress of the moon — a great hunting bow of polished silver lying horizontal, its two tips curving ' +
+      'upward like a crescent moon on its back, strung with a thread of light and drawn, a single arrow of silver and gold nocked at its ' +
+      'center and pointing straight up, its head a diamond; a pair of small golden stag antlers branching from the grip of the bow, ' +
+      'moonstones and pale sapphires set along its limbs. The crescent bow and the upright arrow crossing it make its silhouette.',
+  },
+  {
+    id: 'pantheon',
+    sujet:
+      'the divine badge of the Pantheon, temple of all the gods — the front of a round antique temple seen straight on: a row of six fluted ' +
+      'columns of white pearl enamel with golden capitals standing on three golden steps, carrying a triangular golden pediment set with a ' +
+      'ruby, and above it a great dome of golden coffers and deep blue enamel, a round oculus open at its top from which a small radiant ' +
+      'golden star rises. The row of columns, the triangular pediment and the dome make its silhouette.',
   },
 ]
 
@@ -1024,7 +1126,7 @@ function livrer(app: string) {
   )
   writeFileSync(
     TABLES.divins,
-    entete('Les six Divins', '512 et 256 pixels pour\n// le côté du bijou.') + `\n/** Le bijou de chaque Divin, détouré, sur tout le carré. */\nexport const BADGES: Record<string, [string, string]> = {\n${badges.join('\n')}\n}\n`,
+    entete('Les dix-huit Divins', '512 et 256 pixels pour\n// le côté du bijou.') + `\n/** Le bijou de chaque Divin, détouré, sur tout le carré. */\nexport const BADGES: Record<string, [string, string]> = {\n${badges.join('\n')}\n}\n`,
   )
   // Les fichiers qu'aucune entrée ne cite plus : ceux d'avant un repeint, ceux
   // d'un médaillon sorti du catalogue. Ceux des entrées gardées sont cités.

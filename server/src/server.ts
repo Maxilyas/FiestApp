@@ -811,6 +811,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Et celles qu'il donne en portant un compagnon le font grandir.
   profiles.compagnonsDuJour = id => jour.compagnonsDe(id)
   profiles.compagnonsDeCampagne = id => campagne.compagnonsDe(id)
+  // Et le journal des duels dit s'il en a gagné un ce jour-là : ce que sa journée fait descendre se lit de tous ses modes.
+  profiles.duelGagneLe = (id, jour) => campagne.duelGagneLe(id, jour)
   // Ses paliers de campagne, pour les jauges de sa page ; son calendrier du quiz du jour.
   profiles.statsDeCampagne = id => campagne.statsDe(id)
   // L'Explorateur ne se cite que là où le Cabinet s'ouvre, comme il ne s'y gagne que là — sauf à ses détenteurs, qui

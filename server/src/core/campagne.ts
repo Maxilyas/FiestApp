@@ -142,7 +142,21 @@ import {
   type BordureDeLigue,
 } from '../../../shared/duels'
 import { divin, type DivinDescendu } from '../../../shared/divins'
-import { divinsDesSentiers, divinsDuDefi, estUnDivin, raconter } from './divins'
+import {
+  QUESTIONS_D_UNE_REVISION_PLEINE,
+  REVISIONS_QUE_LA_FIN_RELIT,
+  divinsDeLaJournee,
+  divinsDeLaPartie,
+  divinsDeLaTraversee,
+  divinsDesRevisions,
+  revisionQuiCompte,
+  divinsDesSentiers,
+  divinsDuDefi,
+  divinsDuPalier,
+  estUnDivin,
+  raconter,
+  type JourneeDuDivin,
+} from './divins'
 import {
   AJOUTS_MONTRES,
   AMIS_MONTRES,
@@ -729,6 +743,25 @@ const SERIES = "mode = 'serie'"
  * parties, celles du Cabinet comprises.
  */
 const LA_PLUS_RECENTE = 'ORDER BY +commencee_le DESC LIMIT 1'
+
+/**
+ * Ses dernières révisions finies qui comptent (`revisionQuiCompte`,
+ * `core/divins.ts`, dont ce filtre est le reflet en SQL : pleines, et sans
+ * une question revue en avance), la plus récente d'abord : leurs bonnes
+ * réponses, que la fin d'une telle révision relit. Triée par la date sans
+ * `+`, comme les dernières rencontres : l'index du profil, du mode et de la
+ * date la range déjà, et elle s'arrête aux premières qui comptent
+ * (`campagne-index.test.ts` lit son plan).
+ */
+export function lectureDesRevisionsPleines(profileId: string): { sql: string; args: (string | number)[] } {
+  return {
+    sql: `SELECT justes FROM campagne_series
+          WHERE profile_id = ? AND mode = 'revision' AND finie_le IS NOT NULL AND json_array_length(questions) >= ?
+            AND NOT EXISTS (SELECT 1 FROM json_each(questions) AS q WHERE json_extract(q.value, '$.enAvance') IS NOT NULL)
+          ORDER BY commencee_le DESC LIMIT ?`,
+    args: [profileId, QUESTIONS_D_UNE_REVISION_PLEINE, REVISIONS_QUE_LA_FIN_RELIT],
+  }
+}
 /**
  * Les questions jouées d'une partie, comme le QG les compte — l'activité
  * (`seriesDepuis`) et la mémoire de chaque jour (`seriesEntre`) : sa
@@ -1077,7 +1110,7 @@ export class CampagneStore {
    * Branchés au démarrage, comme les vies achetées.
    */
   profils?: Pick<ProfileStore, 'byIds' | 'avatarPorte' | 'legendairePorte' | 'apparenceDe'> &
-    Partial<Pick<ProfileStore, 'chercher' | 'enLigne' | 'compagnonsDeSoiree' | 'bordureDe' | 'plaqueDe' | 'cached' | 'compagnonDeLaNiche' | 'faireGrandir' | 'offrirUnCompagnon'>>
+    Partial<Pick<ProfileStore, 'chercher' | 'enLigne' | 'compagnonsDeSoiree' | 'bordureDe' | 'plaqueDe' | 'cached' | 'compagnonDeLaNiche' | 'faireGrandir' | 'offrirUnCompagnon' | 'divinsAuDela'>>
   masque?: (profileId: string) => boolean
   laurierChange?: (profileId: string) => void
   /**
@@ -2652,21 +2685,23 @@ export class CampagneStore {
    * dans une série de toutes les catégories), le Tour du monde (dix dans une
    * série de chacune des douze) — puis les paliers que sa campagne atteint.
    */
-  private async recompenserLaSerie(profileId: string, s: Serie): Promise<Recompenses> {
+  private async recompenserLaSerie(profileId: string, s: Serie, enDirect?: { gagne?: 'classe' | 'de' }): Promise<Recompenses> {
     if (!this.recompenses) return {}
     try {
       const res = await this.client.execute({ sql: 'SELECT position, juste FROM campagne_reponses WHERE serie_id = ? ORDER BY position', args: [s.id] })
-      const cles = hautsFaitsDeLaSerie(
-        s,
-        res.rows.map(r => Number(r.juste) === 1),
-      )
+      const reponses = res.rows.map(r => Number(r.juste) === 1)
+      const cles = hautsFaitsDeLaSerie(s, reponses)
       // Une fois : sa condition tenue le reste, et il tombait à chaque série
       // d'après — « Nouveau haut fait » à chaque fin, et maintenant qu'il
       // paie, de l'expérience à chaque série perdue en trois questions.
       if (!this.recompenses.recompensesOf(profileId).has('hf:tour-du-monde') && (await this.tourDuMondeFait(profileId))) cles.push('hf:tour-du-monde')
-      // Ce que sa tentative du défi de la semaine fait descendre (`core/divins.ts`, où vit la règle).
-      if (s.mode === 'defi') cles.push(...divinsDuDefi(s.justes))
-      return await this.recompenser(profileId, s.id, cles, s.finieLe ?? this.maintenant())
+      // Ce que cette partie fait descendre — une série, le défi de la semaine, un duel (`core/divins.ts`, où vivent les règles).
+      if (s.mode === 'serie' || s.mode === 'defi' || s.mode === 'duel' || s.mode === 'rencontre') {
+        cles.push(...divinsDeLaPartie({ mode: s.mode, justes: s.justes, reponses, ...(enDirect?.gagne && { gagne: enDirect.gagne }) }))
+      }
+      // `enDirect` : la fin que le joueur est en train de vivre — pas la relecture des séries, ni une série laissée qu'une
+      // autre referme : seule celle-là juge sa journée.
+      return await this.recompenser(profileId, s.id, cles, s.finieLe ?? this.maintenant(), enDirect ? { duel: !!enDirect.gagne } : false)
     } catch (e) {
       // La série est rangée : une étagère muette n'y change rien, la relecture rattrapera.
       console.error('[campagne] récompenses de la série non rangées :', e)
@@ -2680,11 +2715,43 @@ export class CampagneStore {
     return CATEGORIES.every(c => (records.get(c) ?? 0) >= RECORD_DU_TOUR_DU_MONDE)
   }
 
-  /** Range ces hauts faits sous la série, puis les paliers qu'elle fait atteindre, et dit ce que tout cela ouvre. */
-  private async recompenser(profileId: string, serieId: string, cles: readonly string[], quand: number): Promise<Recompenses> {
+  /**
+   * Ce que la fin d'une partie de la campagne fait descendre de plus que ce
+   * que son mode juge : sa journée de campagne, tous modes ensemble — ses
+   * bonnes réponses du jour, que le journal tient en mémoire —, et ce que le
+   * magasin des profils voit d'un mode à l'autre (`ProfileStore.divinsAuDela` :
+   * ses compagnons, sa journée entière ; `acquis`, ce que cette partie vient
+   * d'y faire). Les règles vivent dans `core/divins.ts`. Une lecture qui
+   * tombe ne fait pas tomber la fin : la partie d'après rejugera.
+   */
+  private async divinsAuDela(profileId: string, quand: number, acquis: Partial<JourneeDuDivin>): Promise<string[]> {
+    try {
+      const jour = jourDe(quand)
+      const journal = await this.rattraperLeJournal(this.derniereReponse)
+      // Sa plus grosse journée, aujourd'hui ou avant : jugée au seul jour de cette fin, une journée dont la dernière
+      // partie restait en route — ou se finissait passé minuit — n'était jamais relue.
+      let plusGrosse = 0
+      for (const n of justesParJourDesHeures(journal.justesParHeureDe(profileId)).values()) if (n > plusGrosse) plusGrosse = n
+      const cles = divinsDeLaJournee(plusGrosse)
+      cles.push(...((await this.profils?.divinsAuDela?.(profileId, jour, acquis, () => this.compagnonsApresSesReponses(profileId))) ?? []))
+      return cles
+    } catch (e) {
+      console.error('[campagne] ce que la journée fait descendre ne se lit pas :', e)
+      return []
+    }
+  }
+
+  /**
+   * Range ces hauts faits sous la série, puis les paliers qu'elle fait
+   * atteindre, et dit ce que tout cela ouvre. `auDela` : la fin d'une partie
+   * que le joueur vit — elle juge aussi ce qui dépasse son mode
+   * (`divinsAuDela`), avec ce qu'elle vient de faire de sa journée ; `false`
+   * pour une relecture ou une partie refermée en silence.
+   */
+  private async recompenser(profileId: string, serieId: string, cles: readonly string[], quand: number, auDela: Partial<JourneeDuDivin> | false = false): Promise<Recompenses> {
     if (!this.recompenses) return {}
     const sous = cleDeSerie(serieId)
-    const ranges = await this.recompenses.ranger(profileId, sous, cles, quand)
+    const ranges = await this.recompenses.ranger(profileId, sous, auDela ? [...cles, ...(await this.divinsAuDela(profileId, quand, auDela))] : cles, quand)
     // Un Divin s'annonce à part, à lui seul et avec son récit : jamais dans
     // la liste des trophées, où il se lirait comme un haut fait de plus.
     const divins = raconter(ranges.filter(estUnDivin))
@@ -2873,7 +2940,7 @@ export class CampagneStore {
       )
       this.enCours.delete(profileId)
       const recordAvant = Number(avant.rows[0]?.record ?? 0)
-      const gagnees = await this.recompenserLaSerie(profileId, { ...s, finieLe: maintenant })
+      const gagnees = await this.recompenserLaSerie(profileId, { ...s, finieLe: maintenant }, {})
       return {
         justes: s.justes,
         recordAvant,
@@ -3020,11 +3087,14 @@ export class CampagneStore {
       const avant = record ? Number(res[0].rows[0]?.record ?? 0) : 0
       const xp = experience ? await this.crediter(profileId, res.slice(-2), experience) : 0
       const revision = s.mode === 'revision'
+      // Un duel qu'il vient de gagner — contre Automate, ou classé et joué en second : ce que sa victoire fait
+      // descendre se juge à cette fin. Qui a lancé un duel classé apprend la sienne en ouvrant sa page (`duel`).
+      const victoire = !gagne ? undefined : s.mode === 'rencontre' ? ('de' as const) : classe ? ('classe' as const) : undefined
       const gagnees = !finie
         ? {}
         : revision
-          ? await this.recompenserLaRevision(profileId, s.id, maintenant)
-          : await this.recompenserLaSerie(profileId, { ...s, index: position, vies, justes, finieLe: maintenant })
+          ? await this.recompenserLaRevision(profileId, { ...s, justes }, maintenant)
+          : await this.recompenserLaSerie(profileId, { ...s, index: position, vies, justes, finieLe: maintenant }, { ...(victoire && { gagne: victoire }) })
       // L'Éclat du défi se tire ici, à sa tentative finie — jamais dans
       // `recompenserLaSerie`, que la relecture des séries rejoue.
       const eclat = finie && s.mode === 'defi' && s.semaine ? await this.tirerLEclat(profileId, s.semaine) : {}
@@ -3229,6 +3299,14 @@ export class CampagneStore {
         if (!this.recompenses || cles.length === 0) return []
         const neufs = await this.recompenses.ranger(profileId, cleDeSerie(sous), cles, quand)
         return neufs.length > 0 ? [...neufs, ...((await this.recompenses.accorderLaLegende?.(profileId, cleDeSerie(sous))) ?? [])] : []
+      },
+      // Ce qu'une traversée gagnée fait descendre : ses faits jugés ici (`divinsDeLaTraversee`), et sa journée — la
+      // traversée gagnée est l'une de ses quatre parts (`divinsAuDela`). Rien que des Divins : ses exploits et ses
+      // paliers ont leurs portes.
+      traverseeGagnee: async (profileId, sous, faits, quand) => {
+        if (!this.recompenses) return []
+        const cles = [...divinsDeLaTraversee(faits), ...(await this.divinsAuDela(profileId, quand, { traversee: true }))]
+        return raconter((await this.recompenses.ranger(profileId, cleDeSerie(sous), cles, quand)).filter(estUnDivin))
       },
       prechauffer: () => this.prechauffer(),
       secretDuCabinet: () => {
@@ -3955,14 +4033,31 @@ export class CampagneStore {
   }
 
   /**
+   * Les bonnes réponses de ses dernières révisions pleines finies, la plus
+   * récente d'abord — une révision recommencée en route en est une, avec ce
+   * qu'elle avait trouvé. Par l'index du profil, du mode et de la date
+   * (`idx_campagne_series_profil_mode`) : la lecture s'arrête aux plus
+   * récentes, comme les dernières rencontres de la page des duels.
+   */
+  private async dernieresRevisionsPleines(profileId: string): Promise<number[]> {
+    const res = await this.client.execute(lectureDesRevisionsPleines(profileId))
+    return res.rows.map(r => Number(r.justes))
+  }
+
+  /**
    * La fin d'une révision : aucun haut fait de série — elle n'en est pas
    * une —, seulement les paliers que ses bonnes réponses font atteindre (Le
    * Marathonien). Une étagère qui se tait n'y change rien : la révision est
-   * rangée, et la suivante les relira.
+   * rangée, et la suivante les relira. Et ce qu'une suite de révisions fait
+   * descendre (`divinsDesRevisions`, `core/divins.ts`) : si elle compte
+   * (`revisionQuiCompte`), elle relit ses dernières qui comptent, elle
+   * comprise — une lecture de plus, aucune pour une révision plus courte ou
+   * revue en avance, qui n'y compte pas.
    */
-  private async recompenserLaRevision(profileId: string, serieId: string, quand: number): Promise<Recompenses> {
+  private async recompenserLaRevision(profileId: string, s: Serie, quand: number): Promise<Recompenses> {
     try {
-      return await this.recompenser(profileId, serieId, [], quand)
+      const compte = revisionQuiCompte({ questions: s.questions.length, enAvance: s.questions.filter(q => q.enAvance).length })
+      return await this.recompenser(profileId, s.id, compte ? divinsDesRevisions(await this.dernieresRevisionsPleines(profileId)) : [], quand, {})
     } catch (e) {
       console.error('[campagne] récompenses de la révision non rangées :', e)
       return {}
@@ -4624,15 +4719,38 @@ export class CampagneStore {
    */
   private async fermerLeDuel(duel: Duel): Promise<void> {
     if (duel.closLe !== null || this.maintenant() < duel.fermeLe) return
-    await this.client.batch(
+    const [arretees] = await this.client.batch(
       [
-        { sql: `UPDATE campagne_series SET finie_le = ? WHERE mode = 'duel' AND duel = ? AND finie_le IS NULL`, args: [duel.fermeLe, duel.code] },
+        // Ses lignes, jamais son compte : un `RETURNING` dans un lot rend `rowsAffected` à zéro en local.
+        { sql: `UPDATE campagne_series SET finie_le = ? WHERE mode = 'duel' AND duel = ? AND finie_le IS NULL RETURNING id, profile_id, justes`, args: [duel.fermeLe, duel.code] },
         { sql: 'UPDATE campagne_duels SET clos_le = ? WHERE code = ? AND clos_le IS NULL', args: [this.maintenant(), duel.code] },
       ],
       'write',
     )
     duel.closLe = this.maintenant()
     for (const s of [...this.enCours.values()]) if (s.mode === 'duel' && s.duel === duel.code) this.enCours.delete(s.profileId)
+    for (const r of arretees.rows) await this.rangerCeQueTenaitLaTentative(String(r.profile_id), String(r.id), Number(r.justes))
+  }
+
+  /**
+   * Une tentative que la fermeture du duel arrête en route n'a pas eu de fin
+   * pour la juger : ce qu'elle avait tenu d'elle-même se range sous elle
+   * (`divinsDeLaPartie`, `core/divins.ts`), sans annonce — personne n'est là
+   * pour la lire —, comme une série laissée que la suivante referme, ou une
+   * tentative du défi que sa clôture rattrape. Rien de ce qui demande de
+   * gagner : le résultat se juge à la page de qui a lancé
+   * (`divinsDeSaVictoire`), qui l'annonce — rangé ici, il s'y tairait. Une
+   * lecture de plus par tentative arrêtée, une fois, à la fermeture.
+   */
+  private async rangerCeQueTenaitLaTentative(profileId: string, serieId: string, justes: number): Promise<void> {
+    if (!this.recompenses) return
+    try {
+      const res = await this.client.execute({ sql: 'SELECT position, juste FROM campagne_reponses WHERE serie_id = ? ORDER BY position', args: [serieId] })
+      const cles = divinsDeLaPartie({ mode: 'duel', justes, reponses: res.rows.map(r => Number(r.juste) === 1) })
+      if (cles.length > 0) await this.recompenses.ranger(profileId, cleDeSerie(serieId), cles, this.maintenant())
+    } catch (e) {
+      console.error('[campagne] ce que tenait une tentative arrêtée ne se range pas :', e)
+    }
   }
 
   /** La page d'un défi entre amis : qui l'a lancé, ce qu'il fait jouer, le temps qui reste, sa tentative et le classement. */
@@ -4698,6 +4816,12 @@ export class CampagneStore {
     // Vu pour la première fois par qui l'a lancé : sa page retourne la carte du verdict, l'accueil ne le compte plus.
     const nouveau = !!duel.adversaire && duel.auteur === profileId && ecart !== undefined && duel.vuLe === null
     if (nouveau) await this.retenirLeResultatVu(duel)
+    // Il a joué le premier : sa fin ne savait pas s'il gagnerait. Ce que sa victoire fait descendre se juge ici, à la
+    // première lecture de son résultat — la carte du verdict se retourne, et le Divin avec.
+    const divins =
+      nouveau && tentative && enFace && tentative.justes > enFace.justes
+        ? await this.divinsDeSaVictoire(profileId, tentative, Math.max(tentative.finieLe ?? 0, enFace.finieLe ?? 0) || this.maintenant())
+        : []
     // La revanche, contre celui d'en face : jamais un masqué, ni un profil parti.
     const enFaceDeLui = duel.auteur === profileId ? defie : auteur
     // Avec ce qu'il porte : la préparation de la revanche le montrait en emoji.
@@ -4726,6 +4850,7 @@ export class CampagneStore {
       // Ouvert, un duel classé ne compte qu'une fois joué des deux côtés : son écart dit qu'il l'est.
       ...(contre && ouvert && ecart !== undefined && { corrige: true as const }),
       ...(nouveau && { nouveau: true as const }),
+      ...(divins.length > 0 && { divins }),
       ...(sonEcart &&
         releve && {
           apres: {
@@ -4740,6 +4865,40 @@ export class CampagneStore {
       ...classement,
       ...(cache && { lignes: classement.lignes.filter(l => l.profileId === profileId), moi: undefined }),
     }
+  }
+
+  /**
+   * Ce que fait descendre la victoire d'un duel classé qu'il avait lancé,
+   * apprise en ouvrant sa page : ce que la fin de sa tentative aurait jugé
+   * s'il avait su (`divinsDeLaPartie`, sur ses réponses), et sa journée —
+   * celle où le duel a compté, joué des deux côtés (`compteLe`), pas celle où
+   * il ouvre sa page : apprise le lendemain, sa victoire de la veille ne
+   * rejoignait plus ce qu'il avait fait ce jour-là, et rien ne la rejugeait,
+   * son résultat une fois vu. Rangé sous sa tentative, à l'heure où il
+   * l'apprend. Rien que des Divins : ses paliers attendent la fin d'une
+   * partie, qui les annonce. Une lecture qui tombe ne lui coûte pas sa page.
+   */
+  private async divinsDeSaVictoire(profileId: string, tentative: Serie, compteLe: number): Promise<DivinDescendu[]> {
+    if (!this.recompenses) return []
+    try {
+      const maintenant = this.maintenant()
+      const res = await this.client.execute({ sql: 'SELECT position, juste FROM campagne_reponses WHERE serie_id = ? ORDER BY position', args: [tentative.id] })
+      const cles = divinsDeLaPartie({ mode: 'duel', justes: tentative.justes, reponses: res.rows.map(r => Number(r.juste) === 1), gagne: 'classe' })
+      cles.push(...(await this.divinsAuDela(profileId, compteLe, { duel: true })))
+      return raconter((await this.recompenses.ranger(profileId, cleDeSerie(tentative.id), cles, maintenant)).filter(estUnDivin))
+    } catch (e) {
+      console.error('[campagne] ce que sa victoire fait descendre ne se range pas :', e)
+      return []
+    }
+  }
+
+  /**
+   * A-t-il gagné un duel ce jour de Paris, classé ou au dé ? Le journal des
+   * duels le sait, en mémoire : un duel y compte au jour où il s'est fini des
+   * deux côtés. Pour ce que sa journée fait descendre (`ProfileStore.saJournee`).
+   */
+  async duelGagneLe(profileId: string, jour: string): Promise<boolean> {
+    return (await this.lesDuels()).duelsDe(profileId).some(d => d.justes > d.sesJustes && jourDe(d.finiLe) === jour)
   }
 
   /**
@@ -6889,49 +7048,75 @@ export class CampagneStore {
       // Ses bonnes réponses comptent pour Le Marathonien et L'Érudit, comme
       // celles d'une série ; ses paliers et ses étoiles pour les pistes des
       // sentiers ; et ses exploits tombent avec (`hautsFaitsDe`).
-      if (finie) Object.assign(reponse, await this.recompenser(profileId, e.id, await this.hautsFaitsDe(apres), this.maintenant()))
+      if (finie) Object.assign(reponse, await this.recompenser(profileId, e.id, await this.hautsFaitsDe(apres), this.maintenant(), this.journeeDeLEpreuve(apres)))
       if (finie) await this.faireGrandir(profileId)
       return reponse
     })
   }
 
   /**
-   * Ce qu'une épreuve finie fait tomber d'elle-même (`hautsFaitsDeLEpreuve`).
-   * Ses échecs d'avant sur ce palier ne se lisent que pour une épreuve validée
-   * que sa chance annonçait en piste noire : une lecture de plus pour ces
-   * rares-là, aucune pour les autres.
+   * Ce qu'une épreuve finie fait tomber d'elle-même (`hautsFaitsDeLEpreuve`),
+   * et ce qu'elle fait descendre (`divinsDeLEpreuve`). Ses échecs d'avant sur
+   * ce palier ne se lisent que pour une épreuve validée en jeu — une lecture
+   * de plus pour celles-là, par l'index des sentiers, aucune pour les autres :
+   * Contre toute attente les compte tous, quand sa chance l'annonçait en
+   * piste noire, et ce que le palier fait descendre, ceux du jour. Jusqu'au
+   * 21 novembre 2026, un `COUNT` pour les seules pistes noires ; un palier
+   * validé en jeu ne l'est qu'une fois, et ses échecs sont peu.
    */
   private async hautsFaitsDe(e: Serie): Promise<string[]> {
     if (!e.branche || !e.palier) return []
-    const enNoir = !e.rejeu && e.issue === 'validee' && e.chance != null && couleurDePiste(e.chance) === 'noire'
-    const echecs = enNoir
-      ? Number(
-          (
+    // Avec chaque échec, l'heure où celle-ci a commencé : c'est à ce jour-là que ses échecs se comptent (`divinsDeLEpreuve`).
+    const lues =
+      !e.rejeu && e.issue === 'validee'
+        ? (
             await this.client.execute({
-              sql: `SELECT COUNT(*) AS n FROM campagne_series
+              sql: `SELECT finie_le, (SELECT commencee_le FROM campagne_series WHERE id = ?) AS depart FROM campagne_series
                     WHERE profile_id = ? AND mode = 'sentier' AND branche = ? AND palier = ? AND rejeu = 0 AND issue = 'ratee' AND id <> ?`,
-              args: [e.profileId, e.branche, e.palier, e.id],
+              args: [e.id, e.profileId, e.branche, e.palier, e.id],
             })
-          ).rows[0]?.n ?? 0,
-        )
-      : 0
-    return [...hautsFaitsDeLEpreuve({ palier: e.palier, rejeu: e.rejeu, issue: e.issue, chance: e.chance }, e.justes, echecs), ...(await this.divinsDeLEpreuve(e))]
+          ).rows
+        : []
+    const ratees = lues.map(r => Number(r.finie_le))
+    return [
+      ...hautsFaitsDeLEpreuve({ palier: e.palier, rejeu: e.rejeu, issue: e.issue, chance: e.chance }, e.justes, ratees.length),
+      ...(await this.divinsDeLEpreuve(e, ratees, lues[0]?.depart != null ? Number(lues[0].depart) : null)),
+    ]
   }
 
   /**
-   * Ce que la validation d'un maître fait descendre (`divinsDesSentiers`, la
-   * règle vit dans `core/divins.ts`) : ses maîtres se comptent alors, celui-ci
-   * compris — une lecture de plus pour une épreuve de maître validée, aucune
-   * pour les autres. Un rejeu la relit aussi : ce qu'un rangement raté a
-   * laissé se rattrape, et un Divin ne se range qu'une fois (`ranger`).
+   * Ce qu'une épreuve validée fait descendre (`core/divins.ts`, où vivent les
+   * règles). En jeu : ce que ce palier lui avait coûté ce jour-là avant elle
+   * (`divinsDuPalier`) — ses épreuves ratées en jeu sur ce même palier
+   * (`ratees`, l'heure de la fin de chacune), au jour de Paris, comme ses
+   * vies — le jour où celle-ci a commencé (`depart`), pas celui de sa fin :
+   * commencée à 23 h 50 après ses échecs du jour et finie passé minuit, elle
+   * ne les aurait plus comptés. Un maître (`divinsDesSentiers`) : ses maîtres
+   * se comptent alors, celui-ci compris — une lecture de plus pour une
+   * épreuve de maître validée, aucune pour les autres. Un rejeu la relit
+   * aussi : ce qu'un rangement raté a laissé se rattrape, et un Divin ne se
+   * range qu'une fois (`ranger`).
    */
-  private async divinsDeLEpreuve(e: Serie): Promise<string[]> {
-    if (e.palier !== PALIER_DU_MAITRE || e.issue !== 'validee' || !e.branche) return []
-    const res = await this.client.execute({
-      sql: `SELECT DISTINCT branche FROM campagne_series WHERE profile_id = ? AND mode = 'sentier' AND palier = ? AND issue = 'validee'`,
-      args: [e.profileId, PALIER_DU_MAITRE],
-    })
-    return divinsDesSentiers(new Set([...res.rows.map(r => String(r.branche)), e.branche]).size)
+  private async divinsDeLEpreuve(e: Serie, ratees: readonly number[], depart: number | null): Promise<string[]> {
+    if (e.issue !== 'validee' || !e.branche) return []
+    const cles: string[] = []
+    if (!e.rejeu) {
+      const jour = jourDe(depart ?? e.finieLe ?? this.maintenant())
+      cles.push(...divinsDuPalier(ratees.filter(t => jourDe(t) === jour).length))
+    }
+    if (e.palier === PALIER_DU_MAITRE) {
+      const res = await this.client.execute({
+        sql: `SELECT DISTINCT branche FROM campagne_series WHERE profile_id = ? AND mode = 'sentier' AND palier = ? AND issue = 'validee'`,
+        args: [e.profileId, PALIER_DU_MAITRE],
+      })
+      cles.push(...divinsDesSentiers(new Set([...res.rows.map(r => String(r.branche)), e.branche]).size))
+    }
+    return cles
+  }
+
+  /** Ce qu'une épreuve qui finit ajoute à sa journée (`divinsAuDela`) : un palier validé sans une faute, ses trois étoiles — rejeu compris. */
+  private journeeDeLEpreuve(e: Pick<Serie, 'issue' | 'justes'>): Partial<JourneeDuDivin> {
+    return { troisEtoiles: e.issue === 'validee' && e.justes >= QUESTIONS_PAR_EPREUVE }
   }
 
   /**
@@ -6965,7 +7150,7 @@ export class CampagneStore {
         epreuve: vueDEpreuve({ ...e, finieLe: maintenant }),
         ...finDeLEpreuveValidee(e, e.justes, seuil, avant.rows),
         // Ce qu'elle a fait compte comme à sa dernière question.
-        ...(await this.recompenser(profileId, e.id, await this.hautsFaitsDe(e), maintenant)),
+        ...(await this.recompenser(profileId, e.id, await this.hautsFaitsDe(e), maintenant, this.journeeDeLEpreuve(e))),
       }
     })
   }
@@ -7170,7 +7355,7 @@ export class CampagneStore {
       // change rien : l'épreuve est rangée, et la fin suivante les relira.
       if (finie) {
         try {
-          Object.assign(reponse, await this.recompenser(profileId, e.id, [], this.maintenant()))
+          Object.assign(reponse, await this.recompenser(profileId, e.id, [], this.maintenant(), {}))
         } catch (err) {
           console.error('[campagne] récompenses de l’épreuve à thème non rangées :', err)
         }

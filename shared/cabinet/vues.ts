@@ -44,6 +44,7 @@
 // Prendre son temps (`VueDeLaPartie.chrono.enPlusMs`).
 
 import type { CleDeCompagnon } from '../compagnons'
+import type { DivinDescendu } from '../divins'
 import { PREFIXE_DE_LA_FRISE } from '../frise'
 import type { PalierTombe } from '../jour'
 import type { CleDeSaison } from '../saisons'
@@ -518,6 +519,12 @@ export interface VueDeLaTraversee {
    * les ayant oubliés : l'album les a.
    */
   paliers?: string[]
+  /**
+   * Le Divin que sa victoire a fait descendre (le 21 novembre 2026), à lui seul, avec son récit (invariant 21) : sa fin
+   * le dit. Rien de ce qui l'a fait descendre — la campagne en juge, derrière sa porte. Absent sans lui, et relue après
+   * un réveil : sa collection l'a.
+   */
+  divins?: DivinDescendu[]
   partie?: VueDeLaPartie
 }
 

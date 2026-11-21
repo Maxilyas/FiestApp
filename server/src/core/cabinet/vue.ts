@@ -508,6 +508,8 @@ export function vueDeLaTraversee(tr: TraverseeGardee, partie: PartieLue | null, 
     exploits: estGagnee(e) ? exploitsDeLaTraversee(resumeDeLaTraversee(d, tr.gestes)) : [],
     // Les paliers que sa fin a rangés ici : la mémoire seule les sait (`TraverseeGardee.paliers`).
     ...(e.fin && tr.paliers && tr.paliers.length > 0 && { paliers: [...tr.paliers] }),
+    // Ce que sa victoire a fait descendre, à son seul joueur, avec son récit : la mémoire seule le sait (`TraverseeGardee.divins`).
+    ...(e.fin && tr.divins && tr.divins.length > 0 && { divins: [...tr.divins] }),
     ...(partie && { partie: vueDeLaPartie(partie) }),
   }
 }
