@@ -37,6 +37,7 @@ import {
   type ThemeAuChoix,
 } from '../../../../shared/cabinet/traversee'
 import type { PageDeLaTraversee, VueDeLaTraversee } from '../../../../shared/cabinet/vues'
+import { divin, type DivinDescendu as DivinVenu } from '../../../../shared/divins'
 import { defiDeLaCarte } from '../../../../shared/cabinet/defis'
 import { NOMS_DES_DEFIS, RANGS, RANGS_DITS, defisTenus, rangDeLaCle, type DefisTenus, type RangDUnDefi } from '../../../../shared/cabinet/sceaux'
 import { NOM_PALIER, clePalier, hautFaitDeSoiree, palierDe, titreDePalier, xpDe, type HautFaitDeCarriere } from '../../../../shared/hautsfaits'
@@ -370,6 +371,38 @@ function PaliersTombes({ cles }: { cles: readonly string[] }) {
         ))}
       </ul>
     </section>
+  )
+}
+
+// Le bijou d'un Divin, à la demande : son dessin et ses images n'ont rien à faire sur le chemin de la carte, et presque
+// aucune fin n'en montre un.
+const leBijou = aLaDemande(() => import('../../components/Divin'))
+
+/**
+ * Un Divin que la fin de sa traversée a fait descendre (`VueDeLaTraversee.divins`, le 21 novembre 2026) : son bijou, son nom et le
+ * récit que le serveur envoie à son seul joueur — rien ici ne sait ce qui l'a fait descendre (invariant 21). En nuit et
+ * en or, comme tout l'écran : la carte des autres modes (`DivinDescendu`) s'écrit aux couleurs du thème. Il se porte
+ * depuis son profil, comme le légendaire qu'il vient de choisir.
+ */
+function DivinsDescendus({ divins }: { divins: readonly DivinVenu[] }) {
+  const module = useALaDemande(leBijou, divins.length > 0)
+  if (divins.length === 0) return null
+  return (
+    <>
+      {divins.map(d => {
+        const lui = divin(d.key)
+        if (!lui) return null
+        return (
+          <section key={d.key} className="cab-tv-tombes cab-tv-divin" aria-label="Un Divin est descendu sur toi">
+            <p className="cab-tv-sur">Un Divin est descendu sur toi</p>
+            <span className="cab-tv-bijou">{module && module !== 'perdu' ? <module.Divin cle={d.key} grand /> : null}</span>
+            <h3>{lui.nom}</h3>
+            {d.legende && <p className="cab-tv-devise">{espacesFines(d.legende)}</p>}
+            <p className="cab-tv-pale">{espacesFines('Il rejoint tes avatars : porte-le depuis ton profil.')}</p>
+          </section>
+        )
+      })}
+    </>
   )
 }
 
@@ -1805,6 +1838,9 @@ function FinDeLaTraversee({ t, possedes, busy, onCommencer }: { t: VueDeLaTraver
           </>
         )}
         {stats}
+        {/* Un Divin que sa victoire a fait descendre : avant tout ce qui tombe d'autre, comme à la fin de chaque mode. */}
+        {/* C'est le serveur qui décide sur quelle fin un Divin descend : la page le montre s'il est là, et n'en sait rien. */}
+        <DivinsDescendus divins={t.divins ?? []} />
         {/* Ce qu'elle a tenu reste à lui, gagnée ou non : un défi d'acte tenu ne se reprend pas. Ses exploits, gagnée ; les
             paliers de ses pistes, à toute fin. */}
         {gagnee && <ExploitsTombes cles={t.exploits ?? []} />}

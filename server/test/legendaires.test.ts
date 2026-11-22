@@ -92,8 +92,9 @@ test('ce qui était gagné avant reste gagné, tant que la règle d’alors tien
   assert.ok(!legendairesDebloques(new Map([['hf:roi', 1]]), acquis).includes('lg:lion'))
 })
 
-test('l’Arbre-Monde compte aussi les légendaires gardés d’avant', () => {
-  // Tout au seuil du jour, sauf le Tigre : une seule Foudre, gagnée avant.
+test('tous les légendaires réunis, gardés d’avant compris, ne font plus descendre de Divin', () => {
+  // Jusqu'au 21 novembre 2026, les réunir en faisait descendre un, et les acquis d'avant y comptaient : les Divins ont
+  // quitté les soirées et leurs légendaires. Tout au seuil du jour, sauf le Tigre : une seule Foudre, gagnée avant.
   const recompenses = new Map<string, number>()
   for (const l of LEGENDAIRES) {
     for (const c of partiesDe(l.condition)) {
@@ -102,9 +103,11 @@ test('l’Arbre-Monde compte aussi les légendaires gardés d’avant', () => {
     }
   }
   recompenses.set('hf:foudre', 1)
-  assert.deepEqual(divinsDebloques(recompenses), [], 'onze légendaires ne font pas l’Arbre')
   const acquis = new Map<string, Condition>([['lg:tigre', { hautFait: 'hf:foudre', fois: 1 }]])
-  assert.deepEqual(divinsDebloques(recompenses, acquis), ['dv:arbre'])
+  assert.ok(legendairesDebloques(recompenses, acquis).includes('lg:tigre'), 'le Tigre d’avant reste')
+  assert.deepEqual(divinsDebloques(recompenses), [], 'aucun Divin ne se lit plus de ce qu’on a débloqué')
+  // Seule une ligne rangée à son nom le donne.
+  assert.deepEqual(divinsDebloques(new Map([...recompenses, ['dv:arbre', 1]])), ['dv:arbre'])
 })
 
 test('la voie de l’Expédition effacée donne toujours son légendaire : vingt-trois, figés, jamais montrés', () => {

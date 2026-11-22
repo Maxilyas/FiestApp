@@ -411,7 +411,7 @@ Aucun n'a d'accusé ni de refus. Chaque fiche dit d'où il part, à qui, ce qu'i
 
 - **Qui l'émet** : `server/src/core/space.ts`, à la clôture ; `server/src/sockets.ts`, à un écran qui se présente pendant qu'elle est à l'écran.
 - **À qui** : `hosts:<espace>` ; l'écran qui se présente.
-- **Charge** : `ClotureDeSoiree` (`shared/fin.ts`) : la soirée, son podium, les équipes qui l'emportent, les hauts faits, les légendaires, les Divins descendus — leur nom, jamais leur récit —, les montées de niveau, les Éclats.
+- **Charge** : `ClotureDeSoiree` (`shared/fin.ts`) : la soirée, son podium, les équipes qui l'emportent, les hauts faits, les légendaires, les montées de niveau, les Éclats ; son champ `divins` — leur nom, jamais leur récit — reste vide depuis le 21 novembre 2026 : aucun Divin ne descend plus sur une soirée.
 - **Effet** : l'écran commun l'annonce à la salle, et la scène passe à la clôture jusqu'à « La soirée suivante », un nouvel invité, un quiz lancé ou « Ouvrir le salon ».
 - **Écouté par** : `client/src/socket.ts`.
 

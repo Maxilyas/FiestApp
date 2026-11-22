@@ -25,7 +25,8 @@ import { BulleDeLaPlume, IconePlume, LaPlume, SignatureDuPublic } from '../compo
 import { AnnonceDuBonus, CarteDuBonus, EcranDuBonus, QuestionDuBonusEnJeu, RevelationDuBonusVue } from '../components/QuestionBonus'
 import { JUSTES_POUR_LA_PLUME, type VoteDuBonus } from '../../../shared/propositions'
 import { NoteDuJour, Serie, ontGagneHier } from '../components/Jour'
-import { EclatTombe, LegendaireOuvert, Medaillon } from '../components/Ouverts'
+import { EclatTombe, LegendaireOuvert } from '../components/Ouverts'
+import { DivinDescendu } from '../components/DivinDescendu'
 import { APorter, CeQueTuGagnes, LigneDeTrophee, MissionsAccomplies, NouveauxTrophees, emojisAPorter, niveauDe } from '../components/Gains'
 import { Etoiles } from '../components/Etoiles'
 import { PageOuverte } from '../components/Calendrier'
@@ -63,7 +64,6 @@ import {
 import { aPorterDesFetes, aPorterDesTrophees, objetsAPorter, partsDeLXp, tropheesTombes, xpDesTrophees } from '../../../shared/gains'
 import { DU_CHAMPION_DU_MOIS } from '../../../shared/pistes'
 import { legendaire } from '../../../shared/legendaires'
-import { divin } from '../../../shared/divins'
 import { gesteAccepte } from '../../../shared/console'
 import { porterTheme } from '../themeJoueur'
 import { porterGerbe } from '../gerbe'
@@ -1217,37 +1217,6 @@ export function JourJoue({
         <laCarte.CarteJoueur adresse={`/api/joueur/carte/${encodeURIComponent(carte)}`} gestes={{ profileId: carte }} onFermer={() => setCarte(null)} />
       )}
     </div>
-  )
-}
-
-/** Un Divin descendu sur la partie — Chronos —, révélé avant tout le reste, et qu'on porte d'un toucher. */
-function DivinDescendu({ cle, legende, ton, dejaPorte }: { cle: string; legende: string; ton: 'eclat' | 'ombre'; dejaPorte: boolean }) {
-  const [porte, setPorte] = useState(dejaPorte)
-  const d = divin(cle)
-  if (!d) return null
-  const porter = async () => {
-    try {
-      const { profile } = await api.joueur.enregistrer({ legendaire: cle })
-      setPorte(profile.legendaire === cle)
-      showToast({ kind: 'info', message: `Tu portes ${d.nom}` })
-    } catch (e) {
-      showToast({ kind: 'error', message: (e as Error).message })
-    }
-  }
-  return (
-    <section className={`card fin-divin fin-divin-${ton}`}>
-      <span className="label">Un Divin est descendu sur toi</span>
-      <Medaillon cle={cle} className="fin-apparition" />
-      <h2>{d.nom}</h2>
-      {legende && <p className="serif-note">{legende}</p>}
-      {porte ? (
-        <p className="muted small">C’est lui que la salle verra, dès la prochaine soirée.</p>
-      ) : (
-        <button className="btn btn-primary" onClick={() => void porter()}>
-          Le porter
-        </button>
-      )}
-    </section>
   )
 }
 

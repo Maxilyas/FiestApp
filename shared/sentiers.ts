@@ -25,6 +25,7 @@ import { BRANCHES, branche, deLaBranche, type Branche, type CleDeBranche, type P
 import { hautFait } from './hautsfaits'
 import { titreDuChampion } from './jour'
 import type { Niveau, QuestionDeCampagne } from './campagne'
+import type { DivinDescendu } from './divins'
 
 /** Les paliers d'un sentier ; le treizième est celui du maître. */
 export const PALIERS_DU_SENTIER = 12
@@ -607,6 +608,8 @@ export interface ReponseDEpreuve {
    */
   recompenses?: { key: string; emoji: string; title: string }[]
   legendaires?: string[]
+  /** Le Divin qui est descendu sur son épreuve — à lui seul, avec son récit (invariant 21). */
+  divins?: DivinDescendu[]
 }
 
 /**

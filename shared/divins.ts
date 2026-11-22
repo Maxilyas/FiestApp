@@ -1,6 +1,9 @@
-// Les avatars divins : six dessins au-dessus des légendaires — cinq qui
-// descendent sur une soirée, un sur le quiz du jour (Chronos, le 5 octobre
-// 2026).
+// Les avatars divins : des bijoux peints au-dessus des légendaires. Depuis le
+// 21 novembre 2026, plus aucun ne descend sur une soirée : chacun se gagne là
+// où l'on joue seul. Ce catalogue ne nomme que ceux dont le bijou est peint
+// (`client/src/components/divins-peints.ts`) : le serveur ne range pas un
+// Divin qu'il ne nomme pas, et une règle écrite avant son bijou dort jusqu'à
+// lui.
 //
 // Un légendaire se gagne par un haut fait, et la page profil dit lequel : on
 // sait ce qu'on veut avant de l'avoir. Un Divin, non. Ce qui le fait

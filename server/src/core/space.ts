@@ -18,7 +18,7 @@ import { buildRecap } from './recap'
 import { buildReview, type PlayedPack } from './review'
 import { buildProgress, relevesDeSoiree, type SoireeGain } from './progress'
 import { hautsFaitsDeSoiree, xpDesHautsFaits } from './hautsfaits'
-import { divinsDeSoiree, laureatsDivins, raconter } from './divins'
+import { raconter } from './divins'
 import { laureatsDeSaison } from './saisons'
 import { PRIX_INDIVIDUELS, computeStats } from './stats'
 import { carteDuProfil } from './carte'
@@ -952,10 +952,8 @@ export class SpaceRuntime {
         if (h) laureats.push({ profileId, badge: h.key, emoji: h.emoji, title: h.title })
       }
     }
-    // Un Divin ne se range que pour un profil ; l'annonce, elle, suit le
-    // bilan de chacun, qui voit aussi l'Arbre-Monde descendre avec son
-    // douzième légendaire.
-    laureats.push(...laureatsDivins(divinsDeSoiree(live), profilDuJoueur))
+    // Aucun Divin ne descend plus sur une soirée (le 21 novembre 2026,
+    // `core/divins.ts`) : ils se gagnent là où l'on joue seul.
     // Une soirée d'une fête ouvre son légendaire, et range le timbre de son année.
     laureats.push(...laureatsDeSaison(live.answers, gains))
     const prixDe = new Map<string, PrixAnnonce[]>()

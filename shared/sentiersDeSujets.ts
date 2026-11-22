@@ -19,6 +19,7 @@
 
 import type { IssueDEpreuve, Melange, RegleDuPalier } from './sentiers'
 import type { QuestionDeCampagne } from './campagne'
+import type { DivinDescendu } from './divins'
 
 export const PALIERS_D_UN_SUJET = 6
 export const QUESTIONS_D_UN_PALIER_DE_SUJET = 10
@@ -128,4 +129,6 @@ export interface ReponseDuSujet {
   /** Finie : les paliers de la campagne qu'elle a fait tomber (Le Marathonien), et ce qu'ils ouvrent. */
   recompenses?: { key: string; emoji: string; title: string }[]
   legendaires?: string[]
+  /** Le Divin qui est descendu sur son étape — à lui seul, avec son récit (invariant 21). */
+  divins?: DivinDescendu[]
 }

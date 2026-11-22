@@ -49,7 +49,7 @@ Chaque invité reçoit la sienne, anonyme compris. C'est l'écran des gains de t
 
 - **le tableau de bord** : « Fin de la soirée », son nom, ton avatar et ton prénom tels que la salle les a vus, ta place « sur *N* » et tes points (ou « Tu n'as pas joué ce soir », « Tu animais la soirée ») ; avec un profil, tes records battus (« Record battu · … ») ;
 - **« Ce que tu gagnes »**, avec un profil : l'expérience en un total — quand les deux comptent, « ta soirée », ce que « Mes soirées » lui compte, et « tes pistes », payées à part —, tes confettis, ton niveau (« Niveau *N* ! » s'il monte) et la finition qu'il ouvre ;
-- **ce qui tombe en grand** : un Divin descendu sur toi, l'Éclat s'il a frappé, un avatar légendaire débloqué — le Divin et le légendaire avec « Le porter » ;
+- **ce qui tombe en grand** : l'Éclat s'il a frappé, un avatar légendaire débloqué, avec « Le porter » — plus de Divin : depuis le 21 novembre 2026, aucun ne descend sur une soirée ([les Divins](les-recompenses.md#les-divins)) ;
 - **« Nouveaux trophées »** : trois au plus, les plus rares d'abord — les étapes de tes pistes (celles d'une même piste sur une ligne : « Le Bavard · Bronze → Argent »), tes exploits, tes prix du palmarès, puis tes coups du sort —, « Et 2 autres » pour le reste ; avec un profil, chacun mène à sa page de l'album des trophées, et « Il rejoint ta collection : *N* prix sur 20 » quand un prix y entre pour la première fois ;
 - **« À porter »**, avec un profil : ce que tes étapes de piste viennent d'ouvrir — un fond, une gerbe, un thème — et l'emoji de collection d'un niveau gagné, chacun avec « Essayer », qui ouvre la loge l'essai déjà sur ta carte ;
 - **deux boutons** : « Mon bilan », ouvert sur toi (« Revoir la soirée » si tu es arrivé après la dernière question), et « Accueil ».
@@ -64,7 +64,7 @@ La fin se garde sur le téléphone, et se rouvre quand tu **reviens** sur la pag
 
 ### Sur l'écran commun : la soirée close
 
-L'écran commun annonce à la salle « La soirée est close », son nom, le QR « Le souvenir de la soirée » (l'adresse de son archive), le podium de la soirée, les équipes qui l'emportent, puis ce qui est tombé : un Divin descendu (son nom seulement), les avatars légendaires débloqués et ceux qui ont éclaté, les montées de niveau et les hauts faits de chacun. La console propose « Le souvenir », « Copier le lien », « Le bilan », « Les fiches », « L'historique » et « La soirée suivante », qui rend la salle d'attente à tous les écrans.
+L'écran commun annonce à la salle « La soirée est close », son nom, le QR « Le souvenir de la soirée » (l'adresse de son archive), le podium de la soirée, les équipes qui l'emportent, puis ce qui est tombé : les avatars légendaires débloqués et ceux qui ont éclaté, les montées de niveau et les hauts faits de chacun. La console propose « Le souvenir », « Copier le lien », « Le bilan », « Les fiches », « L'historique » et « La soirée suivante », qui rend la salle d'attente à tous les écrans.
 
 ## Ce qui se gagne, et quand
 
@@ -178,7 +178,7 @@ flowchart LR
 
 **L'archive est une copie brute**, dans la base permanente : invités, équipes, prix remis, les deux journaux et les quiz tels qu'ils ont été posés. Rien n'y est précalculé : une soirée d'il y a deux ans se relit avec le code d'aujourd'hui (`recapOfArchive`, `reviewOfArchive`, `server/src/core/archive.ts`), et une amélioration du bilan profite aux soirées passées.
 
-**La clôture décide en une fois** (`SpaceRuntime.closeParty`, `server/src/core/space.ts`) : l'expérience de la soirée entière, puis les prix, les hauts faits, les Divins et les légendaires de saison, remplacés **en un seul lot** (`remplacerRecompensesDeSoiree`, `server/src/auth/profiles.ts`), puis les étapes des pistes (`accorderPaliers` : le code les appelle des paliers). Chaque passage remplace le précédent : on recrédite sans jamais payer deux fois. Le détail est dans [Les données](../architecture/donnees.md).
+**La clôture décide en une fois** (`SpaceRuntime.closeParty`, `server/src/core/space.ts`) : l'expérience de la soirée entière, puis les prix, les hauts faits et les légendaires de saison, remplacés **en un seul lot** (`remplacerRecompensesDeSoiree`, `server/src/auth/profiles.ts`), puis les étapes des pistes (`accorderPaliers` : le code les appelle des paliers). Chaque passage remplace le précédent : on recrédite sans jamais payer deux fois. Le détail est dans [Les données](../architecture/donnees.md).
 
 ## Pour aller plus loin
 
