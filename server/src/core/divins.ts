@@ -61,7 +61,7 @@ const RECITS: Record<string, Omit<DivinDescendu, 'key'>> = {
   'dv:sisyphe': { legende: 'Onze fois le même palier lui a échappé ; le même jour, il l’a validé. Le rocher est resté en haut.', ton: 'eclat' },
   'dv:nike': { legende: 'Un duel gagné, trente bonnes réponses : la victoire avait des ailes.', ton: 'eclat' },
   'dv:osiris': { legende: 'Deux fautes pour commencer, et le duel gagné quand même : il est revenu d’entre les morts.', ton: 'eclat' },
-  'dv:hecate': { legende: 'Deux traversées gagnées sans ouvrir un coffre ni rien acheter : il avait déjà toutes les clés.', ton: 'eclat' },
+  'dv:hecate': { legende: 'En un seul jour, trois traversées gagnées : la déesse aux trois visages l’a reconnu pour sien.', ton: 'eclat' },
   'dv:artemis': { legende: 'Trente mille bonnes réponses avec le même compagnon : ils chassent ensemble depuis longtemps.', ton: 'eclat' },
   'dv:pantheon': { legende: 'Le même jour : un sans-faute, trois étoiles, un duel et une traversée. Tous les dieux étaient là.', ton: 'eclat' },
 }
@@ -292,21 +292,21 @@ export function divinsDesCompagnons(justes: Iterable<number>): string[] {
 
 // ── Le Cabinet de curiosités ────────────────────────────────────────────────
 
-/** Hécate : autant de traversées gagnées les mains vides. Une seule l'avait été, une fois. */
-const TRAVERSEES_D_HECATE = 2
+/** Hécate : autant de traversées gagnées le même jour, à Paris. Le record était de deux, atteint deux fois. */
+const TRAVERSEES_D_HECATE = 3
 
 /**
- * Hécate : des traversées gagnées les mains vides — sans ouvrir un coffre ni
- * rien acheter chez le marchand (`mainsVides`, combien il en a gagné ainsi,
- * celle qui finit comprise). Deux, pas une : l'amélioration qu'un gardien
- * vaincu offre ne se refuse pas — le pas suivant l'attend —, une traversée
- * sans rien du tout n'existe donc pas, et sans coffre ni achat, un joueur
- * l'avait déjà gagnée une fois le jour où la règle est arrivée. Elle ne
- * descend que sur une traversée qui l'est elle-même (`celleCi`) : ce n'est
- * pas une traversée ordinaire qui la fait tomber.
+ * Hécate, la déesse aux trois visages : trois traversées gagnées le même
+ * jour de Paris (`gagneesCeJour`, celle qui finit comprise) — elle descend
+ * sur la troisième. Le choix du propriétaire du 22 novembre 2026, parmi
+ * quatre règles mesurées sur les vingt-cinq traversées gagnées de la
+ * production. La première, la veille — gagner sans ouvrir un coffre ni rien
+ * acheter, ni prendre une amélioration — ne se pouvait pas : l'amélioration
+ * qu'un gardien vaincu offre ne se refuse pas ; et sans elle, un joueur
+ * l'avait déjà fait.
  */
-export function divinsDeLaTraversee(t: { celleCi: boolean; mainsVides: number }): string[] {
-  return t.celleCi && t.mainsVides >= TRAVERSEES_D_HECATE ? ['dv:hecate'] : []
+export function divinsDeLaTraversee(t: { gagneesCeJour: number }): string[] {
+  return t.gagneesCeJour >= TRAVERSEES_D_HECATE ? ['dv:hecate'] : []
 }
 
 // ── Le même jour, partout ───────────────────────────────────────────────────

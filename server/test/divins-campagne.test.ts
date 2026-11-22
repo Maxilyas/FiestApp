@@ -25,10 +25,6 @@ import type { CleDeBranche } from '../../shared/branches'
 
 // Un Éclat tiré au hasard ferait tomber un palier : rien ici n'en dépend.
 ProfileStore.tirageEclat = () => false
-// Les douze ont leur règle avant leur bijou : le catalogue ne les nomme pas
-// encore, et le serveur ne range pas un Divin qu'il ne nomme pas. Le banc
-// démarre le serveur dans ce processus : la porte ouverte ici vaut pour lui.
-ProfileStore.divinAuCatalogue = () => true
 
 const HEURE = 3_600_000
 const JOUR = 24 * HEURE

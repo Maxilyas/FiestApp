@@ -547,48 +547,12 @@ export function laTraverseeLue(lus: readonly ResultSet[]): TraverseeLueEnBase | 
 }
 
 /**
- * Ses autres traversées gagnées, leur départ et leurs gestes, d'un lot — ce qu'une traversée gagnée dit à la porte de
- * celles d'avant (`CabinetStore.ceQuElleFaitDescendre`, `gagneesLesMainsVides`). Lues seulement quand celle qui finit
- * le demande, par l'index du profil puis la clé des gestes : une poignée de traversées, jamais la table.
+ * Ses autres traversées gagnées depuis minuit, à Paris (`depuis`) — ce qu'une traversée gagnée dit à la porte de sa
+ * journée (`CabinetStore.ceQuElleFaitDescendre`). Un compte, lu seulement quand une traversée se gagne, par l'index
+ * du profil : une poignée de traversées, jamais la table.
  */
-export function lecturesDesAutresGagnees(profileId: string, sauf: string): InStatement[] {
-  return [
-    { sql: `SELECT id, depart FROM cabinet_traversees WHERE profile_id = ? AND issue = 'gagnee' AND id <> ?`, args: [profileId, sauf] },
-    {
-      sql: `SELECT g.traversee_id, g.geste FROM cabinet_traversees t JOIN cabinet_traversee_gestes g ON g.traversee_id = t.id
-            WHERE t.profile_id = ? AND t.issue = 'gagnee' AND t.id <> ? ORDER BY g.traversee_id, g.rang`,
-      args: [profileId, sauf],
-    },
-  ]
-}
-
-/**
- * Une traversée menée les mains vides : ni un coffre ouvert — une étape de coffre où il est allé —, ni un achat chez le
- * marchand. L'amélioration qu'un gardien vaincu offre ne s'y compte pas : elle ne se refuse pas, le pas suivant l'attend
- * (`AMELIORE_D_ABORD`). Un fait de la traversée, que la porte reçoit ; ce qu'il vaut se juge de l'autre côté.
- */
-export function lesMainsVides(depart: DepartDeLaTraversee, gestes: readonly GesteDeLaTraverseeEcrit['geste'][]): boolean {
-  const coffres = new Set(depart.actes.flatMap(a => a.etapes.filter(e => e.sorte === 'coffre').map(e => e.id)))
-  return !gestes.some(g => g.quoi === 'acheter' || (g.quoi === 'aller' && coffres.has(g.etape)))
-}
-
-/** Parmi ses autres traversées gagnées (`lecturesDesAutresGagnees`), combien l'ont été les mains vides ; une traversée que ce code ne relit pas n'en est pas. */
-export function gagneesLesMainsVides(lus: readonly ResultSet[]): number {
-  const gestes = new Map<string, GesteDeLaTraverseeEcrit['geste'][]>()
-  const illisibles = new Set<string>()
-  for (const r of (lus[1]?.rows ?? []) as Record<string, unknown>[]) {
-    const id = String(r.traversee_id)
-    const geste = lireUnGesteDeLaTraversee(r.geste, true)
-    if (!geste) illisibles.add(id)
-    else gestes.set(id, [...(gestes.get(id) ?? []), geste])
-  }
-  let n = 0
-  for (const r of (lus[0]?.rows ?? []) as Record<string, unknown>[]) {
-    const id = String(r.id)
-    const depart = lireLeDepartDeLaTraversee(r.depart)
-    if (depart && !illisibles.has(id) && lesMainsVides(depart, gestes.get(id) ?? [])) n++
-  }
-  return n
+export function lectureDesAutresGagneesDuJour(profileId: string, sauf: string, depuis: number): InStatement {
+  return { sql: `SELECT COUNT(*) AS n FROM cabinet_traversees WHERE profile_id = ? AND issue = 'gagnee' AND finie_le >= ? AND id <> ?`, args: [profileId, depuis, sauf] }
 }
 
 /**

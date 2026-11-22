@@ -139,7 +139,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Désactiver (un espace) | Fermer un espace sans rien effacer : ni console, ni invités ; ses pages publiques restent lisibles | `accounts.disabled_at` |
 | Difficulté estimée | La note de 1 à 5 donnée à une question quand on l'écrit. Elle sert d'a priori à sa marche | `TAUX_A_PRIORI` |
 | Distinctions du souvenir | Le plus beau coup, le plus régulier, le vainqueur de chaque quiz, au souvenir | `client/src/components/Trophies.tsx` |
-| Divin | Un des six avatars à part, dont les règles et les récits sont secrets : les règles ne quittent jamais le serveur, et le récit n'est dit qu'à son porteur | `server/src/core/divins.ts` |
+| Divin | Un des dix-huit avatars à part, dont les règles et les récits sont secrets : les règles ne quittent jamais le serveur, et le récit n'est dit qu'à son porteur | `server/src/core/divins.ts` |
 | Don (de confettis) | Des confettis que l'administrateur offre depuis la fiche d'un joueur, avec un mot, annoncés une fois sur son accueil et jamais repris | `offrirDesConfettis` |
 | Données de départ | Ce qu'une page demande dès son code arrivé, et que le serveur fait précharger avec la page, à la même adresse | `donneesDeDepart`, `DEPART` (`shared/depart.ts`) |
 | Duel | Une série de la campagne que deux adversaires jouent sur les mêmes questions, chacun à son heure ; le plus de bonnes réponses gagne | `shared/duels.ts` |

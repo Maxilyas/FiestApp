@@ -24,8 +24,6 @@ import { CampagneStore } from '../src/core/campagne'
 
 // Un Éclat tiré au hasard ferait tomber un palier : rien ici n'en dépend.
 ProfileStore.tirageEclat = () => false
-// Les douze attendent leur bijou, et le catalogue ne les nomme pas encore : sans cette porte, leur clé ne se range pas.
-ProfileStore.divinAuCatalogue = () => true
 
 /** Mardi 6 octobre 2026, 10 h à Paris (UTC+2). */
 const DEBUT = Date.UTC(2026, 9, 6, 8, 0)
@@ -342,10 +340,14 @@ test('qui a lancé le duel apprend sa victoire en ouvrant sa page : le Divin des
     assert.deepEqual(cles(page), ['dv:osiris'])
     assert.ok(page.divins[0].legende.length > 0 && page.divins[0].ton === 'eclat', 'son récit, à elle seule')
     assert.deepEqual(divinsRanges(banc, alice), [`dv:osiris sous ${cleDeSerie(lance.serie)}`])
-    // Relue, la page ne l'annonce plus, et il n'y a qu'une ligne en base.
+    // Relue, la carte ne se retourne plus, mais la page de ce duel redit ce qu'il lui a valu : jugé à la seule première
+    // lecture, il tenait à une réponse — perdue en route, il était rangé sans avoir jamais été annoncé. Une seule ligne
+    // en base, et rien sur la page de celui qui l'a perdu.
     const relue = await pageDuDuel(banc, alice, lance.code)
-    assert.deepEqual([relue.nouveau, relue.divins], [undefined, undefined])
+    assert.deepEqual([relue.nouveau, cles(relue)], [undefined, ['dv:osiris']])
+    assert.ok(relue.divins[0].legende.length > 0, 'avec son récit, encore')
     assert.deepEqual(divinsRanges(banc, alice), [`dv:osiris sous ${cleDeSerie(lance.serie)}`])
+    assert.deepEqual(cles(await pageDuDuel(banc, bob, lance.code)), [])
     assert.deepEqual(divinsRanges(banc, bob), [])
 
     // Ses réponses se lisent dans l'ordre où elle les a données : Cléo gagne aussi, mais ses fautes sont ses trois
@@ -451,8 +453,9 @@ test('descendu, Osiris ne redescend pas : ni sur un autre duel gagné de même, 
     assert.deepEqual(divinsRanges(banc, bob), rangeChezBob)
 
     // Par l'autre porte : Alice lance deux duels, qu'elle gagne revenue de deux fautes. La page du premier le lui
-    // annonce — une fois, même ouverte deux fois de front : c'est la base qui le garde, pas l'ordre des lectures — ;
-    // celle du second se retourne sans lui.
+    // annonce, et ne le range qu'une fois, même ouverte deux fois de front : c'est la base qui le garde, pas l'ordre
+    // des lectures — la seconde le redit si la première l'a déjà rangé, sinon elle se tait. Celle du second duel se
+    // retourne sans lui : il n'est rangé que sous le premier.
     horloge.t += 60_000
     const lances: Tentative[] = []
     for (let i = 0; i < 2; i++) {
@@ -462,8 +465,10 @@ test('descendu, Osiris ne redescend pas : ni sur un autre duel gagné de même, 
       horloge.t += 60_000
     }
     const deFront = await Promise.all([pageDuDuel(banc, alice, lances[0].code), pageDuDuel(banc, alice, lances[0].code)])
-    assert.deepEqual(deFront.flatMap(cles), ['dv:osiris'], 'une seule des deux lectures l’annonce')
-    assert.deepEqual(divinsRanges(banc, alice), [`dv:osiris sous ${cleDeSerie(lances[0].serie)}`])
+    const dits = deFront.flatMap(cles)
+    assert.ok(dits.length >= 1 && dits.every(cle => cle === 'dv:osiris'), `l’une des deux lectures au moins l’annonce, et rien d’autre : ${dits.join(', ')}`)
+    assert.deepEqual(divinsRanges(banc, alice), [`dv:osiris sous ${cleDeSerie(lances[0].serie)}`], 'une seule ligne')
+    assert.deepEqual(cles(await pageDuDuel(banc, alice, lances[0].code)), ['dv:osiris'], 'et la page de ce duel le redit')
     const pageDApres = await pageDuDuel(banc, alice, lances[1].code)
     assert.deepEqual([pageDApres.nouveau, pageDApres.aBattre, cles(pageDApres)], [true, 1, []])
     assert.deepEqual(divinsRanges(banc, alice), [`dv:osiris sous ${cleDeSerie(lances[0].serie)}`])

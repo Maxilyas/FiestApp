@@ -1,5 +1,6 @@
 // Les Divins qui se jugent au-delà d'un mode (le 21 novembre 2026) : Hécate,
-// au Cabinet de curiosités, et les deux que seul le magasin des profils voit
+// au Cabinet de curiosités — sur les traversées gagnées d'un même jour de
+// Paris, depuis le 22 —, et les deux que seul le magasin des profils voit
 // d'un bout à l'autre — Artémis, sur les trois journaux qui font grandir un
 // compagnon, et le Panthéon, sur une journée de Paris lue dans quatre modes.
 //
@@ -7,9 +8,10 @@
 // qu'on éprouve, sur un vrai serveur : chaque mode n'apporte que des faits, la
 // règle juge de l'autre côté, et ce qui descend se range sous la partie qui
 // l'a fait tomber — le jour, la série, la traversée —, s'annonce à son seul
-// joueur avec son récit, et ne redescend pas. L'état d'avant s'écrit à la main
-// dans la base, comme le serveur l'aurait écrit ; le dernier pas se joue par
-// les routes, puisque c'est lui qui juge.
+// joueur avec son récit, reste à son profil, qui peut le porter, et ne
+// redescend pas. L'état d'avant s'écrit à la main dans la base, comme le
+// serveur l'aurait écrit ; le dernier pas se joue par les routes, puisque
+// c'est lui qui juge.
 //
 // Chaque épreuve a son serveur jetable, et ses témoins : à côté de celui sur
 // qui le Divin descend, ceux à qui il manque une seule chose.
@@ -24,11 +26,9 @@ import { resumeDeLaTraversee } from '../../shared/cabinet/resume'
 import {
   VERSION_DE_LA_TRAVERSEE,
   etatDeLaTraversee,
-  refusDuGesteDeLaTraversee,
   tracerLaCarte,
   type CleDeCarte,
   type DepartDeLaTraversee,
-  type EtapeDeLaCarte,
   type EtatDeLaTraversee,
   type GesteDeLaTraversee,
   type GesteDeLaTraverseeEcrit,
@@ -41,11 +41,9 @@ import { QUESTIONS_PAR_EPREUVE } from '../../shared/sentiers'
 import { baseDEssai, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { baseDuCabinet } from './cabinet-banc'
 
-// Un Éclat tiré au hasard ferait tomber un palier : rien ici n'en dépend.
+// Un Éclat tiré au hasard ferait tomber un palier : rien ici n'en dépend. Le banc démarre son serveur dans ce
+// processus — ce statique vaut pour lui.
 ProfileStore.tirageEclat = () => false
-// Les douze du 21 novembre 2026 attendent leur bijou, et leur clé ne se range pas tant que le catalogue public ne les
-// nomme pas : ici, la porte est ouverte. Le banc démarre son serveur dans ce processus — ces statiques valent pour lui.
-ProfileStore.divinAuCatalogue = () => true
 
 // ── Le banc, et de quoi lui parler ────────────────────────────────────────
 
@@ -115,6 +113,18 @@ function avecSonRecit(fin: any, cle: string) {
   assert.deepEqual(Object.keys(d).sort(), ['key', 'legende', 'ton'])
   assert.ok(typeof d.legende === 'string' && d.legende.length > 20, 'son récit')
   assert.equal(d.ton, 'eclat')
+}
+
+/**
+ * Descendu, il reste à son profil, et à lui seul : sa page le liste — pas celle d'un autre —, et il se porte comme un
+ * légendaire ; qui ne l'a pas se le voit refuser.
+ */
+async function ilLeGarde(banc: Banc, lui: Joueur, cle: string, unAutre: Joueur) {
+  const sesDivins = async (j: Joueur) => ((await lire(banc, j.cookie, '/api/joueur/moi')).corps.profile.divins as { key: string }[]).map(d => d.key)
+  assert.deepEqual(await sesDivins(lui), [cle])
+  assert.deepEqual(await sesDivins(unAutre), [], 'personne d’autre ne l’a')
+  assert.equal((await ecrire(banc.url, '/api/joueur/moi', { legendaire: cle }, unAutre.cookie, 'PUT')).status, 400, 'il ne s’est pas montré à lui')
+  assert.equal((await ecrire(banc.url, '/api/joueur/moi', { legendaire: cle }, lui.cookie, 'PUT')).status, 200)
 }
 
 /** Midi à Paris, un jour de septembre 2026 (heure d'été, UTC+2) : aucune saison. */
@@ -198,27 +208,19 @@ function duelClasse(banc: Banc, j: Joueur, { lui, enFace }: { lui: number; enFac
 
 const GARDIENS: [string, string, string] = ['lg:renard', 'lg:sphinx', 'lg:dragon']
 
-/**
- * Comment elle est menée : les mains vides — ni coffre, ni achat —, par le coffre de chaque acte, ou sans coffre mais
- * avec un achat chez le marchand.
- */
-type Facon = 'mains-vides' | 'coffre' | 'achat'
-
 interface Traversee {
   depart: DepartDeLaTraversee
   gestes: GesteDeLaTraverseeEcrit[]
   etat: EtatDeLaTraversee
-  /** Ce que la base porte à la place de ses gestes, quand ce n'est pas eux (`illisible`). */
-  ecrits?: readonly unknown[]
 }
 
 /**
- * Une traversée gagnée, jouée au pli geste par geste comme le serveur les aurait écrits : chaque épreuve conclue à
- * trois étoiles par manche, chaque amélioration offerte prise par la première carte qui monte — celle d'un gardien
- * vaincu ne se refuse pas, le pas suivant l'attend —, le premier gardien choisi au bout. Chaque acte n'a qu'un coffre,
- * au deuxième rang, et chaque étape du premier file tout droit : il y a toujours un chemin qui l'évite, et un qui y mène.
+ * Une traversée jouée au pli jusqu'à sa fin, geste par geste comme le serveur les aurait écrits : le premier chemin
+ * vers une épreuve, chaque épreuve conclue à tant d'étoiles par manche, chaque amélioration offerte prise par la
+ * première carte qui monte, le premier gardien choisi au bout. À trois étoiles, elle se gagne ; à zéro, ses cœurs y
+ * passent dès les premières épreuves, et elle se perd.
  */
-function traverseeGagnee(facon: Facon): Traversee {
+function traverseeJouee(etoiles: 0 | 3): Traversee {
   let x = 7
   const hasard = () => ((x = (x * 16807) % 2147483647) / 2147483647)
   const depart: DepartDeLaTraversee = { v: VERSION_DE_LA_TRAVERSEE, jour: '2026-09-20', actes: tracerLaCarte(hasard, GARDIENS, { epingle: ['Rome'], frise: ['Rome'] }) }
@@ -228,36 +230,25 @@ function traverseeGagnee(facon: Facon): Traversee {
   pousser({ quoi: 'cartes', cartes })
   let e = etatDeLaTraversee(depart, gestes)
   let parties = 0
-  let achete = false
   for (let garde = 0; garde < 400 && !e.fin; garde++) {
-    const ici = depart.actes[e.acte].etapes
-    const etapeDe = (id: string) => ici.find(s => s.id === id)!
-    const versUnCoffre = (s: EtapeDeLaCarte) => s.suivantes.some(id => etapeDe(id).sorte === 'coffre')
-    const achat: GesteDeLaTraversee = { quoi: 'acheter', article: 'amelioration', carte: e.cartes[0].cle }
     if (e.ameliorations > 0) pousser({ quoi: 'ameliorer', carte: e.cartes.find(c => c.niveau < 2)!.cle })
     else if (e.ou.sorte === 'legendaire') pousser({ quoi: 'legendaire', gardien: GARDIENS[0] })
-    else if (facon === 'achat' && !achete && e.ou.sorte === 'marchand' && refusDuGesteDeLaTraversee(depart, e, achat, 0) === null) {
-      pousser(achat)
-      achete = true
-    } else {
+    else {
+      const ici = depart.actes[e.acte].etapes
+      const etapeDe = (id: string) => ici.find(s => s.id === id)!
       const suivantes = (e.ou.sorte === 'gardien' ? [e.ou.etape] : etapeDe(e.position).suivantes).map(etapeDe)
-      const sansCoffre = suivantes.filter(s => s.sorte !== 'coffre')
-      const etape =
-        facon === 'coffre'
-          ? (suivantes.find(s => s.sorte === 'coffre') ?? suivantes.find(versUnCoffre) ?? suivantes[0])
-          : // Ni le coffre, ni l'étape qui n'aurait plus que lui devant elle.
-            (sansCoffre.find(s => s.suivantes.length === 0 || s.suivantes.some(id => etapeDe(id).sorte !== 'coffre')) ?? sansCoffre[0])
+      const etape = suivantes.find(s => s.sorte === 'epreuve') ?? suivantes[0]
       if (etape.sorte === 'coffre' || etape.sorte === 'marchand') pousser({ quoi: 'aller', etape: etape.id })
       else {
         const partie = `partie-${++parties}`
         pousser({ quoi: 'epreuve', etape: etape.id, partie })
-        pousser({ quoi: 'conclure', partie, manches: [3, 3, 3].map(etoiles => ({ etoiles, misee: false })), aides: { eclairer: 0, changer: 0, temps: 0 } })
+        pousser({ quoi: 'conclure', partie, manches: [etoiles, etoiles, etoiles].map(n => ({ etoiles: n, misee: false })), aides: { eclairer: 0, changer: 0, temps: 0 } })
       }
     }
     e = etatDeLaTraversee(depart, gestes)
   }
   assert.equal(e.ignores, 0, 'le pli accepte chaque geste écrit')
-  assert.equal(e.fin?.issue, 'gagnee')
+  assert.equal(e.fin?.issue, etoiles === 3 ? 'gagnee' : 'perdue')
   return { depart, gestes, etat: e }
 }
 
@@ -277,29 +268,9 @@ function abandonnee(t: Traversee): Traversee {
   return { depart: t.depart, gestes, etat }
 }
 
-/**
- * La même, gagnée, avec au milieu un geste que ce code ne relit pas — celui d'une version à venir. Seule la base la
- * porte : le pli ne la rejoue pas, son état reste celui de la traversée gagnée.
- */
-function illisible(t: Traversee): Traversee {
-  const ecrits: unknown[] = t.gestes.map(g => g.geste)
-  ecrits.splice(5, 0, { quoi: 'troquer', contre: 'une-cle' })
-  return { ...t, ecrits }
-}
-
-const MAINS_VIDES = traverseeGagnee('mains-vides')
-const AVEC_COFFRE = traverseeGagnee('coffre')
-const AVEC_ACHAT = traverseeGagnee('achat')
-
-/** Les étapes à coffre de sa carte où elle est allée, et ses achats : ce qui lui remplit les mains. */
-function sesMains(t: Traversee) {
-  const coffres = new Set(t.depart.actes.flatMap(a => a.etapes.filter(s => s.sorte === 'coffre').map(s => s.id)))
-  return {
-    coffres: t.gestes.filter(({ geste: g }) => g.quoi === 'aller' && coffres.has(g.etape)).length,
-    achats: t.gestes.filter(({ geste: g }) => g.quoi === 'acheter').length,
-    offertes: t.gestes.filter(({ geste: g }) => g.quoi === 'ameliorer').length,
-  }
-}
+const GAGNEE = traverseeJouee(3)
+const PERDUE = traverseeJouee(0)
+const ABANDONNEE = abandonnee(GAGNEE)
 
 /**
  * Une traversée écrite en base comme le serveur l'aurait écrite : en route, ou finie à `finieLe` avec son issue, son
@@ -321,10 +292,22 @@ function ecrireLaTraversee(banc: Banc, j: Joueur, id: string, t: Traversee, comm
         fin ? JSON.stringify(resumeDeLaTraversee(t.depart, t.gestes)) : null,
       )
       const geste = db.prepare(`INSERT INTO cabinet_traversee_gestes (traversee_id, rang, geste, fait_le, uid) VALUES (?, ?, ?, ?, ?)`)
-      const ecrits = t.ecrits ?? t.gestes.map(g => g.geste)
-      ecrits.forEach((g, k) => geste.run(id, k + 1, JSON.stringify(g), commenceeLe + k + 1, `u${k}`))
+      t.gestes.forEach(({ geste: g }, k) => geste.run(id, k + 1, JSON.stringify(g), commenceeLe + k + 1, `u${k}`))
     })(),
   )
+}
+
+/** Des traversées finies en base, une par instant : gagnées d'office, chacune commencée une demi-heure avant sa fin. */
+function traverseesFinies(banc: Banc, j: Joueur, fins: readonly number[], t: Traversee = GAGNEE) {
+  for (const le of fins) ecrireLaTraversee(banc, j, `finie-${t.etat.fin?.issue}-${le}-de-${j.login}`, t, le - 30 * 60_000, le)
+}
+
+/**
+ * Sa traversée en route, devant le choix de son légendaire, commencée à l'instant de l'horloge : la dernière commencée,
+ * celle que sa page lit — et que `choisirLeLegendaire` gagne.
+ */
+function traverseeEnRoute(banc: Banc, horloge: Horloge, j: Joueur, id: string) {
+  ecrireLaTraversee(banc, j, id, devantLeChoix(GAGNEE), horloge.t)
 }
 
 /** Le dernier geste d'une traversée, par les routes : sa page la montre devant le choix du légendaire, il le choisit. Rend la vue de sa fin. */
@@ -431,76 +414,94 @@ async function adopter(banc: Banc, j: Joueur, compagnon: string): Promise<Record
 
 // ── 1. Hécate, au Cabinet ─────────────────────────────────────────────────
 
-test('les traversées écrites à la main : les mains vides, par les coffres, par un achat — et l’amélioration d’un gardien vaincu, qui ne se refuse pas', () => {
-  // Ce que les épreuves du serveur tiennent pour acquis de leurs trois traversées : si la carte ou le pli changeaient,
-  // c'est ici que ça se lirait, pas dans un Divin qui ne descend plus.
-  assert.deepEqual(sesMains(MAINS_VIDES), { coffres: 0, achats: 0, offertes: 2 }, 'ni coffre ni achat : les deux améliorations sont celles des gardiens des actes I et II')
-  assert.deepEqual([sesMains(AVEC_ACHAT).coffres, sesMains(AVEC_ACHAT).achats], [0, 1], 'sans coffre, un seul achat')
-  assert.ok(sesMains(AVEC_COFFRE).coffres >= 1 && sesMains(AVEC_COFFRE).achats === 0, 'un coffre au moins, aucun achat')
-  assert.deepEqual(sesMains(abandonnee(MAINS_VIDES)), sesMains(MAINS_VIDES), 'abandonnée devant son légendaire, elle l’a été les mains vides aussi')
-})
-
-test('Hécate descend à la deuxième traversée gagnée les mains vides — dans la vue de sa fin, avec son récit, rangée sous elle ; la première seule, rien ; et elle ne redescend pas', () =>
+test('Hécate descend à la troisième traversée gagnée du même jour — dans la vue de sa fin, avec son récit, rangée sous elle ; la deuxième, rien ; et elle ne redescend pas, ni ce jour-là ni le lendemain', () =>
   avecBanc(midi(26), CABINET, async (banc, horloge) => {
-    const une = await joueur(banc, 'une')
-    const deux = await joueur(banc, 'deux')
+    const alice = await joueur(banc, 'alice')
+    const bob = await joueur(banc, 'bob')
+    const matin = midi(26) - 3 * HEURE
+    const range = [`dv:hecate sous ${cleDeSerie('troisieme-d-alice')}`]
 
-    // Sa première, gagnée les mains vides : une seule l'avait fait, le jour où la règle est arrivée — rien.
-    ecrireLaTraversee(banc, une, 'premiere-d-une', devantLeChoix(MAINS_VIDES), 1000)
-    const seule = await choisirLeLegendaire(banc, une, 'premiere-d-une')
-    assert.deepEqual(cles(seule), [])
-    assert.equal('divins' in seule, false, 'sans Divin, la vue n’en dit rien')
-    assert.deepEqual(divinsRanges(banc, une), [])
+    // Bob en a gagné une ce matin ; sa deuxième du jour, ici : le record était de deux — rien.
+    traverseesFinies(banc, bob, [matin])
+    traverseeEnRoute(banc, horloge, bob, 'deuxieme-de-bob')
+    const deuxieme = await choisirLeLegendaire(banc, bob, 'deuxieme-de-bob')
+    assert.deepEqual(cles(deuxieme), [])
+    assert.equal('divins' in deuxieme, false, 'sans Divin, la vue n’en dit rien')
+    assert.deepEqual(divinsRanges(banc, bob), [])
 
-    // Une gagnée les mains vides la veille, déjà en base ; la deuxième se gagne ici, par son dernier geste.
-    ecrireLaTraversee(banc, deux, 'premiere-de-deux', MAINS_VIDES, 1000, midi(25))
-    ecrireLaTraversee(banc, deux, 'deuxieme-de-deux', devantLeChoix(MAINS_VIDES), 2_000_000)
-    const fin = await choisirLeLegendaire(banc, deux, 'deuxieme-de-deux')
+    // Alice en a gagné deux ce matin, déjà en base ; la troisième se gagne ici, par son dernier geste.
+    traverseesFinies(banc, alice, [matin, matin + HEURE])
+    traverseeEnRoute(banc, horloge, alice, 'troisieme-d-alice')
+    const fin = await choisirLeLegendaire(banc, alice, 'troisieme-d-alice')
     assert.deepEqual(cles(fin), ['dv:hecate'])
     avecSonRecit(fin, 'dv:hecate')
-    assert.deepEqual(divinsRanges(banc, deux), [`dv:hecate sous ${cleDeSerie('deuxieme-de-deux')}`])
+    assert.deepEqual(divinsRanges(banc, alice), range)
     // Tant que ce serveur la garde, sa page la redit : l'écran de fin se relit sans la perdre.
-    assert.deepEqual(cles((await lire(banc, deux.cookie, '/api/cabinet/traversee')).corps.traversee), ['dv:hecate'])
+    assert.deepEqual(cles((await lire(banc, alice.cookie, '/api/cabinet/traversee')).corps.traversee), ['dv:hecate'])
+    await ilLeGarde(banc, alice, 'dv:hecate', bob)
 
     // Relue après un réveil, sa fin se tait — comme ses paliers, la mémoire seule le savait : rien d'un Divin ne s'écrit
     // au Cabinet. Son étagère, elle, l'a toujours.
     await banc.redemarrer()
-    const relue = (await lire(banc, deux.cookie, '/api/cabinet/traversee')).corps.traversee
-    assert.deepEqual([relue.id, relue.fin?.issue], ['deuxieme-de-deux', 'gagnee'])
+    const relue = (await lire(banc, alice.cookie, '/api/cabinet/traversee')).corps.traversee
+    assert.deepEqual([relue.id, relue.fin?.issue], ['troisieme-d-alice', 'gagnee'])
     assert.equal('divins' in relue, false, 'relue, la fin ne le redit pas')
-    assert.deepEqual(divinsRanges(banc, deux), [`dv:hecate sous ${cleDeSerie('deuxieme-de-deux')}`])
+    assert.deepEqual(divinsRanges(banc, alice), range)
 
-    // Une troisième, les mains vides encore, le lendemain : sa condition tient toujours, et rien ne s'annonce. Le serveur
-    // redémarre d'abord — il garde en mémoire la dernière qu'il a lue, et ne verrait pas celle qu'on écrit derrière lui.
+    // Une quatrième le même jour : sa condition tient plus que jamais, et rien ne s'annonce. Le serveur redémarre
+    // d'abord — il garde en mémoire la dernière qu'il a lue, et ne verrait pas celle qu'on écrit derrière lui.
+    await banc.redemarrer()
+    horloge.t += HEURE
+    traverseeEnRoute(banc, horloge, alice, 'quatrieme-d-alice')
+    assert.deepEqual(cles(await choisirLeLegendaire(banc, alice, 'quatrieme-d-alice')), [])
+    assert.deepEqual(divinsRanges(banc, alice), range)
+
+    // Le lendemain, trois de plus : une journée entière qui la mériterait de nouveau, et qui se tait.
     await banc.redemarrer()
     horloge.t = midi(27)
-    ecrireLaTraversee(banc, deux, 'troisieme-de-deux', devantLeChoix(MAINS_VIDES), 3_000_000)
-    assert.deepEqual(cles(await choisirLeLegendaire(banc, deux, 'troisieme-de-deux')), [])
-    assert.deepEqual(divinsRanges(banc, deux), [`dv:hecate sous ${cleDeSerie('deuxieme-de-deux')}`])
+    traverseesFinies(banc, alice, [midi(27) - 3 * HEURE, midi(27) - 2 * HEURE])
+    traverseeEnRoute(banc, horloge, alice, 'troisieme-du-lendemain')
+    assert.deepEqual(cles(await choisirLeLegendaire(banc, alice, 'troisieme-du-lendemain')), [])
+    assert.deepEqual(divinsRanges(banc, alice), range)
   }))
 
-test('Hécate ne descend ni sur un coffre ouvert, ni sur un achat, ni sur une traversée qui n’est pas gagnée — et jamais sur une traversée qui ne l’est pas elle-même', () =>
-  avecBanc(midi(26), CABINET, async (banc) => {
-    // Chacun a deux traversées menées au bout de leurs trois gardiens : une en base, l'autre gagnée ici par son dernier
-    // geste. Une seule chose manque à chacun.
-    const cas: [string, Traversee[], Traversee, string][] = [
-      ['coffre', [MAINS_VIDES], AVEC_COFFRE, 'celle qui finit a ouvert un coffre'],
-      ['marchand', [MAINS_VIDES], AVEC_ACHAT, 'celle qui finit a acheté chez le marchand'],
-      ['avant', [AVEC_COFFRE], MAINS_VIDES, 'celle d’avant avait ouvert un coffre : une seule les mains vides'],
-      ['achete', [AVEC_ACHAT], MAINS_VIDES, 'celle d’avant avait acheté : une seule les mains vides'],
-      ['laissee', [abandonnee(MAINS_VIDES)], MAINS_VIDES, 'celle d’avant, les mains vides, n’a pas été gagnée'],
-      // Un geste d'un code à venir — l'autre serveur d'une mise en ligne : on ne sait pas ce qu'il a pris, elle ne compte pas.
-      ['illisible', [illisible(MAINS_VIDES)], MAINS_VIDES, 'celle d’avant porte un geste que ce code ne relit pas'],
-      // Deux les mains vides déjà en base — d'avant la règle, que rien n'a rattrapées — : la troisième, par un coffre, ne la fait pas tomber.
-      ['trois', [MAINS_VIDES, MAINS_VIDES], AVEC_COFFRE, 'elle ne descend que sur une traversée menée elle-même les mains vides'],
-    ]
-    for (const [login, avant, derniere, pourquoi] of cas) {
+test('Hécate ne compte que les traversées gagnées ce jour de Paris : ni celles d’hier, à une milliseconde de minuit, ni une perdue, ni une abandonnée — et minuit pile est aujourd’hui', () =>
+  avecBanc(midi(26), CABINET, async (banc, horloge) => {
+    const matin = midi(26) - 3 * HEURE
+    /** Ses traversées finies d'avant, puis celle qu'il gagne ici par son dernier geste : ce que sa fin annonce. */
+    const laFinDe = async (login: string, avant: (j: Joueur) => void) => {
       const j = await joueur(banc, login)
-      avant.forEach((t, k) => ecrireLaTraversee(banc, j, `d-avant-${k}-de-${login}`, t, 1000 * (k + 1), midi(24 + k)))
-      ecrireLaTraversee(banc, j, `derniere-de-${login}`, devantLeChoix(derniere), 2_000_000)
-      assert.deepEqual(cles(await choisirLeLegendaire(banc, j, `derniere-de-${login}`)), [], pourquoi)
+      avant(j)
+      traverseeEnRoute(banc, horloge, j, `derniere-de-${login}`)
+      return { j, fin: await choisirLeLegendaire(banc, j, `derniere-de-${login}`) }
+    }
+    // Chacun finit trois traversées, la dernière gagnée ici : une seule chose manque à chacun.
+    const temoins: [string, (j: Joueur) => void, string][] = [
+      ['hier', j => traverseesFinies(banc, j, [midi(25), minuit(26) - 1]), 'deux gagnées hier, dont une à une milliseconde de minuit'],
+      ['presque', j => traverseesFinies(banc, j, [minuit(26) - 1, matin]), 'la première des trois est d’hier, à une milliseconde de minuit'],
+      ['perdue', j => (traverseesFinies(banc, j, [matin]), traverseesFinies(banc, j, [matin + HEURE], PERDUE)), 'l’une des deux d’avant est perdue'],
+      ['laissee', j => (traverseesFinies(banc, j, [matin]), traverseesFinies(banc, j, [matin + HEURE], ABANDONNEE)), 'l’une des deux d’avant est abandonnée'],
+    ]
+    for (const [login, avant, pourquoi] of temoins) {
+      const { j, fin } = await laFinDe(login, avant)
+      assert.deepEqual(cles(fin), [], pourquoi)
       assert.deepEqual(divinsRanges(banc, j), [], pourquoi)
     }
+
+    // De l'autre côté de la borne : gagnée au premier instant de ce jour de Paris, elle est d'aujourd'hui.
+    const pile = await laFinDe('pile', j => traverseesFinies(banc, j, [minuit(26), matin]))
+    assert.deepEqual(cles(pile.fin), ['dv:hecate'], 'minuit pile est aujourd’hui')
+    assert.deepEqual(divinsRanges(banc, pile.j), [`dv:hecate sous ${cleDeSerie('derniere-de-pile')}`])
+
+    // Et la troisième doit se gagner : deux gagnées ce matin, celle-ci abandonnée devant son légendaire — rien ne se juge.
+    const lache = await joueur(banc, 'lache')
+    traverseesFinies(banc, lache, [matin, matin + HEURE])
+    traverseeEnRoute(banc, horloge, lache, 'derniere-de-lache')
+    const page = (await lire(banc, lache.cookie, '/api/cabinet/traversee')).corps.traversee
+    const fin = await poster(banc, lache.cookie, '/api/cabinet/traversee/derniere-de-lache/geste', { rang: page.rang, geste: { quoi: 'abandonner' } })
+    assert.equal(fin.corps.traversee?.fin?.issue, 'abandonnee', fin.corps.error)
+    assert.deepEqual(cles(fin.corps.traversee), [])
+    assert.deepEqual(divinsRanges(banc, lache), [])
   }))
 
 // ── 2. Artémis, sur les trois journaux d'un compagnon ─────────────────────
@@ -531,6 +532,7 @@ test('Artémis descend à la trente-millième bonne réponse avec le même compa
     assert.deepEqual(cles(await jouerLeJour(banc, horloge, cleo)), [], 'le même compagnon, pas tous ensemble')
     assert.deepEqual(cles(await jouerLeJour(banc, horloge, dede)), [], 'sans compagnon, rien à compter')
     for (const j of [bob, cleo, dede]) assert.deepEqual(divinsRanges(banc, j), [])
+    await ilLeGarde(banc, alice, 'dv:artemis', bob)
 
     // Le lendemain, une de plus : trente mille une, sa condition tient toujours — elle ne redescend pas.
     horloge.t = midi(27)
@@ -572,8 +574,8 @@ test('Artémis compte ses soirées, son quiz du jour et sa campagne ensemble : e
 test('le Panthéon descend sur le sans-faute qui finit sa journée : un palier à trois étoiles, un duel gagné, une traversée gagnée, le même jour de Paris — et rien s’il en manque une', () =>
   avecBanc(midi(26), BASE, async (banc, horloge) => {
     const matin = midi(26) - 3 * HEURE
-    /** Sa traversée du jour, par un coffre : Hécate n'a rien à y voir. */
-    const traversee = (j: Joueur, finieLe: number, t = AVEC_COFFRE) => ecrireLaTraversee(banc, j, `traversee-de-${j.login}`, t, finieLe - HEURE, finieLe)
+    /** Sa traversée du jour : une seule, Hécate n'a rien à y voir. */
+    const traversee = (j: Joueur, finieLe: number, t = GAGNEE) => traverseesFinies(banc, j, [finieLe], t)
 
     // Alice : ses trois parts du matin, puis son sans-faute.
     const alice = await joueur(banc, 'alice')
@@ -584,6 +586,7 @@ test('le Panthéon descend sur le sans-faute qui finit sa journée : un palier �
     assert.deepEqual(cles(fin), ['dv:pantheon'])
     avecSonRecit(fin, 'dv:pantheon')
     assert.deepEqual(divinsRanges(banc, alice), [`dv:pantheon sous ${cleDuJour(septembre(26))}`])
+    await ilLeGarde(banc, alice, 'dv:pantheon', await joueur(banc, 'zoe'))
 
     // À chacun de ceux-là, une seule chose manque.
     const temoins: [string, (j: Joueur) => void, ((i: number) => boolean) | undefined, string][] = [
@@ -594,7 +597,8 @@ test('le Panthéon descend sur le sans-faute qui finit sa journée : un palier �
       ['fay', j => (palierValide(banc, j, matin), duelAuDe(banc, j, matin, { justes: 7, sesJustes: 7 }), traversee(j, matin)), undefined, 'son duel du jour à égalité'],
       ['gus', j => (palierValide(banc, j, minuit(26) - 1), duelAuDe(banc, j, matin), traversee(j, matin)), undefined, 'son palier validé hier, à une milliseconde de minuit'],
       ['hugo', j => (palierValide(banc, j, matin), duelAuDe(banc, j, matin), traversee(j, minuit(26) - 1)), undefined, 'sa traversée gagnée hier, à une milliseconde de minuit'],
-      ['ines', j => (palierValide(banc, j, matin), duelAuDe(banc, j, matin), traversee(j, matin, abandonnee(AVEC_COFFRE))), undefined, 'sa traversée du jour abandonnée devant son légendaire'],
+      ['ines', j => (palierValide(banc, j, matin), duelAuDe(banc, j, matin), traversee(j, matin, ABANDONNEE)), undefined, 'sa traversée du jour abandonnée devant son légendaire'],
+      ['iris', j => (palierValide(banc, j, matin), duelAuDe(banc, j, matin), traversee(j, matin, PERDUE)), undefined, 'sa traversée du jour perdue'],
       ['jade', j => (palierValide(banc, j, matin), duelAuDe(banc, j, matin)), undefined, 'aucune traversée'],
     ]
     for (const [login, parts, juste, pourquoi] of temoins) {
@@ -619,37 +623,49 @@ test('le Panthéon descend sur le sans-faute qui finit sa journée : un palier �
     assert.deepEqual(cles(await jouerLeJour(banc, horloge, lou)), ['dv:pantheon'], 'un duel classé compte comme un duel au dé')
   }))
 
-test('le Panthéon lit le jour de Paris, pas vingt-quatre heures : le dimanche du changement d’heure en a vingt-cinq', () =>
+test('le Panthéon et Hécate lisent le jour de Paris, pas vingt-quatre heures : le dimanche du changement d’heure en a vingt-cinq', () =>
   // Le 25 octobre 2026, 23 h 40 à Paris — 22 h 40 UTC, l'heure d'hiver revenue dans la nuit. Ce jour-là va du 24 à 22 h UTC
   // au 25 à 23 h UTC.
-  avecBanc(Date.UTC(2026, 9, 25, 22, 40), BASE, async (banc, horloge) => {
+  avecBanc(Date.UTC(2026, 9, 25, 22, 40), CABINET, async (banc, horloge) => {
     const debut = Date.UTC(2026, 9, 24, 22, 0)
     const vingtCinquieme = Date.UTC(2026, 9, 25, 22, 0)
     // Alice : une traversée gagnée à 0 h 10, heure d'été — plus de vingt-quatre heures avant son sans-faute — ; un palier à
     // 23 h 20, heure d'hiver, dans la vingt-cinquième heure du jour ; un duel dix minutes après. Le même jour, tous.
     const alice = await joueur(banc, 'alice')
-    ecrireLaTraversee(banc, alice, 'traversee-d-alice', AVEC_COFFRE, debut - HEURE, debut + 10 * 60_000)
+    traverseesFinies(banc, alice, [debut + 10 * 60_000])
     palierValide(banc, alice, vingtCinquieme + 20 * 60_000)
     duelAuDe(banc, alice, vingtCinquieme + 30 * 60_000)
     assert.deepEqual(cles(await jouerLeJour(banc, horloge, alice)), ['dv:pantheon'])
     assert.deepEqual(divinsRanges(banc, alice), [`dv:pantheon sous ${cleDuJour('2026-10-25')}`])
     // Bob, les mêmes — sauf sa traversée, gagnée à 23 h 59 la veille : onze minutes avant celle d'Alice, et un autre jour.
     const bob = await joueur(banc, 'bob')
-    ecrireLaTraversee(banc, bob, 'traversee-de-bob', AVEC_COFFRE, debut - HEURE, debut - 60_000)
+    traverseesFinies(banc, bob, [debut - 60_000])
     palierValide(banc, bob, vingtCinquieme + 20 * 60_000)
     duelAuDe(banc, bob, vingtCinquieme + 30 * 60_000)
     assert.deepEqual(cles(await jouerLeJour(banc, horloge, bob)), [], 'sa traversée est de la veille')
     // Cléo : son palier une minute avant, à 23 h 59 la veille.
     const cleo = await joueur(banc, 'cleo')
-    ecrireLaTraversee(banc, cleo, 'traversee-de-cleo', AVEC_COFFRE, debut - HEURE, debut + 10 * 60_000)
+    traverseesFinies(banc, cleo, [debut + 10 * 60_000])
     palierValide(banc, cleo, debut - 60_000)
     duelAuDe(banc, cleo, vingtCinquieme + 30 * 60_000)
     assert.deepEqual(cles(await jouerLeJour(banc, horloge, cleo)), [], 'son palier est de la veille')
+
+    // Hécate, ce même dimanche : Dana a gagné sa première à 0 h 10 — il y a plus de vingt-quatre heures —, sa deuxième à
+    // midi, et gagne la troisième à 23 h 41. Pour Eve, la première était de 23 h 59 la veille.
+    const dana = await joueur(banc, 'dana')
+    traverseesFinies(banc, dana, [debut + 10 * 60_000, debut + 13 * HEURE])
+    traverseeEnRoute(banc, horloge, dana, 'troisieme-de-dana')
+    assert.deepEqual(cles(await choisirLeLegendaire(banc, dana, 'troisieme-de-dana')), ['dv:hecate'])
+    assert.deepEqual(divinsRanges(banc, dana), [`dv:hecate sous ${cleDeSerie('troisieme-de-dana')}`])
+    const eve = await joueur(banc, 'eve')
+    traverseesFinies(banc, eve, [debut - 60_000, debut + 13 * HEURE])
+    traverseeEnRoute(banc, horloge, eve, 'troisieme-d-eve')
+    assert.deepEqual(cles(await choisirLeLegendaire(banc, eve, 'troisieme-d-eve')), [], 'sa première est de la veille')
   }))
 
 // ── 4. Le Panthéon, la dernière part étant une autre ──────────────────────
 
-test('le Panthéon descend sur la traversée qui finit sa journée — dans la vue de sa fin, rangé sous elle ; et avec Hécate, si elle est la deuxième les mains vides', () =>
+test('le Panthéon descend sur la traversée qui finit sa journée — dans la vue de sa fin, rangé sous elle ; et avec Hécate, si c’est la troisième gagnée du jour', () =>
   avecBanc(midi(26), CABINET, async (banc, horloge) => {
     const alice = await joueur(banc, 'alice')
     const bob = await joueur(banc, 'bob')
@@ -664,31 +680,32 @@ test('le Panthéon descend sur la traversée qui finit sa journée — dans la v
     }
     horloge.t += HEURE
 
-    // Alice gagne sa traversée, par un coffre : la dernière de ses quatre parts.
-    ecrireLaTraversee(banc, alice, 'traversee-d-alice', devantLeChoix(AVEC_COFFRE), 2_000_000)
+    // Alice gagne sa traversée, la seule de son jour : la dernière de ses quatre parts.
+    traverseeEnRoute(banc, horloge, alice, 'traversee-d-alice')
     const fin = await choisirLeLegendaire(banc, alice, 'traversee-d-alice')
     assert.deepEqual(cles(fin), ['dv:pantheon'])
     avecSonRecit(fin, 'dv:pantheon')
     assert.deepEqual(divinsRanges(banc, alice), [`dv:pantheon sous ${cleDeSerie('traversee-d-alice')}`])
     // Bob, la même : son quiz du jour avait une faute.
-    ecrireLaTraversee(banc, bob, 'traversee-de-bob', devantLeChoix(AVEC_COFFRE), 2_000_000)
+    traverseeEnRoute(banc, horloge, bob, 'traversee-de-bob')
     assert.deepEqual(cles(await choisirLeLegendaire(banc, bob, 'traversee-de-bob')), [], 'neuf sur dix au quiz du jour')
     assert.deepEqual(divinsRanges(banc, bob), [])
-    // Cléo, les mains vides, pour la deuxième fois : les deux descendent sur la même fin, chacun son récit.
-    ecrireLaTraversee(banc, cleo, 'premiere-de-cleo', MAINS_VIDES, 1000, midi(20))
-    ecrireLaTraversee(banc, cleo, 'deuxieme-de-cleo', devantLeChoix(MAINS_VIDES), 2_000_000)
-    const double = await choisirLeLegendaire(banc, cleo, 'deuxieme-de-cleo')
+    // Cléo en avait gagné deux ce matin : sa troisième du jour est aussi la dernière part de sa journée, et les deux
+    // descendent sur la même fin, chacun son récit.
+    traverseesFinies(banc, cleo, [midi(26) - 3 * HEURE, midi(26) - 2 * HEURE])
+    traverseeEnRoute(banc, horloge, cleo, 'troisieme-de-cleo')
+    const double = await choisirLeLegendaire(banc, cleo, 'troisieme-de-cleo')
     assert.deepEqual(cles(double), ['dv:hecate', 'dv:pantheon'])
     avecSonRecit(double, 'dv:hecate')
     avecSonRecit(double, 'dv:pantheon')
-    assert.deepEqual(divinsRanges(banc, cleo), [`dv:hecate sous ${cleDeSerie('deuxieme-de-cleo')}`, `dv:pantheon sous ${cleDeSerie('deuxieme-de-cleo')}`])
+    assert.deepEqual(divinsRanges(banc, cleo), [`dv:hecate sous ${cleDeSerie('troisieme-de-cleo')}`, `dv:pantheon sous ${cleDeSerie('troisieme-de-cleo')}`])
 
     // Et par la même porte, Artémis : la trente-millième de Dana est tombée en soirée, où plus rien ne descend — elle
     // l'attendait à la fin de sa partie suivante jouée seule, et c'est une traversée.
     const dana = await joueur(banc, 'dana')
     soireeDAvant(banc, dana, { loup: 30_000 })
     assert.deepEqual(await adopter(banc, dana, 'loup'), { loup: 30_000 })
-    ecrireLaTraversee(banc, dana, 'traversee-de-dana', devantLeChoix(AVEC_COFFRE), 2_000_000)
+    traverseeEnRoute(banc, horloge, dana, 'traversee-de-dana')
     const sienne = await choisirLeLegendaire(banc, dana, 'traversee-de-dana')
     assert.deepEqual(cles(sienne), ['dv:artemis'])
     avecSonRecit(sienne, 'dv:artemis')
@@ -702,7 +719,7 @@ test('le Panthéon descend sur le palier à trois étoiles qui finit sa journée
     for (const j of [alice, bob]) {
       assert.deepEqual(cles(await jouerLeJour(banc, horloge, j)), [])
       duelAuDe(banc, j, horloge.t)
-      ecrireLaTraversee(banc, j, `traversee-de-${j.login}`, AVEC_COFFRE, horloge.t - HEURE, horloge.t)
+      traverseesFinies(banc, j, [horloge.t])
     }
     horloge.t += HEURE
 
@@ -735,7 +752,7 @@ test('le Panthéon descend sur le duel au dé gagné qui finit sa journée — p
       for (const j of [alice, bob]) {
         assert.deepEqual(cles(await jouerLeJour(banc, horloge, j)), [])
         palierValide(banc, j, horloge.t)
-        ecrireLaTraversee(banc, j, `traversee-de-${j.login}`, AVEC_COFFRE, horloge.t - HEURE, horloge.t)
+        traverseesFinies(banc, j, [horloge.t])
       }
       horloge.t += HEURE
 
@@ -760,7 +777,7 @@ test('le Panthéon descend sur le duel classé gagné qui finit sa journée : à
     for (const j of [alice, bob]) {
       assert.deepEqual(cles(await jouerLeJour(banc, horloge, j)), [])
       palierValide(banc, j, horloge.t)
-      ecrireLaTraversee(banc, j, `traversee-de-${j.login}`, AVEC_COFFRE, horloge.t - HEURE, horloge.t)
+      traverseesFinies(banc, j, [horloge.t])
     }
 
     // Alice le lance et trouve trois questions ; Bob le relève et n'en trouve aucune. Sa fin à elle n'en savait rien,
@@ -774,7 +791,8 @@ test('le Panthéon descend sur le duel classé gagné qui finit sa journée : à
     assert.deepEqual(cles(page), ['dv:pantheon'])
     avecSonRecit(page, 'dv:pantheon')
     assert.deepEqual(divinsRanges(banc, alice), [`dv:pantheon sous ${cleDeSerie(premier.premier.id)}`])
-    assert.deepEqual(cles((await lire(banc, alice.cookie, `/api/campagne/duel/${premier.code}`)).corps), [], 'sa page relue ne le redit pas')
+    assert.deepEqual(cles((await lire(banc, alice.cookie, `/api/campagne/duel/${premier.code}`)).corps), ['dv:pantheon'], 'la page de ce duel redit ce qu’il lui a valu')
+    assert.deepEqual(divinsRanges(banc, alice), [`dv:pantheon sous ${cleDeSerie(premier.premier.id)}`], 'une seule ligne')
 
     // La revanche : elle n'en trouve qu'une, il la bat à sa deuxième bonne réponse — son duel du jour, et sa journée.
     const revanche = await duelParLesRoutes(banc, horloge, alice, 1, bob, 2)
@@ -794,7 +812,7 @@ test('le Panthéon ne se perd pas quand la victoire d’un duel lancé ne s’ap
     const bob = await joueur(banc, 'bob')
     assert.deepEqual(cles(await jouerLeJour(banc, horloge, alice)), [])
     palierValide(banc, alice, horloge.t)
-    ecrireLaTraversee(banc, alice, 'traversee-d-alice', AVEC_COFFRE, horloge.t - HEURE, horloge.t)
+    traverseesFinies(banc, alice, [horloge.t])
     // Elle le lance et le joue le 26 ; Bob le relève et le perd le 26 : ce jour-là, ses quatre parts y sont.
     const duel = await duelParLesRoutes(banc, horloge, alice, 3, bob, 0)
     assert.deepEqual(cles(duel.premier.fin), [])
@@ -814,7 +832,7 @@ test('descendu, le Panthéon ne redescend pas : le lendemain, les quatre parts r
     const sesParts = (jour: number, palier: number) => {
       palierValide(banc, alice, midi(jour) - 3 * HEURE, { palier })
       duelAuDe(banc, alice, midi(jour) - 2 * HEURE)
-      ecrireLaTraversee(banc, alice, `traversee-du-${jour}`, AVEC_COFFRE, midi(jour) - 2 * HEURE, midi(jour) - HEURE)
+      traverseesFinies(banc, alice, [midi(jour) - HEURE])
     }
     sesParts(26, 1)
     assert.deepEqual(cles(await jouerLeJour(banc, horloge, alice)), ['dv:pantheon'])
@@ -826,9 +844,10 @@ test('descendu, le Panthéon ne redescend pas : le lendemain, les quatre parts r
     sesParts(27, 2)
     assert.deepEqual(cles(await jouerLeJour(banc, horloge, alice)), [])
     assert.deepEqual(divinsRanges(banc, alice), range)
-    // Ni par une autre porte : une traversée de plus gagnée ce jour-là rejuge la même journée, et se tait de même.
+    // Ni par une autre porte : une traversée de plus gagnée ce jour-là — sa deuxième, Hécate n'y est pour rien — rejuge
+    // la même journée, et se tait de même.
     horloge.t += HEURE
-    ecrireLaTraversee(banc, alice, 'une-de-plus', devantLeChoix(AVEC_COFFRE), midi(27))
+    traverseeEnRoute(banc, horloge, alice, 'une-de-plus')
     assert.deepEqual(cles(await choisirLeLegendaire(banc, alice, 'une-de-plus')), [])
     assert.deepEqual(divinsRanges(banc, alice), range)
   }))

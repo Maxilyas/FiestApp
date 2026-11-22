@@ -763,11 +763,16 @@ export const DIVINS_PEINTS: { id: string; sujet: string; fond?: FondUni }[] = [
   },
   {
     id: 'pantheon',
+    // « A round antique temple » : le modèle en a fait un médaillon rond, le temple dessiné dedans (le 22 novembre 2026) —
+    // or un Divin n'est pas un rond, sa silhouette dit ce qu'il est (`Divin.tsx`). Le temple se tient donc seul, et la
+    // consigne lui interdit le disque en toutes lettres.
     sujet:
-      'the divine badge of the Pantheon, temple of all the gods — the front of a round antique temple seen straight on: a row of six fluted ' +
-      'columns of white pearl enamel with golden capitals standing on three golden steps, carrying a triangular golden pediment set with a ' +
-      'ruby, and above it a great dome of golden coffers and deep blue enamel, a round oculus open at its top from which a small radiant ' +
-      'golden star rises. The row of columns, the triangular pediment and the dome make its silhouette.',
+      'the divine badge of the Pantheon, temple of all the gods — a free-standing antique temple front seen straight on, cut out as an ' +
+      'object on its own: three wide golden steps, a row of six fluted columns of white pearl enamel with golden capitals, a broad ' +
+      'triangular golden pediment set with a ruby, and rising behind the pediment a low dome of golden coffers and deep blue enamel, a ' +
+      'small radiant golden star above its open oculus. No medallion, no disc, no circular plate, no round frame and no background shape ' +
+      'behind the temple: the outline of the badge is the building itself — steps, columns, pointed pediment and dome make its silhouette, ' +
+      'with empty background showing between the columns at the sides of the steps.',
   },
 ]
 

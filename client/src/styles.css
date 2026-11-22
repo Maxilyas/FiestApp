@@ -5759,7 +5759,7 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 
 /* ── Les avatars divins ────────────────────────────────────────────────────
 
-   Six bijoux peints (components/Divin.tsx), à la taille du texte comme les
+   Dix-huit bijoux peints (components/Divin.tsx), à la taille du texte comme les
    légendaires, et habités de lumière : des rayons qui tournent, une lueur qui
    respire, un éclat qui glisse sur l'or, des étincelles qui gravitent. Tout
    bouge par `transform` et `opacity`, jamais par un filtre — le PC du
