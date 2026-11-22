@@ -28,6 +28,19 @@ export const DIVINS: Divin[] = [
   { key: 'dv:arbre', nom: 'L’Arbre-Monde' },
   { key: 'dv:dechu', nom: 'L’Ange Déchu' },
   { key: 'dv:chronos', nom: 'Chronos' },
+  // Les douze du 21 novembre 2026, leurs bijoux peints le lendemain.
+  { key: 'dv:athena', nom: 'Athéna' },
+  { key: 'dv:thot', nom: 'Thot' },
+  { key: 'dv:demiurge', nom: 'Le Démiurge' },
+  { key: 'dv:ariane', nom: 'Ariane' },
+  { key: 'dv:mnemosyne', nom: 'Mnémosyne' },
+  { key: 'dv:heracles', nom: 'Héraclès' },
+  { key: 'dv:sisyphe', nom: 'Sisyphe' },
+  { key: 'dv:nike', nom: 'Nikê' },
+  { key: 'dv:osiris', nom: 'Osiris' },
+  { key: 'dv:hecate', nom: 'Hécate' },
+  { key: 'dv:artemis', nom: 'Artémis' },
+  { key: 'dv:pantheon', nom: 'Le Panthéon' },
 ]
 
 const PAR_CLE = new Map(DIVINS.map(d => [d.key, d]))

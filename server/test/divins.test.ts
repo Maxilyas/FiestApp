@@ -1,6 +1,6 @@
-// Les Divins : des avatars au-dessus des légendaires, dont personne ne
-// connaît la règle — six au catalogue, et douze dont la règle est écrite et
-// dort jusqu'à leur bijou (le 21 novembre 2026).
+// Les Divins : dix-huit avatars au-dessus des légendaires, dont personne ne
+// connaît la règle — les six d'origine, et douze venus le 21 novembre 2026,
+// leurs bijoux peints le lendemain.
 //
 // Trois promesses à tenir. La première : ils sont rares, et ne se mesurent
 // qu'à ce que leur joueur a fait lui-même — ni rang, ni salle (le 21 novembre
@@ -203,9 +203,8 @@ test('Héraclès, Artémis, Sisyphe, Hécate : leurs seuils', () => {
   assert.deepEqual(divinsDesCompagnons([]), [])
   assert.deepEqual(divinsDuPalier(11), ['dv:sisyphe'])
   assert.deepEqual(divinsDuPalier(10), [])
-  assert.deepEqual(divinsDeLaTraversee({ celleCi: true, mainsVides: 2 }), ['dv:hecate'])
-  assert.deepEqual(divinsDeLaTraversee({ celleCi: true, mainsVides: 1 }), [], 'une seule')
-  assert.deepEqual(divinsDeLaTraversee({ celleCi: false, mainsVides: 5 }), [], 'celle qui finit ne l’est pas')
+  assert.deepEqual(divinsDeLaTraversee({ gagneesCeJour: 3 }), ['dv:hecate'])
+  assert.deepEqual(divinsDeLaTraversee({ gagneesCeJour: 2 }), [], 'deux, le record du jour où la règle est arrivée')
 })
 
 test('le Panthéon : les quatre le même jour, pas une de moins', () => {
@@ -453,13 +452,13 @@ test('le Lotus Sacré descend au cinquième jour de progrès, l’Ange Déchu au
 // ── 4. Les deux du quiz du jour parmi les douze, et la porte du catalogue ──
 
 /**
- * Le temps d'une épreuve, les Divins qui se rangent sont ceux que dit
- * `auCatalogue` — tous, d'office : les douze du 21 novembre 2026 ont leur
- * règle avant leur bijou, et le catalogue ne les nomme pas encore.
+ * Le temps d'une épreuve, un Divin que le catalogue ne nommerait pas : sa
+ * règle écrite avant que son bijou soit peint. Les douze du 21 novembre 2026
+ * ont attendu les leurs un jour, endormis derrière cette porte.
  */
-async function catalogue<T>(epreuve: () => Promise<T>, auCatalogue: (cle: string) => boolean = () => true): Promise<T> {
+async function sansLeNommer<T>(cle: string, epreuve: () => Promise<T>): Promise<T> {
   const avant = ProfileStore.divinAuCatalogue
-  ProfileStore.divinAuCatalogue = auCatalogue
+  ProfileStore.divinAuCatalogue = c => c !== cle && avant(c)
   try {
     return await epreuve()
   } finally {
@@ -467,10 +466,10 @@ async function catalogue<T>(epreuve: () => Promise<T>, auCatalogue: (cle: string
   }
 }
 
-test('Athéna descend au sixième jour d’affilée à une faute au plus — et dort tant que le catalogue ne la nomme pas', () =>
+test('Athéna descend au sixième jour d’affilée à une faute au plus — et dormirait tant que le catalogue ne la nomme pas', () =>
   avecBanc(midi(26), async (banc, horloge) => {
     // La porte d'office : le catalogue, et rien d'autre.
-    assert.ok(ProfileStore.divinAuCatalogue('dv:helios') && !ProfileStore.divinAuCatalogue('dv:inconnu'))
+    assert.ok(ProfileStore.divinAuCatalogue('dv:helios') && ProfileStore.divinAuCatalogue('dv:athena') && !ProfileStore.divinAuCatalogue('dv:inconnu'))
     const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
     const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
     const cleo = await inscrireProfil(banc.url, 'cleo', 'Cléo', '🐙')
@@ -478,21 +477,23 @@ test('Athéna descend au sixième jour d’affilée à une faute au plus — et 
     for (const qui of ['alice', 'cleo']) [9, 10, 9, 9, 10].forEach((justes, i) => joue(banc, qui, septembre(21 + i), justes, midi(21 + i)))
     ;[9, 10, 8, 9, 10].forEach((justes, i) => joue(banc, 'bob', septembre(21 + i), justes, midi(21 + i)))
 
-    // Cléo tient la règle, mais son bijou n'est pas au catalogue : rien ne descend, rien ne se range.
-    await catalogue(async () => assert.deepEqual(cles(await jouer(banc, horloge, cleo, i => i !== 3)), []), cle => cle !== 'dv:athena')
+    // Cléo tient la règle, mais sans son nom au catalogue : rien ne descend, rien ne se range.
+    await sansLeNommer('dv:athena', async () => assert.deepEqual(cles(await jouer(banc, horloge, cleo, i => i !== 3)), []))
     assert.deepEqual(divinsRanges(banc, 'cleo'), [])
 
-    await catalogue(async () => {
-      const fin = await jouer(banc, horloge, alice, i => i !== 3)
-      assert.deepEqual(cles(fin), ['dv:athena'])
-      assert.ok(fin.divins[0].legende.length > 0 && fin.divins[0].ton === 'eclat', 'son récit, à elle seule')
-      assert.deepEqual(cles(await jouer(banc, horloge, bob, i => i !== 3)), [])
-      // Le lendemain, sa suite tient toujours : elle ne redescend pas. Et Cléo, à qui la règle n'a rien repris en
-      // dormant, la reçoit à sa partie suivante.
-      horloge.t = midi(27)
-      assert.deepEqual(cles(await jouer(banc, horloge, alice, i => i !== 3)), [])
-      assert.deepEqual(cles(await jouer(banc, horloge, cleo, i => i !== 3)), ['dv:athena'])
-    })
+    const fin = await jouer(banc, horloge, alice, i => i !== 3)
+    assert.deepEqual(cles(fin), ['dv:athena'])
+    assert.ok(fin.divins[0].legende.length > 0 && fin.divins[0].ton === 'eclat', 'son récit, à elle seule')
+    assert.deepEqual(cles(await jouer(banc, horloge, bob, i => i !== 3)), [])
+    // Elle est à elle : son profil la liste, et elle se porte — pas Bob.
+    assert.deepEqual((await lire(banc, alice, '/api/joueur/moi')).corps.profile.divins.map((d: any) => d.key), ['dv:athena'])
+    assert.equal((await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'dv:athena' }, alice, 'PUT')).status, 200)
+    assert.equal((await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'dv:athena' }, bob, 'PUT')).status, 400)
+    // Le lendemain, sa suite tient toujours : elle ne redescend pas. Et Cléo, à qui la règle n'a rien repris en
+    // dormant, la reçoit à sa partie suivante.
+    horloge.t = midi(27)
+    assert.deepEqual(cles(await jouer(banc, horloge, alice, i => i !== 3)), [])
+    assert.deepEqual(cles(await jouer(banc, horloge, cleo, i => i !== 3)), ['dv:athena'])
     assert.deepEqual(divinsRanges(banc, 'alice'), [`dv:athena sous ${cleDuJour('2026-09-26')}`])
     assert.deepEqual(divinsRanges(banc, 'cleo'), [`dv:athena sous ${cleDuJour('2026-09-27')}`])
     assert.deepEqual(divinsRanges(banc, 'bob'), [])
@@ -519,18 +520,16 @@ test('Thot descend au début de la partie qui suit sa dixième question accepté
     // Dix pour Cléo aussi, mais l'une a été retirée depuis : elle n'est plus acceptée.
     accepter(banc, 'cleo', 9, midi(25))
     accepter(banc, 'cleo', 1, midi(25), 'retiree')
-    await catalogue(async () => {
-      const fin = await jouer(banc, horloge, alice, i => i < 5)
-      assert.deepEqual(cles(fin), ['dv:thot'])
-      assert.ok(fin.divins[0].legende.length > 0)
-      assert.deepEqual(cles(await jouer(banc, horloge, bob, i => i < 5)), [])
-      assert.deepEqual(cles(await jouer(banc, horloge, cleo, i => i < 5)), [])
-      // La dixième de Bob est acceptée après sa partie du jour : c'est celle de demain qui le lui dit.
-      accepter(banc, 'bob', 1, horloge.t)
-      horloge.t = midi(27)
-      assert.deepEqual(cles(await jouer(banc, horloge, bob, i => i < 5)), ['dv:thot'])
-      assert.deepEqual(cles(await jouer(banc, horloge, alice, i => i < 5)), [], 'il ne redescend pas')
-    })
+    const fin = await jouer(banc, horloge, alice, i => i < 5)
+    assert.deepEqual(cles(fin), ['dv:thot'])
+    assert.ok(fin.divins[0].legende.length > 0)
+    assert.deepEqual(cles(await jouer(banc, horloge, bob, i => i < 5)), [])
+    assert.deepEqual(cles(await jouer(banc, horloge, cleo, i => i < 5)), [])
+    // La dixième de Bob est acceptée après sa partie du jour : c'est celle de demain qui le lui dit.
+    accepter(banc, 'bob', 1, horloge.t)
+    horloge.t = midi(27)
+    assert.deepEqual(cles(await jouer(banc, horloge, bob, i => i < 5)), ['dv:thot'])
+    assert.deepEqual(cles(await jouer(banc, horloge, alice, i => i < 5)), [], 'il ne redescend pas')
     assert.deepEqual(divinsRanges(banc, 'alice'), [`dv:thot sous ${cleDuJour('2026-09-26')}`])
     assert.deepEqual(divinsRanges(banc, 'bob'), [`dv:thot sous ${cleDuJour('2026-09-27')}`])
   }))

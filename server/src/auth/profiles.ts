@@ -5616,6 +5616,20 @@ export class ProfileStore {
   }
 
   /**
+   * Les Divins rangés sous ce rangement depuis `depuis` — ce qu'une page qui
+   * en a fait descendre un redit quand on y revient (la page d'un duel,
+   * `CampagneStore.divinsDeSonDuel`). Une petite lecture par sa clé ; qui
+   * l'appelle sait déjà, de mémoire, qu'il en tient un.
+   */
+  async divinsRangesSous(profileId: string, sous: string, depuis: number): Promise<string[]> {
+    const res = await this.client.execute({
+      sql: `SELECT badge FROM profile_badges WHERE profile_id = ? AND soiree_id = ? AND badge LIKE 'dv:%' AND created_at >= ? ORDER BY created_at, badge`,
+      args: [profileId, sous, depuis],
+    })
+    return res.rows.map(r => String(r.badge)).filter(cle => ProfileStore.divinAuCatalogue(cle))
+  }
+
+  /**
    * Un Divin est-il de ceux qui se rangent ? Ceux que le catalogue nomme
    * (`shared/divins.ts`) — sans nom ni bijou, il ne se montrerait nulle part.
    * Une règle écrite avant que son bijou soit peint dort ainsi jusqu'à lui :

@@ -312,8 +312,12 @@ jour a sa notification (règle `rappel-et-installation.md`).
   aussi ce que l'issue du duel fait descendre sur lui (`divinsDeSaVictoire`,
   `DuelEntreAmis.divins`, depuis le 21 novembre 2026 — règle
   `recompenses.md`) : il n'était pas là quand l'autre a fini, et rien
-  d'autre ne le lui dirait. Rangé sous sa tentative, annoncé sur la carte du
-  verdict (`VerdictDuDuel` `extra`), une fois (`divins-duels.test.ts`).
+  d'autre ne le lui dirait. Rangé une fois sous sa tentative, annoncé sur
+  la carte du verdict (`VerdictDuDuel` `extra`), et redit à chaque retour
+  sur la page de ce duel (`divinsDeSonDuel`, `ProfileStore.divinsRangesSous`
+  — rien ne se lit pour qui ne tient aucun Divin) : annoncé à la seule
+  première lecture, il tenait à une réponse, et perdue en route, il était
+  rangé sans avoir jamais été dit (`divins-duels.test.ts`).
 - **Le dé : un aller-retour avant de répondre, pas un de plus** — un
   `batch` de lectures (sa rencontre laissée, et ce qui est arrivé au journal
   des réponses depuis sa dernière lecture, d'où ses vues et ses premières

@@ -105,10 +105,8 @@ import {
   lecturesDesParties,
   lecturesDesTraversees,
   lecturesDesTraverseesVivantes,
-  gagneesLesMainsVides,
-  lecturesDesAutresGagnees,
+  lectureDesAutresGagneesDuJour,
   lesLignesAuQg,
-  lesMainsVides,
   lesPartiesLues,
   lesPiecesLues,
   lesTraverseesLues,
@@ -1735,19 +1733,15 @@ export class CabinetStore {
 
   /**
    * Ce qu'une traversée gagnée fait descendre (le 21 novembre 2026) : le Cabinet dit ses faits à la porte
-   * (`traverseeGagnee`) — menée les mains vides ou non (`lesMainsVides`), et, si elle l'est, combien de ses autres
-   * traversées gagnées l'ont été : un lot de plus pour celles-là, rien pour les autres —, la campagne juge, et rend ce
-   * qui est descendu, que l'écran de fin dit. Les règles des Divins ne passent pas la porte dans ce sens. Une lecture
-   * qui tombe se dit au journal sans faire tomber le geste, déjà écrit : une partie d'après rejugera sa journée.
+   * (`traverseeGagnee`) — combien il en a gagné ce jour de Paris, celle-ci comprise : un compte de plus, à la seule
+   * fin gagnée —, la campagne juge, et rend ce qui est descendu, que l'écran de fin dit. Les règles des Divins ne
+   * passent pas la porte dans ce sens. Une lecture qui tombe se dit au journal sans faire tomber le geste, déjà
+   * écrit : une partie d'après rejugera sa journée.
    */
   private async ceQuElleFaitDescendre(profileId: string, tr: TraverseeGardee, t: number): Promise<DivinDescendu[]> {
     try {
-      const celleCi = lesMainsVides(
-        tr.depart,
-        tr.gestes.map(g => g.geste),
-      )
-      const mainsVides = celleCi ? 1 + gagneesLesMainsVides(await this.porte.client.batch(lecturesDesAutresGagnees(profileId, tr.id), 'read')) : 0
-      return await this.porte.traverseeGagnee(profileId, tr.id, { celleCi, mainsVides }, t)
+      const [autres] = await this.porte.client.batch([lectureDesAutresGagneesDuJour(profileId, tr.id, minuitDe(t))], 'read')
+      return await this.porte.traverseeGagnee(profileId, tr.id, { gagneesCeJour: 1 + Number(autres.rows[0]?.n ?? 0) }, t)
     } catch (e) {
       console.error(`[cabinet] ce que la traversée ${tr.id} fait descendre ne se range pas`, e)
       return []

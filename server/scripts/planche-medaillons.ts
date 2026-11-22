@@ -127,8 +127,8 @@ const catalogue = `<div class="grille">${LEGENDAIRES.map(l => case_(Legendaire, 
 
 const PLANCHES: [string, string][] = [
   ['legendaires', page('Les légendaires', 'Vingt-six cartes peintes sous leur pellicule holo · gagnés, éclatés, à gagner, portés', podium + legendaires)],
-  ['divins', page('Les Divins', 'Six bijoux peints, habités de lumière', divins)],
-  ['catalogue-medaillons', page('Les médaillons', 'Les vingt-six, leurs versions rares, les six Divins', catalogue)],
+  ['divins', page('Les Divins', 'Dix-huit bijoux peints, habités de lumière', divins)],
+  ['catalogue-medaillons', page('Les médaillons', 'Les vingt-six, leurs versions rares, les dix-huit Divins', catalogue)],
   ['catalogue-medaillons-ivoire', page('Les médaillons, en Ivoire', 'L’écran commun, sur demande de l’animateur', catalogue, 'ivoire')],
 ]
 

@@ -272,10 +272,22 @@ export function SaPlace({ moi, vues, c, cercle }: { moi?: FicheDeCollectionneur;
   )
 }
 
-/** Les Divins en bandeau, sous sa place : les six, peints ou voilés, et qui les a — leur salle s'ouvre au toucher. */
+/**
+ * Les cases du bandeau : six, comme du temps des six Divins. Le premier écran de la page est mesuré pour cette rangée-là
+ * — le podium tient à 21 px au-dessus du menu en 360 × 640 (règle `profil.md`) — : dix-huit cases en feraient trois, une
+ * centaine de pixels que le petit téléphone n'a pas. Leur salle, qu'un toucher ouvre, les montre tous.
+ */
+const CASES_DU_BANDEAU = 6
+
+/**
+ * Les Divins en bandeau, sous sa place : six cases — ceux qui sont descendus d'abord, peints, avec qui les a, puis des
+ * voiles —, et le compte de tous dans son titre ; leur salle s'ouvre au toucher.
+ */
 function BandeauDesDivins({ etat, fiches, onOuvrir }: { etat: ClassementDesCollections; fiches: ReadonlyMap<string, FicheDeCollectionneur>; onOuvrir: () => void }) {
   const porteur = (cle: string) => fiches.get(etat.divins.find(d => d.cle === cle)?.porteurs[0] ?? '')
   const descendus = etat.divins.length
+  // Dans l'ordre du catalogue de part et d'autre : un Divin qui descend prend sa place parmi les peints, sans rebattre les autres.
+  const montres = [...DIVINS.filter(d => porteur(d.key)), ...DIVINS.filter(d => !porteur(d.key))].slice(0, CASES_DU_BANDEAU)
   const chez = etat.divins.flatMap(d => {
     const lui = porteur(d.cle)
     return lui ? [`${nomDe(d.cle)} chez ${nomDuJoueur(lui, etat.moi)}`] : []
@@ -296,7 +308,7 @@ function BandeauDesDivins({ etat, fiches, onOuvrir }: { etat: ClassementDesColle
         <span>{`${descendus} descendu${descendus > 1 ? 's' : ''} sur ${DIVINS.length} · ${CARATS_DE_LA_GEMME.divin}\u00a0carats chacun`}</span>
       </span>
       <span className="cl-divins-rangee" aria-hidden="true">
-        {DIVINS.map(d => {
+        {montres.map(d => {
           const lui = porteur(d.key)
           return (
             <span key={d.key} className={'cl-divins-case' + (lui ? '' : ' cl-divins-case-voile')}>

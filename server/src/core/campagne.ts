@@ -891,6 +891,8 @@ export interface RecompensesDeCampagne {
   tirerUnEclat(profileId: string, sous: string, chance: number): Promise<{ avatar: string; paliers: string[] } | null>
   /** Les paliers de La Légende que son niveau atteint, rangés sous `sous` (`ProfileStore.accorderLaLegende`) : le Cabinet les fait juger. */
   accorderLaLegende?(profileId: string, sous: string): Promise<string[]>
+  /** Les Divins rangés sous `sous` depuis `depuis` (`ProfileStore.divinsRangesSous`) : ce que la page d'un duel redit. */
+  divinsRangesSous?(profileId: string, sous: string, depuis: number): Promise<string[]>
 }
 
 /** Sa ligue, sa cote et ses bordures de ligue (`coteDe`) : sa carte, la bordure qu'il choisit. */
@@ -4817,11 +4819,15 @@ export class CampagneStore {
     const nouveau = !!duel.adversaire && duel.auteur === profileId && ecart !== undefined && duel.vuLe === null
     if (nouveau) await this.retenirLeResultatVu(duel)
     // Il a joué le premier : sa fin ne savait pas s'il gagnerait. Ce que sa victoire fait descendre se juge ici, à la
-    // première lecture de son résultat — la carte du verdict se retourne, et le Divin avec.
-    const divins =
-      nouveau && tentative && enFace && tentative.justes > enFace.justes
+    // première lecture de son résultat — la carte du verdict se retourne, et le Divin avec. Relue, sa page le redit
+    // (`divinsDeSonDuel`) : jugé à la seule première lecture, il tenait à une réponse — perdue en route, il était rangé
+    // sans avoir jamais été annoncé.
+    const gagne = !!duel.adversaire && duel.auteur === profileId && !!tentative && !!enFace && ecart !== undefined && tentative.justes > enFace.justes
+    const divins = !gagne
+      ? []
+      : nouveau
         ? await this.divinsDeSaVictoire(profileId, tentative, Math.max(tentative.finieLe ?? 0, enFace.finieLe ?? 0) || this.maintenant())
-        : []
+        : await this.divinsDeSonDuel(profileId, tentative, duel.vuLe)
     // La revanche, contre celui d'en face : jamais un masqué, ni un profil parti.
     const enFaceDeLui = duel.auteur === profileId ? defie : auteur
     // Avec ce qu'il porte : la préparation de la revanche le montrait en emoji.
@@ -4888,6 +4894,24 @@ export class CampagneStore {
       return raconter((await this.recompenses.ranger(profileId, cleDeSerie(tentative.id), cles, maintenant)).filter(estUnDivin))
     } catch (e) {
       console.error('[campagne] ce que sa victoire fait descendre ne se range pas :', e)
+      return []
+    }
+  }
+
+  /**
+   * Ce que sa victoire avait fait descendre, redit à chaque retour sur la
+   * page de ce duel : les Divins rangés sous sa tentative depuis qu'il a vu
+   * son résultat (`vuLe`) — pas ceux que la fin de sa tentative avait déjà
+   * annoncés. Rien ne se lit pour qui n'en tient aucun : presque tout le
+   * monde, de mémoire.
+   */
+  private async divinsDeSonDuel(profileId: string, tentative: Serie, vuLe: number | null): Promise<DivinDescendu[]> {
+    if (!this.recompenses?.divinsRangesSous || vuLe === null) return []
+    try {
+      if (![...this.recompenses.recompensesOf(profileId).keys()].some(estUnDivin)) return []
+      return raconter(await this.recompenses.divinsRangesSous(profileId, cleDeSerie(tentative.id), vuLe))
+    } catch (e) {
+      console.error('[campagne] ce que son duel avait fait descendre ne se relit pas :', e)
       return []
     }
   }

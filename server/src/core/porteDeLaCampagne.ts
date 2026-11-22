@@ -110,13 +110,11 @@ export interface PorteDeLaCampagne {
 }
 
 /**
- * Ce que le Cabinet dit d'une traversée gagnée : des faits, sans un seuil ni une règle. Gagnée les mains vides —
- * sans ouvrir un coffre ni rien acheter chez le marchand —, et combien de ses traversées gagnées l'ont été ainsi,
- * celle-ci comprise : zéro quand elle ne l'est pas, les autres ne se relisent alors pas.
+ * Ce que le Cabinet dit d'une traversée gagnée : des faits, sans un seuil ni une règle. Combien de traversées il a
+ * gagnées ce jour de Paris, celle-ci comprise.
  */
 export interface TraverseeGagnee {
-  celleCi: boolean
-  mainsVides: number
+  gagneesCeJour: number
 }
 
 /** La fin d'une partie, pour le rituel (`ecrireDesReponses`) : ce qu'il faut créditer et ranger une fois les réponses écrites. */

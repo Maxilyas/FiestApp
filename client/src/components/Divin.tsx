@@ -4,15 +4,18 @@ import { inscrireDessin } from './medaillons'
 import { BADGES } from './divins-peints'
 
 /**
- * Les avatars divins : six bijoux au-dessus des légendaires
+ * Les avatars divins : dix-huit bijoux au-dessus des légendaires
  * (`shared/divins.ts`). Personne ne sait ce qui les fait descendre.
  *
  * Un légendaire est une carte peinte, ronde, tenue dans son cadre. Un Divin,
  * lui, n'est pas un rond : c'est un bijou sacré — or, émail, pierres —, peint
  * chacun à sa silhouette (le disque solaire d'Hélios, les six ailes du
  * Séraphin, les pétales du Lotus, la couronne de l'Arbre-Monde, l'auréole
- * brisée de l'Ange Déchu, le sablier de Chronos). À vingt pixels dans un
- * classement, sa forme seule dit ce qu'il est.
+ * brisée de l'Ange Déchu, le sablier de Chronos ; et, depuis le 22 novembre
+ * 2026, le casque d'Athéna, l'ibis de Thot, le labyrinthe d'Ariane, le temple
+ * du Panthéon…). À vingt pixels dans un classement, sa forme seule dit ce
+ * qu'il est — le Panthéon, sorti d'abord en médaillon rond, a été repeint
+ * pour ça.
  *
  * Et il vit : sa lumière tourne derrière lui, sa lueur respire, un éclat
  * glisse sur son or, des étincelles gravitent. Rien que des `transform` et
@@ -42,6 +45,20 @@ const THEMES: Record<string, Theme> = {
   'dv:dechu': { fond: ['#4a1d6b', '#1d0a2d', '#07020d'], anneau: ['#d9b8ff', '#7a3aa8', '#2a0f3d'], aura: '#c0306a' },
   // Sa lumière est l'azur de son anneau d'émail et de sa lune : l'or est déjà celle d'Hélios.
   'dv:chronos': { fond: ['#2b5d7a', '#102a3d', '#040d14'], anneau: ['#fff1c9', '#d9b25a', '#7a5214'], aura: '#7fc8ff' },
+  // Les douze du 21 novembre 2026 : la lumière de chacun est la couleur qui domine son bijou après l'or — le cimier
+  // d'Athéna, la pierre de lune de Thot, le rubis d'Ariane, les braises du rocher de Sisyphe…
+  'dv:athena': { fond: ['#2f4a8f', '#14224f', '#060a1f'], anneau: ['#fff2c4', '#d9b25a', '#7a5214'], aura: '#8fb4ff' },
+  'dv:thot': { fond: ['#1f5a5e', '#0c2a2e', '#03100f'], anneau: ['#f4fbff', '#bcd3dc', '#5f7f8c'], aura: '#bfe9ff' },
+  'dv:demiurge': { fond: ['#2a3fa8', '#111a5c', '#04061f'], anneau: ['#fff4c7', '#e3b04b', '#8a5a10'], aura: '#8f9bff' },
+  'dv:ariane': { fond: ['#8f1f32', '#4a0c1a', '#170308'], anneau: ['#ffe9c2', '#e0a84a', '#8a4d10'], aura: '#ff7a8a' },
+  'dv:mnemosyne': { fond: ['#3d2f7a', '#1b1446', '#080519'], anneau: ['#ffffff', '#e8dcc0', '#a8915a'], aura: '#e6d9ff' },
+  'dv:heracles': { fond: ['#8a4a12', '#45210a', '#160903'], anneau: ['#ffe6a8', '#d99a2b', '#7a4a08'], aura: '#ffb84d' },
+  'dv:sisyphe': { fond: ['#3a4656', '#1a212b', '#07090c'], anneau: ['#ffe9b8', '#c79a3a', '#5e4210'], aura: '#ff6a3d' },
+  'dv:nike': { fond: ['#6b5a1f', '#33290c', '#110d03'], anneau: ['#ffffff', '#f3e3b0', '#b9953a'], aura: '#fff6d6' },
+  'dv:osiris': { fond: ['#1d3f8a', '#0d1c47', '#040817'], anneau: ['#fff0c0', '#d8a93f', '#77500f'], aura: '#4fd1c5' },
+  'dv:hecate': { fond: ['#3b2463', '#1a0f33', '#07030f'], anneau: ['#f2f4ff', '#b8bdd6', '#5d6285'], aura: '#9a6bff' },
+  'dv:artemis': { fond: ['#1e3a5f', '#0c1b33', '#03080f'], anneau: ['#f5fbff', '#c3d2e6', '#6a7f9c'], aura: '#cfe6ff' },
+  'dv:pantheon': { fond: ['#3a3f9a', '#191c52', '#06071c'], anneau: ['#fff4c7', '#e3b04b', '#8a5a10'], aura: '#fff0a8' },
 }
 
 const n = (v: number) => Number(v.toFixed(2))
