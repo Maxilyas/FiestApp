@@ -690,6 +690,15 @@ Le détail : [les récompenses](../produit/les-recompenses.md).
 
 *Fichiers : `shared/profil.ts`, `client/src/components/Divin.tsx`, `client/src/components/Avatar.tsx`, `client/src/styles.css`, `server/src/auth/profiles.ts`, `shared/loge.ts`*
 
+### Un Divin dit son nom, et rien d'autre
+**Contexte** : un Divin pas encore descendu ne disait rien de lui, pas même son nom — « Un Divin, inconnu » dans l'album, « Pas encore descendu » dans la salle du classement des collections. Son nom n'apparaissait que lorsque quelqu'un en tenait un ; personne n'en tenait en production (le 22 novembre 2026), et les joueurs ne voyaient que dix-huit voiles identiques : rien à désirer, rien à chercher.
+
+**Décision** : chacun dit son nom sous son voile — sous sa case et en tête de sa fiche dans l'album, sous son voile dans la salle. Le propriétaire : « J'aime bien que le nom donne un indice justement. » Le nom est une énigme, pas une recette : il peut orienter, il ne dit ni où, ni combien. Tout le reste demeure caché — le bijou, le récit, le mode où il se gagne, toute jauge.
+
+**Conséquence** : rien de neuf ne quitte le serveur — les noms étaient déjà dans le catalogue que la page télécharge (`shared/divins.ts`) et dans la documentation. L'invariant 21 ne change pas : les règles et les récits restent dans `core/divins.ts`. Un nom de plus se choisit donc en sachant qu'il sera lu avant que personne ne l'ait.
+
+*Fichiers : `client/src/components/AlbumDesAvatars.tsx`, `client/src/views/Collectionneurs.tsx`, `client/src/components/Divin.tsx`, `client/src/styles.css`*
+
 ### Les trophées se rangent par mode, et se disent avec les mêmes mots
 **Contexte** : « très confus, les trophées que les gens gagnent » — dix lignes les rangeaient selon la logique du code (« Paliers des soirées », « Paliers de toujours »…), un même exploit tombait sous deux noms (Le Laurier et le palier du Champion du jour, aux mêmes seuils), et chaque fin de partie montrait ses gains à sa façon.
 

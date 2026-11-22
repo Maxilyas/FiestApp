@@ -326,11 +326,12 @@ function BandeauDesDivins({ etat, fiches, onOuvrir }: { etat: ClassementDesColle
 
 /**
  * La salle des Divins, en feuille : ceux qui sont descendus peints — leur
- * nom, qui le garde —, les autres sous leur voile, sans nom, comme dans
- * l'album. Toucher un porteur ouvre sa vitrine. Rien ne dit comment ils
- * descendent, ni quand.
+ * nom, qui le garde —, les autres sous leur voile, leur nom seul dessous,
+ * comme dans l'album (le 22 novembre 2026 : « Pas encore descendu », dix-huit
+ * fois, ne donnait rien à chercher tant que personne n'en tenait un). Toucher
+ * un porteur ouvre sa vitrine. Rien ne dit comment ils descendent, ni quand.
  */
-function SalleDesDivins({ etat, fiches, onVitrine, onFermer }: { etat: ClassementDesCollections; fiches: ReadonlyMap<string, FicheDeCollectionneur>; onVitrine: (id: string) => void; onFermer: () => void }) {
+export function SalleDesDivins({ etat, fiches, onVitrine, onFermer }: { etat: ClassementDesCollections; fiches: ReadonlyMap<string, FicheDeCollectionneur>; onVitrine: (id: string) => void; onFermer: () => void }) {
   const descendus = etat.divins.length
   return (
     <Feuille titre="Les Divins" onFermer={onFermer}>
@@ -348,7 +349,8 @@ function SalleDesDivins({ etat, fiches, onVitrine, onFermer }: { etat: Classemen
                   <span className="cl-divin-bijou" aria-hidden="true">
                     <Dessin cle={d.key} verrouille />
                   </span>
-                  <span className="cl-divin-nom">Pas encore descendu</span>
+                  <span className="cl-divin-nom">{d.nom}</span>
+                  <span className="sr-only">, pas encore descendu</span>
                 </li>
               )
             }

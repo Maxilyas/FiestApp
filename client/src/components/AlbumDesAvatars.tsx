@@ -91,11 +91,13 @@ function nomDe(a: AvatarDeLAlbum): string {
 
 /**
  * Ce que sa case dit à l'oreille : son nom et sa rareté, à lui ou à gagner,
- * et où. Un Divin pas encore descendu ne dit rien de lui, pas même son nom
- * (invariant 21).
+ * et où. Un Divin pas encore descendu dit son nom, et rien d'autre — ni où,
+ * ni comment (invariant 21). Jusqu'au 22 novembre 2026, pas même son nom :
+ * dix-huit voiles anonymes, et rien à désirer tant que personne n'en tenait
+ * un. Le propriétaire : « J'aime bien que le nom donne un indice justement. »
  */
 function ceQueDitLaCase(a: AvatarDeLAlbum, aLui: boolean, porte: boolean, cabinet: boolean | undefined): string {
-  if (a.sorte === 'divin' && !aLui) return 'Un Divin, inconnu'
+  if (a.sorte === 'divin' && !aLui) return `${nomDe(a)}, divin, pas encore descendu`
   const rarete = NOM_DE_RARETE_D_AVATAR[a.rarete].toLowerCase()
   if (aLui) return `${nomDe(a)}, ${rarete}${porte ? ', porté' : ', à toi'}`
   return `${nomDe(a)}, ${rarete}, à gagner ${ouIlSeGagne(a, cabinet)}`
@@ -165,7 +167,7 @@ const Etape = ({ etape: e, jauge }: { etape: EtapeDUneVoie; jauge: boolean }) =>
  * dont une suffit, chacune ses étapes, toutes demandées —, où il en est, et
  * le chemin de l'écran où le gagner. À lui, elle dit qu'il l'a et où le
  * porter. Rien ne s'y porte. Un Divin n'y dit que son récit, à qui l'a vu
- * descendre — et rien à qui l'attend (invariant 21). Le Cabinet s'y dit
+ * descendre — et son nom seul à qui l'attend (invariant 21). Le Cabinet s'y dit
  * selon le drapeau du code (`voiesDeLAvatar`) ; `cabinet` le force, pour la
  * lire telle qu'elle sera à l'ouverture.
  */
@@ -213,7 +215,7 @@ export function FicheDeLAvatar({
           </span>
         )}
         <span className="album-detail-titre">
-          <b className="galerie-detail-nom">{inconnu ? '?' : a.sorte === 'emoji' ? 'Emoji de collection' : nomDe(a)}</b>
+          <b className="galerie-detail-nom">{a.sorte === 'emoji' ? 'Emoji de collection' : nomDe(a)}</b>
           <span className={'album-detail-rarete' + (a.rarete === 'divin' ? ' gemme-divin' : '')}>
             <i aria-hidden="true" />
             {NOM_DE_RARETE_D_AVATAR[a.rarete]}
@@ -346,7 +348,13 @@ export function AlbumDesAvatars({
       <p className="gemme-legende" style={gemmeDAvatar(choisie.rarete)}>
         <b>{`${NOM_DE_RARETE_D_AVATAR[choisie.rarete]} · ${choisie.acquis} sur ${choisie.total}.`}</b> {CE_QU_ELLE_RANGE[choisie.rarete]}
       </p>
-      <div className="album-avatars" role="tabpanel" id="album-page" aria-labelledby={`gemme-${choisie.rarete}`} style={gemmeDAvatar(choisie.rarete)}>
+      <div
+        className={'album-avatars' + (choisie.rarete === 'divin' ? ' album-divins' : '')}
+        role="tabpanel"
+        id="album-page"
+        aria-labelledby={`gemme-${choisie.rarete}`}
+        style={gemmeDAvatar(choisie.rarete)}
+      >
         {choisie.avatars.map(({ avatar: a, aLui }) => {
           const lePorte = aLui && porte === a.cle
           // Un emoji qui reste dit son niveau sur son anneau, en toutes lettres : une icône de plus ne le dirait pas.
@@ -367,6 +375,12 @@ export function AlbumDesAvatars({
                 {lePorte && (
                   <span className="album-coche" aria-hidden="true">
                     <Icon name="check" />
+                  </span>
+                )}
+                {/* Un Divin dit son nom sous sa case, descendu ou non : c'est tout ce qu'on sait de lui, et de quoi le chercher. */}
+                {a.sorte === 'divin' && (
+                  <span className={'album-nom' + (aLui ? '' : ' album-nom-voile')} aria-hidden="true">
+                    {nomDe(a)}
                   </span>
                 )}
                 {niveau !== undefined ? (
@@ -401,7 +415,7 @@ export function AlbumDesAvatars({
       )}
       <p className="muted small">
         {choisie.rarete === 'divin'
-          ? 'Ceux qui ne sont pas descendus restent voilés.'
+          ? 'Ceux qui ne sont pas descendus restent voilés : ils ne disent que leur nom.'
           : espacesFines('En couleur, ceux qui sont à toi ; en silhouette dorée, ceux qui restent. Touche-les : comment les obtenir.')}
       </p>
     </div>

@@ -178,6 +178,30 @@ test('la suite lue prolonge la liste, chacun une fois, et ses voisins s’efface
   assert.deepEqual([amis.place?.rang, amis.classes, amis.tous, amis.devant?.fiche.nom], [2, 3, 3, 'Agathe'])
 })
 
+test('la salle des Divins : chacun dit son nom sous son voile, et rien de son bijou tant qu’il n’est pas descendu', async () => {
+  // Jusqu'au 22 novembre 2026, « Pas encore descendu » dix-huit fois : personne n'en tenait un, et la salle ne donnait
+  // rien à chercher. Le propriétaire : « J'aime bien que le nom donne un indice justement. »
+  const { etat, fiches } = await classement(id(10))
+  const { DIVINS } = await import('../../shared/divins')
+  // Leur dessin vient à la demande : sans lui, la salle ne poserait qu'une case vide sous chaque nom.
+  await import(new URL('../../client/src/components/Divin.tsx', import.meta.url).href)
+  const gestes = { onVitrine: () => {}, onFermer: () => {} }
+  const personne = await rendu('SalleDesDivins', { etat: { ...etat, divins: [] }, fiches, ...gestes })
+  const voiles = personne.split('<li class="cl-divin cl-divin-voile">').slice(1)
+  assert.equal(voiles.length, DIVINS.length)
+  for (const [i, d] of DIVINS.entries()) {
+    assert.ok(voiles[i].includes(`<span class="cl-divin-nom">${d.nom}</span><span class="sr-only">, pas encore descendu</span>`), d.nom)
+    // Son voile, jamais son bijou : ni fichier peint, ni lumière à lui.
+    assert.match(voiles[i], /dv-voile/)
+  }
+  assert.doesNotMatch(personne, /dv-peint|medaillons|badge|Pas encore descendu/)
+  assert.match(personne, /Comment ils descendent ne se dit pas\./)
+  // Descendu chez Agathe, Hélios se montre peint, avec qui le garde ; les dix-sept autres gardent leur voile et leur nom.
+  const chezAgathe = await rendu('SalleDesDivins', { etat: { ...etat, divins: [{ cle: 'dv:helios', porteurs: [id(0)] }] }, fiches, ...gestes })
+  assert.equal(chezAgathe.split('<li class="cl-divin cl-divin-voile">').length - 1, DIVINS.length - 1)
+  assert.match(chezAgathe, /aria-label="Hélios : chez Agathe\. Sa vitrine"/)
+})
+
 test('sa place tient la même case dans chaque catégorie et chaque cercle : changer de puce ne déplace rien dessous', async () => {
   const { etat, fiches } = await classement(id(10), [id(0)])
   const vues = vuesDuClassement(etat, fiches)

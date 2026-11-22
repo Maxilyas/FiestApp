@@ -35,7 +35,8 @@ import { BADGES } from './divins-peints'
  * perdre ses émaux.
  *
  * Verrouillé, un Divin ne montre rien de lui : un voile, une lueur de sa
- * couleur, et c'est tout — ni silhouette, ni règle.
+ * couleur, et c'est tout — ni silhouette, ni règle. Son nom seul se dit,
+ * depuis le 22 novembre 2026 (l'album, la salle des collectionneurs).
  */
 
 interface Theme {
@@ -176,7 +177,8 @@ export function Divin({ cle, verrouille, grand, finition, className }: Props) {
   const base = `${cle.replace(':', '-')}${brut.replace(/[^a-zA-Z0-9_-]/g, '')}`
   const id = (nom: string) => `${base}-${nom}`
   classes.push('dv-voile')
-  const titre = 'Un Divin — personne ne sait ce qui le fait descendre'
+  // Son nom se dit (le 22 novembre 2026 ; jusque-là, « Un Divin ») : c'est l'indice qu'on laisse, et le seul.
+  const titre = `${d.nom} — personne ne sait ce qui le fait descendre`
   return (
     <svg className={classes.join(' ')} viewBox="0 0 100 100" role="img" aria-label={titre}>
       <title>{titre}</title>

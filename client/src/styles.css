@@ -13523,6 +13523,29 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .album-coche .icon,
 .album-lieu .icon { width: 12px; height: 12px; }
 .album-case .case-niveau { bottom: -8px; }
+/* La page des Divins : chacun dit son nom sous sa case, descendu ou non (le
+   22 novembre 2026) — sous un voile, c'est tout ce qu'on sait de lui. Posé
+   sous le rond, hors de lui : la case garde sa taille et sa place, et les
+   rangées s'écartent de quoi loger deux lignes. Jamais plus large que sa
+   colonne — 72 px, ce qu'en laisse un téléphone de 360 : sur une ligne,
+   « Le Lotus Sacré » touchait « L'Arbre-Monde » (le rendu du 22 novembre). */
+.album-avatars.album-divins { row-gap: 44px; padding-bottom: 30px; }
+.album-nom {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  width: max-content;
+  max-width: 72px;
+  /* Centré sur sa case quelle que soit sa largeur ; rien ne l'anime, ce `transform` reste le sien. */
+  transform: translateX(-50%);
+  font-size: var(--t-label);
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--ink);
+  pointer-events: none;
+}
+.album-nom-voile { color: var(--muted); font-style: italic; font-weight: 500; }
 /* Dans la grille, chaque avatar tient dans son disque — ni gerbe, ni débord,
    ni rayons —, et seul celui qu'on touche ou survole bouge : trente-huit
    médaillons qui tournaient ensemble, pour un seul regardé. */
