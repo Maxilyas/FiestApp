@@ -69,8 +69,8 @@ export function CarteDeLaLoge({
   onOuvrir?: () => void
 }) {
   const titre = nomDuTitre(vu.titre)
-  // Sous un Divin, qui a sa propre lumière, la finition ne se dit pas.
-  const finition = divin(vu.legendaire) ? null : NOM_FINITION[vu.finition]
+  // Sous un Divin, sa propre lumière ne se dit pas « Mat » : seule une finition qu'il a épinglée se nomme (`finitionSur`).
+  const finition = divin(vu.legendaire) && vu.finition === 'mat' ? null : NOM_FINITION[vu.finition]
   return (
     <div className="loge-collante">
       <div className={'loge-carte' + (vu.fond ? ` carte-fond fond-${vu.fond}` : '') + (apercu ? ' loge-en-apercu' : '')}>

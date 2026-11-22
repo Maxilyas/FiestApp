@@ -1187,7 +1187,8 @@ export function AvatarEnGrand({ carte, hauteur, onRevenir }: { carte: CarteDeJou
 /**
  * Ce que l'avatar en grand montre, dit dessous : le nom d'un avatar dessiné
  * et sa famille, comme sa fiche les dit, puis sa finition et son Éclat. Un
- * Divin n'a ni l'une ni l'autre, et un invité anonyme rien du tout — ni
+ * Divin ne dit que la finition qu'il a épinglée (sa propre lumière arrive
+ * `mat`, `finitionSur`), jamais d'Éclat, et un invité anonyme rien du tout — ni
  * « Mat », ni « aucune » : l'absence, pas l'infériorité. Le nom d'un dessin
  * qui n'est pas venu ne dirait rien de l'emoji qui tient sa place.
  */
@@ -1207,7 +1208,7 @@ function LegendeDeLAvatar({ carte }: { carte: CarteDeJoueur }) {
         : cp && dessins.Compagnon
           ? { famille: `${compagnonDe(cp).nom} · ${nomDeLaForme(cp)}`, classe: 'muted', nom: cp.nom }
           : null
-  const finition = !d && carte.finition && carte.finition !== 'mat' ? `Finition ${NOM_FINITION[carte.finition]}` : null
+  const finition = carte.finition && carte.finition !== 'mat' ? `Finition ${NOM_FINITION[carte.finition]}` : null
   const parure = [finition, !d && carte.eclat && 'éclaté'].filter(Boolean).join(' · ')
   if (!dessin && !parure) return null
   return (

@@ -681,6 +681,15 @@ Le détail : [les récompenses](../produit/les-recompenses.md).
 
 *Fichiers : `server/src/core/divins.ts`, `server/src/auth/profiles.ts`, `server/src/core/campagne.ts`, `server/src/core/jour.ts`, `server/src/core/cabinet/magasin.ts`, `server/src/core/porteDeLaCampagne.ts`*
 
+### Les Divins s'habillent, à leur façon
+**Contexte** : un Divin ne prenait ni finition ni bordure de ligue — « il a sa propre lumière ». Le propriétaire, les dix-huit peints (le 22 novembre 2026) : « C'est pas un peu dommage de ne pas pouvoir mettre les finitions / bordures etc. dessus ? ». Une maquette, rendue avec les vrais composants (`retours/2026-11-22/divins-habilles/`), a montré trois choses : la bordure telle quelle lui va, mais il ressemble alors à n'importe quel médaillon bordé ; la lumière d'une finition ajoutée à ses rayons se brouille ; et le halo d'un métal trace un cercle autour d'un bijou qui n'est pas rond. Dans un classement, sans rien autour, il était le plus petit avatar de la liste.
+
+**Décision** : il s'habille, mais pas comme un emoji. Sous une bordure de ligue il est **en gloire** : ses rayons passent derrière elle et en sortent entre les feuilles, à sa couleur, et le bijou grandit un peu pour passer par-dessus son fil. Un métal — Argent, Or, Holo — **teinte sa lumière** au lieu de l'entourer. Une lumière du 15 au 50 **prend la place** de ses rayons. Et rien de tout cela ne s'impose : en « Auto », il garde sa propre lumière — seule une finition que son joueur a épinglée l'habille (`finitionSur`, une règle pure que lisent le serveur et l'essai de la loge). Ni Éclat ni matière : un filtre de couleur sur un bijou peint lui ferait perdre ses émaux. Pas de bordure réservée aux Divins : son métal dit la ligue, et cette information reste.
+
+**Conséquence** : le serveur ne dit plus la plus belle finition d'un porteur de Divin, mais `mat` tant qu'il n'en a épinglé aucune — une finition épinglée avant que le Divin ne descende s'applique dès qu'il le porte ; la loge le montre, et « Auto » lui rend sa lumière. Personne ne tenait de Divin en production ce jour-là : rien n'a changé pour personne. Dans une liste, rien ne bouge : la bordure et le bijou, sans gloire. Sur l'Ivoire, sa lumière s'assombrit pour se lire ; les autres thèmes clairs ne sont pas traités, comme pour la lumière des finitions. L'invariant 21 dit désormais « ni Éclat ni matière ».
+
+*Fichiers : `shared/profil.ts`, `client/src/components/Divin.tsx`, `client/src/components/Avatar.tsx`, `client/src/styles.css`, `server/src/auth/profiles.ts`, `shared/loge.ts`*
+
 ### Les trophées se rangent par mode, et se disent avec les mêmes mots
 **Contexte** : « très confus, les trophées que les gens gagnent » — dix lignes les rangeaient selon la logique du code (« Paliers des soirées », « Paliers de toujours »…), un même exploit tombait sous deux noms (Le Laurier et le palier du Champion du jour, aux mêmes seuils), et chaque fin de partie montrait ses gains à sa façon.
 

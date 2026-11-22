@@ -4,7 +4,7 @@ import { legendaire as legendaireDe } from '../../../shared/legendaires'
 import { BRANCHES, portrait as portraitDe, type CleDeBranche } from '../../../shared/branches'
 import { formeDeCompagnon } from '../../../shared/compagnons'
 import type { Legendaire } from './Legendaire'
-import type { Divin } from './Divin'
+import type { Divin, Gloire } from './Divin'
 import type { Portrait } from './Portrait'
 import type { Compagnon, DessinDeCompagnon } from './Compagnon'
 import type { Lumiere } from './Lumiere'
@@ -89,12 +89,15 @@ export function sortesDe(cles: readonly (string | null | undefined)[]): Sorte[] 
 
 /**
  * Ce que demandent ces avatars portés : leurs médaillons, la lumière de leur
- * finition et leur bordure de ligue — sauf sous un Divin, qui n'en prend pas.
+ * finition et leur bordure de ligue — sous un Divin aussi, depuis le
+ * 22 novembre 2026 : le serveur ne lui donne une finition que si son joueur
+ * l'a épinglée (`finitionSur`), et une salle sans cela ne télécharge rien de
+ * plus.
  */
 export function sortesDesAvatars(avatars: readonly { legendaire?: string | null; finition?: string | null; bordure?: unknown }[]): Sorte[] {
   const voulues = new Set<Sorte>(sortesDe(avatars.map(a => a.legendaire)))
-  if (avatars.some(a => !divinDe(a.legendaire) && lumineuse(a.finition))) voulues.add('lumiere')
-  if (avatars.some(a => !divinDe(a.legendaire) && a.bordure)) voulues.add('bordure')
+  if (avatars.some(a => lumineuse(a.finition))) voulues.add('lumiere')
+  if (avatars.some(a => a.bordure)) voulues.add('bordure')
   return SORTES.filter(sorte => voulues.has(sorte))
 }
 
@@ -103,6 +106,8 @@ interface Dessins {
   /** Le sceau d'un légendaire tenu par sa voie d'origine, venu avec les légendaires. */
   Sceau?: typeof Sceau
   Divin?: typeof Divin
+  /** La gloire d'un Divin bordé — ses rayons, derrière sa bordure —, venue avec les Divins. */
+  Gloire?: typeof Gloire
   /** Le cadre des portraits — le disque, la silhouette, le cercle de la finition —, venu avec la première branche. */
   Portrait?: typeof Portrait
   /** Les compagnons de la boutique, venus avec leurs fichiers (`compagnons`). */

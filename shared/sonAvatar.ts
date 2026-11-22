@@ -32,11 +32,12 @@ export function sonAvatar(p: CeQuIlPorte): SonAvatar {
 }
 
 /**
- * Ce qui porte une finition ou une bordure dans un aperçu — la loge, « Ma
- * collection » — : son avatar. Sous un Divin, qui n'en prend aucune, rien :
- * l'aperçu les montre seules, plutôt que l'emoji d'un avatar qu'il ne porte
- * pas.
+ * Ce sur quoi un Éclat se montre dans un aperçu — le présentoir de la
+ * boutique — : son avatar. Sous un Divin, qui n'éclate pas, rien : l'aperçu
+ * se tait, plutôt que de faire briller l'emoji d'un avatar qu'il ne porte
+ * pas. L'aperçu d'une finition ou d'une bordure, lui, entoure ce qu'il porte,
+ * Divin compris, depuis le 22 novembre 2026 (`sonAvatar`).
  */
-export function avatarDeLApercu(p: CeQuIlPorte): SonAvatar {
+export function avatarQuiEclate(p: CeQuIlPorte): SonAvatar {
   return divin(p.legendaire) ? { avatar: '', eclat: false } : sonAvatar(p)
 }

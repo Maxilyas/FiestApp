@@ -295,7 +295,7 @@ De même quand il dort, pendant le goûter et le câlin, quand son cadeau attend
 
 ### Ce qui entoure l'avatar
 
-La finition et sa lumière, l'Éclat, la bordure de ligue se gagnent ailleurs — [les récompenses](les-recompenses.md), [les duels](les-duels.md) — et se règlent dans la loge, pièce « Avatar ». Une finition épinglée le reste tant que ton niveau la permet ; sinon tu portes la plus belle encore ouverte, sans que rien ne soit réécrit. Sur un avatar peint, la finition devient son cercle — sauf Mat sur un portrait ou un compagnon, qui gardent l'anneau de leur palier ou de leur forme. Un Divin ne prend ni finition, ni lumière, ni Éclat, ni bordure.
+La finition et sa lumière, l'Éclat, la bordure de ligue se gagnent ailleurs — [les récompenses](les-recompenses.md), [les duels](les-duels.md) — et se règlent dans la loge, pièce « Avatar ». Une finition épinglée le reste tant que ton niveau la permet ; sinon tu portes la plus belle encore ouverte, sans que rien ne soit réécrit. Sur un avatar peint, la finition devient son cercle — sauf Mat sur un portrait ou un compagnon, qui gardent l'anneau de leur palier ou de leur forme. Un Divin s'habille à sa façon (depuis le 22 novembre 2026) : en « Auto », il garde sa propre lumière ; une finition épinglée l'habille — un métal teinte ses rayons, une lumière prend leur place — ; sous une bordure de ligue, ses rayons en sortent. Dans la loge, la pastille « Auto » le dit à sa teinte dorée. Il ne prend ni Éclat ni matière.
 
 ## Animer avec son profil
 

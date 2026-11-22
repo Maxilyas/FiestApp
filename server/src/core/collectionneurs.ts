@@ -164,7 +164,7 @@ export interface ProfilDuCollectionneur
   creeLe: number
   avatar: string
   apparence: ApparenceDeLAvatar
-  /** La bordure qu'il porte — jamais sous un Divin. */
+  /** La bordure qu'il porte. */
   bordure: BordureDeLigue | null
   niveau: number
   legendaires: readonly string[]

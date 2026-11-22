@@ -14,7 +14,7 @@ import {
   apparenceDeLAvatar,
   clesQuiBrillent,
   ficheDe,
-  finitionPortee,
+  finitionSur,
   finitionsOuvertes,
   gainVide,
   niveauDuProfil,
@@ -4176,8 +4176,9 @@ export class ProfileStore {
       name: p.name,
       avatar: this.avatarPorte(p),
       // La finition qu'on voit sur lui : celle qu'il a épinglée s'il peut
-      // encore la porter, la plus belle qu'il a sinon.
-      finition: finitionPortee(p.finition, niveau),
+      // encore la porter, la plus belle qu'il a sinon — sauf sous un Divin,
+      // qui garde sa lumière tant qu'il n'en a épinglé aucune (`finitionSur`).
+      finition: finitionSur(this.legendairePorte(p), p.finition, niveau),
       finitionChoisie: choixDeFinition(p.finition, niveau),
       bordureChoisie: choixDeBordure(p.bordure),
       xp: p.xp,
@@ -4417,8 +4418,7 @@ export class ProfileStore {
       creeLe: p.createdAt,
       avatar,
       apparence: apparenceDeLAvatar(apparence),
-      // Jamais sous un Divin, comme partout où il se montre.
-      bordure: apparence.legendaire && divin(apparence.legendaire) ? null : bordurePortee(p.bordure, autres.bordures),
+      bordure: bordurePortee(p.bordure, autres.bordures),
       niveau,
       legendaires: this.legendairesOf(id),
       // L'étoile du zénith de chacun, la règle de sa page (`toDetail`) : masquée dans la loge, elle compte encore.
@@ -7127,7 +7127,8 @@ export class ProfileStore {
     const champion = this.championDe?.(p.id)
     return {
       niveau,
-      finition: finitionPortee(p.finition, niveau),
+      // Sous un Divin, seule la finition qu'il a épinglée : en `auto`, sa propre lumière.
+      finition: finitionSur(legendaire, p.finition, niveau),
       // Éteint, un Éclat ne se voit plus : il porte la version d'origine. Taillé, sa matière.
       eclat: this.eclatChez(p.id, cibleEclat(legendaire, avatar)),
       ...(legendaire && { legendaire }),
@@ -7152,18 +7153,18 @@ export class ProfileStore {
     const porte = this.peutPorter(profile, avatar) ? avatar : this.avatarPorte(profile)
     // Ce qui brille, c'est ce qu'il porte ce soir : le légendaire éclaté, ou l'emoji joué.
     const apparence = this.apparenceDe(profile, porte)
-    const bordure = this.bordureDe(profile, apparence.legendaire)
+    const bordure = this.bordureDe(profile)
     return { ...apparence, ...(bordure && { bordure }), ...(porte !== avatar && { avatar: porte }) }
   }
 
   /**
-   * La bordure de ligue qu'il porte, de mémoire (`borduresDe`) — jamais sous
-   * un Divin : la salle et les classements la lisent sans attendre la base.
-   * Pas encore relue, elle se fait relire en fond (`connaitreSesBordures`),
-   * et la lecture suivante la montre.
+   * La bordure de ligue qu'il porte, de mémoire (`borduresDe`) : la salle et
+   * les classements la lisent sans attendre la base. Pas encore relue, elle
+   * se fait relire en fond (`connaitreSesBordures`), et la lecture suivante
+   * la montre. Sous un Divin aussi, depuis le 22 novembre 2026 : il la porte
+   * comme tout le monde, et ses rayons en sortent (`Avatar.tsx`).
    */
-  bordureDe(p: ProfileRec, legendaire: string | undefined = this.legendairePorte(p) ?? undefined): BordureDeLigue | null {
-    if (legendaire && divin(legendaire)) return null
+  bordureDe(p: ProfileRec): BordureDeLigue | null {
     const bordures = this.borduresDe?.(p.id)
     if (!bordures) this.connaitreSesBordures?.(p.id)
     return bordurePortee(p.bordure, bordures)

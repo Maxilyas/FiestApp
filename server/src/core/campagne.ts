@@ -141,7 +141,7 @@ import {
   type SemaineDesDuels,
   type BordureDeLigue,
 } from '../../../shared/duels'
-import { divin, type DivinDescendu } from '../../../shared/divins'
+import type { DivinDescendu } from '../../../shared/divins'
 import {
   QUESTIONS_D_UNE_REVISION_PLEINE,
   REVISIONS_QUE_LA_FIN_RELIT,
@@ -4251,7 +4251,7 @@ export class CampagneStore {
     const ligne = ({ item: j, rang }: (typeof classes)[number]): LigneDuDefi => {
       const { niveau, finition, eclat, legendaire, sceau, laurier } = p.apparenceDe(j.profil)
       // Sa bordure de ligue, de mémoire : le classement ne l'attend pas.
-      const bordure = p.bordureDe?.(j.profil, legendaire)
+      const bordure = p.bordureDe?.(j.profil)
       // La plaque de son nom, de mémoire aussi.
       const plaque = p.plaqueDe?.(j.profil)
       return {
@@ -6164,8 +6164,8 @@ export class CampagneStore {
     const auLundi = this.rangsAuLundi(joueurs, nom)
     const ligne = ({ item: j, rang }: (typeof classes)[number]): LigneDesDuels => {
       const { niveau, finition, eclat, legendaire, sceau, laurier } = p.apparenceDe(j.profil)
-      // Sa bordure de ligue, lue sur le même relevé que sa cote — jamais sous un Divin.
-      const bordure = legendaire && divin(legendaire) ? null : bordurePortee(j.profil.bordure, j.releve.bordures)
+      // Sa bordure de ligue, lue sur le même relevé que sa cote.
+      const bordure = bordurePortee(j.profil.bordure, j.releve.bordures)
       // La plaque de son nom, de mémoire.
       const plaque = p.plaqueDe?.(j.profil)
       const avant = auLundi.get(j)
@@ -9569,9 +9569,8 @@ export function sujetsDeLaQuestion(q: QuestionDeLaBase): readonly string[] {
  */
 function sonApparence(p: Pick<ProfileStore, 'apparenceDe'> & Partial<Pick<ProfileStore, 'plaqueDe'>>, x: ProfileRec, releve?: ReleveDesDuels): SonApparence {
   const { finition, eclat, legendaire, sceau } = p.apparenceDe(x)
-  // Sa bordure de ligue, quand ses duels sont lus avec lui — jamais sous un
-  // Divin, qui a sa propre lumière.
-  const bordure = legendaire && divin(legendaire) ? null : bordurePortee(x.bordure, releve?.bordures)
+  // Sa bordure de ligue, quand ses duels sont lus avec lui.
+  const bordure = bordurePortee(x.bordure, releve?.bordures)
   const plaque = p.plaqueDe?.(x)
   // Mat, c'est l'avatar sans rien autour : sa ligne n'a rien de plus à dire.
   return {

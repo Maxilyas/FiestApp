@@ -11,7 +11,6 @@ import { additionnerCategories, ecussonsDe, plusBeauxEcussons } from '../../../s
 import { ficheDe } from '../../../shared/profil'
 import { maitresDe } from '../../../shared/sentiers'
 import { bordurePortee } from '../../../shared/duels'
-import { divin } from '../../../shared/divins'
 import { CATEGORIES } from '../../../shared/categories'
 import { BRANCHES, type Paliers } from '../../../shared/branches'
 
@@ -63,9 +62,8 @@ export async function carteDuProfil(
   const recompenses = profiles.recompensesOf(profil.id)
   const titre = profiles.titrePorte(profil)
   const fond = profiles.fondPorte(profil, carriere.jour, maitresDe(paliers).length)
-  // La bordure de ligue autour de son avatar, lue avec sa cote — jamais sous un Divin, qui a sa propre lumière.
-  const porte = profiles.legendairePorte(profil)
-  const bordure = duels && !(porte && divin(porte)) ? bordurePortee(profil.bordure, duels.bordures) : null
+  // La bordure de ligue autour de son avatar, lue avec sa cote.
+  const bordure = duels ? bordurePortee(profil.bordure, duels.bordures) : null
   // Le compagnon de sa niche, tel qu'elle le montre — sa forme, ses
   // ornements — et avec son nom (le propriétaire, le 19 octobre 2026 : « Le
   // compagnon sur la carte doit avoir son nom ») : la carte se lit quand on

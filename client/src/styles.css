@@ -5846,6 +5846,8 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 
 @media (prefers-reduced-motion: reduce) {
   .dv * { animation: none !important; }
+  /* Sa gloire, posée hors du bijou (`Gloire`, `Divin.tsx`) : ses rayons s'arrêtent avec les siens. */
+  .dv-gloire * { animation: none !important; }
 }
 
 /* ── Aurore et Constellation, en attendant leur lumière ───────────────────
@@ -6446,9 +6448,9 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
    17 novembre 2026). Le bandeau cranté d'avant y passait aux trois quarts
    lui aussi : ses ornements seuls dépassaient. En attendant son dessin,
    l'emoji qui tient la place garde la bordure à sa taille. */
-.podium-avatar:is(.av-legendaire, .av-portrait) .bo,
-.carte-avatar:is(.av-legendaire, .av-portrait) .bo,
-.bilan-avatar:is(.av-legendaire, .av-portrait) .bo { --d: 2.47em; }
+.podium-avatar:is(.av-legendaire, .av-portrait, .av-divin) .bo,
+.carte-avatar:is(.av-legendaire, .av-portrait, .av-divin) .bo,
+.bilan-avatar:is(.av-legendaire, .av-portrait, .av-divin) .bo { --d: 2.47em; }
 /* L'éclat qui fait le tour de l'argent, du diamant et des maîtres : un
    pinceau de lumière qui tourne dans un calque découpé à la forme du métal
    (`mask-image`, posée par `Bordure.tsx`). Le calque ne tourne pas — son
@@ -6530,6 +6532,111 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .av-divin .av-emoji { display: inline-flex; }
 .av-divin .dv { width: 1.12em; height: 1.12em; }
 
+/* ── Un Divin habillé ─────────────────────────────────────────────────────
+
+   Le 22 novembre 2026, sur maquette (`retours/2026-11-22/divins-habilles/`) :
+   jusque-là il ne prenait ni bordure ni finition, et dans un classement il
+   était le plus petit avatar de la liste, sans rien autour.
+
+   Sous une bordure de ligue, il est en gloire : ses rayons, posés derrière
+   elle (`Gloire`, `Divin.tsx`), en sortent entre les feuilles — ceux du bijou
+   s'effacent, ils passeraient devant elle et s'arrêteraient à son fil. Avec
+   la bordure simple, il ressemblait à n'importe quel médaillon bordé. Le
+   bijou grandit sur place (1,12) : à sa taille, il était posé dans le fil
+   comme dans une cage ; à 1,25, le Panthéon cachait sa bordure.
+
+   Sous la lumière d'une finition, du 15 au 50, ses rayons et ses étincelles
+   lui laissent la place : les deux ensemble se brouillaient. Sa lueur et
+   l'éclat sur son or restent. */
+.av-divin.av-bordure .av-emoji > .dv { scale: 1.12; }
+.av-divin.av-bordure .dv-peint > .dv-rayons,
+.av-divin.av-lumiere .dv-peint > .dv-rayons,
+.av-divin.av-lumiere .dv-etincelles { display: none; }
+
+/* La gloire : centrée sur l'avatar, derrière la bordure, posée avant elle.
+   `--g` est son diamètre autour d'un bijou de 1,12 em : resserrée là où
+   l'avatar n'est pas le sujet — elle mordrait sur le prénom d'à côté —,
+   entière là où la page lui garde sa place, comme la lumière d'une finition.
+   `--k` suit le bijou agrandi (le podium, la carte, le bilan). */
+.dv-gloire {
+  --g: 2.45em;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.dv-gloire > .dv-rayons {
+  --d: calc(var(--g) * var(--k, 1));
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: var(--d);
+  height: var(--d);
+  /* Centrée par des marges, comme la bordure : un `transform` se composerait avec sa rotation. */
+  margin: calc(var(--d) / -2) 0 0 calc(var(--d) / -2);
+  background: repeating-conic-gradient(from 0deg, rgba(var(--dv-rvb), 0) 0deg 9deg, rgba(var(--dv-rvb), 0.62) 11deg, rgba(var(--dv-rvb), 0) 13deg 18deg);
+  /* Pleine jusqu'aux feuilles, puis elle s'éteint : rien ne finit sur un bord net. */
+  -webkit-mask: radial-gradient(circle closest-side, #000 0 42%, rgba(0, 0, 0, 0.7) 60%, transparent 100%);
+  mask: radial-gradient(circle closest-side, #000 0 42%, rgba(0, 0, 0, 0.7) 60%, transparent 100%);
+}
+.dv-gloire > .dv-rayons-2 {
+  --d: calc(var(--g) * var(--k, 1) * 0.84);
+  background: repeating-conic-gradient(from 5deg, rgba(255, 245, 210, 0) 0deg 14deg, rgba(255, 245, 210, 0.55) 15.5deg, rgba(255, 245, 210, 0) 17deg 24deg);
+}
+.podium-avatar .dv-gloire,
+.carte-avatar .dv-gloire,
+.carte-loupe-avatar .dv-gloire,
+.bilan-avatar .dv-gloire,
+.retour-avatar .dv-gloire,
+.fin-avatar .dv-gloire { --g: 2.8em; }
+.podium-avatar .dv-gloire,
+.carte-avatar .dv-gloire,
+.bilan-avatar .dv-gloire { --k: 1.3; }
+/* Là où la bordure est le sujet — ses pastilles dans la loge, sa case dans l'album du style et celui des trophées —,
+   elle se montre sans rayons : à cette taille, une gloire par case faisait six soleils où l'on ne distinguait plus le
+   bronze de l'argent (le rendu du 22 novembre 2026). La fiche qu'on ouvre la montre entière. */
+.bordure-apercu .dv-rayons,
+.bordure-apercu .dv-etincelles,
+.style-bordures .trophee-case .dv-rayons,
+.style-bordures .trophee-case .dv-etincelles,
+.trophee-bordure .dv-rayons,
+.trophee-bordure .dv-etincelles { display: none; }
+
+/* Le Holo : ses rayons prennent l'arc-en-ciel. Deux masques, les rayons et
+   le fondu, qui ne gardent que leur intersection — un navigateur qui ne sait
+   pas les croiser montre un halo irisé sans rayons, ce qui reste un Holo. */
+.dv-holo > .dv-rayons:not(.dv-rayons-2) {
+  background: conic-gradient(from 0deg, #ff8fb4, #ffd27a, #b4ff9c, #7fe6ff, #b9a2ff, #ff8fb4);
+  -webkit-mask-image: repeating-conic-gradient(from 0deg, transparent 0deg 9deg, #000 11deg, transparent 13deg 18deg), radial-gradient(circle, #000 30%, transparent 68%);
+  mask-image: repeating-conic-gradient(from 0deg, transparent 0deg 9deg, #000 11deg, transparent 13deg 18deg), radial-gradient(circle, #000 30%, transparent 68%);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+.dv-gloire.dv-holo > .dv-rayons:not(.dv-rayons-2) {
+  -webkit-mask-image: repeating-conic-gradient(from 0deg, transparent 0deg 9deg, #000 11deg, transparent 13deg 18deg), radial-gradient(circle closest-side, #000 0 42%, rgba(0, 0, 0, 0.7) 60%, transparent 100%);
+  mask-image: repeating-conic-gradient(from 0deg, transparent 0deg 9deg, #000 11deg, transparent 13deg 18deg), radial-gradient(circle closest-side, #000 0 42%, rgba(0, 0, 0, 0.7) 60%, transparent 100%);
+}
+.dv-holo > .dv-lueur {
+  background: conic-gradient(from 40deg, rgba(255, 143, 180, 0.5), rgba(255, 210, 122, 0.5), rgba(180, 255, 156, 0.5), rgba(127, 230, 255, 0.5), rgba(185, 162, 255, 0.5), rgba(255, 143, 180, 0.5));
+  -webkit-mask: radial-gradient(circle, #000 10%, transparent 68%);
+  mask: radial-gradient(circle, #000 10%, transparent 68%);
+}
+
+/* Sur l'Ivoire, une lumière pâle ne se voit pas — le crème du Séraphin, la
+   pierre de lune de Thot : elle prend sa version sombre (`--dv-rvb-clair`,
+   `Divin.tsx`), sa seconde nappe aussi, blanche sinon. Sauf sur un fond de
+   carte, nocturne. `!important` : la lumière d'un Divin est posée sur
+   l'élément même. */
+:root[data-theme='ivoire'] :is(.dv-peint, .dv-gloire):where(:not(.carte-fond, .carte-fond *)) { --dv-rvb: var(--dv-rvb-clair) !important; }
+:root[data-theme='ivoire'] .dv-rayons-2:where(:not(.carte-fond, .carte-fond *)) {
+  background: repeating-conic-gradient(from 5deg, rgba(var(--dv-rvb), 0) 0deg 14deg, rgba(var(--dv-rvb), 0.42) 15.5deg, rgba(var(--dv-rvb), 0) 17deg 24deg);
+}
+:root[data-theme='ivoire'] .dv-holo > .dv-rayons:not(.dv-rayons-2):where(:not(.carte-fond, .carte-fond *)) {
+  background: conic-gradient(from 0deg, #d9487a, #c98a1c, #4fa53a, #1f9ac2, #6f55d6, #d9487a);
+}
+
 /* Dans une liste, un médaillon se tient tranquille. Ses animations portaient
    sur les formes internes du SVG, que le navigateur ne compose pas : chacune
    refaisait le style et la mise en page de tout l'écran, à chaque image.
@@ -6547,6 +6654,7 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
    l'arbitrage du 27 septembre 2026 [perf-client-7]. */
 .av.lb-avatar:not(.av-sujet) .lg *,
 .av.lb-avatar:not(.av-sujet) .dv *,
+.av.lb-avatar:not(.av-sujet) .dv-gloire *,
 .av.lb-avatar:not(.av-sujet) .pt *,
 .av.lb-avatar:not(.av-sujet) .lu *,
 .av.lb-avatar:not(.av-sujet) .bo *,
@@ -6554,6 +6662,7 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .av.lb-avatar:not(.av-sujet)::after,
 .player-chip .lg *,
 .player-chip .dv *,
+.player-chip .dv-gloire *,
 .player-chip .pt *,
 .player-chip .lu *,
 .player-chip .bo *,
@@ -6561,6 +6670,7 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .player-chip .av::after,
 .stats-table tbody tr:nth-child(n + 6) .lg *,
 .stats-table tbody tr:nth-child(n + 6) .dv *,
+.stats-table tbody tr:nth-child(n + 6) .dv-gloire *,
 .stats-table tbody tr:nth-child(n + 6) .pt * {
   animation: none;
 }
@@ -9917,6 +10027,8 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .pastille-a-gagner { cursor: pointer; }
 .teinte-a-gagner { border: 1.5px dashed var(--edge-strong); box-shadow: none; color: var(--accent-text); font-style: normal; font-size: var(--t-label); font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
 .teinte-mat { background: #5d524a; }
+/* « Auto » sous un Divin : sa propre lumière, l'or de son bijou — pas la plus belle finition, qu'il ne prend pas d'office. */
+.teinte-divin { background: radial-gradient(circle, #fff4c7, #e3b04b 55%, #8a5a10); }
 .teinte-argent { background: linear-gradient(135deg, #f4f6f9, #9aa3ad); }
 .teinte-or { background: linear-gradient(135deg, #f6dd94, #b8892f); }
 .teinte-holo { background: conic-gradient(#f7b8e8, #9fe3ff, #fff1a6, #b9f5c6, #f7b8e8); }

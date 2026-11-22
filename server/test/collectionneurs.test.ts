@@ -165,7 +165,7 @@ test('une pièce de la vitrine : son Éclat, et chaque matière qu’il a coût�
   assert.equal(caratsDeLaPiece('legendaire', true, 1), 75, 'un Éclat, puis un pour la matière taillée')
   assert.equal(caratsDeLaPiece('legendaire', true, 4), 150, 'les quatre matières, et l’Opale qu’elles ouvrent ne coûte rien de plus')
   assert.equal(caratsDeLaPiece('rare', true), 30)
-  assert.equal(caratsDeLaPiece('divin', true, 2), 200, 'un Divin ne prend ni finition ni Éclat (invariant 21)')
+  assert.equal(caratsDeLaPiece('divin', true, 2), 200, 'un Divin ne prend ni Éclat ni matière (invariant 21)')
   assert.equal(caratsDeLaPiece('divin', false, 0, true), 200, 'ni sceau')
   assert.equal(caratsDeLaPiece('commune'), 1)
   // Scellé : son étoile du zénith en plus — d'origine, ou éclaté et taillé : il égale alors un Divin, sans le passer.

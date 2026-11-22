@@ -22,7 +22,17 @@ import { BADGES } from './divins-peints'
  * des `opacity`, et aucun filtre — le PC du vidéoprojecteur en fait tourner
  * plusieurs ; figé dans les listes, comme les médaillons.
  *
- * Il ne prend ni finition ni Éclat : il a sa propre lumière.
+ * Il a sa propre lumière, et la garde tant que son joueur n'épingle aucune
+ * finition (`finitionSur`, `shared/profil.ts`). Depuis le 22 novembre 2026
+ * (la maquette validée par le propriétaire, `retours/2026-11-22/divins-habilles/` :
+ * « C'est pas un peu dommage de ne pas pouvoir mettre les finitions /
+ * bordures etc. dessus ? »), il s'habille à sa façon : un métal — Argent, Or,
+ * Holo — ne trace pas de cercle autour d'un bijou qui n'est pas rond, il
+ * teinte sa lumière ; une lumière du 15 au 50 prend la place de ses rayons
+ * (`Avatar.tsx`) ; et sous une bordure de ligue, ses rayons passent derrière
+ * elle et en sortent entre les feuilles — sa gloire (`Gloire`). Toujours ni
+ * Éclat ni matière : un filtre de couleur sur un bijou peint lui ferait
+ * perdre ses émaux.
  *
  * Verrouillé, un Divin ne montre rien de lui : un voile, une lueur de sa
  * couleur, et c'est tout — ni silhouette, ni règle.
@@ -85,8 +95,37 @@ const ETINCELLES: [number, number, number][] = [
   [15, 17, 2],
 ]
 
+/** « #ffc94a » → [255, 201, 74]. */
+const canaux = (hex: string) => [1, 3, 5].map(k => parseInt(hex.slice(k, k + 2), 16))
 /** « #ffc94a » → « 255, 201, 74 » : la lumière entre dans des `rgba()` sans `color-mix`, que tous les navigateurs n'ont pas. */
-const rvb = (hex: string) => [1, 3, 5].map(k => parseInt(hex.slice(k, k + 2), 16)).join(', ')
+const rvb = (hex: string) => canaux(hex).join(', ')
+
+/**
+ * Les métaux qui teintent sa lumière : sur un fond sombre, puis sur un fond
+ * clair. Le Holo n'est pas une couleur : ses rayons prennent l'arc-en-ciel
+ * (`.dv-holo`, dans la feuille).
+ */
+const TEINTES: Record<string, readonly [string, string]> = {
+  argent: ['#cee0ff', '#76859f'],
+  or: ['#ffc654', '#b07c20'],
+}
+
+/**
+ * Sa lumière sur un fond clair. Une lumière pâle — le crème du Séraphin, la
+ * pierre de lune de Thot — ne s'y voit pas : elle tire vers le métal sombre
+ * de son anneau, qui est déjà sa couleur. Relevé sur la maquette en Ivoire :
+ * la gloire d'Hélios se lisait, celle du Panthéon presque pas.
+ */
+function surClair(theme: Theme): string {
+  const [a, s] = [canaux(theme.aura), canaux(theme.anneau[2])]
+  return a.map((c, i) => Math.round(c * 0.4 + s[i] * 0.6)).join(', ')
+}
+
+/** Sa lumière, celle de son bijou ou du métal que son joueur a épinglé : `--dv-rvb`, et `--dv-rvb-clair` que la feuille prend sur un fond clair. */
+function lumiereDe(theme: Theme, finition: string | null | undefined): CSSProperties {
+  const teinte = finition ? TEINTES[finition] : undefined
+  return { '--dv-rvb': teinte ? rvb(teinte[0]) : rvb(theme.aura), '--dv-rvb-clair': teinte ? rvb(teinte[1]) : surClair(theme) } as CSSProperties
+}
 
 interface Props {
   /** La clé du Divin (`dv:helios`…). */
@@ -95,11 +134,13 @@ interface Props {
   verrouille?: boolean
   /** Regardé en grand — sa descente en fin de soirée, à la clôture — : le grand fichier du bijou. */
   grand?: boolean
+  /** La finition que son joueur a épinglée, s'il en a épinglé une : un métal teinte sa lumière. Les autres ne changent rien ici. */
+  finition?: string | null
   className?: string
 }
 
 /** Un avatar divin, à la taille du texte qui l'entoure (1 em) — sa lumière en plus. */
-export function Divin({ cle, verrouille, grand, className }: Props) {
+export function Divin({ cle, verrouille, grand, finition, className }: Props) {
   const brut = useId()
   const d = divinDe(cle)
   const theme = THEMES[cle]
@@ -109,7 +150,8 @@ export function Divin({ cle, verrouille, grand, className }: Props) {
   if (className) classes.push(className)
   if (!verrouille) {
     const src = badge[grand ? 0 : 1]
-    const lumiere = { '--dv-rvb': rvb(theme.aura) } as CSSProperties
+    if (finition === 'holo') classes.push('dv-holo')
+    const lumiere = lumiereDe(theme, finition)
     // L'éclat glisse sur l'or seul : le bijou lui-même lui sert de masque.
     const masque = { WebkitMaskImage: `url(${src})`, maskImage: `url(${src})` } as CSSProperties
     return (
@@ -193,5 +235,23 @@ export function Divin({ cle, verrouille, grand, className }: Props) {
   )
 }
 
+/**
+ * La gloire d'un Divin bordé : ses deux nappes de rayons, sorties du bijou.
+ * `Avatar` la pose derrière la bordure de ligue — dans le bijou, elles
+ * passeraient devant elle, et s'arrêteraient à son fil. Les mêmes rayons, la
+ * même lumière (`--dv-rvb`), à la taille de ce qui les entoure (`.dv-gloire`,
+ * dans la feuille) : dans une liste, ils s'effacent avec ceux du bijou.
+ */
+export function Gloire({ cle, finition }: { cle: string; finition?: string | null }) {
+  const theme = THEMES[cle]
+  if (!theme) return null
+  return (
+    <span className={finition === 'holo' ? 'dv-gloire dv-holo' : 'dv-gloire'} style={lumiereDe(theme, finition)} aria-hidden="true">
+      <span className="dv-rayons" />
+      <span className="dv-rayons dv-rayons-2" />
+    </span>
+  )
+}
+
 // Évalué, le dessin est là pour tout `Avatar` de la page (voir `medaillons.ts`).
-inscrireDessin({ Divin })
+inscrireDessin({ Divin, Gloire })

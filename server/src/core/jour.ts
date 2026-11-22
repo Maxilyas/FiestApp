@@ -3113,7 +3113,7 @@ export class JourStore {
     const ligne = ({ item: j, rang }: { item: Joueur; rang: number }): LigneDuJour => {
       const { niveau, finition, eclat, legendaire, sceau, laurier } = this.deps.profiles.apparenceDe(j.profil)
       // Sa bordure de ligue, de mémoire : le classement ne l'attend pas.
-      const bordure = this.deps.profiles.bordureDe(j.profil, legendaire)
+      const bordure = this.deps.profiles.bordureDe(j.profil)
       // La plaque de son nom, de mémoire aussi.
       const plaque = this.deps.profiles.plaqueDe(j.profil)
       const temps = aEgalite.has(j) ? tempsMoyen(j.tempsDesJustes, j.justesChronometrees) : null

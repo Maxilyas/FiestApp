@@ -59,9 +59,17 @@ interface Props {
  * qui change de ciel, elle n'était « pas très jolie » (le propriétaire, le
  * 3 novembre 2026).
  *
- * Un Divin prend la place de l'emoji lui aussi, mais seul : ni finition, ni
- * Éclat. Il a sa propre lumière, et ses rayons, ses ailes débordent déjà du
- * cadre : un halo de niveau par-dessus ne pourrait que l'abîmer.
+ * Un Divin prend la place de l'emoji lui aussi, avec sa propre lumière — et
+ * s'habille à sa façon (le 22 novembre 2026, la maquette
+ * `retours/2026-11-22/divins-habilles/` ; jusque-là, ni finition ni bordure).
+ * Sa finition n'arrive ici que si son joueur l'a épinglée (`finitionSur`,
+ * `shared/profil.ts` : en `auto`, le serveur dit `mat`) : un métal teinte ses
+ * rayons, sans cercle — un halo rond autour d'un bijou qui ne l'est pas
+ * l'abîmait, la maquette l'a montré — ; une lumière du 15 au 50 prend la
+ * place de ses rayons, jamais les deux ensemble. Sous une bordure de ligue,
+ * ses rayons passent derrière elle et en sortent (`Gloire`, `Divin.tsx`), et
+ * le bijou grandit un peu pour passer franchement par-dessus son fil. Ni
+ * Éclat ni matière, toujours.
  *
  * Un portrait des branches (`Portrait.tsx`) se porte comme un légendaire :
  * la finition devient son cercle, l'Éclat son ciel rare. Un compagnon de la
@@ -82,7 +90,7 @@ interface Props {
  * l'emoji ou le médaillon — ce qui sort d'un médaillon passe par-dessus elle,
  * comme par-dessus son anneau — et devant la lumière d'une finition, dont
  * elle prend la place des anneaux. Au métal de sa ligue : la finition ne la
- * teint pas. Jamais sous un Divin.
+ * teint pas. Sous un Divin aussi, sa gloire derrière elle.
  *
  * Les dessins arrivent à la demande (`medaillons.ts`) : le temps qu'ils
  * arrivent, c'est l'emoji qui tient la place. Les pages les font venir avant
@@ -128,14 +136,16 @@ export function Avatar({ avatar, finition, eclat, legendaire, className, grand, 
   const tete = legendaire && portraitDe(legendaire) ? legendaire : null
   const forme = legendaire && formeDeCompagnon(legendaire) ? legendaire : null
   const dessins = useDessins(...sortesDesAvatars([{ legendaire, finition, bordure }]))
-  const { Legendaire, Divin, Portrait, Compagnon, Lumiere, Bordure, Sceau } = dessins
+  const { Legendaire, Divin, Gloire, Portrait, Compagnon, Lumiere, Bordure, Sceau } = dessins
   // Son portrait, son compagnon, s'il est arrivé : l'emoji tient la place en attendant.
   const portrait = tete && Portrait && dessinDuPortrait(dessins, tete) ? tete : null
   const compagnon = forme && Compagnon && dessinDuCompagnon(dessins, forme) ? forme : null
-  // La lumière de sa finition, si elle est arrivée — jamais sous un Divin, qui a la sienne.
-  const lumiere = !divin && Lumiere ? lumineuse(finition) : null
-  // Sa bordure de ligue, si elle est arrivée — jamais sous un Divin non plus.
-  const cadre = !divin && Bordure && bordure ? bordure : null
+  // La lumière de sa finition, si elle est arrivée. Sous un Divin, elle prend la place de la sienne.
+  const lumiere = Lumiere ? lumineuse(finition) : null
+  // Sa bordure de ligue, si elle est arrivée.
+  const cadre = Bordure && bordure ? bordure : null
+  // La gloire d'un Divin bordé : ses rayons derrière sa bordure — sauf sous la lumière d'une finition, qui en tient lieu.
+  const gloire = !!divin && !!Divin && !!Gloire && !!cadre && !lumiere
   // La matière qu'il porte : jamais sous un Divin, ni sous un compagnon, que l'Éclat passe sous son ciel rare sans le tailler.
   const matiere = typeof eclat === 'string' && !divin && !compagnon ? eclat : null
   const classes = ['av']
@@ -146,7 +156,7 @@ export function Avatar({ avatar, finition, eclat, legendaire, className, grand, 
     if (matiere) classes.push('av-matiere', `av-matiere-${matiere}`)
   }
   if (divin) {
-    // En attendant son dessin, un Divin reste un emoji nu : ni finition, ni Éclat.
+    // En attendant son dessin, l'emoji n'a ni halo ni Éclat : le métal d'une finition ne teint que la lumière du bijou.
     if (Divin) classes.push('av-divin')
   } else if (porte && Legendaire) {
     classes.push('av-legendaire')
@@ -166,11 +176,13 @@ export function Avatar({ avatar, finition, eclat, legendaire, className, grand, 
   if (scelle) classes.push('av-scelle')
   const dedans = (
     <>
+      {/* Avant la bordure : elle passe devant ses rayons, qui sortent entre ses feuilles. */}
+      {gloire && Gloire && divin && <Gloire cle={divin} finition={finition} />}
       {/* Derrière l'avatar : le débord d'un médaillon passe par-dessus elle. */}
       {cadre && Bordure && <Bordure ligue={cadre.ligue} crans={cadre.crans} />}
       <span className="av-emoji">
         {divin && Divin ? (
-          <Divin cle={divin} grand={grand} />
+          <Divin cle={divin} grand={grand} finition={finition} />
         ) : porte && Legendaire ? (
           <Legendaire cle={porte} finition={finition} eclat={eclat} grand={grand} />
         ) : portrait && Portrait ? (
@@ -192,7 +204,7 @@ export function Avatar({ avatar, finition, eclat, legendaire, className, grand, 
   return (
     <span className={classes.join(' ')}>
       {lumiere && Lumiere ? (
-        <Lumiere finition={lumiere} medaillon={!!((porte && Legendaire) || portrait || compagnon)} bordure={!!cadre}>
+        <Lumiere finition={lumiere} medaillon={!!((porte && Legendaire) || (divin && Divin) || portrait || compagnon)} bordure={!!cadre}>
           {dedans}
         </Lumiere>
       ) : (

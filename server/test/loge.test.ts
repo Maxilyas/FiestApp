@@ -872,9 +872,20 @@ test('la carte de la loge s’ouvre en grand sur l’essai : la carte du serveur
   assert.deepEqual([renard.avatar, renard.legendaire, renard.finition, renard.eclat, renard.bordure], ['🦊', undefined, 'argent', undefined, { ligue: 'or', crans: 3 }])
   assert.equal(renard.profil, carte.profil, 'son profil n’est pas touché')
   assert.equal(carteAvecLEssai(carte, lea, { finition: 'auto' }).finition, meilleureFinition(8))
-  // Sous un Divin, ni bordure — il a sa propre lumière ; « Sans bordure », aucune.
+  // Un Divin essayé garde sa bordure (le 22 novembre 2026 — elle s'effaçait), et sa propre lumière tant que la
+  // finition reste en « Auto » : la carte dit `mat`, comme le serveur (`finitionSur`), pas la plus belle qu'il a.
   const divin = carteAvecLEssai(carte, lea, { legendaire: 'dv:helios' })
-  assert.deepEqual([divin.legendaire, divin.bordure], ['dv:helios', undefined])
+  assert.deepEqual([divin.legendaire, divin.bordure, divin.finition], ['dv:helios', { ligue: 'or', crans: 3 }, 'mat'])
+  // Une finition épinglée avec lui l'habille ; l'emoji repris retrouve la plus belle.
+  assert.equal(carteAvecLEssai(carte, lea, { legendaire: 'dv:helios', finition: 'argent' }).finition, 'argent')
+  const divine = { ...lea, legendaire: 'dv:helios', finition: 'mat' as const }
+  assert.equal(carteAvecLEssai(carte, divine, { avatar: '🦊' }).finition, meilleureFinition(8))
+  assert.equal(carteAvecLEssai(carte, divine, { finition: 'or' }).finition, 'or')
+  assert.equal(avecLEssai(divine, { legendaire: 'lg:phenix' }).finition, meilleureFinition(8), 'un légendaire repris aussi')
+  // La barre de l'essai dit ce qu'« Auto » veut dire là : sa lumière sous un Divin — celui qu'il essaie, ou qu'il porte.
+  assert.deepEqual(lignesDeLEssai({ legendaire: 'dv:helios', finition: 'auto' }, { niveau: 8 }).at(-1), { piece: 'avatar', nom: 'Sa lumière', detail: 'Finition' })
+  assert.deepEqual(lignesDeLEssai({ finition: 'auto' }, { niveau: 8, legendaire: 'dv:helios' }), [{ piece: 'avatar', nom: 'Sa lumière', detail: 'Finition' }])
+  assert.deepEqual(lignesDeLEssai({ avatar: '🦊', finition: 'auto' }, { niveau: 8, legendaire: 'dv:helios' }).at(-1)?.nom, `La plus belle · ${NOM_FINITION[meilleureFinition(8)]}`)
   assert.equal(carteAvecLEssai(carte, lea, { bordure: 'aucune' }).bordure, undefined)
   // Éclaté pour lui, son Phénix brille sur la carte en grand comme sur celle de la loge ; sa version d'origine, non.
   const eclate = { ...lea, eclats: ['lg:phenix'] }
