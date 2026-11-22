@@ -46,6 +46,13 @@ paths:
   après (`cabinet-calibrer-le-musee`). Un fichier lourd de plus regarde où
   tombent les autres (`node scripts/tests.mjs --tranche=1/4 --liste`, chaque
   tranche) : deux calibrages du Cabinet lourds dans la même, c'est le risque.
+  Et ce qui tenait par hasard à côté de fichiers légers cède à côté d'un
+  lourd : trois fichiers de plus (`divins-*`, le 21 novembre 2026) ont rangé
+  `tablee.test.ts` dans la tranche de `cabinet-calibrage.test.ts`, et une
+  course de 40 ms y a rougi en CI — une échéance jamais retirée, que la
+  boucle retenue servait avant les décodages de l'appel suivant (rejouée en
+  retenant la boucle ; une seconde depuis, et une durée à lui pour l'appel
+  dont l'échéance doit tomber).
 - **Une épreuve qui attend un tirage du serveur tire jusqu'à l'avoir**,
   jamais un nombre fixe de fois, et compte sa chance avant de l'écrire.
   « Une traversée ne promet au Filet qu'une catégorie où il a de quoi

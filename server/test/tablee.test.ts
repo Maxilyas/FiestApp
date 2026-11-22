@@ -304,8 +304,16 @@ function fausseImage(haut: number, o: { paresseuse?: boolean; jamais?: boolean; 
   }
   return image
 }
-/** Ce que dit la page après le script de l'attente : combien d'images la photo montrerait encore vides. */
-function attendreDans(images: ReturnType<typeof fausseImage>[], entiere: boolean, ms = 40): Promise<number> {
+/**
+ * Ce que dit la page après le script de l'attente : combien d'images la photo montrerait encore vides.
+ *
+ * Une seconde d'échéance là où tout doit finir peint : on compte, on ne chronomètre pas. À 40 ms, l'épreuve a rougi en CI
+ * (« 2 !== 0 », le 21 novembre 2026), le jour où trois fichiers de plus l'ont rangée dans la tranche du calibrage le plus
+ * lourd. L'échéance d'un appel n'est jamais retirée : elle reste en tête de la liste des minuteries de sa durée, et une
+ * boucle retenue plus longtemps que l'échéance sert alors celle de l'appel suivant AVANT ses décodages — rejoué en retenant
+ * la boucle 36 puis 45 ms. Un appel dont l'échéance doit tomber donne la sienne, d'une autre durée : sa liste est à lui.
+ */
+function attendreDans(images: ReturnType<typeof fausseImage>[], entiere: boolean, ms = 1000): Promise<number> {
   const page = new Function('document', 'innerHeight', 'innerWidth', `return ${attenteDesImages(entiere, ms)}`)
   return page({ images }, 640, 360)
 }
@@ -323,7 +331,7 @@ test('la photo attend les images qu’elle montre : la page entière, ses paress
   assert.equal(page.paresseuse.loading, 'eager', 'demandée tout de suite, comme si l’invité avait défilé')
   assert.equal(page.paresseuse.decodages, 1)
   // Ce qui reste vide au bout de l'attente, la sortie le compte : ce vide-là vient du banc, pas de l'application.
-  assert.equal(await attendreDans([fausseImage(100, { jamais: true }), fausseImage(200)], false), 1, 'une image pas encore peinte')
+  assert.equal(await attendreDans([fausseImage(100, { jamais: true }), fausseImage(200)], false, 60), 1, 'une image pas encore peinte')
   assert.equal(await attendreDans([fausseImage(100, { cassee: true })], false), 0, 'une image cassée ne retient pas la photo : elle est à l’application')
   assert.equal(imagesPasPretes(0), '', 'rien à dire')
   assert.match(imagesPasPretes(1), /^⏳ Une image n’était pas encore peinte : [^\n]*vient du banc[^\n]*refais-la/)
