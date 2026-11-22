@@ -112,7 +112,7 @@ test('le savoir dans l’album : chaque portrait sur la page de sa rareté — t
   assert.equal(ouvertsDansLaBranche(avancee, paliers), 3)
 })
 
-test('les légendaires et les Divins dans l’album, le compte en tête — un Divin voilé ne dit rien de lui', async () => {
+test('les légendaires et les Divins dans l’album, le compte en tête — un Divin voilé ne dit que son nom', async () => {
   const html = await album('legendaire')
   // Ses légendaires, la forme ultime de chaque sentier et de chaque compagnon, et la métamorphose de chacun.
   // Les secrets d'un Grand Prix se taisent à qui ne les a pas (`legendairesVisibles`).
@@ -121,10 +121,14 @@ test('les légendaires et les Divins dans l’album, le compte en tête — un D
   const cases = casesDeLAlbum(html)
   assert.equal(cases.length, legendaires)
   assert.deepEqual(cases.filter(c => c.aLui).map(c => c.nom), [`${LEGENDAIRES[0].nom}, légendaire, à toi`])
-  // Un Divin verrouillé ne dit rien de lui, pas même son nom (invariant 21).
+  // Un Divin verrouillé dit son nom — l'indice qu'on laisse, depuis le 22 novembre 2026 — et rien d'autre : ni son
+  // bijou, ni où, ni comment (invariant 21).
   const divins = await album('divin')
-  assert.equal(casesDeLAlbum(divins).length, DIVINS.length)
-  for (const d of DIVINS) assert.ok(!divins.includes(d.nom), d.nom)
+  assert.deepEqual(
+    casesDeLAlbum(divins),
+    DIVINS.map(d => ({ aLui: false, nom: `${d.nom}, divin, pas encore descendu` })),
+  )
+  assert.doesNotMatch(divins, /dv-peint|medaillons|badge|album-lieu/)
   assert.match(divins, /Ils ne disent pas comment/)
 })
 

@@ -544,13 +544,22 @@ test('l’album des avatars : six gemmes et leur compte, ce qu’il a en couleur
   assert.match(commune, /aria-label="L’écureuil, commune, à toi"/)
   assert.match(commune, /aria-label="Le kangourou, commune, à gagner sur les sentiers"/)
 
-  // Les Divins : le sien, et dix-sept voiles qui ne disent rien d'eux — ni nom, ni lieu (invariant 21).
+  // Les Divins : le sien, et dix-sept voiles qui ne disent que leur nom — ni lieu, ni voie (invariant 21). Jusqu'au
+  // 22 novembre 2026, pas même lui : « Un Divin, inconnu », dix-sept fois, et rien à chercher.
   const divins = await album('divin')
   const voiles = [...divins.matchAll(/class="album-case([^"]*)" aria-expanded="false" aria-label="([^"]+)"/g)].map(m => m[2])
   assert.equal(DIVINS.length, 18)
-  assert.deepEqual(voiles, ['Le Séraphin, divin, à toi', ...Array(17).fill('Un Divin, inconnu')])
-  for (const d of DIVINS.filter(d => d.key !== 'dv:seraphin')) assert.ok(!divins.includes(d.nom), d.nom)
+  const autres = DIVINS.filter(d => d.key !== 'dv:seraphin')
+  assert.deepEqual(voiles, ['Le Séraphin, divin, à toi', ...autres.map(d => `${d.nom}, divin, pas encore descendu`)])
+  // Sous chaque case, son nom à l'œil : le sien en clair, les autres voilés comme leur dessin.
+  assert.match(divins, /<span class="album-nom" aria-hidden="true">Le Séraphin<\/span>/)
+  for (const d of autres) assert.ok(divins.includes(`<span class="album-nom album-nom-voile" aria-hidden="true">${d.nom}</span>`), d.nom)
+  // Leur bijou, lui, ne part pas : dix-sept voiles, un seul peint.
+  assert.equal((divins.match(/dv-voile/g) ?? []).length, 17)
+  assert.equal((divins.match(/dv-peint/g) ?? []).length, 1)
   assert.doesNotMatch(divins, /album-lieu|album-legende/)
+  // Les autres pages n'écrivent aucun nom sous leurs cases.
+  assert.doesNotMatch(commune, /album-nom|album-divins/)
   assert.match(divins, /Ils ne disent pas comment\./)
 
   // La fiche suit sa rangée, de toute la largeur ; la grille finit la rangée avec les cases d'après.
@@ -644,11 +653,11 @@ test('la fiche d’un avatar à gagner : ses voies — « ou » entre elles, « 
   const baleine = await fiche('🐳')
   assert.deepEqual(etapes(baleine), [['Au niveau 12', 'niveau 8 sur 12']])
   assert.doesNotMatch(baleine, /album-aller/)
-  // Un Divin pas encore descendu : son mystère, rien d'autre — ni nom, ni voie, ni jauge (invariant 21).
+  // Un Divin pas encore descendu : son nom et son mystère, rien d'autre — ni voie, ni lieu, ni jauge (invariant 21).
   const voile = await fiche('dv:lotus')
-  assert.match(voile, /<b class="galerie-detail-nom">\?<\/b>/)
+  assert.match(voile, /<b class="galerie-detail-nom">Le Lotus Sacré<\/b>/)
   assert.match(voile, /Personne ne sait ce qui le fait descendre\./)
-  assert.doesNotMatch(voile, /Lotus|Comment l’obtenir|album-etape|album-aller|jauge/)
+  assert.doesNotMatch(voile, /Comment l’obtenir|album-etape|album-aller|jauge/)
   // Aucune fiche n'a de bouton : on y lit, on n'y porte rien.
   for (const html of [licorne, chimere, lynx, baleine, voile]) assert.doesNotMatch(html, /<button/)
   // L'Éclat ne se dit que sur ce qui est à lui : verrouillé, rien n'éclate.

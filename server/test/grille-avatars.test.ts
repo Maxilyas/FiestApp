@@ -322,10 +322,11 @@ test('touché dans l’album, un légendaire ou un Divin se montre en grand en t
   assert.match(seraphin, /<span class="album-detail-dessin" aria-hidden="true"><span class="dv dv-seraphin dv-peint"/)
   assert.match(seraphin, /seraphin-badge-512\./)
   assert.match(seraphin, /<p class="serif-note">Il est descendu un soir de grand vent\.<\/p>/)
-  // Pas encore descendu : son voile en grand, et toujours rien de lui.
+  // Pas encore descendu : son voile en grand, son nom — et toujours rien de son bijou.
   const inconnu = await ficheDeLAlbum('dv:lotus', { dessin: React.createElement(Divin, { cle: 'dv:lotus', verrouille: true, grand: true }) })
   assert.match(inconnu, /<span class="album-detail-dessin" aria-hidden="true"><svg class="dv dv-lotus dv-voile"/)
-  assert.doesNotMatch(inconnu, /Lotus|badge|medaillons/)
+  assert.match(inconnu, /<b class="galerie-detail-nom">Le Lotus Sacré<\/b>/)
+  assert.doesNotMatch(inconnu, /badge|medaillons/)
 
   // Centré, grand, et de l'air autour pour ce qui déborde.
   assert.match(regle('.album-detail-tete'), /align-items:\s*center/)

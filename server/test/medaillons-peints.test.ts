@@ -374,13 +374,13 @@ test('un Divin est un bijou qui vit : ses rayons, sa lueur, l’éclat sur son o
   assert.match(await divin({ cle: 'dv:helios', grand: true }), /helios-badge-512\./)
 })
 
-test('pas encore descendu, un Divin ne montre rien de lui : ni son bijou, ni son nom', async () => {
+test('pas encore descendu, un Divin ne montre que son voile et ne dit que son nom : jamais son bijou', async () => {
   for (const d of DIVINS) {
     const html = await divin({ cle: d.key, verrouille: true })
     assert.match(html, new RegExp(`^<svg class="dv dv-${d.key.slice(3)} dv-voile"`), 'un voile, et rien à précharger')
-    assert.match(html, /aria-label="Un Divin — personne ne sait ce qui le fait descendre"/)
+    // Son nom, l'indice qu'on laisse (le 22 novembre 2026 ; « Un Divin », jusque-là) — et rien de plus.
+    assert.ok(html.includes(`aria-label="${d.nom} — personne ne sait ce qui le fait descendre"`), `${d.key} : son nom`)
     assert.doesNotMatch(html, /medaillons|badge|dv-peint/)
-    assert.ok(!html.includes(d.nom), `${d.key} : son nom`)
   }
 })
 
