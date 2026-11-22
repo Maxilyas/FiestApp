@@ -21,7 +21,7 @@ import type { EssaiDeLaBoutique } from '../../../shared/panier'
 import { plaqueAvecSonCamp, plaqueDuTheme } from '../../../shared/plaques'
 import type { PublicProfileDetail } from '../../../shared/profil'
 import { enConfettis, gestesDuPresentoir, rangDansLeRayon, voisinDansLeRayon, type EtapeDuPresentoir, type EtatDeLArticle, type GesteDuPresentoir } from '../../../shared/rayons'
-import { avatarDeLApercu } from '../../../shared/sonAvatar'
+import { avatarQuiEclate } from '../../../shared/sonAvatar'
 import { NOM_DE_RARETE, prixDe, theme as leTheme } from '../../../shared/themes'
 
 // Le présentoir de la boutique (la refonte du 10 novembre 2026, la maquette
@@ -260,8 +260,8 @@ export function Presentoir({
 
   // ── Ce qu'elle montre ──
   const possede = o ? comptoir.possede(o) : null
-  // L'Éclat se montre sur ce qu'il porte, sauf un Divin, qui n'en prend pas : l'aperçu se tait (`avatarDeLApercu`).
-  const lui = o?.cle === 'eclat' ? avatarDeLApercu(profil) : null
+  // L'Éclat se montre sur ce qu'il porte, sauf un Divin, qui n'en prend pas : l'aperçu se tait (`avatarQuiEclate`).
+  const lui = o?.cle === 'eclat' ? avatarQuiEclate(profil) : null
   // Un compagnon éclaté ne change que de paillettes : sa version rare est sa métamorphose (`formesDeLEclat`).
   const metamorphose = lui && formesDeLEclat(lui.legendaire)
   const fin = t ? jusquAuBoutDeSaSaison(t) : null

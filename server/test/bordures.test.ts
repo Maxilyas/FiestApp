@@ -21,7 +21,8 @@
 //
 // Ce qui sort d'un médaillon passe par-dessus elle (« je veux garder ce truc
 // pour les avatars ») ; la lumière des finitions 15, 20 et 25 garde son
-// atmosphère et lui laisse ses anneaux ; un Divin n'en prend aucune.
+// atmosphère et lui laisse ses anneaux ; un Divin la porte depuis le
+// 22 novembre 2026, sa gloire derrière elle.
 // Chaque test échouait avant.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -33,6 +34,7 @@ import { CATEGORIES } from '../../shared/categories'
 import { VIES, semaineDe } from '../../shared/campagne'
 import { jourDe } from '../../shared/jour'
 import { AUCUNE_BORDURE, CRANS_D_UNE_BORDURE, bordurePortee, choixDeBordure, coteDuScore, ligueDe, ouSeGagnentSesCrans, releverLesDuels, type BordureDeLigue, type DuelJoue } from '../../shared/duels'
+import { xpDuNiveau } from '../../shared/profil'
 import { ProfileStore } from '../src/auth/profiles'
 
 ProfileStore.tirageEclat = () => false
@@ -281,12 +283,13 @@ async function avatar(props: object): Promise<string> {
 
 const OR_3 = { ligue: 'or', crans: 3 }
 
-test('la bordure vient avec son fichier, derrière l’avatar ; ce qui sort d’un médaillon passe par-dessus ; un Divin n’en prend aucune', async () => {
+test('la bordure vient avec son fichier, derrière l’avatar ; ce qui sort d’un médaillon passe par-dessus ; un Divin la porte, sa gloire derrière elle', async () => {
   const m: Medaillons = await import(url('components/medaillons.ts'))
-  // Une page où personne n'en porte ne la télécharge pas ; un Divin ne la fait pas venir.
+  // Une page où personne n'en porte ne la télécharge pas ; un Divin bordé la fait venir comme un autre.
   assert.deepEqual(m.sortesDesAvatars([{ finition: 'or' }, {}]), [])
   assert.deepEqual(m.sortesDesAvatars([{ finition: 'or', bordure: OR_3 }]), ['bordure'])
-  assert.deepEqual(m.sortesDesAvatars([{ legendaire: 'dv:lotus', bordure: OR_3 }]), ['divin'])
+  assert.deepEqual(m.sortesDesAvatars([{ legendaire: 'dv:lotus', bordure: OR_3 }]), ['divin', 'bordure'])
+  assert.deepEqual(m.sortesDesAvatars([{ legendaire: 'dv:lotus' }]), ['divin'])
   // En l'attendant, l'avatar d'avant : rien autour.
   assert.doesNotMatch(await avatar({ finition: 'or', bordure: OR_3 }), /class="bo |av-bordure/)
 
@@ -311,10 +314,42 @@ test('la bordure vient avec son fichier, derrière l’avatar ; ce qui sort d’
   const phenix = await avatar({ legendaire: 'lg:phenix', finition: 'or', eclat: true, bordure: { ligue: 'or', crans: 12 } })
   assert.match(phenix, /lg-debord/)
   assert.ok(phenix.indexOf('class="bo bo-or bo-sertie"') < phenix.indexOf('lg-debord'))
-  // Un Divin a sa propre lumière : ni finition ni bordure.
-  const divin = await avatar({ legendaire: 'dv:lotus', finition: 'constellation', bordure: { ligue: 'maitre', crans: 12 } })
-  assert.match(divin, /class="av av-divin"/)
-  assert.doesNotMatch(divin, /class="bo |av-bordure/)
+  // Un Divin la porte, en gloire (le 22 novembre 2026) : ses rayons posés avant elle — elle passe devant, ils en
+  // sortent entre ses feuilles —, à sa lumière, puis le bijou par-dessus son fil.
+  const divin = await avatar({ legendaire: 'dv:lotus', bordure: { ligue: 'maitre', crans: 12 } })
+  assert.match(divin, /class="av av-divin av-bordure"/)
+  const [gloire, cadre, bijou] = ['class="dv-gloire"', 'class="bo bo-maitre bo-sertie"', 'class="av-emoji"'].map(c => divin.indexOf(c))
+  assert.ok(gloire >= 0 && gloire < cadre && cadre < bijou, 'la gloire, la bordure, le bijou — dans cet ordre')
+  assert.match(divin, /<span class="dv-gloire" style="--dv-rvb:255, 176, 204;--dv-rvb-clair:[\d, ]+" aria-hidden="true"><span class="dv-rayons"><\/span><span class="dv-rayons dv-rayons-2"><\/span><\/span>/)
+  // Sans bordure, il reste comme avant : ses rayons dans son bijou, pas de gloire.
+  assert.doesNotMatch(await avatar({ legendaire: 'dv:lotus' }), /dv-gloire|av-bordure/)
+  // Sous la lumière d'une finition, elle prend la place de sa gloire : jamais les deux ensemble.
+  const eclaire = await avatar({ legendaire: 'dv:lotus', finition: 'constellation', bordure: { ligue: 'maitre', crans: 12 } })
+  assert.match(eclaire, /class="av av-divin av-lumiere av-bordure"/)
+  assert.doesNotMatch(eclaire, /dv-gloire/)
+})
+
+test('un Divin bordé : ses rayons sortent du bijou, qui grandit dans son fil ; dans une liste, ni gloire ni rayons', () => {
+  const regle = (sel: string) => CSS.match(new RegExp(`(?:^|[},])\\s*${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*(?:,[^{]*)?\\{([^}]*)\\}`))?.[1]
+  // Les rayons du bijou passeraient devant la bordure et s'arrêteraient à son fil : ils s'effacent pour la gloire.
+  assert.match(CSS, /\.av-divin\.av-bordure \.dv-peint > \.dv-rayons,\s*\.av-divin\.av-lumiere \.dv-peint > \.dv-rayons,\s*\.av-divin\.av-lumiere \.dv-etincelles \{ display: none; \}/)
+  // À sa taille il était posé dans le fil comme dans une cage ; à 1,25, le Panthéon cachait sa bordure.
+  assert.match(regle('.av-divin.av-bordure .av-emoji > .dv') ?? '', /scale: 1\.12/)
+  // Derrière la bordure (posée avant elle, au même plan), sans rien qui se touche.
+  const gloire = regle('.dv-gloire') ?? ''
+  assert.match(gloire, /position: absolute/)
+  assert.match(gloire, /z-index: 0/)
+  assert.match(gloire, /pointer-events: none/)
+  // Elle ne bouge que par la rotation de ses rayons (`dv-tourne`), et s'arrête avec eux : dans une liste, quand le
+  // système demande moins de mouvement.
+  for (const ou of ['.av.lb-avatar:not(.av-sujet)', '.player-chip']) {
+    assert.ok(CSS.includes(`${ou} .dv-gloire *,`), `${ou} : la gloire s’y tient tranquille`)
+    // Ses rayons portent la classe de ceux du bijou : la règle qui les efface d'une liste les efface aussi.
+    assert.match(CSS, new RegExp(`${ou.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\.dv-rayons,`))
+  }
+  assert.match(CSS, /@media \(prefers-reduced-motion: reduce\) \{\s*\.dv \* \{ animation: none !important; \}\s*\.dv-gloire \* \{ animation: none !important; \}/)
+  // Sur l'Ivoire, une lumière pâle ne se verrait pas : elle prend sa version sombre, sauf sur un fond de carte.
+  assert.match(CSS, /:root\[data-theme='ivoire'\] :is\(\.dv-peint, \.dv-gloire\):where\(:not\(\.carte-fond, \.carte-fond \*\)\) \{ --dv-rvb: var\(--dv-rvb-clair\) !important; \}/)
 })
 
 test('là où un médaillon est agrandi — la carte, le podium, le bilan —, sa bordure grandit avec lui : elle ne passe pas dessous', () => {
@@ -327,17 +362,20 @@ test('là où un médaillon est agrandi — la carte, le podium, le bilan —, s
   // Chaque écran qui agrandit un médaillon, et de combien.
   const agrandis = new Map<string, number>()
   for (const r of regles) for (const s of r.sels) {
-    const ecran = s.match(/^(\.[\w-]+) \.av-emoji > \.(?:lg|pt)$/)?.[1]
+    const ecran = s.match(/^(\.[\w-]+) \.av-emoji > \.(?:lg|pt|dv)$/)?.[1]
     if (ecran && em(r.corps, 'font-size')) agrandis.set(ecran, em(r.corps, 'font-size'))
   }
   assert.deepEqual([...agrandis.keys()].sort(), ['.bilan-avatar', '.carte-avatar', '.podium-avatar'])
   const taille = em(regles.find(r => r.sels.includes('.bo'))!.corps, '--d')
   assert.equal(taille, 1.9)
   for (const [ecran, facteur] of agrandis) {
-    // Un légendaire comme un portrait ou un compagnon : leurs deux classes, pas l'emoji qui tient la place en attendant.
-    const suit = regles.find(r => `, ${r.sel},`.includes(`, ${ecran}:is(.av-legendaire, .av-portrait) .bo,`))
+    // Un légendaire comme un portrait, un compagnon ou un Divin : leurs classes, pas l'emoji qui tient la place en attendant.
+    const suit = regles.find(r => `, ${r.sel},`.includes(`, ${ecran}:is(.av-legendaire, .av-portrait, .av-divin) .bo,`))
     assert.ok(suit, `${ecran} : sa bordure suit son médaillon`)
     assert.ok(Math.abs(em(suit.corps, '--d') - taille * facteur) < 0.005, `${ecran} : ${taille} em × ${facteur}`)
+    // La gloire d'un Divin grandit du même facteur : restée à sa taille, elle ne sortirait plus de la bordure agrandie.
+    const gloire = regles.find(r => r.sels.includes(`${ecran} .dv-gloire`) && /--k:/.test(r.corps))
+    assert.equal(Number(gloire?.corps.match(/--k:\s*([\d.]+)/)?.[1]), facteur, `${ecran} : la gloire suit le bijou`)
   }
   // Agrandie, son insigne tient encore dans la plus petite illustration d'une carte (132 px, l'avatar à 58 px) : il
   // descend à 92 du repère de 200, soit 0,46 de sa taille sous le centre.
@@ -491,7 +529,7 @@ test('la loge propose ses bordures ; le serveur garde son choix, refuse une ligu
 
 // ── 5. La salle : sa bordure le suit jusque sur l'écran commun ─────────────
 
-test('en soirée, sa bordure suit son avatar : relue à son entrée, changée de sa loge, jamais à un anonyme ni sous un Divin', async () => {
+test('en soirée, sa bordure suit son avatar : relue à son entrée, changée de sa loge, jamais à un anonyme — et sous un Divin aussi, à sa propre lumière', async () => {
   const banc = await demarrer({ horlogeDuJour: () => DEBUT, baseDeLaCampagne: BASE })
   const sockets: { close(): unknown }[] = []
   try {
@@ -501,11 +539,11 @@ test('en soirée, sa bordure suit son avatar : relue à son entrée, changée de
     const [idLea, idNina] = [idDe(banc, 'lea'), idDe(banc, 'nina')]
     // Léa et Nina ont gagné quatorze duels ; Tom n'en a joué aucun. Nina a Hélios, un Divin.
     for (const id of [idLea, idNina]) victoiresAuJournal(banc, id)
-    base(banc, db =>
-      db
-        .prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, 'dv:helios', 'une-soiree-d-avant', '', '', '', 1)`)
-        .run(idNina),
-    )
+    base(banc, db => {
+      db.prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, 'dv:helios', 'une-soiree-d-avant', '', '', '', 1)`).run(idNina)
+      // Nina au niveau 26 : Constellation est à elle, et « Auto » la lui ferait porter d'office.
+      db.prepare('UPDATE profiles SET xp = ? WHERE id = ?').run(xpDuNiveau(26), idNina)
+    })
     await banc.redemarrer()
 
     const host = await ecranCommun(banc.url, await connexionAnimateur(banc.url))
@@ -539,11 +577,30 @@ test('en soirée, sa bordure suit son avatar : relue à son entrée, changée de
     assert.deepEqual(carte.bordure, { ligue: 'or', crans: 2 })
     assert.equal(carte.profil.bordure, undefined)
 
-    // Nina porte Hélios : un Divin a sa propre lumière, sa bordure s'efface.
-    assert.equal((await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'dv:helios' }, nina, 'PUT')).status, 200)
+    // Nina, en « Auto », porte la plus belle finition qu'elle a.
+    assert.equal(sur(salle, ninaIci).finition, 'constellation')
+    // Elle porte Hélios : sa bordure reste (le 22 novembre 2026 — elle s'effaçait), et « Auto » lui laisse sa propre
+    // lumière — `mat`, pour la salle comme pour sa page et sa carte.
+    const ninaPorte = async (corps: Record<string, unknown>) => {
+      const res = await ecrire(banc.url, '/api/joueur/moi', corps, nina, 'PUT')
+      assert.equal(res.status, 200)
+      return ((await res.json()) as { profile: { finition: string; finitionChoisie: string } }).profile
+    }
+    const sousHelios = await ninaPorte({ legendaire: 'dv:helios' })
+    assert.deepEqual([sousHelios.finition, sousHelios.finitionChoisie], ['mat', 'auto'])
     const divine = await instantane(host, s => sur(s, ninaIci)?.legendaire === 'dv:helios', 'Nina sous Hélios')
-    assert.equal(sur(divine, ninaIci).bordure, undefined)
-    assert.equal((await lire(banc, tom, `/s/${ADMIN.slug}/joueurs/${ninaIci.playerId}.json`)).corps.bordure, undefined)
+    assert.deepEqual(sur(divine, ninaIci).bordure, { ligue: 'or', crans: 2 })
+    assert.equal(sur(divine, ninaIci).finition, 'mat')
+    const saCarte = (await lire(banc, tom, `/s/${ADMIN.slug}/joueurs/${ninaIci.playerId}.json`)).corps
+    assert.deepEqual([saCarte.bordure, saCarte.finition], [{ ligue: 'or', crans: 2 }, 'mat'])
+    // Une finition qu'elle épingle elle-même l'habille : la salle la reçoit — une lumière, puis un métal.
+    for (const finition of ['constellation', 'or']) {
+      assert.equal((await ninaPorte({ finition })).finition, finition)
+      await instantane(host, s => sur(s, ninaIci)?.finition === finition, `Nina sous Hélios, en ${finition}`)
+    }
+    // Revenue à « Auto », sa lumière ; son emoji repris, la plus belle de nouveau.
+    assert.equal((await ninaPorte({ finition: 'auto' })).finition, 'mat')
+    assert.equal((await ninaPorte({ legendaire: null })).finition, 'constellation')
   } finally {
     for (const s of sockets) s.close()
     await banc.close()

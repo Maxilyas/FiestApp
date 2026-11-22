@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import React from 'react'
 import { createClient } from '@libsql/client'
-import { avatarDeLApercu, sonAvatar } from '../../shared/sonAvatar'
+import { avatarQuiEclate, sonAvatar } from '../../shared/sonAvatar'
 import { formeDeCompagnon } from '../../shared/compagnons'
 import { FINITIONS } from '../../shared/profil'
 import { LIGUES } from '../../shared/duels'
@@ -47,6 +47,8 @@ async function rendu(fichier: string, composant: string, props: object): Promise
 async function dessins() {
   await import(url('components/Legendaire.tsx'))
   await import(url('components/Divin.tsx'))
+  // La bordure de ligue aussi : sans son dessin, un Divin bordé ne se distinguait pas d'un Divin nu.
+  await import(url('components/Bordure.tsx'))
 }
 
 /**
@@ -85,25 +87,27 @@ const LEA = {
   bordureChoisie: 'auto',
   theme: null,
 }
-/** La même, le Séraphin au cou : un Divin a sa propre lumière. */
-const LEA_DIVINE = { ...LEA, legendaire: 'dv:seraphin', divins: ['dv:seraphin'] }
+/** La même, le Séraphin au cou : en « Auto », un Divin garde sa propre lumière (`mat`, comme le serveur le dit). */
+const LEA_DIVINE = { ...LEA, legendaire: 'dv:seraphin', divins: ['dv:seraphin'], finition: 'mat' }
 
 const loge = { essai: {}, essayer: () => {}, busy: false }
 
 // ── 1. La règle ───────────────────────────────────────────────────────────
 
-test('son avatar : ce qu’il porte, son Éclat compris — et sous un Divin, l’aperçu d’une finition ou d’une bordure n’a rien dedans', () => {
+test('son avatar : ce qu’il porte, son Éclat compris, un Divin aussi — seul l’aperçu d’un Éclat se tait sous lui', () => {
   assert.deepEqual(sonAvatar(LEA), { avatar: '🦊', legendaire: 'lg:phenix', eclat: true })
   assert.deepEqual(sonAvatar({ ...LEA, eclatsEteints: ['lg:phenix'] }), { avatar: '🦊', legendaire: 'lg:phenix', eclat: false }, 'éteint, il porte la version d’origine')
   assert.deepEqual(sonAvatar({ ...LEA, legendaire: null, eclats: ['🦊'] }), { avatar: '🦊', eclat: true }, 'sans rien au cou, son emoji, éclaté')
-  assert.deepEqual(avatarDeLApercu(LEA), sonAvatar(LEA))
-  // Ni l'emoji qu'il ne porte pas, ni le Divin, qui ne montrerait rien de la finition.
-  assert.deepEqual(avatarDeLApercu(LEA_DIVINE), { avatar: '', eclat: false })
+  // Un Divin se porte comme le reste : l'aperçu d'une finition ou d'une bordure l'entoure (le 22 novembre 2026).
+  assert.deepEqual(sonAvatar(LEA_DIVINE), { avatar: '🦊', legendaire: 'dv:seraphin', eclat: false })
+  assert.deepEqual(avatarQuiEclate(LEA), sonAvatar(LEA))
+  // L'Éclat, lui, ne se montre ni sur l'emoji qu'il ne porte pas, ni sur le Divin, qui n'éclate pas.
+  assert.deepEqual(avatarQuiEclate(LEA_DIVINE), { avatar: '', eclat: false })
 })
 
 // ── 2. La loge et « Ma collection » : ce que le propriétaire a vu ─────────
 
-test('dans la loge, chaque bordure entoure ce qu’il porte — sous un Divin, la bordure seule', async () => {
+test('dans la loge, chaque bordure entoure ce qu’il porte — un Divin compris, sans une phrase de plus', async () => {
   await dessins()
   const html = await rendu('components/Apparence', 'MesBordures', { profil: LEA, ...loge })
   // Auto, Sans, puis le bronze et l'argent : trois bordures autour du Phénix, « Sans » n'a que son pointillé.
@@ -113,16 +117,24 @@ test('dans la loge, chaque bordure entoure ce qu’il porte — sous un Divin, l
   assert.ok(pastilles.some(p => p.includes('bordure-sans')))
   assert.doesNotMatch(html, /🦊/, 'le renard d’en dessous ne s’y montre plus')
 
+  // Le Séraphin dans chaque bordure, comme le Phénix : il la porte depuis le 22 novembre 2026. Plus de phrase pour
+  // dire qu'il n'en prend pas (« pas besoin de mettre du texte à chaque fois », le propriétaire, le 17 novembre).
   const divine = await rendu('components/Apparence', 'MesBordures', { profil: LEA_DIVINE, ...loge })
-  assert.doesNotMatch(divine, /🦊|av-legendaire|av-divin/, 'ni l’emoji, ni le Séraphin qui ne la porterait pas')
-  assert.match(divine, /Le Séraphin a sa propre lumière : ta bordure se voit sous tes autres avatars\./)
+  const sesPastilles = divine.split('finition-choix bordure-choix').slice(1)
+  assert.equal(sesPastilles.filter(p => p.includes('av-divin av-bordure')).length, 3, 'le Séraphin dans chaque bordure')
+  assert.doesNotMatch(divine, /🦊|av-legendaire|a sa propre lumière/)
+  // Sa finition : « Auto » y est sa propre lumière, à sa teinte, et le dit à l'oreille.
+  const finitions = await rendu('components/Apparence', 'MesFinitions', { profil: LEA_DIVINE, ...loge })
+  assert.match(finitions, /aria-label="Auto : la lumière de Le Séraphin[^"]*"[^>]*><i class="finition-teinte teinte-divin"/)
+  assert.doesNotMatch(finitions, /a sa propre lumière|toujours la plus belle/)
+  assert.match(await rendu('components/Apparence', 'MesFinitions', { profil: LEA, ...loge }), /aria-label="Auto, toujours la plus belle : /)
 })
 
-test('« Ma collection » : les albums des finitions et des bordures montrent ce qu’il porte — sous un Divin, la finition ou la bordure seule', async () => {
+test('« Ma collection » : les albums des finitions et des bordures montrent ce qu’il porte — un Divin compris', async () => {
   await dessins()
-  for (const [partie, n, mot] of [
-    ['finitions', FINITIONS.length, 'ta finition'],
-    ['bordures', LIGUES.length, 'ta bordure'],
+  for (const [partie, n] of [
+    ['finitions', FINITIONS.length],
+    ['bordures', LIGUES.length],
   ] as const) {
     const html = await rendu('components/AlbumDuStyle', 'AlbumDuStyle', { partie, profil: LEA })
     const cases = html.split('trophee-case style-case').slice(1)
@@ -132,9 +144,14 @@ test('« Ma collection » : les albums des finitions et des bordures montrent ce
       `${partie} : le Phénix dans chaque case`,
     )
     assert.doesNotMatch(html, /🦊/, `${partie} : plus le renard d’en dessous`)
+    // Le Séraphin dans chaque case : chaque finition telle qu'il la porterait épinglée, chaque bordure avec sa gloire.
     const divine = await rendu('components/AlbumDuStyle', 'AlbumDuStyle', { partie, profil: LEA_DIVINE })
-    assert.doesNotMatch(divine, /🦊|av-legendaire/, `${partie} : sous un Divin, rien dedans`)
-    assert.match(divine, new RegExp(`Le Séraphin a sa propre lumière : ${mot} se voit sous tes autres avatars\\.`))
+    const sesCases = divine.split('trophee-case style-case').slice(1)
+    assert.ok(
+      sesCases.length === n && sesCases.every(c => c.includes('av-divin')),
+      `${partie} : le Séraphin dans chaque case`,
+    )
+    assert.doesNotMatch(divine, /🦊|av-legendaire|a sa propre lumière/, partie)
   }
 })
 

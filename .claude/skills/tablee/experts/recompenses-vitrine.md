@@ -53,7 +53,9 @@ côté client `components/Apparence.tsx`, `Trophees.tsx`, `Carriere.tsx`,
 - **Le chargement à la demande** : #59 a grossi `Legendaire.tsx` ; un invité
   anonyme télécharge-t-il maintenant les dessins des médaillons sans que
   personne n'en porte (`medaillons.test.ts` le voit-il) ?
-- **Les Divins** : ni finition ni Éclat, un nom sans légende, rien d'autre.
+- **Les Divins** : ni Éclat ni matière, un nom sans légende ; sa propre lumière
+  en « Auto », une finition épinglée ou une bordure de ligue par-dessus
+  (règle `medaillons.md`), rien d'autre.
 
 **Hors de ton angle** : la comptabilité des récompenses
 (`recompenses-comptes`), le dessin et la mise en page

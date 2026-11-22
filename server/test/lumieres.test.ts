@@ -56,7 +56,7 @@ function imagesCles(nom: string): string {
 
 // ── 1. À la demande ───────────────────────────────────────────────────────
 
-test('une salle sans niveau 15 ne télécharge pas la lumière ; un Divin ne la fait pas venir', async () => {
+test('une salle sans niveau 15 ne télécharge pas la lumière ; un Divin ne la fait venir que s’il en porte une', async () => {
   const m: Medaillons = await import(url('components/medaillons.ts'))
   // Une salle d'anonymes, d'emojis, de finitions jusqu'à Holo : rien.
   assert.deepEqual(m.sortesDesAvatars([{}, { finition: 'mat' }, { finition: 'or' }, { finition: 'holo', legendaire: null }]), [])
@@ -65,8 +65,10 @@ test('une salle sans niveau 15 ne télécharge pas la lumière ; un Divin ne la 
   }
   // Un légendaire porté en Constellation : son médaillon et sa lumière.
   assert.deepEqual(m.sortesDesAvatars([{ legendaire: 'lg:phenix', finition: 'constellation' }]), ['legendaire', 'lumiere'])
-  // Un Divin n'a pas de finition : sa lumière est la sienne.
-  assert.deepEqual(m.sortesDesAvatars([{ legendaire: 'dv:lotus', finition: 'constellation' }]), ['divin'])
+  // Un Divin garde sa lumière tant que son joueur n'épingle rien (le serveur dit alors `mat`, `finitionSur`) ; un
+  // métal ne fait que la teinter ; seule une lumière épinglée fait venir la sienne.
+  assert.deepEqual(m.sortesDesAvatars([{ legendaire: 'dv:lotus', finition: 'mat' }, { legendaire: 'dv:helios', finition: 'or' }]), ['divin'])
+  assert.deepEqual(m.sortesDesAvatars([{ legendaire: 'dv:lotus', finition: 'constellation' }]), ['divin', 'lumiere'])
   // Une finition inconnue — une page d'avant, une valeur trafiquée — ne demande rien.
   assert.deepEqual(m.sortesDesAvatars([{ finition: 'arc-en-ciel' }]), [])
 })
@@ -116,7 +118,7 @@ test('la lumière entoure l’emoji : derrière lui, puis devant — le Diamant,
   for (const finition of ['holo', 'or', undefined]) assert.doesNotMatch(await avatar({ finition }), /class="lu /, String(finition))
 })
 
-test('autour d’un médaillon, son cercle fait l’anneau ; un Divin garde la sienne', async () => {
+test('autour d’un médaillon, son cercle fait l’anneau ; sous un Divin, elle prend la place de ses rayons, et un métal les teinte', async () => {
   await charger('Lumiere', 'Legendaire', 'Divin')
   // L'Astrolabe autour du Phénix : l'orbite et la nébuleuse, pas le limbe ni
   // l'anneau serti — c'est le cercle du médaillon qui est gradué. Deux
@@ -134,10 +136,27 @@ test('autour d’un médaillon, son cercle fait l’anneau ; un Divin garde la s
   assert.match(diamant, /lg-cercle-prisme/)
   // Les Voiles se lèvent derrière lui comme derrière un emoji.
   assert.match(await avatar({ legendaire: 'lg:phenix', finition: 'aurore' }), /lu-voile-1/)
-  // Un Divin ne prend ni finition ni lumière.
+  // Sous un Divin (le 22 novembre 2026 ; il n'en prenait aucune) : la lumière d'une finition qu'il a épinglée, comme
+  // autour d'un médaillon — l'orbite et la nébuleuse, pas l'anneau fait pour un emoji —, à la place de ses rayons et
+  // de ses étincelles, que la feuille efface : les deux ensemble se brouillaient.
   const divin = await avatar({ legendaire: 'dv:lotus', finition: 'constellation' })
-  assert.match(divin, /class="av av-divin"/)
-  assert.doesNotMatch(divin, /class="lu |av-lumiere|av-constellation/)
+  assert.match(divin, /class="av av-divin av-lumiere"/)
+  assert.match(divin, /lu-orbite-avant/)
+  assert.doesNotMatch(divin, /lu-astrolabe|lu-gemmes|av-constellation|dv-gloire/)
+  assert.match(CSS, /\.av-divin\.av-lumiere \.dv-peint > \.dv-rayons,\s*\.av-divin\.av-lumiere \.dv-etincelles \{ display: none; \}/)
+  // Un métal ne trace ni halo ni cercle autour d'un bijou qui n'est pas rond : il teinte sa lumière.
+  const lotus = await avatar({ legendaire: 'dv:lotus', finition: 'mat' })
+  const dore = await avatar({ legendaire: 'dv:lotus', finition: 'or' })
+  const argente = await avatar({ legendaire: 'dv:lotus', finition: 'argent' })
+  for (const html of [lotus, dore, argente]) assert.match(html, /class="av av-divin"/)
+  assert.match(lotus, /style="--dv-rvb:255, 176, 204;/, 'sa lumière, le rose du Lotus')
+  assert.match(dore, /style="--dv-rvb:255, 198, 84;/)
+  assert.match(argente, /style="--dv-rvb:206, 224, 255;/)
+  // Le Holo n'est pas une couleur : ses rayons prennent l'arc-en-ciel, à sa classe.
+  const holo = await avatar({ legendaire: 'dv:lotus', finition: 'holo' })
+  assert.match(holo, /class="dv dv-lotus dv-holo dv-peint"/)
+  assert.doesNotMatch(holo, /av-holo/)
+  assert.doesNotMatch(lotus + dore + argente, /dv-holo/)
 })
 
 test('les cinq de prestige, du 30 au 50 : chacune sa matière, autour de l’emoji comme du médaillon', async () => {

@@ -25,7 +25,7 @@ import type { CleDeJeu } from './cabinet/jeux/regle'
 import type { AfficheDAccueil } from './affiches'
 import type { BadgePorte } from './badges'
 import type { HautFaitVu } from './hautsfaits'
-import type { DivinDescendu } from './divins'
+import { divin, type DivinDescendu } from './divins'
 import type { CarriereDuJour, LaurierPorte } from './jour'
 import type { Ecusson } from './ecussons'
 import type { BoutiqueDuProfil } from './themes'
@@ -213,6 +213,21 @@ export function choixDeFinition(raw: unknown, niveau: number): FinitionChoisie {
 export function finitionPortee(choisie: unknown, niveau: number): Finition {
   const choix = choixDeFinition(choisie, niveau)
   return choix === 'auto' ? meilleureFinition(niveau) : choix
+}
+
+/**
+ * La finition qu'on voit sur lui, selon ce qu'il porte. Un Divin a sa propre
+ * lumière, et la garde tant que la finition reste en `auto` : la plus belle
+ * qu'il a ne s'impose pas à lui (`mat`). Seule celle qu'il a épinglée
+ * lui-même l'habille — un métal teinte sa lumière, une lumière du 15 au 50
+ * prend sa place (`Avatar.tsx`). Le choix du propriétaire du 22 novembre
+ * 2026, sur maquette (`retours/2026-11-22/divins-habilles/`) : jusque-là, un
+ * Divin ne prenait aucune finition. La même règle au serveur (`apparenceDe`,
+ * `toPublic`) et dans l'essai de la loge (`avecLEssai`).
+ */
+export function finitionSur(legendaire: string | null | undefined, choisie: unknown, niveau: number): Finition {
+  if (divin(legendaire) && choixDeFinition(choisie, niveau) === 'auto') return 'mat'
+  return finitionPortee(choisie, niveau)
 }
 
 /** Ancien nom, gardé pour les appels qui bornent une finition précise : `mat` quand on ne l'a pas. */
@@ -816,9 +831,9 @@ export interface Distinctions {
   champion?: string
   /**
    * La bordure de ligue qu'il porte autour de son avatar (`shared/duels.ts`,
-   * `bordurePortee`) — jamais sous un Divin. En soirée, lue de mémoire à
-   * chaque diffusion (`ProfileStore.badgeDe`) ; sur sa carte, relue avec sa
-   * cote.
+   * `bordurePortee`) — sous un Divin aussi, depuis le 22 novembre 2026. En
+   * soirée, lue de mémoire à chaque diffusion (`ProfileStore.badgeDe`) ; sur
+   * sa carte, relue avec sa cote.
    */
   bordure?: BordureDeLigue
 }

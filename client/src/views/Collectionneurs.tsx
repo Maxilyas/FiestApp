@@ -72,7 +72,7 @@ import {
 // Tout vient d'une lecture (`GET /api/collectionneurs`) : le relevé de tous,
 // fait en fond, et sa fiche de l'instant ; la vitrine d'un joueur, au toucher.
 
-/** Son avatar, tel qu'il le porte — sa bordure de ligue comprise, jamais sous un Divin (le serveur ne la donne pas). */
+/** Son avatar, tel qu'il le porte — sa bordure de ligue comprise. */
 function SonAvatar({ f, className, grand }: { f: FicheDeCollectionneur; className?: string; grand?: boolean }) {
   return <Avatar className={className} avatar={f.avatar} finition={f.finition} legendaire={f.legendaire} sceau={f.sceau} eclat={f.eclat} bordure={f.bordure} grand={grand} />
 }

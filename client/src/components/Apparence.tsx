@@ -25,7 +25,7 @@ import { compagnonDe, formeDeCompagnon, nomDeLaForme } from '../../../shared/com
 import { FONDS, FONDS_EN_BOUTIQUE } from '../../../shared/fonds'
 import { AUCUNE_GERBE, GERBES } from '../../../shared/gerbes'
 import { avatarMontre, avatarsNeufs, avecLEssai, bordureNeuve, type Essai } from '../../../shared/loge'
-import { avatarDeLApercu } from '../../../shared/sonAvatar'
+import { sonAvatar } from '../../../shared/sonAvatar'
 import { GerbeDeJuste } from './Gerbe'
 import { brancheDuMaitre, cleDeMaitre, maitresDe, nomDuTitre } from '../../../shared/sentiers'
 import { moisDuChampion } from '../../../shared/jour'
@@ -512,13 +512,13 @@ const rangee = (n: number) => 'loge-finitions-rangee' + (n < 6 ? ' rangee-courte
  */
 export function MesFinitions({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   const vu = avecLEssai(profil, essai)
-  // Un Divin ne prend ni finition ni Éclat : la sienne se voit sous ses autres avatars.
+  // Sous un Divin, « Auto » lui laisse sa propre lumière (`finitionSur`) : la pastille le dit, à sa teinte.
   const divinPorte = divin(vu.legendaire)
   const montree = vu.finitionChoisie
   const plusBelle = meilleureFinition(profil.niveau)
   const siennes = FINITIONS.filter(f => profil.ouvertes.includes(f))
   const reste = FINITIONS.length - siennes.length
-  const pastille = (cle: FinitionChoisie, nom: string, teinte: Finition, label: string) => {
+  const pastille = (cle: FinitionChoisie, nom: string, teinte: Finition | 'divin', label: string) => {
     const montre = montree === cle
     const porte = profil.finitionChoisie === cle
     const neuve = cle !== 'auto' && !!neufs?.has(`finition:${cle}`)
@@ -543,9 +543,10 @@ export function MesFinitions({ profil, essai, essayer, neufs }: PropsDUnePiece) 
       <span className="loge-sous-titre" id="loge-finitions-titre">
         Finition
       </span>
-      {divinPorte && <p className="muted small">{`${divinPorte.nom} a sa propre lumière : ta finition se voit sous tes autres avatars.`}</p>}
       <div className={rangee(1 + siennes.length + (reste > 0 ? 1 : 0))} role="group" aria-labelledby="loge-finitions-titre">
-        {pastille('auto', 'Auto', plusBelle, `Auto, toujours la plus belle : ${NOM_FINITION[plusBelle]}`)}
+        {divinPorte
+          ? pastille('auto', 'Auto', 'divin', `Auto : la lumière de ${divinPorte.nom}`)
+          : pastille('auto', 'Auto', plusBelle, `Auto, toujours la plus belle : ${NOM_FINITION[plusBelle]}`)}
         {siennes.map(f => pastille(f, NOM_FINITION[f], f, NOM_FINITION[f]))}
         <PastilleAGagner n={reste} nom={reste > 1 ? 'finitions' : 'finition'} href="#collection-finitions" />
       </div>
@@ -573,8 +574,6 @@ export function MesFinitions({ profil, essai, essayer, neufs }: PropsDUnePiece) 
 export function MesBordures({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   const vu = avecLEssai(profil, essai)
   const bordures = profil.bordures ?? []
-  // Sous un Divin, ni finition ni bordure : il a sa propre lumière.
-  const divinPorte = divin(vu.legendaire)
   const montree = vu.bordureChoisie ?? 'auto'
   const portee = profil.bordureChoisie ?? 'auto'
   const finition = vu.finition
@@ -604,8 +603,8 @@ export function MesBordures({ profil, essai, essayer, neufs }: PropsDUnePiece) {
         onClick={() => essayer({ bordure: cle })}
       >
         <span className="bordure-apercu" aria-hidden="true">
-          {/* Autour de ce qu'il porte, un légendaire compris : l'emoji d'en dessous s'y montrait (le 14 octobre 2026). */}
-          {bordure ? <Avatar {...avatarDeLApercu(vu)} finition={finition} bordure={bordure} /> : <i className="bordure-sans" />}
+          {/* Autour de ce qu'il porte, un légendaire ou un Divin compris : l'emoji d'en dessous s'y montrait (le 14 octobre 2026). */}
+          {bordure ? <Avatar {...sonAvatar(vu)} finition={finition} bordure={bordure} /> : <i className="bordure-sans" />}
         </span>
         <span aria-hidden="true">{nom}</span>
       </button>
@@ -617,7 +616,6 @@ export function MesBordures({ profil, essai, essayer, neufs }: PropsDUnePiece) {
       <span className="loge-sous-titre" id="loge-bordures-titre">
         Bordure
       </span>
-      {divinPorte && <p className="muted small">{`${divinPorte.nom} a sa propre lumière : ta bordure se voit sous tes autres avatars.`}</p>}
       <div className={rangee(2 + bordures.length + (reste > 0 ? 1 : 0)) + ' loge-bordures-rangee'} role="group" aria-labelledby="loge-bordures-titre">
         {pastille('auto', 'Auto', auto, auto ? `Auto, ta plus haute : ${NOM_DE_LA_BORDURE[auto.ligue]}` : 'Auto, ta plus haute dès son premier cran')}
         {pastille(AUCUNE_BORDURE, 'Sans', null, 'Sans bordure')}

@@ -89,7 +89,7 @@ test('un légendaire éclaté porte sa version rare, dessinée : c’est elle qu
   assert.ok(eclate.includes('lg-eclate') && eclate.includes('av-eclat'))
   assert.ok(eclate.includes('#c4f4ff') && !eclate.includes('#ffcf6e'), 'le Phénix de glace, pas le Phénix de feu')
   assert.ok(normal.includes('#ffcf6e') && !normal.includes('lg-eclate'))
-  // Un Divin n'éclate pas, et ne prend pas de finition.
+  // Un Divin n'éclate pas ; et un métal ne lui pose ni halo ni cercle — il teinte sa lumière (`lumieres.test.ts`).
   const divin = await avatar({ legendaire: 'dv:helios', finition: 'holo', eclat: true })
   assert.ok(!divin.includes('av-eclat') && !divin.includes('av-holo') && !divin.includes('lg-cercle'))
 })

@@ -363,7 +363,7 @@ const divin = (props: object) => rendu('components/Divin', 'Divin', props)
 
 test('un Divin est un bijou qui vit : ses rayons, sa lueur, l’éclat sur son or, ses étincelles', async () => {
   const html = await divin({ cle: 'dv:helios' })
-  assert.match(html, /<span class="dv dv-helios dv-peint" role="img" aria-label="Hélios" style="--dv-rvb:255, 201, 74">/)
+  assert.match(html, /<span class="dv dv-helios dv-peint" role="img" aria-label="Hélios" style="--dv-rvb:255, 201, 74;--dv-rvb-clair:185, 134, 39">/)
   assert.match(html, /<img class="dv-bijou" src="\/medaillons\/helios-badge-256\.[0-9a-f]{10}\.webp" alt=""/)
   assert.equal((html.match(/class="dv-rayons( dv-rayons-2)?"/g) ?? []).length, 2)
   assert.match(html, /class="dv-lueur"/)

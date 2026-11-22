@@ -105,12 +105,15 @@ test('en grand, un légendaire prend ses grands fichiers et sa lumière entière
   assert.doesNotMatch(petit, /-512\.|lg-touche-libre/)
 })
 
-test('en grand, un Divin prend son grand bijou, et ne dit ni finition ni Éclat, qu’il ne prend pas', async () => {
+test('en grand, un Divin prend son grand bijou, et ne dit que la finition qu’il a épinglée — jamais d’Éclat', async () => {
   await charger('Divin.tsx')
   const html = await enGrand({ legendaire: 'dv:helios', finition: 'or', eclat: true })
   assert.match(html, /helios-badge-512\./)
   assert.doesNotMatch(html, /-256\./)
-  assert.equal(texte(html), 'Divin Hélios Touche-le pour revenir à la carte.')
+  // L'Or qu'il a épinglé teinte sa lumière, et se dit ; l'Éclat, qu'il ne prend pas, jamais.
+  assert.equal(texte(html), 'Divin Hélios Finition Or Touche-le pour revenir à la carte.')
+  // À sa propre lumière — `mat`, ce que le serveur dit en « Auto » —, rien de plus que son nom.
+  assert.equal(texte(await enGrand({ legendaire: 'dv:helios', finition: 'mat', eclat: true })), 'Divin Hélios Touche-le pour revenir à la carte.')
 })
 
 test('en grand, un portrait des branches prend ses grands fichiers, et dit sa branche', async () => {

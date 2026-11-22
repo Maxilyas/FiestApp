@@ -19,7 +19,7 @@ import { fond } from './fonds'
 import { AUCUNE_GERBE, gerbe } from './gerbes'
 import { cleRangee, hautsFaitsGagnes } from './hautsfaits'
 import { cibleEclat, legendaire } from './legendaires'
-import { NOM_FINITION, clesQuiBrillent, eclatChez, meilleureFinition, sceauVisible, type FinitionChoisie, type PublicProfileDetail } from './profil'
+import { NOM_FINITION, clesQuiBrillent, eclatChez, finitionSur, meilleureFinition, sceauVisible, type FinitionChoisie, type PublicProfileDetail } from './profil'
 import { NOM_DE_LA_MATIERE, type Matiere } from './matieres'
 import { recompensesDe } from './proches'
 import { cleDeMaitre, maitresDe, nomDuTitre } from './sentiers'
@@ -185,8 +185,10 @@ export function avecLEssai<P extends Tenue & Pick<PublicProfileDetail, 'finition
   if (essai.legendaire !== undefined) vu.legendaire = essai.legendaire
   if (essai.finition !== undefined) {
     vu.finitionChoisie = essai.finition
-    vu.finition = essai.finition === 'auto' ? meilleureFinition(profil.niveau) : essai.finition
   }
+  // Sa finition telle que la salle la verrait : la règle du serveur (`finitionSur`). Un Divin
+  // essayé garde sa lumière en `auto` ; l'emoji qu'on reprend retrouve la plus belle.
+  if (essai.avatar !== undefined || essai.legendaire !== undefined || essai.finition !== undefined) vu.finition = finitionSur(vu.legendaire, vu.finitionChoisie, profil.niveau)
   if (essai.bordure !== undefined) vu.bordureChoisie = essai.bordure
   if (essai.sceau !== undefined) vu.sceauMasque = !essai.sceau
   if (essai.titre !== undefined) vu.titre = essai.titre
@@ -235,8 +237,7 @@ export function carteAvecLEssai(
   const retouchee: CarteDeJoueur = { ...carte }
   if (essai.avatar !== undefined || essai.legendaire !== undefined || essai.finition !== undefined || essai.bordure !== undefined || essai.eclat || essai.sceau !== undefined) {
     const legendaire = vu.legendaire ?? undefined
-    // Ni bordure sous un Divin, qui a sa propre lumière.
-    const bordure = divin(legendaire) ? null : bordurePortee(vu.bordureChoisie ?? 'auto', vu.bordures)
+    const bordure = bordurePortee(vu.bordureChoisie ?? 'auto', vu.bordures)
     retouchee.avatar = vu.avatar
     retouchee.finition = vu.finition
     // Absents plutôt que faux, comme le serveur les envoie (`distinctions`).
@@ -279,7 +280,7 @@ export interface LigneDEssai {
  * rangée : « La Chouette · Légendaire », « « L'Oracle » · Titre ». On sait ce
  * qu'on porte avant de toucher « Porter ».
  */
-export function lignesDeLEssai(essai: Essai, profil: Pick<PublicProfileDetail, 'niveau'>): LigneDEssai[] {
+export function lignesDeLEssai(essai: Essai, profil: Pick<PublicProfileDetail, 'niveau'> & Partial<Pick<PublicProfileDetail, 'legendaire'>>): LigneDEssai[] {
   const lignes: LigneDEssai[] = []
   if (essai.avatar !== undefined) {
     const n = COLLECTION.find(c => c.emoji === essai.avatar)?.niveau
@@ -312,7 +313,10 @@ export function lignesDeLEssai(essai: Essai, profil: Pick<PublicProfileDetail, '
   }
   if (essai.finition !== undefined) {
     const f = essai.finition
-    lignes.push({ piece: 'avatar', nom: f === 'auto' ? `La plus belle · ${NOM_FINITION[meilleureFinition(profil.niveau)]}` : NOM_FINITION[f], detail: 'Finition' })
+    // Sous un Divin — celui qu'il essaie, sinon celui qu'il porte —, `auto` lui rend sa lumière (`finitionSur`).
+    const sousUnDivin = essai.avatar === undefined && divin(essai.legendaire !== undefined ? essai.legendaire : profil.legendaire)
+    const auto = sousUnDivin ? 'Sa lumière' : `La plus belle · ${NOM_FINITION[meilleureFinition(profil.niveau)]}`
+    lignes.push({ piece: 'avatar', nom: f === 'auto' ? auto : NOM_FINITION[f], detail: 'Finition' })
   }
   if (essai.sceau !== undefined) lignes.push({ piece: 'avatar', nom: essai.sceau ? 'Montré' : 'Masqué', detail: 'Sceau' })
   if (essai.bordure !== undefined) {

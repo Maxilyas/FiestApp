@@ -124,6 +124,12 @@ function habituee(lue: any, ligue = 'or') {
   }
 }
 
+/** La même, le Séraphin au cou : ni Éclat ni sceau, qu'un Divin ne prend pas. */
+function divine(carte: any) {
+  const { eclat: _eclat, sceau: _sceau, ...reste } = carte
+  return { ...reste, legendaire: 'dv:seraphin', finition: 'mat', profil: { ...carte.profil, divins: ['dv:seraphin'] } }
+}
+
 interface Etat {
   nom: string
   /** La carte montrée, d'après celle que rend le serveur. */
@@ -228,6 +234,24 @@ const ETATS: readonly Etat[] = [
       }
     },
   },
+  // Un Divin sur sa carte, habillé depuis le 22 novembre 2026 : en gloire sous sa bordure, à sa propre lumière (`mat`,
+  // ce que le serveur dit en « Auto ») ; sans bordure, comme avant ; un métal qui teinte ses rayons ; une lumière à la
+  // place de sa gloire ; sur un fond de carte, et sous Ivoire, où sa lumière s'assombrit pour se lire.
+  ...(
+    [
+      ['en-gloire', {}],
+      ['sans-bordure', { bordure: undefined }],
+      ['holo', { finition: 'holo' }],
+      ['constellation', { finition: 'constellation' }],
+      ['helios-maitre', { legendaire: 'dv:helios', bordure: { ligue: 'maitre', crans: 12 } }],
+    ] as const
+  ).map(([nom, plus]) => ({
+    nom: `10-divin-${nom}`,
+    gestes: ['avatar'] as const,
+    carte: (lue: any) => avecCeSoir({ ...divine(habituee(lue, 'diamant')), ...plus }),
+  })),
+  { nom: '10-divin-ivoire', theme: 'ivoire', carte: (lue: any) => avecCeSoir(divine(habituee(lue, 'platine'))), gestes: ['avatar'] },
+  { nom: '10-divin-fond-nuit', carte: (lue: any) => avecCeSoir({ ...divine(habituee(lue, 'or')), profil: { ...habituee(lue).profil, fond: 'nuit', divins: ['dv:seraphin'] } }) },
 ]
 
 const banc = await demarrer()

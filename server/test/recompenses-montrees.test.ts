@@ -298,7 +298,10 @@ test('ce que la salle voit, la page le montre : laurier, légendaire, surnom et 
     source('components/LogeTete.tsx'),
     /<Avatar\s+className="player-avatar big"\s+avatar=\{vu\.avatar\}\s+finition=\{vu\.finition\}\s+eclat=\{eclatChez\(vu, cibleEclat\(vu\.legendaire \?\? undefined, vu\.avatar\)\)\}\s+legendaire=\{vu\.legendaire \?\? undefined\}/,
   )
-  assert.match(apparence, /a sa propre lumière/)
+  // Sous un Divin, « Auto » lui laisse sa propre lumière : sa pastille le dit, à sa teinte — la phrase qui disait
+  // qu'il ne prenait aucune finition est partie avec la règle (le 22 novembre 2026).
+  assert.match(apparence, /pastille\('auto', 'Auto', 'divin', `Auto : la lumière de \$\{divinPorte\.nom\}`\)/)
+  assert.doesNotMatch(apparence, /a sa propre lumière/)
   // La marque « (2) » n'est pas un surnom.
   assert.match(source('components/CarteJoueur.tsx'), /p\.prenom !== partsDuNomAffiche\(carte\.nom\)\.prenom/)
   // Un légendaire verrouillé n'a rien qui éclate, ni version à choisir — ni un Divin, qui n'éclate pas, ni la

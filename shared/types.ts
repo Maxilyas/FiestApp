@@ -45,7 +45,7 @@ export interface PublicPlayer {
   /**
    * La bordure de ligue des duels qu'il porte autour de son avatar
    * (`bordurePortee`) : lue de mémoire à chaque diffusion, absente tant
-   * qu'elle n'est pas relue, et sous un Divin.
+   * qu'elle n'est pas relue.
    */
   bordure?: BordureDeLigue
   /**
