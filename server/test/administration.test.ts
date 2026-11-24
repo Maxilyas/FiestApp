@@ -61,10 +61,11 @@ test('/admin : le QG — la vue d’ensemble d’abord, son journal et son serve
   // les modes côte à côte au lot 5, à la même adresse (`qg-modes.test.ts`) ; les questions jouées et les réserves, sous
   // « Contenu », avant les signalements (`qg-contenu.test.ts`) ; les animateurs à la place des salons, sous « Audience » — les
   // salons en sont l'onglet (`qg-animateurs.test.ts`) ; les ancres d'avant y mènent encore, `#salons` compris. Le Grand
-  // Prix, après les nouveautés, le 19 novembre 2026 (`grand-prix.test.ts`, `journal.test.ts`).
+  // Prix, après les nouveautés, le 19 novembre 2026 (`grand-prix.test.ts`, `journal.test.ts`). Le Sphinx de l'accueil, après
+  // le Cabinet, le 24 novembre 2026 (`qg-sphinx.test.ts`).
   assert.match(
     page,
-    /const ECRANS: readonly Ecran\[\] = \['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'animateurs', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'grand-prix', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves'\]/,
+    /const ECRANS: readonly Ecran\[\] = \['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'animateurs', 'catalogue', 'jour', 'campagne', 'cabinet', 'sphinx', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'grand-prix', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves'\]/,
   )
   assert.match(page, /const ANCIENNES: Record<string, Ecran> = \{ 'les-profils': 'profils', 'quiz-du-jour': 'jour' \}/)
   // « Les salons » est devenu l'onglet des animateurs : son adresse d'avant ouvre cet onglet, pas le carnet.
@@ -75,7 +76,7 @@ test('/admin : le QG — la vue d’ensemble d’abord, son journal et son serve
   // À l'ordinateur, le rail mène à chaque écran ; au téléphone, la feuille « Pages », tirée du même rail — mêmes groupes,
   // mêmes noms, même ordre, ses pastilles — : écrite à la main à côté, elle ne lui ressemblait plus (la revue
   // d'ergonomie du 4 novembre 2026). Chaque page dit ce qu'on y trouve, que la palette cherche aussi.
-  for (const e of ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'animateurs', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves']) {
+  for (const e of ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'animateurs', 'catalogue', 'jour', 'campagne', 'cabinet', 'sphinx', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves']) {
     assert.match(page, new RegExp(`\\{ ecran: '${e}', nom: '[^']+', icone: '[a-z-]+', description: '[^']+'`), e)
   }
   assert.doesNotMatch(page, /<Ligne\s/, 'plus de liste des pages écrite à la main')

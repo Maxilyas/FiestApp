@@ -13604,6 +13604,58 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .album-etape-icone { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: color-mix(in srgb, var(--gemme) 18%, transparent); color: var(--ink); }
 .album-etape-icone .icon { width: 17px; height: 17px; }
 .album-tenue .album-etape-icone { background: var(--accent); color: var(--on-accent); }
+/* Le Divin du moment, celui dont le Sphinx de l'accueil souffle les mots : sa case s'allume d'or, un « ? » à son épaule,
+   et sa fiche montre sa phrase (`SaPhrase`) ; une phrase reconstituée par tous s'y lit entière, sous son voile. */
+.album-case.album-moment { box-shadow: 0 0 0 2px var(--accent), 0 0 14px rgba(var(--accent-rgb), 0.55); }
+.album-case.album-moment::after {
+  content: '?';
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  font: 700 0.75rem/20px var(--sans);
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--bg);
+}
+.album-phrase { align-self: stretch; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.album-phrase .album-etiquette { margin-bottom: 10px; }
+.album-phrase .phrase-compte { margin-top: 1rem; }
+.album-phrase-entiere { margin: 0; text-align: center; }
+/* Une phrase retrouvée par tous, pas encore lue : son geste sous la jauge, détaché d'elle (le 24 novembre 2026). */
+.album-phrase .album-phrase-lire { margin-top: 14px; }
+
+/* ── La phrase d'un Divin, mot à mot (le Sphinx de l'accueil, `PhraseDuDivin`) ──
+   Un trait par lettre des mots cachés, les petits mots offerts en retrait, ses mots à lui en or sous un filet, puis ce que
+   tous les habitués en ont trouvé : un nombre et une jauge, jamais lesquels (la maquette validée,
+   `retours/2026-11-24/le-sphinx/sphinx.html`). Aux jetons du thème dans l'album ; la visite les repose à ses couleurs de
+   nuit (`components/sphinx.css`). En `rem` : au texte agrandi, la phrase grandit avec lui. */
+.phrase-divin { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 0.5rem 0.75rem; max-width: 21rem; margin: 0 auto; font: 600 1.125rem/1.25rem var(--serif); }
+.phrase-mot { display: inline-flex; align-items: flex-end; gap: 2px; }
+.phrase-trait { display: block; width: 0.8125rem; height: 1.375rem; border-bottom: 2px solid rgba(var(--accent-rgb), 0.45); }
+.phrase-ponct { display: block; width: 0.375rem; color: var(--muted); text-align: center; }
+.phrase-offert { color: var(--muted); padding-bottom: 2px; }
+.phrase-trouve { padding: 0 1px 1px; color: var(--ink); border-bottom: 2px solid rgba(var(--accent-rgb), 0.45); }
+.phrase-sien { color: var(--accent-text); border-bottom-color: var(--accent); text-shadow: 0 0 10px rgba(var(--accent-rgb), 0.45); }
+/* Le mot qu'il vient de gagner : ses lettres se retournent une à une. `backwards` : au repos, la lettre est elle-même —
+   aucune animation ne garde sa fin (règle `css.md`). */
+.phrase-neuf { perspective: 200px; }
+.phrase-neuf .phrase-lettre { display: inline-block; animation: phrase-retourne 0.36s ease-out backwards; animation-delay: calc(var(--k, 0) * 120ms); }
+@keyframes phrase-retourne {
+  from { transform: rotateX(90deg); opacity: 0; }
+}
+.phrase-compte { margin: 0.75rem 0 0; font-size: 0.75rem; color: var(--muted); text-align: center; }
+.phrase-compte b { color: var(--accent-text); font-weight: 600; }
+.phrase-jauge { display: block; width: 10.5rem; max-width: 100%; height: 4px; margin: 8px auto 0; border-radius: 2px; background: var(--track); overflow: hidden; }
+.phrase-jauge i { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+.phrase-conseil { display: flex; gap: 12px; align-items: center; margin: 14px 0 0; padding: 12px 14px; border-radius: 12px; background: rgba(var(--accent-rgb), 0.08); font-size: 0.8125rem; line-height: 1.45; text-align: left; }
+.phrase-conseil-sphinx { flex: none; width: 40px; height: 40px; border: 1px solid var(--accent); border-radius: 50%; object-fit: cover; }
+@media (prefers-reduced-motion: reduce) {
+  .phrase-neuf .phrase-lettre { animation: none; }
+}
 .album-etape-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .album-etape-texte b { font-weight: 600; }
 .album-progres { display: flex; align-items: center; gap: 10px; margin-top: 3px; font-size: 0.85rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
@@ -16509,6 +16561,27 @@ button.qg-route:hover .qg-route-chemin { text-decoration: underline; }
 .qg-cabinet-perdue { fill: var(--qg-critique); background: var(--qg-critique); }
 .qg-cabinet-en-route { fill: var(--qg-en-route); background: var(--qg-en-route); }
 .qg-cabinet-gagnee { fill: var(--qg-ok); background: var(--qg-ok); }
+/* La page du Sphinx (`/admin#sphinx`, `QgSphinx.tsx`) : ses visites aux mêmes couleurs d'état, dans le même ordre
+   (`ISSUES_DES_VISITES`), et l'ardoise claire d'une visite remise à plus tard entre l'ardoise de celles qui attendent et
+   le vert — plus claire de seize points, elle s'en distingue sans la teinte. */
+.qg-sphinx-chat { fill: var(--qg-veille); background: var(--qg-veille); }
+.qg-sphinx-perdue { fill: var(--qg-critique); background: var(--qg-critique); }
+.qg-sphinx-proposee { fill: var(--qg-en-route); background: var(--qg-en-route); }
+.qg-sphinx-remise { fill: var(--qg-encre-2); background: var(--qg-encre-2); }
+.qg-sphinx-resolue { fill: var(--qg-ok); background: var(--qg-ok); }
+/* Le Divin du moment : son nom en grand, combien de ses mots tous ont trouvés — un compte et sa piste, jamais un mot. */
+.qg-sphinx-moment { display: grid; justify-items: start; gap: 8px; }
+.qg-sphinx-divin { font: 600 1.6rem/1.1 var(--serif); color: var(--accent-text); }
+.qg-sphinx-jauge { justify-content: flex-start; font-size: 1rem; font-weight: 600; }
+.qg-sphinx-jauge .qg-part-piste { width: 120px; height: 8px; }
+.qg-sphinx-reconstituees > li { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; padding: 8px 0; }
+.qg-sphinx-a-toi { margin-left: 8px; vertical-align: 1px; }
+/* Une énigme ouverte : ses vers, un par ligne, puis ses chiffres, puis le geste — ou la réponse qu'il a rendue. */
+.qg-sphinx-vers { display: grid; gap: 2px; margin: 12px 0 16px; padding: 10px 14px; border-left: 3px solid var(--edge-strong); font: italic 1.05rem/1.45 var(--serif); color: var(--ink); }
+.qg-sphinx-chiffres { margin-bottom: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.qg-sphinx-voir { width: 100%; justify-content: center; }
+.qg-sphinx-reponse { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--edge-strong); border-radius: var(--radius-xs); background: var(--accent-soft); }
+.qg-sphinx-reponse > b { font: 600 1.25rem/1.2 var(--serif); color: var(--accent-text-hover); }
 /* Chaque ligne de la page : son nom au-dessus de sa piste, sa part au bout, ce qu'elle dit de plus dessous — et en
    colonnes dans une carte large (`.qg-cabinet-colonnes`) : sur une seule ligne, le nom d'un gardien passait sur trois
    dans le tiers d'une carte. */
@@ -16564,6 +16637,25 @@ button.qg-route:hover .qg-route-chemin { text-decoration: underline; }
 .annonce-admin-merci { flex: none; align-self: center; display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: none; color: var(--ink); font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
 /* À l'aperçu du QG, le bouton n'est qu'une image (`CarteDeLAdministrateur` sans `onRanger`). */
 span.annonce-admin-merci { cursor: default; }
+/* La phrase d'un Divin retrouvée par tous (le Sphinx de l'accueil) : un bandeau d'une ligne de doigt, à la place d'« À
+   la une » (plus bas, « L'accueil compact ») — en carte, l'accueil défilait de 190 px en 360 × 640. Toute la ligne se
+   touche ; son titre et ses crédits tiennent chacun sur une ligne, coupés au bout, entiers au lecteur d'écran. Sur l'or
+   pâle, le texte s'écrit à l'or de survol (règle `css.md`). */
+.annonce-phrase { list-style: none; }
+.annonce-phrase-ligne { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 5px 12px; border: 1px solid rgba(var(--accent-rgb), 0.45); border-radius: var(--radius); background: var(--accent-soft); color: var(--ink); font: inherit; text-align: left; }
+button.annonce-phrase-ligne { cursor: pointer; }
+.annonce-phrase-icone { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: rgba(var(--accent-rgb), 0.15); color: var(--accent-text-hover); }
+.annonce-phrase-icone .icon { width: 15px; height: 15px; }
+.annonce-phrase-texte { display: grid; min-width: 0; line-height: 1.25; }
+.annonce-phrase-texte > * { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.annonce-phrase-texte b { font-size: 0.9rem; color: var(--accent-text-hover); }
+.annonce-phrase-texte span { font-size: 0.78rem; color: var(--muted); }
+.annonce-phrase-voir { display: inline-flex; align-items: center; gap: 2px; font-size: 0.8rem; font-weight: 600; color: var(--accent-text-hover); white-space: nowrap; }
+.annonce-phrase-voir .icon { width: 14px; height: 14px; }
+/* Sous 400 px de large, le chevron seul : « La voir » coupait le titre en 360 (« est retro… »). */
+@media (max-width: 399px) {
+  .annonce-phrase-voir-mot { display: none; }
+}
 /* Le merci d'un signalement se lit en une longue phrase : son bouton passe sous le texte, qu'il serrait en colonne. */
 .annonce-admin-pile { flex-wrap: wrap; }
 .annonce-admin-pile .annonce-admin-texte { flex-basis: calc(100% - 46px); }
@@ -19234,6 +19326,11 @@ body.avec-menu .accueil {
   .accueil:has(.gros-principal) .une-cadre { display: none; }
   .accueil:has(.gros-principal) .haut-en-chemin { height: var(--accueil-missions); }
 }
+/* La phrase d'un Divin retrouvée par tous, annoncée une fois (`.annonce-phrase`) : son bandeau prend la place
+   d'« À la une » le temps qu'il se montre, à toutes les tailles, comme l'affiche d'une nouveauté — sa place gardée
+   aussi, sans quoi les boutons sauteraient à l'arrivée d'« À la une » cachée. */
+.accueil:has(.annonce-phrase) .une-cadre { display: none; }
+.accueil:has(.annonce-phrase) .haut-en-chemin { height: var(--accueil-missions); }
 /* L'affiche d'une nouveauté, couchée en bandeau à la place d'« À la une » (`.affiche-bandeau`, plus haut), est un peu plus
    haute qu'elle : la page se resserre de deux pixels entre ses blocs plutôt que de défiler — sur le petit téléphone et
    l'écran moyen ; un grand a la place. */

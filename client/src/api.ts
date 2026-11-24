@@ -43,6 +43,8 @@ import type { Envie } from '../../shared/envie'
 import type { NouveautesDeLaLoge, VusDeLaLoge } from '../../shared/piecesDeLaLoge'
 import type { MissionsDuJour } from '../../shared/missions'
 import type { CoffreOuvert } from '../../shared/coffre'
+import type { GesteDuSphinx, LeSphinx, PhraseLueDuSphinx, VerdictDuSphinx } from '../../shared/sphinx'
+import type { PageDuSphinxAuQg, ReponseDuSphinxAuQg } from '../../shared/qgSphinx'
 import type { CompagnonAcquis } from '../../shared/compagnons'
 import type { ReglageDesOrnements } from '../../shared/ornements'
 import type { CadeauOuvert, CueilletteEcrite, SoinsDuProfil } from '../../shared/soins'
@@ -481,6 +483,22 @@ export const api = {
      * même objet — le geste se refait d'un toucher.
      */
     ouvrirLeCoffre: (semaine: string) => req<{ coffre: CoffreOuvert }>('/api/joueur/coffre', { method: 'POST', body: JSON.stringify({ semaine }) }),
+    /**
+     * Le Sphinx de l'accueil (`shared/sphinx.ts`) : la visite du jour, la phrase du Divin du moment telle qu'il la voit, et
+     * les phrases que tous ont reconstituées — sa page fermée pour lui, `{ fermee }` et rien d'autre. Demandé par la visite
+     * quand elle s'ouvre, et par l'album quand sa page des Divins s'ouvre.
+     */
+    sphinx: () => req<LeSphinx>('/api/joueur/sphinx'),
+    /**
+     * Un geste sur la visite du jour — l'écouter, la remettre à plus tard, répondre, donner sa langue au chat — et son
+     * verdict. Pas de reprise au réveil : une réponse rejouée coûterait un essai de plus ; le geste se refait d'un toucher.
+     */
+    gesteDuSphinx: (geste: GesteDuSphinx, reponse?: string) =>
+      req<VerdictDuSphinx>('/api/joueur/sphinx', { method: 'POST', body: JSON.stringify(reponse === undefined ? { geste } : { geste, reponse }) }),
+    /** « La phrase est retrouvée : la lire » : la phrase entière d'un Divin que tous ont retrouvée, à lui pour de bon. */
+    lirePhraseDuSphinx: (divin: string) => req<PhraseLueDuSphinx>('/api/joueur/sphinx/phrase', { method: 'POST', body: JSON.stringify({ divin }) }),
+    /** L'accueil a montré la carte d'une phrase retrouvée : le serveur ne la redira plus, sur aucun de ses appareils. */
+    phraseAnnoncee: (divin: string) => req<{ accuse: true }>('/api/joueur/sphinx/annonce', { method: 'POST', body: JSON.stringify({ divin }) }),
     enregistrer: (patch: {
       name?: string
       avatar?: string
@@ -1043,6 +1061,11 @@ export const api = {
     economie: () => req<PageDeLEconomie>('/api/admin/economie'),
     /** Le Cabinet de curiosités : ses traversées sur trente jours, ses jeux, ses cartes, ses gardiens, son contenu, ses joueurs. */
     cabinet: () => req<PageDuCabinetAuQg>('/api/admin/cabinet'),
+    /** Le Sphinx de l'accueil : le Divin du moment, l'audience, les visites, la réussite de chaque énigme — jamais une réponse. */
+    sphinx: () => req<PageDuSphinxAuQg>('/api/admin/sphinx'),
+    /** La réponse d'une énigme : ce geste la range parmi celles que le profil de l'administrateur a vues. */
+    reponseDuSphinx: (numero: string) =>
+      req<ReponseDuSphinxAuQg>(`/api/admin/sphinx/enigmes/${encodeURIComponent(numero)}/reponse`, { method: 'POST', body: '{}' }),
   },
 }
 

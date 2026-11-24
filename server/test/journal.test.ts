@@ -222,6 +222,10 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     const sonProfil = await inscrireProfil(banc.url, 'essayeur', 'Sam', '🐎')
     ok(await faire(banc, `${admin}; ${sonProfil}`, `/api/admin/grand-prix/${grandPrix}/essai`), 'essayer un Grand Prix')
     ok(await faire(banc, admin, `/api/admin/grand-prix/${grandPrix}`, undefined, 'DELETE'), 'retirer un Grand Prix')
+    // Le Sphinx de l'accueil : le compte d'administration tient le profil de Sam, où se range l'énigme dont il lit la
+    // réponse — une des trois de la maquette, que le propriétaire a vues.
+    ok(await faire(banc, admin, '/api/space/profil', { login: 'essayeur', password: 'motdepasse1' }), 'rattacher son profil')
+    ok(await faire(banc, admin, '/api/admin/sphinx/enigmes/32/reponse'), 'voir la réponse d’une énigme du Sphinx')
     // Les erreurs : une vraie, que la base refuse — un 500 ne se note pas —, réglée avec son mot ;
     // puis un téléphone prévenu des pannes, essayé — son service ne répond pas —, et retiré.
     const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
@@ -324,6 +328,8 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       `Grand Prix programmé : « Le Grand Prix de Léa », le ${jourEnToutesLettres(jourDuGrandPrix)}, contre le fantôme de Léa B.`,
       'Essai du Grand Prix « Le Grand Prix de Léa »',
       `Grand Prix retiré : « Le Grand Prix de Léa », le ${jourEnToutesLettres(jourDuGrandPrix)}`,
+      // Son numéro et le profil où elle se range : jamais sa réponse.
+      'Réponse d’une énigme du Sphinx lue au QG : n° 32 — comptée pour vue sur le profil de Sam (@essayeur)',
       'Alertes de panne allumées sur un téléphone (un navigateur) — 1 téléphone prévenu',
       'Essai d’alerte : aucun téléphone n’a sonné (1 en échec)',
       'Alertes de panne coupées sur un téléphone — plus aucun téléphone prévenu',
@@ -392,6 +398,8 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     assert.deepEqual(
       profils.map(g => g.resume.replace(/ — [^—]+, palier 1$/, ' — …')),
       [
+        // Une énigme du Sphinx comptée pour vue : un geste sur le profil de l'administrateur, que sa fiche relira.
+        'Réponse d’une énigme du Sphinx lue au QG : n° 32 — comptée pour vue sur le profil de Sam (@essayeur)',
         'Profil renommé : « Léa » devient « Léa B. » (@lea)',
         'Profil réactivé : Léa (@lea)',
         'Profil suspendu : Léa (@lea)',

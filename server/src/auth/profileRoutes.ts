@@ -1,5 +1,6 @@
 import type { GrandPrixStore } from '../core/grandPrix'
-import express, { type Express } from 'express'
+import express, { type Express, type Request } from 'express'
+import type { Sphinx } from '../core/sphinx'
 import { wrap } from '../core/http'
 import type { ProfileRec, ProfileStore } from './profiles'
 import type { AuthStore } from './store'
@@ -79,6 +80,13 @@ interface ProfileApiDeps {
    * tant qu'il n'est pas relu.
    */
   collectionneurs?: Pick<Collectionneurs, 'resume'>
+  /**
+   * Le Sphinx de l'accueil : les phrases retrouvées par tous qu'il annonce,
+   * une fois, en tête de l'accueil (`annoncesDeLAccueil`, de sa mémoire) — sa
+   * page ouverte pour ce profil seulement (`ferme`), sans quoi la carte
+   * mènerait à un album qui n'en dit rien.
+   */
+  sphinx?: { sphinx: Pick<Sphinx, 'annoncesDeLAccueil'>; ferme: (req: Request) => boolean }
 }
 
 /**
@@ -201,7 +209,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
    * comme le détail : le podium d'hier dans le niveau, le laurier sur le
    * prénom.
    */
-  const accueilDe = async (me: ProfileRec): Promise<ProfilDAccueil> => {
+  const accueilDe = async (me: ProfileRec, sphinxOuvert = false): Promise<ProfilDAccueil> => {
     const aujourdhui = jourDe(deps.maintenant())
     await deps.jour.clorePasses(aujourdhui)
     const rec = (await profiles.byId(me.id)) ?? me
@@ -252,6 +260,15 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     // signalements qui ont servi, ses annonces à tous — dits une fois, son
     // téléphone retient le reste.
     const annonces = profiles.annoncesDe(rec, lue?.dons ?? [], Date.now(), mercis, lue?.aTous ?? [])
+    // Et les phrases retrouvées par tous, une fois chacune — celles déjà annoncées lues dans le même lot ; de la mémoire du
+    // Sphinx, sans un aller-retour de plus. Ce qui y tomberait n'ôte qu'elles.
+    if (lue && deps.sphinx && sphinxOuvert) {
+      try {
+        annonces.unshift(...deps.sphinx.sphinx.annoncesDeLAccueil(new Set(lue.phrasesAnnoncees), deps.maintenant(), ANNONCE_MS))
+      } catch (e) {
+        console.error('[profil] phrases retrouvées de l’accueil illisibles :', e)
+      }
+    }
     // Et les affiches des nouveautés dont il n'a pas encore ouvert la page, lues dans le même lot.
     const affiches = profiles.affichesDAccueil(lue?.affiches ?? [])
     // Et sa traversée, de la mémoire du Cabinet — une traversée qu'il n'a pas encore lue ne dit rien. Ce qui y tomberait n'ôte
@@ -501,7 +518,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       // c'est lui qui fait apparaître « Animer ma soirée » sur l'accueil.
       const espace = me ? deps.auth.byProfile(me.id) : undefined
       res.json({
-        profile: me ? await (req.query.accueil !== undefined ? accueilDe(me) : detailDe(me)) : null,
+        profile: me ? await (req.query.accueil !== undefined ? accueilDe(me, !!deps.sphinx && !deps.sphinx.ferme(req)) : detailDe(me)) : null,
         espace: espace && !espace.disabledAt ? deps.auth.publicSpace(espace) : null,
         // La soirée où il joue déjà, en tête de « Ce soir » : un nom, une
         // adresse, rien de plus — et seulement les siennes.

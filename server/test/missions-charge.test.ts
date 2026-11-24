@@ -12,7 +12,8 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { Sqlite3Client } from '@libsql/client/sqlite3'
-import { demarrer, inscrireProfil, type Banc } from './banc'
+import Database from 'better-sqlite3'
+import { connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { ProfileStore } from '../src/auth/profiles'
 
 ProfileStore.tirageEclat = () => false
@@ -78,8 +79,8 @@ const lire = (cookie: string, chemin: string) =>
   })
 
 before(async () => {
-  // Le jeudi 15 octobre 2026, à 10 h à Paris.
-  banc = await demarrer({ horlogeDuJour: () => Date.UTC(2026, 9, 15, 8) })
+  // Le jeudi 15 octobre 2026, à 10 h à Paris. Le Sphinx passe chaque fois qu'il le peut — sa page fermée, jamais.
+  banc = await demarrer({ horlogeDuJour: () => Date.UTC(2026, 9, 15, 8), tirageDuSphinx: () => 0 })
 })
 
 after(() => banc.close())
@@ -105,4 +106,31 @@ test('la ligne des missions se lit d’un aller-retour à la base — deux à la
   assert.ok(!ensuite.sqls.some(s => s.includes('WITH miennes')), `son carnet relu :\n${ensuite.sqls.join('\n')}`)
   assert.deepEqual(ensuite.resultat.missions, matin.resultat.missions, 'les mêmes missions, tirées une fois')
   assert.deepEqual([ensuite.resultat.coffres, ensuite.resultat.semaine.tampons], [[], [false, false, false, false, false, false, false]])
+})
+
+test('la ligne des missions dit si le Sphinx passe sans un aller-retour de plus : ses visites dans le lot du profil, la sienne posée de front', async () => {
+  // Sa page ouverte à tous, et un habitué : quatre jours joués sur sept.
+  const admin = await connexionAnimateur(banc.url)
+  assert.equal((await ecrire(banc.url, '/api/admin/maintenance/pages/sphinx', { etat: 'ouverte' }, admin, 'PUT')).status, 200)
+  const cookie = await inscrireProfil(banc.url, 'missions-habitue', 'Hugo')
+  const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  try {
+    const { id } = db.prepare('SELECT id FROM profiles WHERE login = ?').get('missions-habitue') as { id: string }
+    for (const jour of ['2026-10-11', '2026-10-12', '2026-10-13', '2026-10-14']) {
+      db.prepare(`INSERT OR IGNORE INTO jour_tirages (jour, questions, annulees, tire_le) VALUES (?, '[]', '[]', 1)`).run(jour)
+      db.prepare(`INSERT INTO jour_parties (profile_id, jour, commencee_le, question, servie_le, points, justes, finie_le, xp) VALUES (?, ?, 1, 10, NULL, 0, 0, 2, 0)`).run(id, jour)
+    }
+  } finally {
+    db.close()
+  }
+  await auCalme()
+  // Le matin : ses journaux, ses visites et les mots de tous ensemble ; puis le tirage des missions et sa visite, de front.
+  const matin = await mesurer(() => lire(cookie, '/api/joueur/missions'))
+  assert.equal(matin.resultat.sphinx, 'attend')
+  assert.ok(matin.enSerie <= 2, `${matin.enSerie} allers-retours en série à la première lecture du jour :\n${matin.sqls.join('\n')}`)
+  // Ensuite : un seul, et pas un de plus qu'avant le Sphinx — sa visite est posée, les mots de tous en mémoire.
+  const ensuite = await mesurer(() => lire(cookie, '/api/joueur/missions'))
+  assert.equal(ensuite.resultat.sphinx, 'attend')
+  assert.equal(ensuite.enSerie, 1, `${ensuite.enSerie} allers-retours en série :\n${ensuite.sqls.join('\n')}`)
+  assert.ok(ensuite.appels <= 3, `${ensuite.appels} allers-retours :\n${ensuite.sqls.join('\n')}`)
 })

@@ -1,0 +1,3745 @@
+{
+ "source": "Un million d’énigmes, charades et logogriphes, publié par Hilaire Le Gai (Pierre-Alexandre Gratet-Duplessis), Paris, Passard, 1858",
+ "statut": "domaine public ; transcription Wikisource, qualité 100 %",
+ "texte": "https://fr.wikisource.org/wiki/Un_million_d%E2%80%99%C3%A9nigmes,_charades_et_logogriphes/Charades_et_Logogriphes",
+ "fac_simile": "https://fr.wikisource.org/wiki/Page:Hilaire_Le_Gai_(Gratet-Duplessis)_Un_million_d%E2%80%99%C3%A9nigmes,_charades_et_logogriphes.djvu/",
+ "releve_le": "2026-11-24",
+ "enigmes": [
+  {
+   "numero": "370",
+   "difficulte": "moyenne",
+   "vers": [
+    "Quand je suis sous les pieds, je marche sur la tête."
+   ],
+   "solution": "Clou",
+   "acceptees": [
+    "clou",
+    "clous",
+    "clou de soulier",
+    "clou de chaussure"
+   ],
+   "presque": [
+    "vis",
+    "punaise",
+    "soulier",
+    "chaussure",
+    "semelle",
+    "fer a cheval"
+   ],
+   "note": "Une seule ligne.",
+   "page": "225",
+   "djvu": "259",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le soulier",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "le clou de soulier",
+     "certitude": 4
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "704",
+   "difficulte": "facile",
+   "vers": [
+    "Nous sommes deux qu’on met ensemble ;",
+    "Ce n’est pas un bonheur, ce semble ;",
+    "Car en tout temps notre union",
+    "N’opère que division,"
+   ],
+   "solution": "Ciseaux",
+   "acceptees": [
+    "ciseaux",
+    "ciseau",
+    "paire de ciseaux",
+    "deux points",
+    "signe de division"
+   ],
+   "presque": [
+    "tenailles",
+    "pince"
+   ],
+   "note": "La strophe finit sur une virgule dans le livre.",
+   "page": "442",
+   "djvu": "476",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "les ciseaux",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "les ciseaux",
+     "certitude": 3
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "32",
+   "difficulte": "facile",
+   "vers": [
+    "Je viens sans qu’on y pense,",
+    "Je meurs en ma naissance,",
+    "Et celui qui me suit",
+    "Ne vient jamais sans bruit."
+   ],
+   "solution": "Éclair",
+   "acceptees": [
+    "eclair",
+    "eclairs"
+   ],
+   "presque": [
+    "foudre",
+    "tonnerre",
+    "orage",
+    "etincelle"
+   ],
+   "note": "",
+   "page": "24",
+   "djvu": "58",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "l'éclair",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "l'éclair",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "211",
+   "difficulte": "facile",
+   "vers": [
+    "Cinq voyelles, une consonne,",
+    "Voilà ce qui forme mon nom ;",
+    "Et je porte sur ma personne",
+    "De quoi l’écrire sans crayon."
+   ],
+   "solution": "Oiseau",
+   "acceptees": [
+    "oiseau",
+    "oiseaux"
+   ],
+   "presque": [
+    "plume",
+    "plumes",
+    "oie",
+    "aile"
+   ],
+   "note": "Un jeu sur les lettres : o-i-s-e-a-u.",
+   "page": "129",
+   "djvu": "163",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "oiseau",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "l'oiseau",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "8",
+   "difficulte": "facile",
+   "vers": [
+    "Sans consumer les cœurs nous les pouvons brûler,",
+    "Nous sommes les flambeaux et les miroirs des âmes.",
+    "Dont les vifs sentiments s’expriment par nos flammes",
+    "Et dans notre silence on nous entend parler."
+   ],
+   "solution": "Yeux",
+   "acceptees": [
+    "yeux",
+    "oeil",
+    "les yeux"
+   ],
+   "presque": [
+    "regard",
+    "larmes",
+    "regards",
+    "coeur"
+   ],
+   "note": "Des points au milieu des phrases : coquilles de l’édition ?",
+   "page": "7",
+   "djvu": "41",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "les yeux",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "les yeux",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "154",
+   "difficulte": "moyenne",
+   "vers": [
+    "Avec nous en tous lieux, en tout temps on se couche.",
+    "On nous charge parfois d’or et de diamants ;",
+    "Mais quelquefois, lecteur, un seul mot qui nous touche",
+    "A pour nous plus d’appas que tous ces ornements."
+   ],
+   "solution": "Oreilles",
+   "acceptees": [
+    "oreille",
+    "oreilles"
+   ],
+   "presque": [
+    "oreiller",
+    "lobe"
+   ],
+   "note": "Vers recollé à la transcription.",
+   "page": "96",
+   "djvu": "130",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "la lettre",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "les oreilles",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "302",
+   "difficulte": "moyenne",
+   "vers": [
+    "Sous un air de douceur extrême,",
+    "Être fourbe, hypocrite et de mauvaise foi",
+    "Détruire tes voleurs et te voler toi-même",
+    "Voilà, lecteur, tout mon emploi."
+   ],
+   "solution": "Chat",
+   "acceptees": [
+    "chat",
+    "chats",
+    "chatte"
+   ],
+   "presque": [
+    "renard",
+    "fouine",
+    "chien",
+    "pie"
+   ],
+   "note": "",
+   "page": "183",
+   "djvu": "217",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le sommeil",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "le chat",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "477",
+   "difficulte": "moyenne",
+   "vers": [
+    "Aidé du feu l’on me produit,",
+    "Et par le feu l’on me détruit.",
+    "Le même jour voit la fleur la plus belle",
+    "Éclore et mourir :",
+    "La même nuit me voit, comme elle,",
+    "Briller et périr."
+   ],
+   "solution": "Chandelle",
+   "acceptees": [
+    "chandelle",
+    "bougie",
+    "cierge"
+   ],
+   "presque": [
+    "allumette",
+    "flamme",
+    "lampe",
+    "feu d artifice",
+    "fusee",
+    "flambeau"
+   ],
+   "note": "",
+   "page": "289",
+   "djvu": "323",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le feu d'artifice",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "la chandelle",
+     "certitude": 3
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "413",
+   "difficulte": "facile",
+   "vers": [
+    "C’est sur la vanité que mon pouvoir se fonde ;",
+    "La beauté me chérit et me cherche en tous lieux",
+    "Si je n’existais pas, il n’est personne au monde",
+    "Qui pût voir à son gré ce qu’il aime le mieux."
+   ],
+   "solution": "Miroir",
+   "acceptees": [
+    "miroir",
+    "glace",
+    "psyche"
+   ],
+   "presque": [
+    "reflet"
+   ],
+   "note": "",
+   "page": "250",
+   "djvu": "284",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le miroir",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "le miroir",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "140",
+   "difficulte": "facile",
+   "vers": [
+    "Aux imprimeurs je fais la loi ;",
+    "Voltaire, avec tout son génie.",
+    "N’a pu faire un livre sans moi ;",
+    "Et toi, lecteur, je te défie",
+    "D’ouvrir un seul registre où je ne m’offre à toi."
+   ],
+   "solution": "Page",
+   "acceptees": [
+    "page",
+    "pages"
+   ],
+   "presque": [
+    "encre",
+    "papier",
+    "lettre"
+   ],
+   "note": "Un point au milieu d’une phrase (« génie. »).",
+   "page": "86",
+   "djvu": "120",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "la lettre",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "la lettre E",
+     "certitude": 2
+    }
+   },
+   "retenue": false,
+   "raison": "Ambiguë : le joueur fort répond « la lettre E », qui est dans « imprimeurs », « Voltaire », « livre » et « registre » — aussi juste que « page ».",
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "314",
+   "difficulte": "facile",
+   "vers": [
+    "Qui me fait seul souvent s’ennuie ;",
+    "Je suis l’emblème de la vie,",
+    "Comme elle j’ai des hauts, des bas,",
+    "Et l’on m’abrège à chaque pas."
+   ],
+   "solution": "Chemin",
+   "acceptees": [
+    "chemin",
+    "route",
+    "sentier"
+   ],
+   "presque": [
+    "voyage",
+    "marche",
+    "vie",
+    "promenade"
+   ],
+   "note": "",
+   "page": "190",
+   "djvu": "224",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le chemin",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "le chemin",
+     "certitude": 4
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "286",
+   "difficulte": "facile",
+   "vers": [
+    "Votre sort, ô mortels, ressemble à mon destin",
+    "J’étais jeune au lever de la dernière aurore :",
+    "Hier je n’étais pas encore,",
+    "Et je ne serai plus demain."
+   ],
+   "solution": "Aujourd’hui",
+   "acceptees": [
+    "aujourd hui",
+    "aujourdhui",
+    "jour",
+    "ce jour",
+    "ephemere"
+   ],
+   "presque": [
+    "jour",
+    "present",
+    "matin",
+    "vie",
+    "rose"
+   ],
+   "note": "",
+   "page": "173",
+   "djvu": "207",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le jour",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "le jour",
+     "certitude": 4
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "16",
+   "difficulte": "moyenne",
+   "vers": [
+    "Un bon vieux père a douze enfants.",
+    "Ces douze en ont plus de trois cents :",
+    "Ces trois cents en ont plus de mille.",
+    "Ceux-ci sont blancs, ceux-là sont noirs :",
+    "Et par de mutuels devoirs",
+    "Un repos éternel dure en cette famille."
+   ],
+   "solution": "Année",
+   "acceptees": [
+    "annee",
+    "an"
+   ],
+   "presque": [
+    "calendrier",
+    "mois"
+   ],
+   "note": "La plus célèbre : le père aux douze enfants.",
+   "page": "14",
+   "djvu": "48",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le Pape",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "l'année",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "435",
+   "difficulte": "facile",
+   "vers": [
+    "Lorsque, pour s’amuser, sans cesse ils s’évertuent",
+    "Ces messieurs les humains, ils disent qu’ils me tuent :",
+    "Moi, je ne me vante de rien,",
+    "Mais, ma foi, je m’en venge bien."
+   ],
+   "solution": "Temps",
+   "acceptees": [
+    "temps"
+   ],
+   "presque": [
+    "ennui",
+    "heure",
+    "mort"
+   ],
+   "note": "Tuer le temps.",
+   "page": "263",
+   "djvu": "297",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le temps",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "le temps",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "146",
+   "difficulte": "facile",
+   "vers": [
+    "Je suis quand mon frère n’est pas,",
+    "Autrement je ne saurais être ;",
+    "C’est en mourant qu’il me fait naître,",
+    "C’est en ressuscitant qu’il cause mon trépas."
+   ],
+   "solution": "Nuit",
+   "acceptees": [
+    "nuit",
+    "tenebres"
+   ],
+   "presque": [
+    "jour",
+    "ombre",
+    "lune",
+    "soir",
+    "obscurite"
+   ],
+   "note": "",
+   "page": "90",
+   "djvu": "124",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "la nuit",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "la nuit",
+     "certitude": 4
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "97",
+   "difficulte": "moyenne",
+   "vers": [
+    "On parle bien en vain si l’on ne m’envisage :",
+    "Mon silence est ma voix, ma forme est mon langage.",
+    "Ce qu’on m’a dit, lecteur, c’est moi qui te le dis ;",
+    "Tu dis ce que je dis, dis-moi donc qui je suis."
+   ],
+   "solution": "Écho",
+   "acceptees": [
+    "echo"
+   ],
+   "presque": [
+    "miroir",
+    "voix"
+   ],
+   "note": "Vers recollé à la transcription.",
+   "page": "61",
+   "djvu": "95",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "l'écho",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "l'écriture",
+     "certitude": 3
+    }
+   },
+   "retenue": false,
+   "raison": "Ambiguë : « l’écriture » ou « la lettre » remplissent le texte aussi bien que « l’écho » (« si l’on ne m’envisage »).",
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "104",
+   "difficulte": "difficile",
+   "vers": [
+    "En un seul mot j’offre une fleur, une île,",
+    "Une arme, un fruit, un royaume, une ville."
+   ],
+   "solution": "Grenade",
+   "acceptees": [
+    "grenade"
+   ],
+   "presque": [
+    "orange",
+    "pomme",
+    "rose"
+   ],
+   "note": "Deux vers : six sens d’un même mot.",
+   "page": "65",
+   "djvu": "99",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Orange",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "Grenade",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "637",
+   "difficulte": "moyenne",
+   "vers": [
+    "File-moi, je te vêts ; retourne-moi, je coule."
+   ],
+   "solution": "Lin, Nil",
+   "acceptees": [
+    "lin",
+    "nil"
+   ],
+   "presque": [
+    "fil",
+    "coton",
+    "laine",
+    "chanvre",
+    "soie"
+   ],
+   "note": "Une ligne : lin, et à l’envers, le Nil. Le livre la numérote 673 par erreur.",
+   "page": "399",
+   "djvu": "433",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le fil",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "le lin",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "52",
+   "difficulte": "facile",
+   "vers": [
+    "Du monde je suis le tableau ;",
+    "Ma mer n’eut pourtant jamais d’eau,",
+    "Et mes champs sont infertiles ;",
+    "Je n’ai point de maison, et j’ai de grandes villes ;",
+    "Je réduis en un point mille ouvrages divers ;",
+    "Je ne suis presque rien et je suis l’Univers."
+   ],
+   "solution": "Carte géographique",
+   "acceptees": [
+    "carte",
+    "carte geographique",
+    "carte du monde",
+    "planisphere",
+    "mappemonde"
+   ],
+   "presque": [
+    "atlas",
+    "globe"
+   ],
+   "note": "",
+   "page": "35",
+   "djvu": "69",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "la carte",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "la mappemonde",
+     "certitude": 4
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "218",
+   "difficulte": "moyenne",
+   "vers": [
+    "À la candeur qui brille en moi",
+    "Je joins le plus noir caractère ;",
+    "Il n’est rien que je ne tolère,",
+    "Mais je suis méchant quand je bois."
+   ],
+   "solution": "Papier",
+   "acceptees": [
+    "papier",
+    "feuille",
+    "feuille de papier"
+   ],
+   "presque": [
+    "encre",
+    "page",
+    "buvard",
+    "neige",
+    "linge"
+   ],
+   "note": "Le livre imprime « je boi », pour la rime avec « moi » ; Wikisource écrit « bois ».",
+   "page": "133",
+   "djvu": "167",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le vin",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "le papier",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "241",
+   "difficulte": "moyenne",
+   "vers": [
+    "Je suis pointu, carré, rond, long, petit ou gros,",
+    "À se servir de moi chaque jour ou s’apprête ;",
+    "Et soit qu’un régiment marche ou reste en repos",
+    "On me voit toujours à la tête."
+   ],
+   "solution": "Bonnet",
+   "acceptees": [
+    "bonnet",
+    "chapeau",
+    "couvre chef",
+    "coiffe",
+    "casquette",
+    "couvre-chef",
+    "coiffure",
+    "kepi",
+    "shako",
+    "casque"
+   ],
+   "presque": [
+    "casque",
+    "perruque",
+    "colonel",
+    "drapeau"
+   ],
+   "note": "« ou s’apprête » : sans doute « on s’apprête ». Coquille à vérifier.",
+   "page": "146",
+   "djvu": "180",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le clou",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "le chapeau",
+     "certitude": 4
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "338",
+   "difficulte": "moyenne",
+   "vers": [
+    "J’habite dans les airs sans user de mes ailes.",
+    "Il est d’importantes nouvelles",
+    "Dont c’est à moi de décider.",
+    "Qu’on vienne me les demander,",
+    "Je rends, quoique sans voix, des réponses fidèles ;",
+    "Mais pour m’entendre il faut me regarder."
+   ],
+   "solution": "Coq du clocher",
+   "acceptees": [
+    "coq",
+    "girouette",
+    "coq du clocher"
+   ],
+   "presque": [
+    "cloche",
+    "clocher",
+    "telegraphe",
+    "barometre",
+    "horloge"
+   ],
+   "note": "La clé dit « Coq du clocher » : la girouette.",
+   "page": "205",
+   "djvu": "239",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "la girouette",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "la girouette",
+     "certitude": 3
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "343",
+   "difficulte": "facile",
+   "vers": [
+    "Si je n’ai pas des plus brillants carrosses",
+    "Et la richesse et l’ornement,",
+    "Je n’ai pas le désagrément",
+    "De me voir conduit par des rosses.",
+    "D’un sort peu favorable éprouvant la secousse,",
+    "Mon maître cependant me soutient et me pousse ;",
+    "Avec moi l’on ne peut agir plus poliment,",
+    "Il me suit par derrière et je vais par devant."
+   ],
+   "solution": "Brouette",
+   "acceptees": [
+    "brouette"
+   ],
+   "presque": [
+    "charrette",
+    "chariot",
+    "caddie"
+   ],
+   "note": "« Rosses » : de mauvais chevaux.",
+   "page": "209",
+   "djvu": "243",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "la brouette",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "la brouette",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "397",
+   "difficulte": "moyenne",
+   "vers": [
+    "On m’a souvent pour une obole ;",
+    "J’exige des soins assidus :",
+    "Si l’on me perd, on se désole ;",
+    "Si l’on me gagne, on ne m’a plus."
+   ],
+   "solution": "Procès",
+   "acceptees": [
+    "proces"
+   ],
+   "presque": [
+    "pari",
+    "match",
+    "jeu",
+    "partie",
+    "fortune",
+    "amitie"
+   ],
+   "note": "Wikisource a corrigé « dcsole » (imprimé) en « désole ».",
+   "page": "241",
+   "djvu": "275",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "l'amitié",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "le procès",
+     "certitude": 4
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "445",
+   "difficulte": "facile",
+   "vers": [
+    "Je marche sur six pieds, je vis dans le silence,",
+    "Et je suis, en amour,",
+    "Pour qui craint les jaloux, d’une grande importance.",
+    "Plus d’un bavard me trahit chaque jour.",
+    "Je suis ; ….. mais c’est assez ; tu devines peut-être :",
+    "En ce cas, cher lecteur, pour toi je cesse d’être."
+   ],
+   "solution": "Secret",
+   "acceptees": [
+    "secret"
+   ],
+   "presque": [
+    "silence",
+    "mystere",
+    "discretion"
+   ],
+   "note": "« Six pieds » : six lettres. Le livre écrit « ….. ».",
+   "page": "269",
+   "djvu": "303",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le secret",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "le secret",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "575",
+   "difficulte": "difficile",
+   "vers": [
+    "Si vous croyez que sans argent",
+    "On ne saurait vivre content,",
+    "C’est bien le comble du délire :",
+    "Peut-on rien trouver de plus fou ?",
+    "Pour moi, quand je n’ai pas le sou,",
+    "Alors je ne fais plus que rire."
+   ],
+   "solution": "Sourire",
+   "acceptees": [
+    "sourire"
+   ],
+   "presque": [
+    "rire",
+    "fou",
+    "pauvre",
+    "rieur"
+   ],
+   "note": "Un jeu de mots : sou-rire.",
+   "page": "357",
+   "djvu": "391",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le philosophe",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "le sourire",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "344",
+   "difficulte": "facile",
+   "vers": [
+    "Le nom que j’ai, lecteur, avant de naître,",
+    "Quand je suis né ne me sert déjà plus.",
+    "En m’attendant tu me verras peut-être ;",
+    "Mais aujourd’hui pour me connaître,",
+    "Tes efforts seraient superflus."
+   ],
+   "solution": "Lendemain",
+   "acceptees": [
+    "lendemain",
+    "demain"
+   ],
+   "presque": [
+    "avenir",
+    "futur"
+   ],
+   "note": "",
+   "page": "209",
+   "djvu": "243",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "demain",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "demain",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "711",
+   "difficulte": "facile",
+   "vers": [
+    "D’un père lumineux je suis la fille obscure",
+    "Je méprise la terre et je m’élève aux cieux.",
+    "Où j’apaise souvent la colère des dieux.",
+    "Si mon père est aimé, personne ne m’endure.",
+    "Car je coûte des pleurs aux gens les plus joyeux."
+   ],
+   "solution": "Fumée",
+   "acceptees": [
+    "fumee"
+   ],
+   "presque": [
+    "cendre",
+    "vapeur",
+    "encens",
+    "suie"
+   ],
+   "note": "Des points au milieu des phrases : coquilles de l’édition ?",
+   "page": "447",
+   "djvu": "481",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "la fumée",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "la fumée",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "28",
+   "difficulte": "facile",
+   "vers": [
+    "Nous sommes plusieurs sœurs à peu près du même âge,",
+    "Dans deux rangs différents, mais d’un semblable usage.",
+    "Nous avons en naissant un palais pour maison,",
+    "Qu’on pourrait mieux nommer une étroite prison :",
+    "Il faut nous y forcer, pour que quelqu’une en sorte.",
+    "Quoique cent fois le jour on nous ouvre la porte."
+   ],
+   "solution": "Dents",
+   "acceptees": [
+    "dents",
+    "dent"
+   ],
+   "presque": [
+    "bouche",
+    "machoire",
+    "langue"
+   ],
+   "note": "Coquille de l’édition corrigée : le livre imprime « Vous sommes », « Vous avons ». Le joueur fort la relevait aussi.",
+   "page": "22",
+   "djvu": "56",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "les dents",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "les dents",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "corrections": [
+    {
+     "imprime": "Vous sommes",
+     "corrige": "Nous sommes"
+    },
+    {
+     "imprime": "Vous avons",
+     "corrige": "Nous avons"
+    }
+   ],
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "253",
+   "difficulte": "facile",
+   "vers": [
+    "On vient me consulter pour savoir les saisons,",
+    "Et quand le soleil entre en ses douze maisons,",
+    "De la terre et du ciel j’enclos les destinées,",
+    "Et plus je suis nouveau, plus je compte d’années."
+   ],
+   "solution": "Almanach",
+   "acceptees": [
+    "almanach",
+    "calendrier"
+   ],
+   "presque": [
+    "agenda",
+    "horoscope",
+    "zodiaque"
+   ],
+   "note": "",
+   "page": "152",
+   "djvu": "186",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "l'almanach",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "l'almanach",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "349",
+   "difficulte": "difficile",
+   "vers": [
+    "Tout paraît renversé chez moi :",
+    "Le laquais précède le maître ;",
+    "Le manant passe avant le roi ;",
+    "Le simple clerc avant le prêtre ;",
+    "Le printemps vient après l’été ;",
+    "Noël avant la Trinité :",
+    "C’en est assez pour me connaître."
+   ],
+   "solution": "Dictionnaire",
+   "acceptees": [
+    "dictionnaire",
+    "ordre alphabetique",
+    "lexique",
+    "index"
+   ],
+   "presque": [
+    "alphabet",
+    "ordre alphabetique",
+    "carnaval",
+    "monde a l envers",
+    "calendrier"
+   ],
+   "note": "L’ordre alphabétique : laquais avant maître, Noël avant Trinité.",
+   "page": "213",
+   "djvu": "247",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "l'Ordo",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "le dictionnaire",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "641",
+   "difficulte": "difficile",
+   "vers": [
+    "J’habite dans le feu ; je fuis la terre et l’onde ;",
+    "Je me plais dans la nuit, le trouble et les douleurs ;",
+    "On me voit dans les cieux, mais jamais dans le monde.",
+    "Ma famille est en joie, et moi je suis en pleurs.",
+    "Je me mets en fureur dans un séjour nocturne,",
+    "Et sans quitter jamais le deuil ni le tombeau,",
+    "Je parais dans Mercure, au milieu de Saturne,",
+    "Et vais dans le mois d’août couvert d’un grand chapeau."
+   ],
+   "solution": "La lettre U",
+   "acceptees": [
+    "u",
+    "la lettre u",
+    "lettre u"
+   ],
+   "presque": [
+    "lettre",
+    "voyelle",
+    "lettre e",
+    "lettre o",
+    "comete"
+   ],
+   "note": "Une lettre : feU, nUit, aoÛt… Vers recollé à la transcription.",
+   "page": "402",
+   "djvu": "436",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "la comète",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "la lettre U",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "659",
+   "difficulte": "difficile",
+   "vers": [
+    "Tout sert à composer mon corps",
+    "Toujours de structure bizarre ;",
+    "Mon père fait tous ses efforts",
+    "Pour me donner un air barbare.",
+    "Avec des habits différents,",
+    "Tous les mois on me voit paraître."
+   ],
+   "solution": "Énigme",
+   "acceptees": [
+    "enigme",
+    "enigmes",
+    "devinette",
+    "logogriphe"
+   ],
+   "presque": [
+    "rebus",
+    "charade",
+    "journal",
+    "revue"
+   ],
+   "note": "Une énigme dont la réponse est « énigme » : celle du Sphinx par excellence.",
+   "page": "414",
+   "djvu": "448",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "la revue",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "l'énigme",
+     "certitude": 3
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "578",
+   "difficulte": "moyenne",
+   "vers": [
+    "J’étais un élément ; mais une autre doctrine",
+    "De cette liste m’élimine :",
+    "Ne me demande pas si c’est à tort ou non,",
+    "Cherche plutôt quel est mon nom.",
+    "Mon nom formé de trois voyelles",
+    "Qu’un nœud très-étroit lie entre elles,",
+    "Se prononce en français (observe bien ce point)",
+    "Comme celle, lecteur, qui ne s’y trouve point."
+   ],
+   "solution": "Eau",
+   "acceptees": [
+    "eau"
+   ],
+   "presque": [
+    "o",
+    "glace",
+    "element",
+    "air",
+    "feu",
+    "terre"
+   ],
+   "note": "Trois voyelles qui se prononcent « o ».",
+   "page": "360",
+   "djvu": "394",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "l'eau",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "l'eau",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "187",
+   "difficulte": "moyenne",
+   "vers": [
+    "Sous les rois fainéants je gouvernai les hommes",
+    "Je fus maître au palais, et je suis dans les pommes."
+   ],
+   "solution": "Pépin",
+   "acceptees": [
+    "pepin",
+    "pepin le bref"
+   ],
+   "presque": [
+    "pomme",
+    "charlemagne",
+    "maire du palais",
+    "charles martel",
+    "carloman"
+   ],
+   "note": "Histoire et jeu de mots.",
+   "page": "116",
+   "djvu": "150",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le pépin",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "Pépin",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "423",
+   "difficulte": "moyenne",
+   "vers": [
+    "Redouté des humains, désiré tour à tour,",
+    "Je porte dans leurs cœurs la crainte et l’espérance.",
+    "Pour moi l’active prévoyance",
+    "Les fait travailler nuit et jour,",
+    "Mais, tel est mon destin, j’expire avant de naître,",
+    "Et l’homme meurt sans me connaître."
+   ],
+   "solution": "Avenir",
+   "acceptees": [
+    "avenir",
+    "futur",
+    "demain",
+    "lendemain"
+   ],
+   "presque": [
+    "destin",
+    "lendemain",
+    "demain",
+    "esperance",
+    "mort"
+   ],
+   "note": "",
+   "page": "255",
+   "djvu": "289",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "l'avenir",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "l'avenir",
+     "certitude": 4
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "278",
+   "difficulte": "moyenne",
+   "vers": [
+    "L’Arabie est le lieu dans lequel je suis né.",
+    "Nous sommes dix enfants : on me fît, par idée,",
+    "Le plus jeune de tous et le moins fortuné ;",
+    "Mais j’éloigne de moi cette triste pensée ;",
+    "Je suis beaucoup, je ne suis rien."
+   ],
+   "solution": "Zéro",
+   "acceptees": [
+    "zero",
+    "0"
+   ],
+   "presque": [
+    "chiffre",
+    "dix",
+    "chiffre un",
+    "neuf"
+   ],
+   "note": "Les chiffres arabes.",
+   "page": "168",
+   "djvu": "202",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le zéro",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "le zéro",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "230",
+   "difficulte": "moyenne",
+   "vers": [
+    "Je suis un joli corps, d’un très-léger volume,",
+    "Qui va, revient dans l’air, et sans pied porte plume."
+   ],
+   "solution": "Volant",
+   "acceptees": [
+    "volant"
+   ],
+   "presque": [
+    "badminton",
+    "plume",
+    "fleche",
+    "cerf-volant",
+    "oiseau",
+    "ballon"
+   ],
+   "note": "Le volant du badminton.",
+   "page": "139",
+   "djvu": "173",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le volant",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "le volant",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "238",
+   "difficulte": "moyenne",
+   "vers": [
+    "De grâce, accordez-moi, disait Lise à son père",
+    "Ce que vous n’avez pas et ne pouvez avoir.",
+    "Et que de me donner, vous avez le pouvoir…",
+    "Quel était donc l’objet de sa prière ?"
+   ],
+   "solution": "Mari",
+   "acceptees": [
+    "mari",
+    "epoux",
+    "un mari"
+   ],
+   "presque": [
+    "mariage",
+    "fiance",
+    "amour",
+    "gendre",
+    "amant",
+    "dot"
+   ],
+   "note": "",
+   "page": "144",
+   "djvu": "178",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "un mari",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "un mari",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "4",
+   "difficulte": "difficile",
+   "vers": [
+    "Plus belle que l’amour,",
+    "Je n’avais pas un jour.",
+    "Que j’épousai mon père,",
+    "Qui m’avait fait sans mère.",
+    "Au bout d’un an,",
+    "J’eus un enfant.",
+    "Admirez ma destinée.",
+    "Je mourus sans être née."
+   ],
+   "solution": "Ève",
+   "acceptees": [
+    "eve",
+    "galatee"
+   ],
+   "presque": [
+    "adam",
+    "lilith",
+    "pandore",
+    "venus",
+    "psyche"
+   ],
+   "note": "Wikisource a corrigé « avois » (imprimé) en « avais ». Des points au milieu des phrases : la typographie du livre.",
+   "page": "4",
+   "djvu": "38",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Ève",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "Ève",
+     "certitude": 4
+    }
+   },
+   "retenue": true,
+   "sorte": "énigme",
+   "lot": 1
+  },
+  {
+   "numero": "102",
+   "sorte": "charade",
+   "vers": [
+    "Si mon premier est cher, mon second l’est aussi :",
+    "Mais pour trouver mon tout, il faut le faire ici."
+   ],
+   "solution": "Chercher",
+   "cle_du_livre": "Cher-cher",
+   "acceptees": [
+    "chercher"
+   ],
+   "presque": [
+    "cher",
+    "trouver",
+    "cherte"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "64",
+   "djvu": "98",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Chercher",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "chercher",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "facile"
+  },
+  {
+   "numero": "258",
+   "sorte": "charade",
+   "vers": [
+    "Deux fois dans le Français on trouve mon premier ;",
+    "Il n’est buveur qui n’aime à dire mon dernier ;",
+    "Le voyageur évite avec soin mon entier."
+   ],
+   "solution": "Averse",
+   "cle_du_livre": "A-verse",
+   "acceptees": [
+    "averse",
+    "averses"
+   ],
+   "presque": [
+    "pluie",
+    "orage",
+    "verse",
+    "ivresse",
+    "verglas"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "154",
+   "djvu": "188",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Ivresse",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "averse",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "294",
+   "sorte": "charade",
+   "vers": [
+    "Quoique je porte un nom vulgaire,",
+    "Chacun m’estime et me chérit,",
+    "Voici pourquoi : mon entier désaltère.",
+    "Mon premier chauffe, et mon second nourrit."
+   ],
+   "solution": "Boisson",
+   "cle_du_livre": "Bois-son",
+   "acceptees": [
+    "boisson",
+    "boissons"
+   ],
+   "presque": [
+    "eau",
+    "bois",
+    "cidre",
+    "bouillon",
+    "tisane"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "178",
+   "djvu": "212",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Cidre",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "boisson",
+     "certitude": 4
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "300",
+   "sorte": "charade",
+   "vers": [
+    "L’eau dont s’abreuve mon premier",
+    "Le rafraîchit et le féconde ;",
+    "Chacun sur la machine ronde",
+    "Se distingue par mon dernier,",
+    "Et reçoit toujours mon entier",
+    "Quand il arrive dans ce monde."
+   ],
+   "solution": "Prénom",
+   "cle_du_livre": "Pré-nom",
+   "acceptees": [
+    "prenom"
+   ],
+   "presque": [
+    "nom",
+    "pre",
+    "bapteme"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "182",
+   "djvu": "216",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Prénom",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "prénom",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "facile"
+  },
+  {
+   "numero": "360",
+   "sorte": "charade",
+   "vers": [
+    "La Fable au rang des dieux a placé mon premier ;",
+    "À ton pied, cher lecteur, se trouve mon dernier ;",
+    "Demande à ton tailleur le nom de mon entier."
+   ],
+   "solution": "Pantalon",
+   "cle_du_livre": "Pan-talon",
+   "acceptees": [
+    "pantalon"
+   ],
+   "presque": [
+    "talon",
+    "pan",
+    "culotte"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "218",
+   "djvu": "252",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Pantalon",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "pantalon",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "facile"
+  },
+  {
+   "numero": "372",
+   "sorte": "charade",
+   "vers": [
+    "Tout mortel doit toujours s’estimer mon dernier,",
+    "Quand il peut de mon tout adoucir mon premier."
+   ],
+   "solution": "Malheureux",
+   "cle_du_livre": "Mal-heureux",
+   "acceptees": [
+    "malheureux",
+    "malheur"
+   ],
+   "presque": [
+    "heureux",
+    "mal",
+    "humilite",
+    "modestie",
+    "bienfait"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "226",
+   "djvu": "260",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Humilité",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "malheureux",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "454",
+   "sorte": "charade",
+   "vers": [
+    "Le pirate sur mon premier",
+    "Court après la fortune ;",
+    "Le médecin par mon dernier",
+    "Augmente sa fortune ;",
+    "Et protégé par mon entier",
+    "Le marchand fait fortune."
+   ],
+   "solution": "Mercure",
+   "cle_du_livre": "Mer-cure",
+   "acceptees": [
+    "mercure"
+   ],
+   "presque": [
+    "mer",
+    "cure",
+    "hermes"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "275",
+   "djvu": "309",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Mercure",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "Mercure",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "facile"
+  },
+  {
+   "numero": "466",
+   "sorte": "charade",
+   "vers": [
+    "Descendez lentement mon dangereux premier ;",
+    "Montez bien doucement mon pénible dernier ;",
+    "Célébrez dignement le jour de mon entier."
+   ],
+   "solution": "Pentecôte",
+   "cle_du_livre": "Pente-côte",
+   "acceptees": [
+    "pentecote"
+   ],
+   "presque": [
+    "paques",
+    "pente",
+    "cote"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "283",
+   "djvu": "317",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Pentecôte",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "Pentecôte",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "facile"
+  },
+  {
+   "numero": "486",
+   "sorte": "charade",
+   "vers": [
+    "Le gourmand, au sortir d’une table splendide,",
+    "Est souvent obligé de prendre mon premier ;",
+    "Le frileux, en hiver, rarement se décide",
+    "Et répugne toujours à quitter mon dernier ;",
+    "L’homme le plus chagrin s’amuse et se déride",
+    "Toutes les fois qu’il peut aller à mon entier."
+   ],
+   "solution": "Théâtre",
+   "cle_du_livre": "Thé-âtre",
+   "acceptees": [
+    "theatre"
+   ],
+   "presque": [
+    "the",
+    "atre",
+    "spectacle"
+   ],
+   "note": "Coquille de l’édition corrigée : « le gourmand, au sortir d’un table ».",
+   "corrections": [
+    {
+     "imprime": "le gourmand, au sortir d’un table",
+     "corrige": "Le gourmand, au sortir d’une table"
+    }
+   ],
+   "page": "297",
+   "djvu": "331",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Théâtre",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "théâtre",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "facile"
+  },
+  {
+   "numero": "631",
+   "sorte": "charade",
+   "vers": [
+    "La gamme t’offre mon premier,",
+    "Ne juge pas sur mon dernier,",
+    "Préserve-toi de mon entier."
+   ],
+   "solution": "Famine",
+   "cle_du_livre": "Fa-mine",
+   "acceptees": [
+    "famine"
+   ],
+   "presque": [
+    "fa",
+    "mine",
+    "faim",
+    "disette",
+    "misere"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "395",
+   "djvu": "429",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Misère",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "famine",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "587",
+   "sorte": "charade",
+   "vers": [
+    "Quelquefois mon premier",
+    "Renferme mon dernier ;",
+    "Et quant à mon entier,",
+    "Si ce n’est une peine,",
+    "Il sert pour indiquer",
+    "Où tel chemin vous mène."
+   ],
+   "solution": "Poteau",
+   "cle_du_livre": "Pot-eau",
+   "acceptees": [
+    "poteau",
+    "poteau indicateur"
+   ],
+   "presque": [
+    "pot",
+    "panneau",
+    "borne",
+    "ecriteau",
+    "potence"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "367",
+   "djvu": "401",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Poteau",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "poteau",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "598",
+   "sorte": "charade",
+   "vers": [
+    "On aime entendre mon premier ;",
+    "On s’amuse sur mon dernier ;",
+    "Mais on déteste mon entier."
+   ],
+   "solution": "Corbillard",
+   "cle_du_livre": "Cor-billard",
+   "acceptees": [
+    "corbillard"
+   ],
+   "presque": [
+    "cor",
+    "billard",
+    "enterrement"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "376",
+   "djvu": "410",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Calembour",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "verglas",
+     "certitude": 2
+    }
+   },
+   "retenue": false,
+   "raison": "Trop difficile : aucun des deux joueurs ne la trouve, le fort ne voit « aucune décomposition qui convienne sans forcer ».",
+   "difficulte": null
+  },
+  {
+   "numero": "614",
+   "sorte": "charade",
+   "vers": [
+    "Si mon premier est bon, mon second l’est de même ;",
+    "Mon tout pour les enfants est d’un attrait extrême."
+   ],
+   "solution": "Bonbon",
+   "cle_du_livre": "Bon-bon",
+   "acceptees": [
+    "bonbon",
+    "bonbons"
+   ],
+   "presque": [
+    "bon",
+    "sucre",
+    "friandise"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "385",
+   "djvu": "419",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Bonbon",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "bonbon",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "facile"
+  },
+  {
+   "numero": "646",
+   "sorte": "charade",
+   "vers": [
+    "Je suis sur mes huit pieds une ville de France ;",
+    "Mais si tu veux, lecteur, me mettre en deux moitiés,",
+    "Alors mon premier corps t’offre son assistance",
+    "Pour passer mon second sans te mouiller les pieds."
+   ],
+   "solution": "Pontoise",
+   "cle_du_livre": "Pont-oise",
+   "acceptees": [
+    "pontoise"
+   ],
+   "presque": [
+    "pont",
+    "oise",
+    "pont-sur-oise"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "405",
+   "djvu": "439",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Pontoise",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "Pontoise",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "facile"
+  },
+  {
+   "numero": "682",
+   "sorte": "charade",
+   "vers": [
+    "À mon premier chacun aime à se gouverner ;",
+    "Voulez-vous mon second ? tâchez de le gagner ;",
+    "Vous entendrez mon tout à chaque instant sonner."
+   ],
+   "solution": "Grelot",
+   "cle_du_livre": "Gre-lot",
+   "acceptees": [
+    "grelot",
+    "grelots"
+   ],
+   "presque": [
+    "cloche",
+    "clochette",
+    "gre",
+    "lot",
+    "pendule",
+    "horloge",
+    "sonnerie"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "428",
+   "djvu": "462",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Pendule",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "grelot",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "691",
+   "sorte": "charade",
+   "vers": [
+    "Sur la terre humblement se traîne mon premier :",
+    "Un pronom forme mon dernier ;",
+    "Dans l’honnête homme on trouve mon entier."
+   ],
+   "solution": "Vertu",
+   "cle_du_livre": "Ver-tu",
+   "acceptees": [
+    "vertu"
+   ],
+   "presque": [
+    "ver",
+    "tu",
+    "honnetete"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "435",
+   "djvu": "469",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Vertu",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "vertu",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "facile"
+  },
+  {
+   "numero": "697",
+   "sorte": "charade",
+   "vers": [
+    "Vous tondez mon premier,",
+    "Vous rasez mon dernier,",
+    "Vous lisez mon entier."
+   ],
+   "solution": "Préface",
+   "cle_du_livre": "Pré-face",
+   "acceptees": [
+    "preface"
+   ],
+   "presque": [
+    "pre",
+    "face",
+    "livre",
+    "presse",
+    "journal",
+    "prelude"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "438",
+   "djvu": "472",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Presse",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "préface",
+     "certitude": 4
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "710",
+   "sorte": "charade",
+   "vers": [
+    "Bien des gens semblent nés pour porter mon premier ;",
+    "C’est toujours mon second qui porte mon entier."
+   ],
+   "solution": "Bateau",
+   "cle_du_livre": "Bat-eau",
+   "acceptees": [
+    "bateau",
+    "bateaux"
+   ],
+   "presque": [
+    "bat",
+    "eau",
+    "navire",
+    "charge",
+    "vaisseau"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "447",
+   "djvu": "481",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Charge",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "bateau",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "716",
+   "sorte": "charade",
+   "vers": [
+    "Mon premier invite au repos.",
+    "Et mon second peut inviter à boire :",
+    "Mon tout, sur les pas d’un héros,",
+    "Conduit souvent les Français à la gloire."
+   ],
+   "solution": "Drapeau",
+   "cle_du_livre": "Drap-eau",
+   "acceptees": [
+    "drapeau"
+   ],
+   "presque": [
+    "drap",
+    "eau",
+    "etendard",
+    "chemin",
+    "tambour"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "450",
+   "djvu": "484",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Chemin",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "drapeau",
+     "certitude": 4
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "720",
+   "sorte": "charade",
+   "vers": [
+    "Un avocat dans mon entier",
+    "Fait souvent mon premier",
+    "Et mon dernier."
+   ],
+   "solution": "Parlement",
+   "cle_du_livre": "Parle-ment",
+   "acceptees": [
+    "parlement"
+   ],
+   "presque": [
+    "parle",
+    "ment",
+    "tribunal",
+    "palais",
+    "barreau",
+    "plaidoyer"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "453",
+   "djvu": "487",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Palais",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "parlement",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "difficile"
+  },
+  {
+   "numero": "722",
+   "sorte": "charade",
+   "vers": [
+    "Pour s’étaler dans mon premier,",
+    "Il ne faut qu’un peu de richesse :",
+    "Mais pour bien placer mon dernier.",
+    "Il faut tact et délicatesse :",
+    "Mon tout fait honte au jardinier",
+    "Dont il atteste la paresse."
+   ],
+   "solution": "Chardon",
+   "cle_du_livre": "Char-don",
+   "acceptees": [
+    "chardon",
+    "chardons"
+   ],
+   "presque": [
+    "char",
+    "don",
+    "ortie",
+    "mauvaise herbe",
+    "chiendent",
+    "ronce"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "454",
+   "djvu": "488",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Chiendent",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "chardon",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "162",
+   "sorte": "charade",
+   "vers": [
+    "Mets excellents dans mon premier,",
+    "Sont bien accueillis sur ma table ;",
+    "Buveur joyeux, j’ai de ma table",
+    "Dès longtemps banni mon dernier ;",
+    "Au dessert, toujours mon entier",
+    "Chargé de fleurs, orne ma table."
+   ],
+   "solution": "Plateau",
+   "cle_du_livre": "Plat-eau",
+   "acceptees": [
+    "plateau"
+   ],
+   "presque": [
+    "plat",
+    "eau",
+    "vase",
+    "surtout",
+    "corbeille"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "101",
+   "djvu": "135",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Surtout",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "plateau",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "180",
+   "sorte": "charade",
+   "vers": [
+    "Fuyez les chances du premier ;",
+    "Évitez l’excès du dernier ;",
+    "Et n’éprouvez jamais l’entier."
+   ],
+   "solution": "Désespoir",
+   "cle_du_livre": "Dés-espoir",
+   "acceptees": [
+    "desespoir"
+   ],
+   "presque": [
+    "des",
+    "espoir"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "112",
+   "djvu": "146",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Désastre",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "déboire",
+     "certitude": 4
+    }
+   },
+   "retenue": false,
+   "raison": "Ambiguë : « déboire » (dé + boire, « l’excès du boire ») remplit le texte aussi bien que « désespoir ».",
+   "difficulte": null
+  },
+  {
+   "numero": "204",
+   "sorte": "charade",
+   "vers": [
+    "Dans mon premier je vais ou vite ou lentement ;",
+    "Quand je joins mon second je vais comme le diable ;",
+    "Mais si tu réunis mon tout adroitement,",
+    "Je ne suis plus mobile, alors je deviens stable."
+   ],
+   "solution": "Charpente",
+   "cle_du_livre": "Char-pente",
+   "acceptees": [
+    "charpente"
+   ],
+   "presque": [
+    "char",
+    "pente",
+    "tripied",
+    "echafaudage",
+    "charrette"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "126",
+   "djvu": "160",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Trépied",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "charpente",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "216",
+   "sorte": "charade",
+   "vers": [
+    "Lorsque je veux tenter le sort,",
+    "Mon premier m’est toujours contraire ;",
+    "Mon second annonce la mort",
+    "Du cerf auquel je fais la guerre.",
+    "Sans mon tout, le spectacle aujourd’hui nous endort."
+   ],
+   "solution": "Décor",
+   "cle_du_livre": "Dé-cor",
+   "acceptees": [
+    "decor",
+    "decors"
+   ],
+   "presque": [
+    "de",
+    "cor",
+    "theatre",
+    "chasse",
+    "costume"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "132",
+   "djvu": "166",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Chasse",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "décor",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "48",
+   "sorte": "charade",
+   "vers": [
+    "Sur mon premier ta tête tournera,",
+    "Sur mon second vaisseau cheminera,",
+    "À l’aspect de mon tout fillette tremblera."
+   ],
+   "solution": "Couvent",
+   "cle_du_livre": "Cou-vent",
+   "acceptees": [
+    "couvent",
+    "couloir"
+   ],
+   "presque": [
+    "cou",
+    "vent",
+    "manege",
+    "carrousel"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "34",
+   "djvu": "68",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Manège",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "couvent",
+     "certitude": 3
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "54",
+   "sorte": "charade",
+   "vers": [
+    "Mon premier n’est pas sain d’esprit",
+    "Mon second est la maladie",
+    "Que Saint-Hubert, dit-on, guérit ;",
+    "Mon tout se trouve à l’écurie."
+   ],
+   "solution": "Fourrage",
+   "cle_du_livre": "Four-rage",
+   "acceptees": [
+    "fourrage"
+   ],
+   "presque": [
+    "fou",
+    "rage",
+    "foin",
+    "paille"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "36",
+   "djvu": "70",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Fourrage",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "fourrage",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "facile"
+  },
+  {
+   "numero": "138",
+   "sorte": "charade",
+   "vers": [
+    "Avec Noé dans l’arche on trouve mon premier ;",
+    "Un vêtement d’Afrique est, dit-on, mon dernier ;",
+    "Autrefois dans ta France on trouvait mon entier."
+   ],
+   "solution": "Champagne",
+   "cle_du_livre": "Cham-pagne",
+   "acceptees": [
+    "champagne"
+   ],
+   "presque": [
+    "cham",
+    "pagne",
+    "bourgogne"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "82",
+   "djvu": "116",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Boucle",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "Champagne",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "330",
+   "sorte": "charade",
+   "vers": [
+    "La coquette Aglaé, pour rajeunir ses traits,",
+    "Se sert de ma première ;",
+    "Pour conserver son teint vermeil et frais,",
+    "Ma seconde, lecteur, suffit à la bergère :",
+    "Mon tout n’est pas chose légère."
+   ],
+   "solution": "Fardeau",
+   "cle_du_livre": "Fard-eau",
+   "acceptees": [
+    "fardeau"
+   ],
+   "presque": [
+    "fard",
+    "eau",
+    "poids"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "201",
+   "djvu": "235",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Fardeau",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "fardeau",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "facile"
+  },
+  {
+   "numero": "390",
+   "sorte": "charade",
+   "vers": [
+    "Mon premier figure en musique ;",
+    "Mon second captive les cœurs,",
+    "Et mon tout est, en politique,",
+    "La source de bien des malheurs."
+   ],
+   "solution": "Rebelle",
+   "cle_du_livre": "Ré-belle",
+   "acceptees": [
+    "rebelle",
+    "rebellion"
+   ],
+   "presque": [
+    "re",
+    "belle",
+    "revolte",
+    "discorde",
+    "revolution",
+    "faction"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "237",
+   "djvu": "271",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Discorde",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "rebelle",
+     "certitude": 3
+    }
+   },
+   "retenue": true,
+   "difficulte": "difficile"
+  },
+  {
+   "numero": "402",
+   "sorte": "charade",
+   "vers": [
+    "C’est en vain que le coupable",
+    "À mon premier fait mon dernier :",
+    "On applaudit à mon entier",
+    "Quand mon premier est équitable."
+   ],
+   "solution": "Jugement",
+   "cle_du_livre": "Juge-ment",
+   "acceptees": [
+    "jugement"
+   ],
+   "presque": [
+    "juge",
+    "ment",
+    "proces",
+    "justice",
+    "verdict"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "244",
+   "djvu": "278",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Justice",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "jugement",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "625",
+   "sorte": "charade",
+   "vers": [
+    "Lise demande mon premier,",
+    "Dans la crainte que mon dernier",
+    "Ne la prive de mon entier."
+   ],
+   "solution": "Mariage",
+   "cle_du_livre": "Mari-age",
+   "acceptees": [
+    "mariage"
+   ],
+   "presque": [
+    "mari",
+    "age"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "392",
+   "djvu": "426",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Mariage",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "mariage",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "facile"
+  },
+  {
+   "numero": "442",
+   "sorte": "charade",
+   "vers": [
+    "Mon premier est muet, ouvert ou bien fermé,",
+    "Selon que le cas le demande :",
+    "La dévote est, dit-on gourmande ;",
+    "Par elle aussi toujours mon second fut aimé.",
+    "Lorsque Jésus naquit, tout Bethléem charmé",
+    "Accourut dans mon tout lui porter son offrande."
+   ],
+   "solution": "Étable",
+   "cle_du_livre": "É-table",
+   "acceptees": [
+    "etable"
+   ],
+   "presque": [
+    "table",
+    "creche"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "267",
+   "djvu": "301",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Crèche",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "étable",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "194",
+   "sorte": "énigme",
+   "vers": [
+    "Chacun à tout moment me montre au bout du doigt."
+   ],
+   "solution": "Ongle",
+   "cle_du_livre": "Ongle",
+   "acceptees": [
+    "ongle",
+    "ongles"
+   ],
+   "presque": [
+    "doigt",
+    "bague",
+    "ridicule",
+    "index"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "121",
+   "djvu": "155",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Le ridicule",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "ongle",
+     "certitude": 4
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "20",
+   "sorte": "énigme",
+   "vers": [
+    "Des filles du Soleil je distingue le nombre.",
+    "Par moi leur temps est limité,",
+    "Et leur immortelle clarté",
+    "Se représente par une ombre."
+   ],
+   "solution": "Cadran solaire",
+   "cle_du_livre": "Cadran solaire",
+   "acceptees": [
+    "cadran solaire",
+    "cadran",
+    "horloge solaire",
+    "gnomon"
+   ],
+   "presque": [
+    "horloge",
+    "montre",
+    "sablier",
+    "ombre"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "17",
+   "djvu": "51",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Le cadran solaire",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "cadran solaire",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "facile"
+  },
+  {
+   "numero": "38",
+   "sorte": "énigme",
+   "vers": [
+    "De l’esprit et du corps j’entretiens l’embonpoint,",
+    "J’étale sur le teint et les lis et les roses.",
+    "Et celui qui ne m’a point,",
+    "N’est pas riche, quand même il aurait toutes choses."
+   ],
+   "solution": "Santé",
+   "cle_du_livre": "Santé",
+   "acceptees": [
+    "sante"
+   ],
+   "presque": [
+    "bonheur",
+    "beaute",
+    "jeunesse",
+    "contentement"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "28",
+   "djvu": "62",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "La santé",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "santé",
+     "certitude": 4
+    }
+   },
+   "retenue": true,
+   "difficulte": "facile"
+  },
+  {
+   "numero": "106",
+   "sorte": "énigme",
+   "vers": [
+    "Au singulier je suis la fortune du sage",
+    "Et des héros mon nom enflamme le courage.",
+    "Guidé par son orgueil, très-souvent l’homme altier.",
+    "Pour m’avoir au pluriel, me perd au singulier."
+   ],
+   "solution": "Honneur",
+   "cle_du_livre": "Honneur",
+   "acceptees": [
+    "honneur",
+    "honneurs"
+   ],
+   "presque": [
+    "gloire",
+    "fortune",
+    "orgueil",
+    "vertu"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "66",
+   "djvu": "100",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "La gloire",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "honneur",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "158",
+   "sorte": "énigme",
+   "vers": [
+    "Je suis le vrai phénix qui renaît de sa cendre :",
+    "En sortant du sépulcre où l’on m’a vu descendre,",
+    "Par un étrange sort,",
+    "Plus digne de pitié que je ne suis d’envie,",
+    "Je n’occupe ma vie",
+    "Qu’à filer lentement la trame de ma mort."
+   ],
+   "solution": "Ver à soie",
+   "cle_du_livre": "Ver à soie",
+   "acceptees": [
+    "ver a soie",
+    "vers a soie",
+    "bombyx",
+    "chenille"
+   ],
+   "presque": [
+    "papillon",
+    "cocon",
+    "araignee"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "98",
+   "djvu": "132",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Le ver à soie",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "ver à soie",
+     "certitude": 4
+    }
+   },
+   "retenue": true,
+   "difficulte": "facile"
+  },
+  {
+   "numero": "178",
+   "sorte": "énigme",
+   "vers": [
+    "Je suis un meuble nécessaire.",
+    "Principalement en hiver ;",
+    "Prenez-moi dans un sens contraire,",
+    "Et je fais dégainer le fer."
+   ],
+   "solution": "Soufflet",
+   "cle_du_livre": "Soufflet",
+   "acceptees": [
+    "soufflet"
+   ],
+   "presque": [
+    "gifle",
+    "claque",
+    "tisonnier",
+    "poele",
+    "tiroir",
+    "chenet",
+    "pincettes"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "110",
+   "djvu": "144",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Le tiroir",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "soufflet",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "244",
+   "sorte": "énigme",
+   "vers": [
+    "Je disparais toujours d’une vitesse extrême ;",
+    "Car un même moment me voit naitre et périr :",
+    "Si je brille en naissant, ma mort brille de même ;",
+    "L’air est ma sépulture. Adieu, je vais mourir."
+   ],
+   "solution": "Étincelle",
+   "cle_du_livre": "Étincelle",
+   "acceptees": [
+    "etincelle",
+    "etincelles",
+    "eclair"
+   ],
+   "presque": [
+    "eclair",
+    "flamme",
+    "feu"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "147",
+   "djvu": "181",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "L'étincelle",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "éclair",
+     "certitude": 3
+    }
+   },
+   "retenue": true,
+   "difficulte": "facile"
+  },
+  {
+   "numero": "250",
+   "sorte": "énigme",
+   "vers": [
+    "Je suis droite et ronde en affaire,",
+    "J’ai les dehors polis : j’allie à la douceur",
+    "Une fermeté nécessaire.",
+    "Mais chaque pas qu’on me voit faire",
+    "Est marqué par une noirceur."
+   ],
+   "solution": "Plume",
+   "cle_du_livre": "Plume",
+   "acceptees": [
+    "plume",
+    "plume a ecrire",
+    "stylo"
+   ],
+   "presque": [
+    "crayon",
+    "encre",
+    "encrier"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "151",
+   "djvu": "185",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "La plume",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "plume",
+     "certitude": 3
+    }
+   },
+   "retenue": true,
+   "difficulte": "facile"
+  },
+  {
+   "numero": "259",
+   "sorte": "énigme",
+   "vers": [
+    "Triste et malheureuse victime,",
+    "Sans avoir commis aucun crime.",
+    "On me consume à petit feu.",
+    "Je fais les honneurs d’une fête ;",
+    "En mourant je monte à la tête :",
+    "C’est ainsi que je dis adieu."
+   ],
+   "solution": "Encens",
+   "cle_du_livre": "Encens",
+   "acceptees": [
+    "encens"
+   ],
+   "presque": [
+    "bougie",
+    "cierge",
+    "tabac",
+    "fumee"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "154",
+   "djvu": "188",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Le punch",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "bougie",
+     "certitude": 3
+    }
+   },
+   "retenue": false,
+   "raison": "Ambiguë : la bougie, la chandelle ou le cierge remplissent le texte aussi bien que l’encens.",
+   "difficulte": null
+  },
+  {
+   "numero": "319",
+   "sorte": "énigme",
+   "vers": [
+    "Je suis, je ne suis plus ; j’étais et je vais être.",
+    "Veut-on me retenir ? Je suis mort pour jamais :",
+    "Mais pour jamais aussi, je suis prêt à renaître,",
+    "Je meurs toujours ; toujours je nais."
+   ],
+   "solution": "Temps",
+   "cle_du_livre": "Temps",
+   "acceptees": [
+    "temps",
+    "instant",
+    "moment",
+    "present"
+   ],
+   "presque": [
+    "heure",
+    "vie",
+    "jour"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "193",
+   "djvu": "227",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Le jour",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "l'instant",
+     "certitude": 4
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "325",
+   "sorte": "énigme",
+   "vers": [
+    "Je suis ce qu’on aime le mieux,",
+    "Presque en tous les lieux de la terre,",
+    "Et souvent on se fait la guerre,",
+    "Pour m’avoir comme un bien et rare et précieux ;",
+    "Mais quand on a fait ma conquête,",
+    "Celui qui me possède a le cœur si léger,",
+    "Qu’à ma possession jamais il ne s’arrête ;",
+    "Il ne me garde pas longtemps sans me changer."
+   ],
+   "solution": "Argent",
+   "cle_du_livre": "Argent",
+   "acceptees": [
+    "argent",
+    "monnaie"
+   ],
+   "presque": [
+    "or",
+    "tresor",
+    "fortune"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "197",
+   "djvu": "231",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "La mode",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "l'argent",
+     "certitude": 3
+    }
+   },
+   "retenue": false,
+   "raison": "Ambiguë : le joueur ordinaire répond « la mode » avec assurance, et le texte la supporte (« sans me changer »).",
+   "difficulte": null
+  },
+  {
+   "numero": "382",
+   "sorte": "énigme",
+   "vers": [
+    "Femelle, au moindre bruit je suis sur le qui vive ;",
+    "Je me cache partout, car je suis très-craintive ;",
+    "Mâle, quand je parais, je répands la gaîté ;",
+    "J’ajoute un nouveau charme aux traits de la beauté."
+   ],
+   "solution": "Souris",
+   "cle_du_livre": "Souris",
+   "acceptees": [
+    "souris"
+   ],
+   "presque": [
+    "sourire",
+    "rat",
+    "chat",
+    "mouche",
+    "biche",
+    "lievre"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "232",
+   "djvu": "266",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "La mouche",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "souris",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "difficile"
+  },
+  {
+   "numero": "456",
+   "sorte": "énigme",
+   "vers": [
+    "Je suis le père des merveilles ;",
+    "Le caprice est ma seule loi.",
+    "Tel manant quand il dort, tel savant dans ses veilles.",
+    "Ne font souvent qu’extravaguer par moi.",
+    "Je figure fort bien dans les tragiques scènes ;",
+    "De mille œuvres je suis la définition ;",
+    "J’occupe enfin bien des têtes humaines ;",
+    "Qui veut me deviner me mette en action."
+   ],
+   "solution": "Rêve",
+   "cle_du_livre": "Rêve",
+   "acceptees": [
+    "reve",
+    "reves",
+    "songe"
+   ],
+   "presque": [
+    "sommeil",
+    "imagination",
+    "folie"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "276",
+   "djvu": "310",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "L'imagination",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "l'imagination",
+     "certitude": 3
+    }
+   },
+   "retenue": false,
+   "raison": "Ambiguë : les deux joueurs répondent « l’imagination », que le texte supporte aussi bien que le rêve.",
+   "difficulte": null
+  },
+  {
+   "numero": "472",
+   "sorte": "énigme",
+   "vers": [
+    "Sans moi tu ne peux vivre, et je vivrai sans toi ;",
+    "Sans me voir tu me sens : ainsi définis-moi."
+   ],
+   "solution": "Âme",
+   "cle_du_livre": "Ame",
+   "acceptees": [
+    "ame"
+   ],
+   "presque": [
+    "air",
+    "esprit",
+    "coeur",
+    "souffle"
+   ],
+   "note": "Coquille de l’édition corrigée : « sans, toi ».",
+   "corrections": [
+    {
+     "imprime": "sans, toi",
+     "corrige": "sans toi"
+    }
+   ],
+   "page": "287",
+   "djvu": "321",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "L'air",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "l'air",
+     "certitude": 5
+    }
+   },
+   "retenue": false,
+   "raison": "Ambiguë : les deux joueurs répondent « l’air », qui remplit le texte aussi bien que l’âme.",
+   "difficulte": null
+  },
+  {
+   "numero": "484",
+   "sorte": "énigme",
+   "vers": [
+    "Avec deux doigts on me saisit ;",
+    "Il y faut mettre un peu d’adresse ;",
+    "Garçon de moi se garantit ;",
+    "Un enfant aisément s’y blesse ;",
+    "Il m’appartient plus d’un emploi ;",
+    "Le temps s’annonce par mes signes ;",
+    "Le marin ne peut rien sans moi,",
+    "Et l’on me trouve en ces huit lignes."
+   ],
+   "solution": "Aiguille",
+   "cle_du_livre": "Aiguille",
+   "acceptees": [
+    "aiguille",
+    "aiguilles"
+   ],
+   "presque": [
+    "epingle",
+    "boussole",
+    "fil"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "295",
+   "djvu": "329",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "L'aiguille",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "aiguille",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "facile"
+  },
+  {
+   "numero": "494",
+   "sorte": "énigme",
+   "vers": [
+    "Lecteur, sous deux rapports tu peux m’envisager ;",
+    "Je suis une boisson, ou bien une demeure :",
+    "Boisson, je rafraîchis ; je te donne à songer.",
+    "Sous le second rapport, quelle est cette demeure ?",
+    "Le destin la désigne ; il ne saurait changer :",
+    "Pour la trouver, hélas ! pense à ta dernière heure."
+   ],
+   "solution": "Bière",
+   "cle_du_livre": "Bière",
+   "acceptees": [
+    "biere"
+   ],
+   "presque": [
+    "cercueil",
+    "tombe",
+    "vin",
+    "lethe"
+   ],
+   "note": "Coquille de l’édition corrigée : « lu peux ».",
+   "corrections": [
+    {
+     "imprime": "lu peux",
+     "corrige": "tu peux"
+    }
+   ],
+   "page": "303",
+   "djvu": "337",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "La tombe",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "bière",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "509",
+   "sorte": "énigme",
+   "vers": [
+    "Du coupable mortel salutaire ennemie,",
+    "Je l’immole à son crime, et lui sers de bourreau ;",
+    "Car parmi les plaisirs qu’il goûte dans la vie.",
+    "Je lui fais entrevoir la mort et le tombeau.",
+    "Pleine d’aigreur pour lui, sans agir, je le touche.",
+    "Sans yeux, je l’aperçois, je lui parle sans bouche.",
+    "Comment me deviner ? comment me définir ?",
+    "On me connaît trop tôt quand on veut réfléchir."
+   ],
+   "solution": "Conscience",
+   "cle_du_livre": "Conscience",
+   "acceptees": [
+    "conscience",
+    "remords"
+   ],
+   "presque": [
+    "regret",
+    "honte",
+    "peur"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "312",
+   "djvu": "346",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "La conscience",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "la conscience",
+     "certitude": 4
+    }
+   },
+   "retenue": true,
+   "difficulte": "facile"
+  },
+  {
+   "numero": "537",
+   "sorte": "énigme",
+   "vers": [
+    "Mon pouvoir sur les cœurs est sans comparaison,",
+    "Lorsqu’un art délicat m’a de grâces pourvue.",
+    "Parfois je suis du miel, et parfois du poison,",
+    "Et je découvre tout sans pouvoir être vue.",
+    "Au barreau j’éclaircis, j’obscurcis chaque point.",
+    "Souvent je suis sans poids, souvent d’un poids extrême.",
+    "Aucun ne vous dira qui je suis, que moi-même ;",
+    "Je vous fais tout connaître et ne me connais point."
+   ],
+   "solution": "Parole",
+   "cle_du_livre": "Parole",
+   "acceptees": [
+    "parole",
+    "paroles",
+    "langage",
+    "verbe"
+   ],
+   "presque": [
+    "mot",
+    "voix",
+    "langue",
+    "eloquence"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "330",
+   "djvu": "364",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "L'éloquence",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "la parole",
+     "certitude": 4
+    }
+   },
+   "retenue": true,
+   "difficulte": "difficile"
+  },
+  {
+   "numero": "552",
+   "sorte": "énigme",
+   "vers": [
+    "On me voit en tous lieux, jusque dans la chaumière,",
+    "Et près de moi l’on aime à trouver le repos.",
+    "Le pauvre avec transport souvent me considère,",
+    "Le riche vient souvent pour me tourner le dos.",
+    "J’ai bon cœur ; j’ai reçu plus d’une confidence :",
+    "Le plaisir que je fais semble toujours nouveau.",
+    "Je ne me cache point, cependant, par prudence,",
+    "Jamais, en aucun temps, je ne suis sans manteau."
+   ],
+   "solution": "Cheminée",
+   "cle_du_livre": "Cheminée",
+   "acceptees": [
+    "cheminee"
+   ],
+   "presque": [
+    "feu",
+    "foyer",
+    "poele",
+    "atre",
+    "mort",
+    "soleil"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "342",
+   "djvu": "376",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "La mort",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "la cheminée",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "moyenne"
+  },
+  {
+   "numero": "557",
+   "sorte": "énigme",
+   "vers": [
+    "Lecteur, quand je te fais affront,",
+    "Aussitôt ta plume s’arrête,",
+    "Souvent je fais gratter le front",
+    "À ceux qui n’ont rien dans la tête.",
+    "Je n’existe pas sans ma sœur ;",
+    "À l’esprit nous jouons des niches ;",
+    "Et, grâce à plus d’un pauvre auteur,",
+    "Nous ne sommes pas souvent riches."
+   ],
+   "solution": "Rime",
+   "cle_du_livre": "Rime",
+   "acceptees": [
+    "rime",
+    "rimes"
+   ],
+   "presque": [
+    "vers",
+    "poesie",
+    "poeme",
+    "faute",
+    "cesure"
+   ],
+   "note": "Coquille de l’édition corrigée : « n’out ».",
+   "corrections": [
+    {
+     "imprime": "n’out",
+     "corrige": "n’ont"
+    }
+   ],
+   "page": "346",
+   "djvu": "380",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "La rime",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "la rime",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "facile"
+  },
+  {
+   "numero": "615",
+   "sorte": "énigme",
+   "vers": [
+    "Je suis une cité de charmante structure :",
+    "J’ai pourtant contre moi des ennemis si forts",
+    "Qu’ils abattent mes murs et leur font mille torts,",
+    "Sans avoir de ma part reçu la moindre injure.",
+    "On est tenté toujours, en voyant ma figure,",
+    "De faire contre moi d’agréables efforts.",
+    "Quand mon maître me vend, mes habitants sont morts ;",
+    "Et comme leur cité, je suis leur sépulture."
+   ],
+   "solution": "Pâté",
+   "cle_du_livre": "Pâté",
+   "acceptees": [
+    "pate",
+    "pate en croute"
+   ],
+   "presque": [
+    "tarte",
+    "tourte",
+    "gateau"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "386",
+   "djvu": "420",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "La ruche",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "le pâté",
+     "certitude": 4
+    }
+   },
+   "retenue": false,
+   "raison": "Ambiguë : le joueur ordinaire répond « la ruche » avec assurance, et le texte la supporte.",
+   "difficulte": null
+  },
+  {
+   "numero": "82",
+   "sorte": "énigme",
+   "vers": [
+    "Je n’ai pour atelier qu’une noire prison :",
+    "Tous les ans je reviens, ainsi que l’hirondelle.",
+    "En certaine saison.",
+    "Je ne porte point d’aile.",
+    "Et cependant au haut d’une maison",
+    "Je prodigue souvent mes chants aussi bien qu’elle."
+   ],
+   "solution": "Ramoneur",
+   "cle_du_livre": "Ramoneur",
+   "acceptees": [
+    "ramoneur",
+    "savoyard",
+    "petit savoyard"
+   ],
+   "presque": [
+    "coucou",
+    "hirondelle",
+    "cheminee",
+    "coq",
+    "grillon"
+   ],
+   "note": "",
+   "corrections": [],
+   "page": "52",
+   "djvu": "86",
+   "lot": 2,
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Le ramoneur",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "le ramoneur",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "difficulte": "facile"
+  }
+ ],
+ "aveugle": "Résolues à l’aveugle le 24 novembre 2026 par deux joueurs simulés, sans outils ni réponses : un joueur ordinaire (modèle rapide) et un joueur fort, chargé aussi de dire si d’autres réponses remplissent le texte. Le premier lot (40 énigmes) d’abord, puis un second (33 charades et 22 énigmes), à la demande du propriétaire : « un peu plus d’énigmes pour la base de départ »."
+}

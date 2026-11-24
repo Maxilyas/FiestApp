@@ -1,0 +1,274 @@
+<title>Les énigmes du Sphinx</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,500&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Une liste qu'on relit au téléphone, du pouce : une énigme par carte, sa
+   réponse sous un toucher, trois verdicts, et une barre qui compte et copie.
+   L'habit du Velours, comme la maquette : la page ne suit pas le thème clair. */
+:root {
+  color-scheme: dark;
+  --bg: #1a1412;
+  --carte: #221a16;
+  --ink: #f3ece2;
+  --muted: #a89b8a;
+  --or: #d9b56a;
+  --or-clair: #f3dea6;
+  --filet: rgba(217, 181, 106, 0.22);
+  --garder: #8fbf8a;
+  --peut-etre: #d9b56a;
+  --retirer: #e07a6c;
+  --f-titre: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  --f-texte: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: radial-gradient(ellipse 120% 40% at 50% 0, #2b211b, var(--bg) 70%) no-repeat, var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 var(--f-texte);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 96px;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+a { color: var(--or-clair); text-underline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--or-clair); outline-offset: 2px; }
+.page { max-width: 620px; margin: 0 auto; }
+
+header { padding: 28px 0 8px; }
+.sourcil { font: 600 11px/1 var(--f-texte); letter-spacing: 0.22em; text-transform: uppercase; color: var(--or); margin: 0 0 8px; }
+h1 { font: 600 34px/1.05 var(--f-titre); margin: 0 0 12px; text-wrap: balance; }
+.intro { color: var(--muted); margin: 0 0 10px; max-width: 60ch; }
+.intro b { color: var(--ink); font-weight: 600; }
+
+.filtres { display: flex; flex-wrap: wrap; gap: 6px; margin: 18px 0 6px; }
+.filtres button {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--filet);
+  background: none;
+  font-size: 13px;
+}
+.filtres button[aria-pressed="true"] { background: var(--or); color: #1a1412; border-color: var(--or); font-weight: 600; }
+.filtres b { font-weight: 600; opacity: 0.75; margin-left: 4px; font-variant-numeric: tabular-nums; }
+
+.liste { display: grid; gap: 14px; margin-top: 14px; }
+.carte {
+  padding: 16px 16px 14px;
+  border-radius: 16px;
+  background: var(--carte);
+  border: 1px solid var(--filet);
+  border-left-width: 1px;
+  transition: border-color 0.2s, opacity 0.2s;
+}
+.carte[data-verdict="garder"] { border-color: rgba(143, 191, 138, 0.6); }
+.carte[data-verdict="peut-etre"] { border-color: rgba(217, 181, 106, 0.6); }
+.carte[data-verdict="retirer"] { border-color: rgba(224, 122, 108, 0.45); opacity: 0.62; }
+.tete { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.tete h2 { font: 600 13px/1 var(--f-texte); letter-spacing: 0.12em; text-transform: uppercase; color: var(--or); margin: 0; }
+.pastille { font-size: 11px; padding: 3px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.06); color: var(--muted); }
+.tete a { margin-left: auto; font-size: 12px; color: var(--muted); }
+.vers { margin: 0; font: italic 500 20px/1.34 var(--f-titre); }
+.vers span { display: block; }
+
+.reponse-bouton {
+  margin-top: 12px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px dashed var(--filet);
+  background: none;
+  color: var(--or-clair);
+  font-size: 14px;
+}
+.reponse { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: rgba(217, 181, 106, 0.08); }
+.reponse .mot { font: 600 24px/1.1 var(--f-titre); color: var(--or-clair); margin: 0 0 6px; }
+.reponse dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 4px 10px; font-size: 13px; }
+.reponse dt { color: var(--muted); }
+.reponse dd { margin: 0; min-width: 0; }
+.note { display: flex; gap: 8px; margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+.note::before { content: ""; flex: none; width: 6px; height: 6px; margin-top: 7px; border-radius: 50%; background: var(--or); }
+
+.verdicts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 14px; }
+.verdicts button {
+  min-height: 44px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 14px;
+  font-weight: 600;
+}
+.verdicts [data-v="garder"][aria-pressed="true"] { background: var(--garder); border-color: var(--garder); color: #13200f; }
+.verdicts [data-v="peut-etre"][aria-pressed="true"] { background: var(--peut-etre); border-color: var(--peut-etre); color: #1a1412; }
+.verdicts [data-v="retirer"][aria-pressed="true"] { background: var(--retirer); border-color: var(--retirer); color: #2a0d08; }
+
+.vide { color: var(--muted); text-align: center; padding: 30px 0; }
+
+.barre {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  background: rgba(20, 15, 13, 0.96);
+  border-top: 1px solid var(--filet);
+  backdrop-filter: blur(8px);
+}
+.barre .dedans { max-width: 620px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+.comptes { flex: 1; min-width: 0; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.comptes b { color: var(--ink); }
+.copier {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--or);
+  color: #1a1412;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.secours { width: 100%; margin-top: 8px; min-height: 80px; font: 13px/1.4 var(--f-texte); color: var(--ink); background: rgba(0, 0, 0, 0.35); border: 1px solid var(--filet); border-radius: 10px; padding: 8px; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="page">
+  <header>
+    <p class="sourcil">Le Sphinx de l'accueil</p>
+    <h1>Les énigmes candidates</h1>
+    <p class="intro">Quarante énigmes recopiées <b>mot pour mot</b> d'<i>Un million d'énigmes, charades et logogriphes</i> (Hilaire Le Gai, Paris, Passard, 1858), domaine public, transcrit par Wikisource. La solution est celle de la clé du livre. Les réponses acceptées et celles qui «&#8239;brûlent&#8239;» sont mes propositions.</p>
+    <p class="intro">Pour chacune&#8239;: <b>Garder</b>, <b>Peut-être</b> ou <b>Retirer</b>. Puis «&#8239;Copier ma sélection&#8239;», et colle-la dans la conversation.</p>
+    <div class="filtres" id="filtres" role="group" aria-label="Montrer">
+      <button type="button" data-f="toutes" aria-pressed="true">Toutes<b id="n-toutes"></b></button>
+      <button type="button" data-f="facile" aria-pressed="false">Faciles<b id="n-facile"></b></button>
+      <button type="button" data-f="moyenne" aria-pressed="false">Moyennes<b id="n-moyenne"></b></button>
+      <button type="button" data-f="difficile" aria-pressed="false">Difficiles<b id="n-difficile"></b></button>
+      <button type="button" data-f="a-juger" aria-pressed="false">À juger<b id="n-a-juger"></b></button>
+    </div>
+  </header>
+  <main class="liste" id="liste" aria-live="polite">
+    <p class="vide">Les énigmes arrivent…</p>
+  </main>
+</div>
+
+<div class="barre">
+  <div class="dedans">
+    <p class="comptes" id="comptes" aria-live="polite"></p>
+    <button class="copier" id="copier" type="button">Copier ma sélection</button>
+  </div>
+  <textarea class="secours" id="secours" hidden readonly aria-label="Ta sélection, à copier"></textarea>
+</div>
+
+<script>
+'use strict'
+const $ = id => document.getElementById(id)
+const CLE = 'sphinx-relecture-v1'
+const NOMS = { facile: 'Facile', moyenne: 'Moyenne', difficile: 'Difficile' }
+const fr = s => s.replace(/ ([?!;:»])/g, ' $1').replace(/« /g, '« ')
+const echapper = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+
+let recueil = null
+let filtre = 'toutes'
+let verdicts = {}
+try { verdicts = JSON.parse(localStorage.getItem(CLE) || '{}') || {} } catch { verdicts = {} }
+const retenir = () => { try { localStorage.setItem(CLE, JSON.stringify(verdicts)) } catch { /* stockage refusé : la page marche sans */ } }
+
+function carte(e) {
+  const lien = e.djvu ? `<a href="${recueil.fac_simile}${e.djvu}" target="_blank" rel="noopener">Le livre, p. ${e.page}</a>` : ''
+  const v = verdicts[e.numero] || ''
+  return `<article class="carte" data-n="${e.numero}" data-verdict="${v}" aria-label="Énigme n° ${e.numero}">
+    <div class="tete"><h2>N° ${e.numero}</h2><span class="pastille">${NOMS[e.difficulte]}</span>${lien}</div>
+    <p class="vers">${e.vers.map(x => `<span>${echapper(fr(x))}</span>`).join('')}</p>
+    <button class="reponse-bouton" type="button" aria-expanded="false">La réponse</button>
+    <div class="reponse" hidden>
+      <p class="mot">${echapper(e.solution)}</p>
+      <dl>
+        <dt>Acceptées</dt><dd>${e.acceptees.map(echapper).join(', ')}</dd>
+        ${e.presque.length ? `<dt>Brûlant</dt><dd>${e.presque.map(echapper).join(', ')}</dd>` : ''}
+      </dl>
+    </div>
+    ${e.note ? `<p class="note">${echapper(fr(e.note))}</p>` : ''}
+    <div class="verdicts" role="group" aria-label="Ton verdict">
+      ${[['garder', 'Garder'], ['peut-etre', 'Peut-être'], ['retirer', 'Retirer']].map(([k, l]) => `<button type="button" data-v="${k}" aria-pressed="${v === k}">${l}</button>`).join('')}
+    </div>
+  </article>`
+}
+
+function compter() {
+  const tout = recueil.enigmes
+  const de = k => tout.filter(e => verdicts[e.numero] === k).length
+  const juges = tout.filter(e => verdicts[e.numero]).length
+  $('comptes').innerHTML = `<b>${de('garder')}</b> gardées · ${de('peut-etre')} peut-être · ${de('retirer')} retirées<br>${tout.length - juges} à juger sur ${tout.length}`
+  for (const k of ['facile', 'moyenne', 'difficile']) $(`n-${k}`).textContent = tout.filter(e => e.difficulte === k).length
+  $('n-toutes').textContent = tout.length
+  $('n-a-juger').textContent = tout.length - juges
+}
+
+function afficher() {
+  const tout = recueil.enigmes
+  const vues = tout.filter(e => filtre === 'toutes' || (filtre === 'a-juger' ? !verdicts[e.numero] : e.difficulte === filtre))
+  $('liste').innerHTML = vues.length ? vues.map(carte).join('') : '<p class="vide">Tout est jugé ici.</p>'
+  compter()
+}
+
+$('liste').addEventListener('click', ev => {
+  const b = ev.target.closest('button')
+  if (!b) return
+  const art = b.closest('.carte')
+  if (b.classList.contains('reponse-bouton')) {
+    const r = art.querySelector('.reponse')
+    r.hidden = !r.hidden
+    b.setAttribute('aria-expanded', String(!r.hidden))
+    b.textContent = r.hidden ? 'La réponse' : 'Cacher la réponse'
+    return
+  }
+  if (b.dataset.v) {
+    const n = art.dataset.n
+    verdicts[n] = verdicts[n] === b.dataset.v ? undefined : b.dataset.v
+    if (!verdicts[n]) delete verdicts[n]
+    retenir()
+    art.dataset.verdict = verdicts[n] || ''
+    art.querySelectorAll('[data-v]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.v === verdicts[n])))
+    compter()
+  }
+})
+
+$('filtres').addEventListener('click', ev => {
+  const b = ev.target.closest('button')
+  if (!b) return
+  filtre = b.dataset.f
+  $('filtres').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)))
+  afficher()
+})
+
+function selection() {
+  const liste = k => recueil.enigmes.filter(e => verdicts[e.numero] === k).map(e => e.numero).join(', ') || 'aucune'
+  const reste = recueil.enigmes.filter(e => !verdicts[e.numero]).map(e => e.numero).join(', ') || 'aucune'
+  return `Énigmes du Sphinx — garder : ${liste('garder')}. Peut-être : ${liste('peut-etre')}. Retirer : ${liste('retirer')}. Pas encore jugées : ${reste}.`
+}
+$('copier').addEventListener('click', async () => {
+  const texte = selection()
+  try {
+    await navigator.clipboard.writeText(texte)
+    $('copier').textContent = 'Copiée'
+    setTimeout(() => { $('copier').textContent = 'Copier ma sélection' }, 1800)
+  } catch {
+    // Le presse-papiers refusé : le texte s'affiche, sélectionné, pour le copier à la main.
+    const s = $('secours')
+    s.value = texte
+    s.hidden = false
+    s.focus()
+    s.select()
+  }
+})
+
+fetch('enigmes-candidates.json')
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json() })
+  .then(r => { recueil = r; afficher() })
+  .catch(() => { $('liste').innerHTML = '<p class="vide">Les énigmes ne se chargent pas. Recharge la page.</p>' })
+</script>

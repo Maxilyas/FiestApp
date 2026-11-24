@@ -1196,6 +1196,14 @@ export type AnnonceDeLAdministrateur =
   | { id: string; sorte: 'prenom'; nom: string; le: number }
   | { id: string; sorte: 'merci'; mode: 'jour' | 'campagne'; issue: IssueQuiSert; question: string; le: number }
   | { id: string; sorte: 'annonce'; message: string; confettis: number; le: number; question?: QuestionAPoser; aQuelquesUns?: true }
+  /**
+   * La phrase d'un Divin retrouvée par tous (le Sphinx de l'accueil, le
+   * 24 novembre 2026) : son Divin, ceux qui y ont trouvé un mot — les trois
+   * premiers, leur prénom tel qu'il se lit (invariant 17), puis combien
+   * d'autres —, jamais un mot de la phrase. Retenue par le serveur une fois
+   * montrée ; elle mène à la fiche de l'album, où il choisit de la lire.
+   */
+  | { id: string; sorte: 'phrase'; divin: { key: string; nom: string }; grace: string[]; autres: number; le: number }
   | {
       id: string
       sorte: 'proposition'

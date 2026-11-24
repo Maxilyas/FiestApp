@@ -10,6 +10,7 @@ import type { CabinetStore } from './core/cabinet/magasin'
 import { mountProfilsAdmin } from './profilsAdmin'
 import { VUE_GARDEE_MS, VueGardee, mountQg, type QgDeps } from './qg'
 import { mountCabinetDuQg } from './cabinetDuQg'
+import { mountSphinxDuQg } from './sphinxDuQg'
 import { ContenuDuQg, mountContenuDuQg, oublierApresUnGeste } from './qgContenu'
 import { fermerLesPortes, mountMaintenance } from './maintenance'
 import { mountAnnonces } from './annonces'
@@ -41,6 +42,8 @@ import { mountProfileApi } from './auth/profileRoutes'
 import { mountJour, mountJourAdmin, mountReserve } from './quizDuJour'
 import { mountMissions } from './missions'
 import type { Missions } from './core/missions'
+import { mountSphinx, sphinxFermePour } from './sphinx'
+import type { Sphinx } from './core/sphinx'
 import { mountSoins } from './soins'
 import type { Soins } from './core/soins'
 import type { JourStore } from './core/jour'
@@ -105,6 +108,8 @@ interface ApiDeps {
   cabinet: { magasin: CabinetStore; ouvert: boolean }
   /** Les missions du jour et le coffre de la semaine, qui lisent les trois magasins. */
   missions: Missions
+  /** Le Sphinx de l'accueil : ses visites, ses énigmes, la phrase du Divin du moment. */
+  sphinx: Sphinx
   /** Les soins de son compagnon : ses envies du jour, son cadeau, la cueillette, son jardin. */
   soins: Soins
   /** L'heure du quiz du jour — celle du serveur, que les tests font passer minuit. */
@@ -162,9 +167,13 @@ export function mountApi(app: Express, deps: ApiDeps) {
   mountAuthApi(app, { auth: deps.auth, profiles: deps.profiles, online: deps.online, removeAccount: deps.removeAccount, espaceChange: deps.espaceChange })
   // La télé qu'on branche depuis son téléphone, sans rien taper à la télécommande.
   mountAppairage(app, { auth: deps.auth, online: deps.online })
+  // Le Sphinx de l'accueil, sa page ouverte ou non pour qui demande : ses missions, sa route, et l'accueil qui annonce une
+  // phrase retrouvée le lisent.
+  const duSphinx = { sphinx: deps.sphinx, profiles: deps.profiles, auth: deps.auth, maintenance: deps.maintenance }
   // Les routes du profil joueur passent AVANT la porte : un invité n'a pas
   // de compte d'animateur, et n'a pas à en avoir un pour s'inscrire.
   mountProfileApi(app, {
+    sphinx: { sphinx: deps.sphinx, ferme: req => sphinxFermePour(duSphinx, req) !== null },
     profiles: deps.profiles,
     auth: deps.auth,
     archives: deps.archives,
@@ -197,8 +206,10 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // Le Cabinet de curiosités, qu'on joue seul avec son profil : en préproduction d'abord, ouvert en production depuis le
   // 31 octobre 2026 (`CABINET_EN_PRODUCTION`) — son drapeau refermé, chacune de ses routes y répondrait 404.
   mountCabinet(app, { cabinet: deps.cabinet.magasin, profiles: deps.profiles, ouvert: deps.cabinet.ouvert })
-  // Ses missions du jour et le coffre de la semaine, de même.
-  mountMissions(app, { missions: deps.missions, profiles: deps.profiles })
+  // Ses missions du jour et le coffre de la semaine, de même — elles disent aussi si le Sphinx passe, sa page ouverte pour lui.
+  mountMissions(app, { missions: deps.missions, profiles: deps.profiles, sphinxFerme: req => sphinxFermePour(duSphinx, req) !== null })
+  // Le Sphinx de l'accueil : sa visite et ses gestes, pour les profils aussi.
+  mountSphinx(app, duSphinx)
   // Les soins de son compagnon aussi : un profil et son compagnon, pas un animateur.
   mountSoins(app, { soins: deps.soins, profiles: deps.profiles })
   // Sa réserve se remplit par une routine, avec son jeton — pas un animateur non plus.
@@ -273,6 +284,9 @@ export function mountApi(app: Express, deps: ApiDeps) {
   })
   // Le Cabinet de curiosités au QG : ses traversées, ses jeux, ses cartes, ses gardiens, son contenu — l'administrateur seul.
   mountCabinetDuQg(app, { cabinet: deps.cabinet.magasin, profiles: deps.profiles, maintenant: deps.maintenant })
+  // Le Sphinx de l'accueil au QG : le Divin du moment, l'audience, les visites, la réussite de chaque énigme — et sa
+  // réponse, sous un geste qui la range parmi celles que l'administrateur a vues : l'administrateur seul.
+  mountSphinxDuQg(app, { sphinx: deps.sphinx, profiles: deps.profiles })
   // Les questions jouées de la campagne et du quiz du jour, la réserve, la base et le contenu du Cabinet : l'administrateur seul.
   mountContenuDuQg(app, contenu)
   // Le bandeau rouge, les pages fermées et leurs testeurs : l'administrateur seul.

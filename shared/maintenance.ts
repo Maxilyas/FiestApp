@@ -29,7 +29,7 @@ import type { Route } from './adresses'
  * ne fermait plus rien. Une ligne `expedition` restée dans `qg_maintenance` ou
  * `qg_testeurs` se tait à la lecture (`estUnePageEnMaintenance`).
  */
-export const PAGES_EN_MAINTENANCE = ['jour', 'campagne', 'defi', 'duels', 'cabinet', 'boutique'] as const
+export const PAGES_EN_MAINTENANCE = ['jour', 'campagne', 'defi', 'duels', 'cabinet', 'boutique', 'sphinx'] as const
 export type PageEnMaintenance = (typeof PAGES_EN_MAINTENANCE)[number]
 
 export const estUnePageEnMaintenance = (x: unknown): x is PageEnMaintenance => (PAGES_EN_MAINTENANCE as readonly unknown[]).includes(x)
@@ -83,7 +83,24 @@ export const PAGES_FERMABLES: Record<PageEnMaintenance, { nom: string; ferme: st
     titre: 'La boutique est en maintenance',
     bientot: 'La boutique arrive bientôt',
   },
+  // Le Sphinx de l'accueil (le 24 novembre 2026) : ni adresse ni bouton — sa visite, sa réponse, l'album qui montre la
+  // phrase du Divin du moment. Il démarre « bientôt » une fois, sur une base qui ne le connaît pas (`Maintenance.init`).
+  sphinx: {
+    nom: 'Le Sphinx de l’accueil',
+    ferme: 'Ses visites et ses réponses ; la phrase du Divin du moment se tait',
+    titre: 'Le Sphinx est en maintenance',
+    bientot: 'Le Sphinx arrive bientôt',
+  },
 }
+
+/**
+ * Les pages que le serveur ne dit pas dans les pages qu'il sert : le Sphinx
+ * n'a ni adresse ni bouton, ses missions et sa route disent seules s'il passe
+ * (`MissionsDuJour.sphinx`, `GET /api/joueur/sphinx`). Écrit dans chaque page,
+ * son « bientôt » l'aurait été partout, pour rien — et la garde des portes le
+ * lit comme les autres.
+ */
+export const DITES_PAR_LEUR_ROUTE: readonly PageEnMaintenance[] = ['sphinx']
 
 /** Ce que dit l'écran d'une page fermée, sous son titre, et le bouton de l'accueil qui y mène. */
 export const ON_REPARE = 'Une réparation est en cours : reviens un peu plus tard. Rien de ce que tu as gagné n’est perdu.'

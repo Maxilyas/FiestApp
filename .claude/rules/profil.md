@@ -29,6 +29,12 @@ paths:
 
 ## Les pièges
 
+- **Le Sphinx de l'accueil se pose par-dessus l'accueil, jamais dedans**
+  (règle `sphinx.md`) : sa visite est une fenêtre fixe, rendue après la barre
+  du menu ; seule son épingle vit dans la page, à droite du nom d'« Entre
+  amis » (`AccueilJouer` `epingle`), entre deux cartes — et l'accueil lui rend
+  ailleurs les pixels qu'elle prend, pour tenir encore en 360 × 640.
+
 - **Une pièce de plus à la collection se compte aussi dans sa valeur.** Une
   famille, une ligne ou un objet neuf de « Ma collection » — un album, une
   section de l'album des trophées — entre dans `ProfileStore.collectionDe`

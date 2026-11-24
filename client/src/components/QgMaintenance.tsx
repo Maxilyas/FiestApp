@@ -24,6 +24,8 @@ const ICONE: Record<PageEnMaintenance, IconName> = {
   // Un cadre : le musée qu'on remplit.
   cabinet: 'image',
   boutique: 'bag',
+  // Une question : le Sphinx pose des énigmes.
+  sphinx: 'help',
 }
 
 /** Les gestes d'une page : vers chacun des deux autres états, le plus attendu d'abord. */

@@ -4,6 +4,7 @@ import { GrosBouton } from './Pieces'
 import { LienConsole } from './LienConsole'
 import { spacePath } from '../routes'
 import { api } from '../api'
+import { retenirPourLAlbum } from '../sphinx'
 import { PAGE_DES_DUELS, adresseDuDuel } from '../views/adressesDesDuels'
 import type { PublicSpace } from '../../../shared/space'
 import { jourDe, type CarriereDuJour } from '../../../shared/jour'
@@ -311,6 +312,7 @@ export function AccueilJouer({
   etats = RIEN_DE_FERME,
   cabinet = cabinetIci(),
   nouvelles = RIEN_DE_NOUVEAU,
+  epingle,
 }: {
   enCours: { nom: string; slug: string }[]
   onRejoindre: () => void
@@ -335,6 +337,11 @@ export function AccueilJouer({
   cabinet?: boolean
   /** Les pages à l'affiche où il n'est pas encore allé (`ceQueMontreLAccueil`) : « Nouveau » sur leur bouton. */
   nouvelles?: readonly PageALAffiche[]
+  /**
+   * Le Sphinx remis à plus tard, épinglé jusqu'à minuit (`EpingleDuSphinx`, venu à la demande) : à droite du nom
+   * d'« Entre amis », entre deux cartes — sur aucun bouton, loin de la niche du compagnon.
+   */
+  epingle?: ReactNode
 }) {
   // Joué aujourd'hui (à l'heure de Paris) : le bouton le dit, sans pastille.
   // Le jour vient du serveur : calculé ici, son `Intl` chargeait les données
@@ -456,6 +463,8 @@ export function AccueilJouer({
         <span className="label" id="jouer-amis">
           Entre amis
         </span>
+        {/* Hors de son nom, qui nomme la section au lecteur d'écran : à côté, posé en absolu par sa feuille. */}
+        {epingle}
         {/* Une carte elle aussi, coupée en deux : les deux boutons côte à côte, leur nom d'abord. Leur ligne dit le plus
             court — la moitié d'une rangée n'a pas la place de « Avec son code, ou le QR de l'hôte ». */}
         <div className="jouer-carte jouer-duo">
@@ -527,7 +536,11 @@ export function AnnoncesDeLAdministrateur({
   const [montrees, setMontrees] = useState<AnnonceDeLAdministrateur[]>([])
   const cle = annonces?.map(a => a.id).join('|') ?? ''
   useEffect(() => {
-    if (annonces && annonces.length > 0) setMontrees(annoncesNouvelles(profileId, annonces))
+    if (!annonces || annonces.length === 0) return
+    const nouvelles = annoncesNouvelles(profileId, annonces)
+    setMontrees(nouvelles)
+    // Une phrase retrouvée par tous ne s'annonce qu'une fois, sur tous ses appareils : le serveur retient qu'elle a paru.
+    for (const a of nouvelles) if (a.sorte === 'phrase') api.joueur.phraseAnnoncee(a.divin.key).catch(() => {})
     // Relues seulement quand le serveur en dit d'autres.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileId, cle])
@@ -539,7 +552,15 @@ export function AnnoncesDeLAdministrateur({
           key={a.id}
           annonce={a}
           prenom={prenom}
-          onRanger={() => setMontrees(m => m.filter(x => x.id !== a.id))}
+          onRanger={
+            a.sorte === 'phrase'
+              ? () => {
+                  // « La voir » : la fiche du Divin s'ouvre dans l'album, où il choisit de la lire — ou pas.
+                  retenirPourLAlbum({ divin: a.divin.key })
+                  window.location.assign('/profil#collection-avatars-divin')
+                }
+              : () => setMontrees(m => m.filter(x => x.id !== a.id))
+          }
           onRepondre={
             a.sorte === 'annonce' && a.question
               ? async reponse => {

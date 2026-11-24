@@ -21,6 +21,7 @@ import { fluxDuQg } from '../qgFlux'
 import { QgErreurs } from '../components/QgErreurs'
 import { QgActivite } from '../components/QgActivite'
 import { QgCabinet } from '../components/QgCabinet'
+import { QgSphinx } from '../components/QgSphinx'
 import { QgMaintenance } from '../components/QgMaintenance'
 import { QgAnnonces } from '../components/QgAnnonces'
 import { QgJoueurs } from '../components/QgJoueurs'
@@ -91,6 +92,7 @@ type Ecran =
   | 'jour'
   | 'campagne'
   | 'cabinet'
+  | 'sphinx'
   | 'duels'
   | 'economie'
   | 'signalements'
@@ -104,7 +106,7 @@ type Ecran =
   | 'telephones'
   | 'questions'
   | 'reserves'
-const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'animateurs', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'grand-prix', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves']
+const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'animateurs', 'catalogue', 'jour', 'campagne', 'cabinet', 'sphinx', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'grand-prix', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves']
 /** Les ancres de la page d'avant, qu'un favori garde encore. */
 const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
 /** Une page d'avant devenue l'onglet d'une autre : « Les salons », l'onglet des animateurs depuis le 4 novembre 2026, s'y ouvre. */
@@ -140,6 +142,7 @@ const TITRE: Record<Ecran, string> = {
   jour: 'Le quiz du jour',
   campagne: 'La campagne',
   cabinet: 'Le Cabinet de curiosités',
+  sphinx: 'Le Sphinx de l’accueil',
   duels: 'Les duels',
   economie: 'L’économie',
   signalements: 'Les signalements',
@@ -212,6 +215,8 @@ const PAGES_DU_QG: { groupe: string; pages: PageDuRail[] }[] = [
       { ecran: 'jour', nom: 'Quiz du jour', icone: 'sun', description: 'Les parties, le public, le rappel du soir', mots: 'rappel propositions' },
       { ecran: 'campagne', nom: 'Campagne', icone: 'target', description: 'Sentiers, paliers, défi de la semaine', mots: 'sentiers paliers défi' },
       { ecran: 'cabinet', nom: 'Cabinet', icone: 'landmark', description: 'Traversées, jeux, gardiens', mots: 'curiosités' },
+      // Le Sphinx de l'accueil (l'étape 3 de son plan, le 24 novembre 2026) : ses visites se jouent seul, comme un mode.
+      { ecran: 'sphinx', nom: 'Sphinx', icone: 'help', description: 'Le Divin du moment, les visites, les énigmes', mots: 'énigmes charades divin habitués phrase' },
       { ecran: 'duels', nom: 'Duels', icone: 'swords', description: 'Ligues, classement, en attente', mots: 'duel ligues' },
       // L'économie vit de ce que les modes rapportent et de ce qu'on y dépense : avec eux plutôt qu'avec l'audience.
       { ecran: 'economie', nom: 'Économie', icone: 'bag', description: 'Confettis, ventes, Éclats', mots: 'boutique achats' },
@@ -289,7 +294,7 @@ const PERIODES_DES_PAGES: Partial<Record<Ecran | 'poste', { periodes: readonly P
  * du poste de commande sur « 7 j », on lisait l'économie du jour sans en être
  * averti (la revue d'ergonomie du 4 novembre 2026).
  */
-const FENETRE_PROPRE: Partial<Record<Ecran, string>> = { economie: 'Aujourd’hui · 30 j', joueurs: 'Jour · 7 j · 30 j', alertes: '30 j', erreurs: '7 j' }
+const FENETRE_PROPRE: Partial<Record<Ecran, string>> = { economie: 'Aujourd’hui · 30 j', sphinx: 'Aujourd’hui · 30 j', joueurs: 'Jour · 7 j · 30 j', alertes: '30 j', erreurs: '7 j' }
 
 /** À quoi « Comparer » compare : « Comparer » seul ne disait pas à quoi. Tout l'historique n'a pas d'avant : rien à comparer, pas de bouton. */
 const LA_PERIODE_D_AVANT: Record<PeriodeDuQg, string> = { '1h': 'l’heure d’avant', '24h': 'la veille', '7j': 'la semaine d’avant', '30j': 'le mois d’avant' }
@@ -838,6 +843,7 @@ export function AdminApp() {
           />
         )}
         {ecran === 'cabinet' && <QgCabinet versLaMaintenance={() => aller('maintenance')} vue={vue} periode={periodeDesJournaux} comparer={comparer} />}
+        {ecran === 'sphinx' && <QgSphinx maintenance={maintenance} versLaMaintenance={() => aller('maintenance')} />}
         {ecran === 'duels' && <AdminDuels vue={vue} periode={periodeDesJournaux} comparer={comparer} />}
         {ecran === 'economie' && <AdminEconomie />}
         {/* Un geste referme des signalements : ce qui attend, et la pastille du rail, se relisent. */}

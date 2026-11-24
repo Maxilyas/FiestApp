@@ -1,0 +1,289 @@
+// Le Sphinx de l'accueil, en dérivations pures (le plan du 24 novembre 2026,
+// `retours/2026-11-24/le-sphinx/plan.md`) : comment il lit une réponse, qui
+// est un habitué, quand il passe, quelle énigme il pose, ce qu'il laisse voir
+// de la phrase d'un Divin, le mot qu'il souffle, et le Divin du moment. Sur
+// un serveur jetable : `sphinx-accueil.test.ts`.
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import {
+  CHANCE_D_UNE_VISITE,
+  ENIGMES_DEJA_VUES_DU_PROPRIETAIRE,
+  ORDRE_DU_SPHINX,
+  VISITES_FACILES,
+  appliquerLeGeste,
+  choisirLEnigme,
+  choisirLeMot,
+  divinDuMoment,
+  enigmesDuSphinx,
+  estUnNombre,
+  jugerLaReponse,
+  joursJoues,
+  motsDeLaLegende,
+  normaliser,
+  phraseVue,
+  phrasesReconstituees,
+  tirageDeLaVisite,
+  type Enigme,
+} from '../src/core/sphinx'
+import { legendeDe } from '../src/core/divins'
+import { DIVINS } from '../../shared/divins'
+import { AUCUNE_ACTIVITE, type ActiviteDuJour } from '../../shared/missions'
+import { ESSAIS_DU_SPHINX, JOURS_DE_L_HABITUE } from '../../shared/sphinx'
+import { jourAvant } from '../../shared/jour'
+import { hasardDe } from '../../shared/missions'
+
+/** Les Divins qui ont leur légende : tous ceux du catalogue (`divins.test.ts` y veille). */
+const RECITS_CONNUS = DIVINS.map(d => d.key).filter(cle => legendeDe(cle) !== null)
+
+// ── La réponse ────────────────────────────────────────────────────────────
+
+test('une réponse se lit sans casse, sans accents, sans ponctuation, sans article ni « c’est »', () => {
+  for (const r of ['L’éclair', "c'est l'éclair", 'un éclair', 'Un ÉCLAIR !', '  l\'Éclair. ', "C’est un éclair", 'de l’éclair']) assert.equal(normaliser(r), 'eclair', r)
+  assert.equal(normaliser('les yeux'), 'yeux')
+  assert.equal(normaliser('la lettre U'), 'lettre u')
+  assert.equal(normaliser('Fer à cheval'), 'fer a cheval')
+  assert.equal(normaliser('Un œil'), 'oeil', 'la ligature se déplie')
+  assert.equal(normaliser('Couvre-chef'), 'couvre chef', 'le trait d’union est une ponctuation')
+  assert.equal(normaliser('0'), '0', 'un chiffre reste : « zéro » s’écrit aussi « 0 »')
+  assert.equal(normaliser('la'), 'la', 'un article seul n’est pas un article de tête')
+})
+
+/** Une énigme de la réserve, par son numéro. */
+const enigme = (numero: string): Enigme => {
+  const e = enigmesDuSphinx().find(x => x.numero === numero)
+  assert.ok(e, `l’énigme n° ${numero}`)
+  return e
+}
+
+test('le Sphinx juge sur les réponses acceptées, et une réponse proche brûle', () => {
+  const eclair = enigme('32')
+  assert.equal(jugerLaReponse(eclair, 'L’éclair'), 'juste')
+  assert.equal(jugerLaReponse(eclair, 'des éclairs'), 'juste')
+  assert.equal(jugerLaReponse(eclair, 'le tonnerre'), 'brulant')
+  assert.equal(jugerLaReponse(eclair, 'la pluie'), 'faux')
+  assert.equal(jugerLaReponse(eclair, ''), 'faux')
+  // Une acceptée écrite avec son article ou son trait d'union se lit comme la réponse du joueur.
+  assert.equal(jugerLaReponse(enigme('8'), 'Les yeux'), 'juste')
+  assert.equal(jugerLaReponse(enigme('8'), 'œil'), 'juste')
+  // Sans espaces : « pente-côte », « pentecôte » et « pente côte » sont la même réponse.
+  const charade = enigmesDuSphinx().find(e => e.acceptees.some(a => a.includes('-')))
+  if (charade) {
+    const avec = charade.acceptees.find(a => a.includes('-'))!
+    assert.equal(jugerLaReponse(charade, avec.replace(/-/g, '')), 'juste', avec)
+  }
+})
+
+test('la réserve : quatre-vingt-six pièces, sans les traces du test à l’aveugle, chacune sa source', () => {
+  const toutes = enigmesDuSphinx()
+  assert.equal(toutes.length, 86)
+  assert.equal(new Set(toutes.map(e => e.numero)).size, 86, 'un numéro chacune')
+  assert.deepEqual(
+    { enigme: toutes.filter(e => e.sorte === 'enigme').length, charade: toutes.filter(e => e.sorte === 'charade').length },
+    { enigme: 55, charade: 31 },
+  )
+  for (const e of toutes) {
+    assert.ok(e.vers.length > 0 && e.solution && e.acceptees.length > 0, e.numero)
+    assert.ok(['facile', 'moyenne', 'difficile'].includes(e.difficulte), e.numero)
+    assert.match(e.facSimile, /^https:\/\/fr\.wikisource\.org\/wiki\/Page:.*\.djvu\/\d+$/, e.numero)
+    assert.ok(e.page, e.numero)
+    // La solution du livre est toujours une réponse juste.
+    assert.equal(jugerLaReponse(e, e.solution), 'juste', `n° ${e.numero} : « ${e.solution} »`)
+    // Une réponse qui brûle ne coûte pas d'essai ; acceptée aussi (« jour », au n° 286), elle est juste : la relecture
+    // l'a jugée bonne, le doute profite au joueur.
+    for (const p of e.presque) assert.equal(jugerLaReponse(e, p), e.acceptees.includes(p) ? 'juste' : 'brulant', `n° ${e.numero} : « ${p} »`)
+  }
+  for (const n of ENIGMES_DEJA_VUES_DU_PROPRIETAIRE) assert.ok(toutes.some(e => e.numero === n), `n° ${n}`)
+  // Le test à l'aveugle reste dans `retours/` : ni les réponses des joueurs simulés, ni le verdict de la relecture.
+  const brut = readFileSync(fileURLToPath(new URL('../content/sphinx/enigmes.json', import.meta.url)), 'utf8')
+  assert.doesNotMatch(brut, /"(aveugle|raison|retenue|lot)"\s*:/)
+})
+
+// ── L'habitué ─────────────────────────────────────────────────────────────
+
+const AUJOURDHUI = '2026-11-24'
+const joue: ActiviteDuJour = { ...AUCUNE_ACTIVITE, joue: true }
+const activites = (...ilYa: number[]) => new Map(ilYa.map(n => [jourAvant(AUJOURDHUI, n), joue]))
+
+test('un habitué a joué quatre jours sur les sept derniers, aujourd’hui compris', () => {
+  assert.equal(JOURS_DE_L_HABITUE, 4)
+  assert.equal(joursJoues(activites(0, 1, 2, 3), AUJOURDHUI), 4)
+  assert.equal(joursJoues(activites(0, 2, 4, 6), AUJOURDHUI), 4)
+  assert.equal(joursJoues(activites(1, 2, 3, 7), AUJOURDHUI), 3, 'il y a sept jours, c’est hors de la fenêtre')
+  // Un jour où il n'a joué qu'une soirée seul : présent dans ses journaux, pas joué.
+  const seul = activites(0, 1, 2)
+  seul.set(jourAvant(AUJOURDHUI, 3), { ...AUCUNE_ACTIVITE, joue: false })
+  assert.equal(joursJoues(seul, AUJOURDHUI), 3)
+  // Demain, ce n'est pas encore aujourd'hui.
+  const demain = activites(1, 2, 3)
+  demain.set(jourAvant(AUJOURDHUI, -1), joue)
+  assert.equal(joursJoues(demain, AUJOURDHUI), 3)
+})
+
+// ── La visite ─────────────────────────────────────────────────────────────
+
+test('la visite se tire de la graine du profil et du jour : stable, une chance sur trois en moyenne', () => {
+  assert.equal(CHANCE_D_UNE_VISITE, 1 / 3)
+  assert.equal(tirageDeLaVisite('p1|2026-11-24'), tirageDeLaVisite('p1|2026-11-24'), 'la même graine, le même tirage')
+  let visites = 0
+  const essais = 6000
+  for (let i = 0; i < essais; i++) if (tirageDeLaVisite(`profil-${i}|2026-11-${String((i % 28) + 1).padStart(2, '0')}`) < CHANCE_D_UNE_VISITE) visites++
+  const part = visites / essais
+  assert.ok(part > 0.3 && part < 0.37, `${Math.round(part * 100)} % des jours`)
+})
+
+/** Une réserve inventée : six faciles, six moyennes, six difficiles. */
+const reserve: Enigme[] = (['facile', 'moyenne', 'difficile'] as const).flatMap(difficulte =>
+  Array.from({ length: 6 }, (_, i) => ({ ...enigme('32'), numero: `${difficulte}-${i}`, difficulte })),
+)
+
+test('l’énigme : jamais une déjà vue, des faciles pour ses trois premières visites, puis mêlées — les difficiles moins souvent', () => {
+  assert.equal(VISITES_FACILES, 3)
+  for (let v = 0; v < VISITES_FACILES; v++) {
+    for (let g = 0; g < 50; g++) assert.equal(choisirLEnigme(reserve, new Set(), v, hasardDe(`g${g}`))?.difficulte, 'facile')
+  }
+  // Ensuite, mêlées : sur mille tirages, chaque difficulté sort, les difficiles moins que les autres.
+  const sorties = { facile: 0, moyenne: 0, difficile: 0 }
+  for (let g = 0; g < 1000; g++) sorties[choisirLEnigme(reserve, new Set(), VISITES_FACILES, hasardDe(`m${g}`))!.difficulte]++
+  assert.ok(sorties.difficile > 100 && sorties.difficile < sorties.facile && sorties.difficile < sorties.moyenne, JSON.stringify(sorties))
+  // Jamais une vue ; plus de faciles, les premières visites prennent ce qui reste.
+  const vues = new Set(reserve.filter(e => e.difficulte === 'facile').map(e => e.numero))
+  for (let g = 0; g < 50; g++) assert.notEqual(choisirLEnigme(reserve, vues, 0, hasardDe(`v${g}`))?.difficulte, 'facile')
+  // Toutes vues : plus d'énigme, donc pas de visite.
+  assert.equal(choisirLEnigme(reserve, new Set(reserve.map(e => e.numero)), 9, hasardDe('x')), null)
+})
+
+// ── La phrase d'un Divin ──────────────────────────────────────────────────
+
+test('la forme d’une phrase : un trait par lettre, l’apostrophe et le trait d’union montrés, les petits mots offerts — sauf un nombre', () => {
+  const mots = motsDeLaLegende('Dix réponses, pas une faute : il n’a pas tremblé — vingt-cinq fois, 12 jours.')
+  assert.deepEqual(
+    mots.map(m => [m.texte, m.cache, m.forme]),
+    [
+      ['Dix', true, '___'],
+      ['réponses', true, '________'],
+      ['pas', false, '___'],
+      ['une', true, '___'],
+      ['faute', true, '_____'],
+      ['il', false, '__'],
+      ['n’a', false, '_’_'],
+      ['pas', false, '___'],
+      ['tremblé', true, '_______'],
+      ['vingt-cinq', true, '_____-____'],
+      ['fois', true, '____'],
+      ['12', true, '__'],
+      ['jours', true, '_____'],
+    ],
+  )
+  for (const n of ['six', 'Dix', 'un', 'une', 'cent', 'mille', 'onze', 'dix-huit', '3', 'Vingt-cinq']) assert.ok(estUnNombre(n), n)
+  for (const n of ['il', 'pas', 'les', 'sur', 'fil', 'lui']) assert.ok(!estUnNombre(n), n)
+  // Aucune légende n'offre un nombre, ni un mot de plus de trois lettres.
+  for (const cle of RECITS_CONNUS) {
+    for (const m of motsDeLaLegende(legendeDe(cle)!)) {
+      if (m.cache) continue
+      assert.ok(!estUnNombre(m.texte) && m.texte.replace(/[’'-]/g, '').length <= 3, `${cle} offre « ${m.texte} »`)
+    }
+  }
+})
+
+test('ce qu’un profil voit d’une phrase : ses mots, les petits mots, la forme du reste — et combien tous en ont trouvé, jamais lesquels', () => {
+  const legende = 'Dix réponses, pas une faute : il n’a pas tremblé.'
+  const divin = { key: 'dv:essai', nom: 'L’Essai' }
+  const vue = phraseVue(divin, legende, { siens: new Set([1]), deTous: new Set([1, 4, 8]) })
+  assert.deepEqual(vue.mots[0], { forme: '___' }, 'un nombre, caché')
+  assert.deepEqual(vue.mots[1], { forme: '________', texte: 'réponses', sien: true })
+  assert.deepEqual(vue.mots[2], { forme: '___', texte: 'pas', offert: true })
+  assert.deepEqual(vue.mots[4], { forme: '_____' }, 'trouvé par un autre : il ne le voit pas')
+  assert.deepEqual([vue.aTrouver, vue.siens, vue.parTous, vue.reconstituee], [5, 1, 3, false])
+  assert.ok(!JSON.stringify(vue).includes('faute') && !JSON.stringify(vue).includes('tremblé'))
+  // Tous les mots trouvés, par tous : retrouvée — elle ne s'impose plus (la décision du 24 novembre 2026). Rien de plus
+  // que ses mots ne part, et elle dit qu'elle se dévoile à sa demande.
+  const retrouvee = phraseVue(divin, legende, { siens: new Set([1]), deTous: new Set([0, 1, 3, 4, 8]) })
+  assert.deepEqual([retrouvee.reconstituee, retrouvee.aDevoiler, retrouvee.legende], [true, true, undefined])
+  assert.deepEqual(retrouvee.mots.map(m => m.texte), [undefined, 'réponses', 'pas', undefined, undefined, 'il', 'n’a', 'pas', undefined])
+  assert.ok(!JSON.stringify(retrouvee).includes('faute') && !JSON.stringify(retrouvee).includes('tremblé'))
+  // Choisie (`lue`), elle se montre entière, sa ponctuation comprise.
+  const entiere = phraseVue(divin, legende, { siens: new Set(), deTous: new Set([0, 1, 3, 4, 8]), lue: true })
+  assert.equal(entiere.reconstituee, true)
+  assert.equal(entiere.aDevoiler, undefined)
+  assert.deepEqual(entiere.mots.map(m => m.texte), ['Dix', 'réponses', 'pas', 'une', 'faute', 'il', 'n’a', 'pas', 'tremblé'])
+  assert.equal(entiere.legende, legende)
+  // Lue avant d'être retrouvée — une ligne d'un serveur d'avant : rien de plus.
+  assert.equal(phraseVue(divin, legende, { siens: new Set([1]), deTous: new Set([1, 4, 8]), lue: true }).legende, undefined)
+  // Qui a trouvé chaque mot caché lui-même la voit entière, sans geste.
+  const sienne = phraseVue(divin, legende, { siens: new Set([0, 1, 3, 4, 8]), deTous: new Set([0, 1, 3, 4, 8]) })
+  assert.deepEqual([sienne.aDevoiler, sienne.legende], [undefined, legende])
+  // Son porteur en connaît la légende : elle se montre entière à lui.
+  const porteur = phraseVue(divin, legende, { siens: new Set(), deTous: new Set(), porteur: true })
+  assert.equal(porteur.porteur, true)
+  assert.equal(porteur.mots.every(m => m.texte), true)
+  assert.equal(porteur.legende, legende)
+  // Retrouvée par tous, son porteur n'a rien à dévoiler.
+  assert.equal(phraseVue(divin, legende, { siens: new Set(), deTous: new Set([0, 1, 3, 4, 8]), porteur: true }).aDevoiler, undefined)
+})
+
+test('le mot soufflé : d’abord un que personne n’a encore, sinon un qu’il n’a pas, au hasard de sa graine', () => {
+  const caches = [0, 1, 3, 4, 8]
+  for (let g = 0; g < 50; g++) assert.equal(choisirLeMot(caches, new Set([0]), new Set([0, 1, 3, 4]), hasardDe(`a${g}`)), 8)
+  const pris = new Set<number>()
+  for (let g = 0; g < 200; g++) pris.add(choisirLeMot(caches, new Set([0, 1]), new Set(caches), hasardDe(`b${g}`))!)
+  assert.deepEqual([...pris].sort((a, b) => a - b), [3, 4, 8], 'tous trouvés par d’autres : un des siens qui manque, n’importe lequel')
+  assert.equal(choisirLeMot(caches, new Set(caches), new Set(caches), hasardDe('c')), null, 'il les a tous')
+  assert.equal(choisirLeMot(caches, new Set(), new Set(), hasardDe('d')), choisirLeMot(caches, new Set(), new Set(), hasardDe('d')), 'la même graine, le même mot')
+})
+
+test('le Divin du moment : le premier de l’ordre dont tous n’ont pas trouvé chaque mot caché ; reconstituée, sa phrase passe au suivant', () => {
+  // L'ordre nomme chacun des Divins une fois, ceux qui ont un récit.
+  assert.deepEqual([...ORDRE_DU_SPHINX].sort(), [...RECITS_CONNUS].sort())
+  const catalogue = new Set(DIVINS.map(d => d.key))
+  const [premier, second, troisieme] = ORDRE_DU_SPHINX
+  assert.equal(divinDuMoment(new Map(), catalogue), premier)
+  const tous = (cle: string) => new Set(motsDeLaLegende(legendeDe(cle)!).flatMap((m, i) => (m.cache ? [i] : [])))
+  // Tous les mots du premier, sauf un : il reste le Divin du moment.
+  const presque = tous(premier)
+  presque.delete([...presque][0])
+  assert.equal(divinDuMoment(new Map([[premier, presque]]), catalogue), premier)
+  // Tous : le suivant prend sa place, et la phrase du premier se montre entière.
+  const mots = new Map([[premier, tous(premier)]])
+  assert.equal(divinDuMoment(mots, catalogue), second)
+  assert.deepEqual(phrasesReconstituees(mots, catalogue).map(p => [p.divin.key, p.legende]), [[premier, legendeDe(premier)]])
+  // Un Divin pas encore au catalogue ne se tire pas : le Sphinx passe au suivant.
+  assert.equal(divinDuMoment(mots, new Set([...catalogue].filter(c => c !== second))), troisieme)
+  // Tous reconstitués : plus de Divin du moment.
+  assert.equal(divinDuMoment(new Map(ORDRE_DU_SPHINX.map(c => [c, tous(c)])), catalogue), null)
+})
+
+// ── Le verdict ────────────────────────────────────────────────────────────
+
+test('trois essais ; une réponse qui brûle n’en coûte pas, la même réponse fausse non plus ; le chat clôt', () => {
+  assert.equal(ESSAIS_DU_SPHINX, 3)
+  const e = enigme('32')
+  let ligne = { etat: 'proposee' as const, essais: 0, reponses: [] as string[] }
+  const geste = (g: Parameters<typeof appliquerLeGeste>[1], reponse?: string): any => {
+    const r = appliquerLeGeste(ligne, g, reponse, e)
+    if ('refus' in r) return r
+    ligne = { ...ligne, ...r.apres } as typeof ligne
+    return r
+  }
+  assert.deepEqual(geste('plus-tard'), { apres: { etat: 'plus-tard', essais: 0, reponses: [] } })
+  assert.equal(ligne.etat, 'plus-tard')
+  assert.equal(geste('ecouter').apres?.etat, 'proposee')
+  assert.equal((geste('repondre', 'le tonnerre') as any).verdict, 'brulant')
+  assert.equal(ligne.essais, 0, 'brûlant : pas un essai de moins')
+  assert.equal((geste('repondre', 'la pluie') as any).verdict, 'faux')
+  const redite = geste('repondre', 'La pluie !') as any
+  assert.deepEqual([redite.verdict, redite.dejaDite, ligne.essais], ['faux', true, 1], 'la même, redite : pas un second essai')
+  assert.equal((geste('repondre', 'le vent') as any).verdict, 'faux')
+  assert.equal((geste('repondre', 'la neige') as any).verdict, 'perdu')
+  assert.deepEqual([ligne.etat, ligne.essais], ['perdue', 3])
+  assert.ok('refus' in geste('repondre', 'éclair'), 'close : plus rien ne se joue')
+  // Juste au premier essai ; le chat, à tout moment avant la fin.
+  ligne = { etat: 'proposee', essais: 0, reponses: [] }
+  assert.deepEqual([(geste('repondre', 'éclair') as any).verdict, ligne.etat], ['juste', 'resolue'])
+  ligne = { etat: 'plus-tard' as any, essais: 1, reponses: ['pluie'] }
+  assert.deepEqual([(geste('chat') as any).verdict, ligne.etat], ['abandon', 'abandonnee'])
+  // Une réponse vide ne coûte rien : elle se refuse.
+  ligne = { etat: 'proposee', essais: 0, reponses: [] }
+  assert.ok('refus' in geste('repondre', '  ! '))
+})

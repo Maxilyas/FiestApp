@@ -400,6 +400,16 @@ Les coffres offerts (`PREFIXE_D_UN_COFFRE_OFFERT`, `shared/coffre.ts`) : par l'a
 - **Lue par** : `Missions.duJour` (les coffres qui attendent, `coffresOfferts`) ; `Missions.ouvrirLeCoffre` (son rang).
 - **Effacée par** : la suppression du profil.
 
+### `profile_sphinx`
+
+Les visites du Sphinx de l'accueil (`server/src/core/sphinx.ts`) : une par jour au plus, figée à la première lecture qui la tire. Ses mots, ses énigmes vues et les mots trouvés par tous s'en dérivent — le Divin du moment aussi : aucune table ne le retient.
+
+- **Colonnes clés** : `profile_id` et `jour` (la clé ; le jour de Paris, ou `vue:<numéro>` pour une énigme comptée pour vue sans visite), `enigme` (son numéro dans le recueil), `divin` (le Divin dont elle souffle un mot ; vide pour une énigme comptée pour vue), `etat` (`proposee`, `plus-tard`, `resolue`, `perdue`, `abandonnee` ; `vue`), `essais`, `reponses` (JSON : ses réponses fausses, lues comme le Sphinx les lit — redite, la même ne coûte pas un second essai), `mot` (le mot gagné : sa place dans la légende de son Divin ; nul sinon — un index partiel le lit, `idx_profile_sphinx_mot`), `proposee_le`, `ecoutee_le`, `close_le`.
+- **Espace** : non.
+- **Écrite par** : `ProfileStore` — `poserUneVisiteDuSphinx` à la lecture qui la tire (`GET /api/joueur/sphinx`, ou la ligne des missions, `ON CONFLICT DO NOTHING`), `ecrireUnGesteDuSphinx` à chaque geste (`POST /api/joueur/sphinx`, si la visite est encore telle qu'il l'a lue), `compterDesEnigmesPourVues` une fois au démarrage (les énigmes que le propriétaire connaissait, sur le profil de l'administrateur, drapeau `sphinx_vues_du_proprietaire`), `compterUneEnigmePourVue` à chaque « Voir la réponse » du QG (`POST /api/admin/sphinx/enigmes/:numero/reponse`, sur le profil que tient le compte d'administration) ; `retenirUnePhraseDuSphinx`, une ligne à part par phrase retrouvée — `lue:<Divin>` (`etat` = `lue`) quand il choisit de la lire (`POST /api/joueur/sphinx/phrase`), `annonce:<Divin>` (`annoncee`) quand l'accueil la lui a annoncée (`POST /api/joueur/sphinx/annonce`). Les lignes à part (`vue`, `lue`, `annoncee` : `LIGNES_A_PART_DU_SPHINX`) ne sont pas des visites : ni ses premières visites faciles, ni la visite du jour, ni les comptes du QG ne les lisent.
+- **Lue par** : `ProfileStore.lecturesDesMissions` (dans son lot, sa page ouverte), `lecturesDuSphinx`, `visitesDuSphinx` ; `motsDuSphinx` (les mots trouvés par tous, le premier instant de chacun et ceux qui y ont trouvé un mot — leur prénom et leur visage, par `profiles` —, d'un lot, une fois par processus, puis tenus en mémoire par `Sphinx`) ; `achatsDe` (les phrases retrouvées déjà annoncées à ce profil, dans le lot de l'accueil) ; `lecturesDuSphinxAuQg` (la page du QG, d'un lot : des comptes par énigme, par jour et par issue, le premier instant de chaque mot trouvé, les profils visités aujourd'hui, les lignes de l'administrateur).
+- **Effacée par** : la suppression du profil (et ses mots quittent le compte de tous).
+
 ### `profile_envies`
 
 Les envies du jour de son compagnon comblées (`shared/soins.ts`) : une ligne par envie, par jour et par compagnon. Seul s'écrit ce qui est fait, comme une mission.
@@ -1206,7 +1216,7 @@ Les modes de jeu en panne, dits au téléphone de l'administrateur et pas encore
 
 Ce que l'administrateur pose au QG (`/admin#maintenance`) : le bandeau rouge, les pages en maintenance et celles bientôt disponibles — une ligne par chose posée, la table vide sinon.
 
-- **Colonnes clés** : `cle` (la clé : `bandeau`, ou la page fermée — `jour`, `campagne`, `defi`, `duels`, `cabinet`, `boutique` ; une ligne `expedition` d'avant le 1er novembre 2026 se tait à la lecture, comme ses testeurs), `texte` (celui du bandeau ; pour une page, `bientot` si elle est bientôt disponible, vide en maintenance — ce qu'une version d'après y écrirait se lit fermé), `depuis`.
+- **Colonnes clés** : `cle` (la clé : `bandeau`, ou la page fermée — `jour`, `campagne`, `defi`, `duels`, `cabinet`, `boutique`, `sphinx` — posée `bientot` une fois, au premier démarrage qui le connaît, drapeau `sphinx_bientot_pose` ; une ligne `expedition` d'avant le 1er novembre 2026 se tait à la lecture, comme ses testeurs), `texte` (celui du bandeau ; pour une page, `bientot` si elle est bientôt disponible, vide en maintenance — ce qu'une version d'après y écrirait se lit fermé), `depuis`.
 - **Espace** : non — elles valent pour tout le serveur.
 - **Écrite par** : `Maintenance` (`server/src/core/maintenance.ts`), à chaque geste de la page du QG, l'un après l'autre.
 - **Lue par** : `Maintenance`, une fois au démarrage, puis tenue en mémoire : chaque page servie et chaque route qui commence une partie la lisent sans un aller-retour.

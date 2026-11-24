@@ -37,6 +37,7 @@ Ce que fait FiestApp, mode par mode, pour tout le monde — le code n'y vient qu
 - [Les récompenses](produit/les-recompenses.md) — l'expérience, les niveaux, les trophées et leurs pistes, les légendaires, les Divins, les écussons
 - [La boutique](produit/la-boutique.md) — les confettis, ce qu'ils achètent, et le catalogue : thèmes, fonds, gerbes, compagnons
 - [Les missions du jour](produit/les-missions.md) — trois missions par jour, la carte à tampons, le coffre de la semaine et son trésor, « À la une »
+- [Le Sphinx de l'accueil](produit/le-sphinx.md) — parfois, chez un habitué : la visite, son énigme de 1858, le mot qu'elle souffle de la phrase du Divin du moment, l'épingle, l'album
 
 ## Les guides
 

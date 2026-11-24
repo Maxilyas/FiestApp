@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Icon, type IconName } from './Icon'
-import { espacesFines } from '../format'
+import { deNom, espacesFines } from '../format'
 import { formatNumber } from '../../../shared/typographie'
 import { phraseDeLaProposition, phraseDuMerci, type AnnonceDeLAdministrateur } from '../../../shared/profil'
 import { MOT_MAX, NOTE_MAX, type QuestionDAnnonce } from '../../../shared/annonces'
@@ -12,6 +12,54 @@ const ICONE: Record<AnnonceDeLAdministrateur['sorte'], IconName> = {
   prenom: 'edit',
   annonce: 'megaphone',
   proposition: 'edit',
+  phrase: 'help',
+}
+
+/**
+ * La phrase d'un Divin retrouvée par tous, annoncée une fois en tête de
+ * l'accueil (le Sphinx, le 24 novembre 2026) : couchée en bandeau, à la
+ * place d'« À la une » le temps qu'elle se montre — en carte, elle faisait
+ * défiler l'accueil de 190 px en 360 × 640. Toute la ligne mène à la fiche
+ * du Divin dans l'album, où il choisit de la lire. Jamais un mot de la
+ * phrase ; ceux qui l'ont retrouvée, oui — coupés au bout de la ligne, entiers
+ * au lecteur d'écran.
+ */
+function AnnonceDeLaPhrase({ annonce: a, onVoir }: { annonce: Extract<AnnonceDeLAdministrateur, { sorte: 'phrase' }>; onVoir?: () => void }) {
+  const titre = espacesFines(`La phrase ${deNom(a.divin.nom)} est retrouvée`)
+  const grace = espacesFines(graceA(a.grace, a.autres))
+  const contenu = (
+    <>
+      <span className="annonce-phrase-icone" aria-hidden="true">
+        <Icon name="help" />
+      </span>
+      <span className="annonce-phrase-texte">
+        <b>{titre}</b>
+        <span>{grace}</span>
+      </span>
+      <span className="annonce-phrase-voir" aria-hidden="true">
+        <span className="annonce-phrase-voir-mot">La voir</span>
+        <Icon name="chevron-right" />
+      </span>
+    </>
+  )
+  return (
+    <li className="annonce-phrase">
+      {onVoir ? (
+        <button type="button" className="annonce-phrase-ligne" aria-label={`${titre}, ${grace}. La voir dans ton album`} onClick={onVoir}>
+          {contenu}
+        </button>
+      ) : (
+        <span className="annonce-phrase-ligne">{contenu}</span>
+      )}
+    </li>
+  )
+}
+
+/** « grâce à Léa, Tom et 4 autres » : les trois premiers à y avoir trouvé un mot, puis combien d'autres — jamais un mot. */
+export function graceA(grace: readonly string[], autres: number): string {
+  if (grace.length === 0) return 'grâce à tous les habitués'
+  if (autres > 0) return `grâce à ${grace.join(', ')} et ${formatNumber(autres)} autre${autres > 1 ? 's' : ''}`
+  return grace.length === 1 ? `grâce à ${grace[0]}` : `grâce à ${grace.slice(0, -1).join(', ')} et ${grace[grace.length - 1]}`
 }
 
 const nConfettis = (n: number) => `+${formatNumber(n)} confetti${n > 1 ? 's' : ''}`
@@ -132,6 +180,7 @@ export function CarteDeLAdministrateur({
   onRepondre?: (reponse: number | string) => Promise<number>
 }) {
   const [merci, setMerci] = useState<number | null>(null)
+  if (a.sorte === 'phrase') return <AnnonceDeLaPhrase annonce={a} onVoir={onRanger} />
   // Une question qui attend sa réponse se range en « Plus tard » : elle reviendra à la prochaine visite.
   const libelle =
     a.sorte === 'merci'

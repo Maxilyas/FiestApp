@@ -71,6 +71,16 @@ export function raconter(cles: readonly string[]): DivinDescendu[] {
   return cles.flatMap(key => (RECITS[key] ? [{ key, ...RECITS[key] }] : []))
 }
 
+/**
+ * La légende d'un Divin, pour le Sphinx de l'accueil (`core/sphinx.ts`), qui
+ * la souffle mot à mot à qui résout ses énigmes : elle ne quitte le serveur
+ * que mot à mot, ou entière une fois que tous l'ont reconstituée
+ * (invariant 21). Null pour un Divin sans récit.
+ */
+export function legendeDe(cle: string): string | null {
+  return RECITS[cle]?.legende ?? null
+}
+
 /** Une clé de Divin, parmi ce qu'une partie vient de ranger : elle s'annonce à part, jamais comme un trophée. */
 export const estUnDivin = (cle: string) => cle.startsWith('dv:')
 
