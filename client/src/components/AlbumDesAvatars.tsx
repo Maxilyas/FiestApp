@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, type ReactNode } from 'react'
+import { Fragment, createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { Avatar } from './Avatar'
 import { Icon, type IconName } from './Icon'
 import { Legendaire } from './Legendaire'
@@ -29,6 +29,10 @@ import { estScellable, legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { compagnonDe, formeDeCompagnon, nomDeLaForme } from '../../../shared/compagnons'
 import { aLEclat, brilleChez, eclatChez, type PublicProfileDetail } from '../../../shared/profil'
+import type { SphinxOuvert } from '../../../shared/sphinx'
+import { api } from '../api'
+import { lirePourLAlbum, type PourLAlbum } from '../sphinx'
+import { CompteDeLaPhrase, ConseilDuSphinx, PhraseDuDivin } from './PhraseDuDivin'
 
 // L'album « Mes avatars », dans « Ma collection » (la maquette 1, choisie le
 // 13 octobre 2026) : tous les avatars qui se gagnent, une page par rareté —
@@ -156,6 +160,42 @@ function GemmesDeLAlbum({ pages, choisie, onChoisir }: { pages: PageDeLAlbum[]; 
   )
 }
 
+/**
+ * Ce que le Sphinx dit des Divins, lu quand la page des Divins s'ouvre — la
+ * phrase du Divin du moment, celles reconstituées —, et ce que la visite a
+ * laissé en y menant (`venu` : la fiche à ouvrir, le mot à y retourner).
+ * Passé aux fiches par un contexte : leur appel reste celui de toujours.
+ */
+const LeSphinxDeLAlbum = createContext<{ sphinx: SphinxOuvert; venu: PourLAlbum | null } | null>(null)
+
+/**
+ * Ce que le Sphinx dit d'un Divin, dans sa fiche (le plan du 24 novembre 2026) :
+ * du Divin du moment, sa phrase — ses mots, ses traits, le compte de tous et
+ * sa jauge — à tout profil, habitué ou non, et à qui ne l'est pas comment le
+ * devenir ; d'une phrase que tous ont reconstituée, la phrase entière, sous
+ * son voile. Rien d'autre : ni règle, ni mot qu'il n'a pas (invariant 21).
+ */
+function SaPhrase({ cle, sphinx, retourne }: { cle: string; sphinx: SphinxOuvert; retourne?: number }) {
+  if (sphinx.phrase?.divin.key === cle) {
+    return (
+      <div className="album-phrase">
+        <span className="label album-etiquette">Le Divin du moment · sa phrase</span>
+        <PhraseDuDivin phrase={sphinx.phrase} retourne={retourne} />
+        <CompteDeLaPhrase phrase={sphinx.phrase} />
+        <ConseilDuSphinx phrase={sphinx.phrase} habitue={sphinx.habitue} />
+      </div>
+    )
+  }
+  const entiere = sphinx.reconstituees.find(r => r.divin.key === cle)
+  if (!entiere) return null
+  return (
+    <div className="album-phrase">
+      <span className="label album-etiquette">Sa phrase, reconstituée</span>
+      <p className="serif-note album-phrase-entiere">{espacesFines(`« ${entiere.legende} »`)}</p>
+    </div>
+  )
+}
+
 /** Une étape d'une voie : son lieu en icône, ce qu'il faut, sa règle, et — à gagner — où il en est. */
 const Etape = ({ etape: e, jauge }: { etape: EtapeDUneVoie; jauge: boolean }) => (
   <EtapeDuChemin icone={ICONE_DU_LIEU[e.lieu]} titre={e.titre} regle={e.regle} tenue={e.tenue} progres={jauge ? e.progres : null} />
@@ -186,6 +226,10 @@ export function FicheDeLAvatar({
   dessin: ReactNode
   cabinet?: boolean
 }) {
+  // Ce que le Sphinx en dit, s'il l'a dit : l'album le pose autour de sa grille (`LeSphinxDeLAlbum`).
+  const duSphinx = useContext(LeSphinxDeLAlbum)
+  const sphinx = duSphinx?.sphinx
+  const retourne = duSphinx?.venu?.divin === a.cle ? duSphinx.venu.mot : undefined
   const voies = voiesDeLAvatar(a.cle, profil, cabinet)
   const l = legendaire(a.cle)
   const p = portrait(a.cle)
@@ -233,6 +277,8 @@ export function FicheDeLAvatar({
       {a.sorte === 'emoji' && <p className="muted small">Réservé aux profils : l’inscription ne le propose pas.</p>}
       {recit && <p className="serif-note">{recit.legende}</p>}
       {inconnu && <p className="serif-note">Personne ne sait ce qui le fait descendre. Ceux qui l’ont vu ne le cherchaient pas.</p>}
+      {/* Descendu, il raconte déjà sa légende : la phrase du Sphinx n'y ajouterait rien. */}
+      {inconnu && sphinx && <SaPhrase cle={a.cle} sphinx={sphinx} retourne={retourne} />}
       {aLui && (
         <p className="small album-a-toi">
           <Icon name="check" />
@@ -313,8 +359,39 @@ export function AlbumDesAvatars({
   const [ouvert, setOuvert] = useState<string | null>(null)
   // Une autre page demandée par l'adresse, l'album déjà là : sa fiche se referme.
   useEffect(() => setOuvert(null), [page])
+  // Ce que le Sphinx dit des Divins — la phrase du Divin du moment, celles reconstituées —, lu à la demande, quand la page
+  // des Divins s'ouvre : les autres pages n'en ont que faire. Sa page fermée pour lui, rien.
+  const [sphinx, setSphinx] = useState<SphinxOuvert | null>(null)
+  const surLesDivins = page === 'divin'
+  useEffect(() => {
+    if (!surLesDivins || sphinx) return
+    let vivant = true
+    api.joueur.sphinx().then(
+      r => {
+        if (vivant && !r.fermee) setSphinx(r)
+      },
+      () => {},
+    )
+    return () => {
+      vivant = false
+    }
+  }, [surLesDivins]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Venu de la visite : la fiche du Divin s'ouvre, le mot qu'il vient de gagner s'y retourne.
+  const [venuDuSphinx] = useState(() => (page === 'divin' ? lirePourLAlbum() : null))
+  useEffect(() => {
+    if (venuDuSphinx) setOuvert(venuDuSphinx.divin)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const porte = profil.legendaire ?? profil.avatar
   const detail = useFiche(ouvert, porte)
+  // Ouverte par la visite, pas par un geste : sa fiche reprend le focus sans l'anneau du clavier, que rien n'a demandé.
+  useEffect(() => {
+    const nom = venuDuSphinx && ouvert === venuDuSphinx.divin ? detail.current?.querySelector<HTMLElement>('.galerie-detail-nom') : null
+    if (nom) {
+      // Déjà focalisé par la fiche : un second `focus` ne changerait rien, il faut le lui reprendre d'abord.
+      nom.blur()
+      nom.focus({ preventScroll: true, focusVisible: false } as FocusOptions)
+    }
+  }, [ouvert]) // eslint-disable-line react-hooks/exhaustive-deps
   const dessins = useDessins(...SORTES, 'legendaire', 'divin', 'compagnon')
   const { Portrait, Compagnon } = dessins
   // Ce qu'il porte de son Éclat : sa version rare, ou la matière qu'il a choisie.
@@ -348,61 +425,66 @@ export function AlbumDesAvatars({
       <p className="gemme-legende" style={gemmeDAvatar(choisie.rarete)}>
         <b>{`${NOM_DE_RARETE_D_AVATAR[choisie.rarete]} · ${choisie.acquis} sur ${choisie.total}.`}</b> {CE_QU_ELLE_RANGE[choisie.rarete]}
       </p>
-      <div
-        className={'album-avatars' + (choisie.rarete === 'divin' ? ' album-divins' : '')}
-        role="tabpanel"
-        id="album-page"
-        aria-labelledby={`gemme-${choisie.rarete}`}
-        style={gemmeDAvatar(choisie.rarete)}
-      >
-        {choisie.avatars.map(({ avatar: a, aLui }) => {
-          const lePorte = aLui && porte === a.cle
-          // Un emoji qui reste dit son niveau sur son anneau, en toutes lettres : une icône de plus ne le dirait pas.
-          const niveau = a.sorte === 'emoji' && !aLui ? COLLECTION.find(c => c.emoji === a.cle)?.niveau : undefined
-          return (
-            <Fragment key={a.cle}>
-              <button
-                type="button"
-                className={'album-case' + (aLui ? '' : ' album-manque') + (a.sorte === 'emoji' ? ' album-emoji' : '')}
-                aria-expanded={ouvert === a.cle}
-                aria-controls={ouvert === a.cle ? 'fiche-avatar' : undefined}
-                aria-label={ceQueDitLaCase(a, aLui, lePorte, cabinet)}
-                onClick={() => toucher(a.cle)}
-              >
-                <span className="album-medaillon" aria-hidden="true">
-                  {dessin(a, aLui)}
-                </span>
-                {lePorte && (
-                  <span className="album-coche" aria-hidden="true">
-                    <Icon name="check" />
+      {/* Ce que le Sphinx dit des Divins, jusqu'à leurs fiches. */}
+      <LeSphinxDeLAlbum.Provider value={sphinx ? { sphinx, venu: venuDuSphinx } : null}>
+        <div
+          className={'album-avatars' + (choisie.rarete === 'divin' ? ' album-divins' : '')}
+          role="tabpanel"
+          id="album-page"
+          aria-labelledby={`gemme-${choisie.rarete}`}
+          style={gemmeDAvatar(choisie.rarete)}
+        >
+          {choisie.avatars.map(({ avatar: a, aLui }) => {
+            const lePorte = aLui && porte === a.cle
+            // Un emoji qui reste dit son niveau sur son anneau, en toutes lettres : une icône de plus ne le dirait pas.
+            const niveau = a.sorte === 'emoji' && !aLui ? COLLECTION.find(c => c.emoji === a.cle)?.niveau : undefined
+            // Le Divin du moment, celui dont le Sphinx souffle les mots : sa case s'allume, sa fiche montre sa phrase.
+            const duMoment = !aLui && sphinx?.phrase?.divin.key === a.cle
+            return (
+              <Fragment key={a.cle}>
+                <button
+                  type="button"
+                  className={'album-case' + (aLui ? '' : ' album-manque') + (a.sorte === 'emoji' ? ' album-emoji' : '') + (duMoment ? ' album-moment' : '')}
+                  aria-expanded={ouvert === a.cle}
+                  aria-controls={ouvert === a.cle ? 'fiche-avatar' : undefined}
+                  aria-label={ceQueDitLaCase(a, aLui, lePorte, cabinet) + (duMoment ? ', le Divin du moment' : '')}
+                  onClick={() => toucher(a.cle)}
+                >
+                  <span className="album-medaillon" aria-hidden="true">
+                    {dessin(a, aLui)}
                   </span>
-                )}
-                {/* Un Divin dit son nom sous sa case, descendu ou non : c'est tout ce qu'on sait de lui, et de quoi le chercher. */}
-                {a.sorte === 'divin' && (
-                  <span className={'album-nom' + (aLui ? '' : ' album-nom-voile')} aria-hidden="true">
-                    {nomDe(a)}
-                  </span>
-                )}
-                {niveau !== undefined ? (
-                  <span className="case-niveau" aria-hidden="true">{`niv. ${niveau}`}</span>
-                ) : (
-                  !aLui &&
-                  a.lieux.length > 0 && (
-                    <span className="album-lieu" aria-hidden="true">
-                      <Icon name={ICONE_DU_LIEU[a.lieux[0]]} />
+                  {lePorte && (
+                    <span className="album-coche" aria-hidden="true">
+                      <Icon name="check" />
                     </span>
-                  )
+                  )}
+                  {/* Un Divin dit son nom sous sa case, descendu ou non : c'est tout ce qu'on sait de lui, et de quoi le chercher. */}
+                  {a.sorte === 'divin' && (
+                    <span className={'album-nom' + (aLui ? '' : ' album-nom-voile')} aria-hidden="true">
+                      {nomDe(a)}
+                    </span>
+                  )}
+                  {niveau !== undefined ? (
+                    <span className="case-niveau" aria-hidden="true">{`niv. ${niveau}`}</span>
+                  ) : (
+                    !aLui &&
+                    a.lieux.length > 0 && (
+                      <span className="album-lieu" aria-hidden="true">
+                        <Icon name={ICONE_DU_LIEU[a.lieux[0]]} />
+                      </span>
+                    )
+                  )}
+                </button>
+                {ouvert === a.cle && (
+                  <div id="fiche-avatar" className="fiche-case album-fiche" ref={detail}>
+                    <FicheDeLAvatar a={a} aLui={aLui} porte={lePorte} profil={profil} dessin={dessin(a, aLui, true)} cabinet={cabinet} />
+                  </div>
                 )}
-              </button>
-              {ouvert === a.cle && (
-                <div id="fiche-avatar" className="fiche-case album-fiche" ref={detail}>
-                  <FicheDeLAvatar a={a} aLui={aLui} porte={lePorte} profil={profil} dessin={dessin(a, aLui, true)} cabinet={cabinet} />
-                </div>
-              )}
-            </Fragment>
-          )
-        })}
-      </div>
+              </Fragment>
+            )
+          })}
+        </div>
+      </LeSphinxDeLAlbum.Provider>
       {lieux.length > 0 && (
         <p className="album-legende muted small">
           {lieux.map(x => (

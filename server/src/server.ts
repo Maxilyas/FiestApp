@@ -155,6 +155,12 @@ export interface QuizServerOptions {
   /** La réserve des énigmes du Sphinx : les tests en posent une à eux ; en ligne, `server/content/sphinx/enigmes.json`. */
   enigmesDuSphinx?: readonly Enigme[]
   /**
+   * Une phrase inventée que le Sphinx lit à la place de la légende de chaque Divin (`core/sphinx.ts`,
+   * `phraseInventee`) : les épreuves et les photos des écrans (`rendu-sphinx.ts`) ne montrent jamais une vraie légende —
+   * le propriétaire joue aussi. Jamais posée en ligne : `index.ts` ne la passe pas, et `sphinx-ecran.test.ts` y veille.
+   */
+  phraseInventeeDuSphinx?: string
+  /**
    * Le jeton de la routine qui remplit la réserve du quiz du jour
    * (`RESERVE_TOKEN`, `quizDuJour.ts`). Absent : la porte n'existe pas, et
    * la réserve se remplit à la main.
@@ -605,6 +611,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     maintenant: maintenantDuJour,
     ...(opts.tirageDuSphinx && { tirage: opts.tirageDuSphinx }),
     ...(opts.enigmesDuSphinx && { enigmes: opts.enigmesDuSphinx }),
+    ...(opts.phraseInventeeDuSphinx && { phraseInventee: opts.phraseInventeeDuSphinx }),
   })
   // Le classement des collectionneurs : le relevé de tous en fond, gardé dans `meta`, et la fiche de chacun à sa visite —
   // il ne lit que ce que les trois magasins savent déjà dire, et le Cabinet par les trophées qu'il a rangés.

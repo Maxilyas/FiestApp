@@ -33,7 +33,8 @@ import { porterTheme } from '../themeJoueur'
 import { porterGerbe } from '../gerbe'
 import { abonnerNiche, nicheActuelle, porterNiche } from '../niche'
 import { laNiche } from '../components/NicheHost'
-import { relireLesMissions } from '../missions'
+import { relireLesMissions, useMissionsDuJour } from '../missions'
+import { ceQueMontreLeSphinx, leSphinx, type SphinxIci } from '../sphinx'
 import { boutonsDesPages, cabinetIci } from '../maintenance'
 import { AfficheDeLaNouveaute, PastilleNouveau } from '../components/AfficheDeLaNouveaute'
 import { BandeauDuGrandPrix, FeteDuGrandPrix, feteVue } from '../components/GrandPrix'
@@ -378,6 +379,15 @@ export function ProfilApp() {
   // L'accueil ne lit pas le détail : sa barre demande au serveur ce qui est neuf, une fois l'accueil montré.
   const compteDuMenu = useNouveautesDuMenu(VUE === 'accueil' && aUnProfil)
   const leHaut = useALaDemande(hautDeLAccueil, VUE === 'accueil' && aUnProfil)
+  // Le Sphinx de l'accueil : ses missions disent s'il passe (`MissionsDuJour.sphinx`), sans un aller-retour de plus.
+  // Il ne vient — son code, sa feuille, sa police, ses images — que s'il passe ; il surgit, sauf quand une soirée attend
+  // qu'on y revienne : il s'épingle alors seulement. Ce que la visite devient ensuite se garde ici (`sphinxIci`).
+  const lesMissions = useMissionsDuJour(false)
+  const [sphinxIci, setSphinxIci] = useState<SphinxIci | null>(null)
+  const [sphinxTouche, setSphinxTouche] = useState(false)
+  const leSphinxDit = ceQueMontreLeSphinx(sphinxIci ?? (lesMissions && lesMissions !== 'perdu' ? lesMissions.sphinx : undefined), enCours.length)
+  const leCodeDuSphinx = useALaDemande(leSphinx, VUE === 'accueil' && aUnProfil && (leSphinxDit.surgit || leSphinxDit.epingle))
+  const codeDuSphinx = leCodeDuSphinx && leCodeDuSphinx !== 'perdu' ? leCodeDuSphinx : null
   useEffect(() => {
     if (VUE !== 'accueil' || !aUnProfil) return
     const precharger = () => {
@@ -607,6 +617,9 @@ export function ProfilApp() {
       page => pageOuverte(page, etats),
       affichesRangees,
     )
+    // Le Sphinx remis à plus tard, épinglé à côté d'« Entre amis » ; touché, il rouvre la visite.
+    const epingleDuSphinx =
+      codeDuSphinx && leSphinxDit.epingle && !sphinxTouche ? <codeDuSphinx.EpingleDuSphinx onOuvrir={() => setSphinxTouche(true)} /> : undefined
     // Le Grand Prix du jour, quand il y en a un : il prend la place de l'affiche (`shared/grandPrix.ts`).
     const grandPrix = 'grandPrix' in profil ? profil.grandPrix : undefined
     const rangerLAffiche = (id: string) => {
@@ -667,6 +680,7 @@ export function ProfilApp() {
           etats={etats}
           cabinet={cabinetIci()}
           nouvelles={nouvelles}
+          epingle={epingleDuSphinx}
         />
         {/* Sous ce qu'on vient faire : l'application à installer — et, installée, le rappel du soir. */}
         <Installer avecProfil />
@@ -676,6 +690,17 @@ export function ProfilApp() {
             Compte (`AccueilDesRoles`). */}
         {erreur && <p className="error">{erreur}</p>}
         {menu('accueil')}
+        {/* Le Sphinx, par-dessus l'accueil, jamais dedans : l'accueil est réglé au pixel en 360 × 640. */}
+        {codeDuSphinx && (leSphinxDit.surgit || sphinxTouche) && (
+          <codeDuSphinx.VisiteDuSphinx
+            prenom={profil.name}
+            touchee={sphinxTouche}
+            onPartir={issue => {
+              setSphinxTouche(false)
+              setSphinxIci(issue === 'epingle' ? 'epingle' : 'parti')
+            }}
+          />
+        )}
       </div>
     )
   }

@@ -43,6 +43,7 @@ import type { Envie } from '../../shared/envie'
 import type { NouveautesDeLaLoge, VusDeLaLoge } from '../../shared/piecesDeLaLoge'
 import type { MissionsDuJour } from '../../shared/missions'
 import type { CoffreOuvert } from '../../shared/coffre'
+import type { GesteDuSphinx, LeSphinx, VerdictDuSphinx } from '../../shared/sphinx'
 import type { CompagnonAcquis } from '../../shared/compagnons'
 import type { ReglageDesOrnements } from '../../shared/ornements'
 import type { CadeauOuvert, CueilletteEcrite, SoinsDuProfil } from '../../shared/soins'
@@ -481,6 +482,18 @@ export const api = {
      * même objet — le geste se refait d'un toucher.
      */
     ouvrirLeCoffre: (semaine: string) => req<{ coffre: CoffreOuvert }>('/api/joueur/coffre', { method: 'POST', body: JSON.stringify({ semaine }) }),
+    /**
+     * Le Sphinx de l'accueil (`shared/sphinx.ts`) : la visite du jour, la phrase du Divin du moment telle qu'il la voit, et
+     * les phrases que tous ont reconstituées — sa page fermée pour lui, `{ fermee }` et rien d'autre. Demandé par la visite
+     * quand elle s'ouvre, et par l'album quand sa page des Divins s'ouvre.
+     */
+    sphinx: () => req<LeSphinx>('/api/joueur/sphinx'),
+    /**
+     * Un geste sur la visite du jour — l'écouter, la remettre à plus tard, répondre, donner sa langue au chat — et son
+     * verdict. Pas de reprise au réveil : une réponse rejouée coûterait un essai de plus ; le geste se refait d'un toucher.
+     */
+    gesteDuSphinx: (geste: GesteDuSphinx, reponse?: string) =>
+      req<VerdictDuSphinx>('/api/joueur/sphinx', { method: 'POST', body: JSON.stringify(reponse === undefined ? { geste } : { geste, reponse }) }),
     enregistrer: (patch: {
       name?: string
       avatar?: string

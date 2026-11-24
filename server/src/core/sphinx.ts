@@ -347,9 +347,12 @@ export function choisirLeMot(caches: readonly number[], siens: ReadonlySet<numbe
   return parmi[Math.floor(hasard() * parmi.length)]
 }
 
+/** Où le Sphinx lit la légende d'un Divin : `legendeDe` en ligne, une phrase inventée au banc (`phraseInventee`). */
+export type LireLaLegende = (cle: string) => string | null
+
 /** La phrase d'un Divin, reconstituée par tous : chacun de ses mots cachés trouvé au moins une fois. */
-function reconstituee(cle: string, mots: ReadonlyMap<string, ReadonlySet<number>>): boolean {
-  const legende = legendeDe(cle)
+function reconstituee(cle: string, mots: ReadonlyMap<string, ReadonlySet<number>>, legendeDuDivin: LireLaLegende): boolean {
+  const legende = legendeDuDivin(cle)
   if (!legende) return false
   const caches = cachesDe(legende)
   return caches.length > 0 && caches.every(i => mots.get(cle)?.has(i))
@@ -361,18 +364,23 @@ function reconstituee(cle: string, mots: ReadonlyMap<string, ReadonlySet<number>
  * encore trouvé chaque mot caché — une dérivation de leurs visites, rien
  * d'écrit à côté. Tous reconstitués : null.
  */
-export function divinDuMoment(mots: ReadonlyMap<string, ReadonlySet<number>>, catalogue: ReadonlySet<string> = CATALOGUE): string | null {
-  return ORDRE_DU_SPHINX.find(cle => catalogue.has(cle) && legendeDe(cle) !== null && !reconstituee(cle, mots)) ?? null
+export function divinDuMoment(
+  mots: ReadonlyMap<string, ReadonlySet<number>>,
+  catalogue: ReadonlySet<string> = CATALOGUE,
+  legendeDuDivin: LireLaLegende = legendeDe,
+): string | null {
+  return ORDRE_DU_SPHINX.find(cle => catalogue.has(cle) && legendeDuDivin(cle) !== null && !reconstituee(cle, mots, legendeDuDivin)) ?? null
 }
 
 /** Les phrases que tous ont reconstituées, dans l'ordre du Sphinx : elles se montrent entières à chacun. */
 export function phrasesReconstituees(
   mots: ReadonlyMap<string, ReadonlySet<number>>,
   catalogue: ReadonlySet<string> = CATALOGUE,
+  legendeDuDivin: LireLaLegende = legendeDe,
 ): { divin: { key: string; nom: string }; legende: string }[] {
-  return ORDRE_DU_SPHINX.filter(cle => catalogue.has(cle) && reconstituee(cle, mots)).map(cle => ({
+  return ORDRE_DU_SPHINX.filter(cle => catalogue.has(cle) && reconstituee(cle, mots, legendeDuDivin)).map(cle => ({
     divin: { key: cle, nom: leDivin(cle)?.nom ?? '' },
-    legende: legendeDe(cle)!,
+    legende: legendeDuDivin(cle)!,
   }))
 }
 
@@ -431,6 +439,17 @@ export interface DepsDuSphinx {
   tirage?: (graine: string) => number
   /** La réserve : les tests en posent une à eux (`enigmesDuSphinx`). */
   enigmes?: readonly Enigme[]
+  /**
+   * Une phrase inventée, que le Sphinx lit à la place de la légende de chaque
+   * Divin (`phraseInventeeDuSphinx`) : pour les épreuves et les photos des
+   * écrans, qui ne doivent jamais montrer une vraie légende — le propriétaire
+   * joue aussi, et une forme de phrase, ses petits mots offerts, en disent
+   * déjà trop. Jamais posée en ligne : `index.ts` ne la passe pas
+   * (`sphinx-ecran.test.ts`). Toutes les légendes à la fois, pas celle du seul
+   * Divin du moment : une phrase reconstituée fait passer au suivant, dont la
+   * vraie forme se serait montrée.
+   */
+  phraseInventee?: string
 }
 
 /** Ce qu'une lecture décide : ce que la ligne des missions en dit, et la visite à poser si elle vient d'être tirée. */
@@ -487,6 +506,16 @@ export class Sphinx {
     return this.deps.enigmes ?? enigmesDuSphinx()
   }
 
+  /**
+   * La légende d'un Divin telle que le Sphinx la lit : la sienne, ou la phrase
+   * inventée du banc — pour les seuls Divins qui ont une légende, que la
+   * liste de ceux qu'il peut nommer ne change pas.
+   */
+  private legende: LireLaLegende = cle => {
+    const vraie = legendeDe(cle)
+    return vraie !== null && this.deps.phraseInventee ? this.deps.phraseInventee : vraie
+  }
+
   private enigme(numero: string): Enigme | undefined {
     return this.enigmes.find(e => e.numero === numero)
   }
@@ -533,11 +562,11 @@ export class Sphinx {
     if (deJour) return deJour.etat === 'proposee' ? { champ: 'attend' } : deJour.etat === 'plus-tard' ? { champ: 'epingle' } : {}
     if (!estHabitue(joursJoues(activites, aujourdhui))) return {}
     if ((this.deps.tirage ?? tirageDeLaVisite)(`${profileId}|${aujourdhui}`) >= CHANCE_D_UNE_VISITE) return {}
-    const moment = divinDuMoment(this.motsDeTous())
+    const moment = divinDuMoment(this.motsDeTous(), undefined, this.legende)
     // Il le porte : il en connaît la légende, le Sphinx n'a rien à lui souffler.
     if (!moment || this.deps.profiles.divinsOf(profileId).includes(moment)) return {}
     const siens = sesMots(lignes, moment)
-    if (cachesDe(legendeDe(moment)!).every(i => siens.has(i))) return {}
+    if (cachesDe(this.legende(moment)!).every(i => siens.has(i))) return {}
     const visitesAvant = lignes.filter(l => l.etat !== 'vue').length
     const enigme = choisirLEnigme(this.enigmes, new Set(lignes.map(l => l.enigme)), visitesAvant, hasardDe(`${profileId}|${aujourdhui}|enigme`))
     if (!enigme) return {}
@@ -579,17 +608,17 @@ export class Sphinx {
   private vue(profileId: string, aujourdhui: string, lignes: readonly LigneDuSphinx[]): Pick<SphinxOuvert, 'visite' | 'phrase' | 'reconstituees'> {
     const mots = this.motsDeTous()
     const porte = new Set(this.deps.profiles.divinsOf(profileId))
-    const moment = divinDuMoment(mots)
+    const moment = divinDuMoment(mots, undefined, this.legende)
     const ligne = lignes.find(l => l.jour === aujourdhui && l.etat !== 'vue')
     return {
       visite: ligne ? this.visiteDe(ligne, lignes, porte) : null,
       phrase: moment ? this.phraseDe(moment, lignes, porte) : null,
-      reconstituees: phrasesReconstituees(mots),
+      reconstituees: phrasesReconstituees(mots, undefined, this.legende),
     }
   }
 
   private phraseDe(cle: string, lignes: readonly LigneDuSphinx[], porte: ReadonlySet<string>): PhraseDuSphinx | null {
-    const legende = legendeDe(cle)
+    const legende = this.legende(cle)
     if (!legende) return null
     return phraseVue({ key: cle, nom: leDivin(cle)?.nom ?? '' }, legende, {
       siens: sesMots(lignes, cle),
@@ -611,7 +640,7 @@ export class Sphinx {
       source: { recueil: laReserve().recueil, page: e.page, facSimile: e.facSimile },
       ...(close && { solution: e.solution, ...(e.cle && { cle: e.cle }) }),
     }
-    const texteDuMot = ligne.mot === null ? undefined : motsDeLaLegende(legendeDe(ligne.divin)!)[ligne.mot]?.texte
+    const texteDuMot = ligne.mot === null ? undefined : motsDeLaLegende(this.legende(ligne.divin)!)[ligne.mot]?.texte
     return {
       jour: ligne.jour,
       etat: ligne.etat,
@@ -648,7 +677,7 @@ export class Sphinx {
       let motNeuf: boolean | undefined
       if (issue.apres.etat === 'resolue') {
         const deTous = this.motsDeTous().get(ligne.divin) ?? new Set<number>()
-        const legende = legendeDe(ligne.divin)
+        const legende = this.legende(ligne.divin)
         mot = legende ? choisirLeMot(cachesDe(legende), sesMots(lignes, ligne.divin), deTous, hasardDe(`${profileId}|${ligne.jour}|mot`)) : null
         motNeuf = mot !== null && !deTous.has(mot)
       }

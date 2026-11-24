@@ -311,6 +311,7 @@ export function AccueilJouer({
   etats = RIEN_DE_FERME,
   cabinet = cabinetIci(),
   nouvelles = RIEN_DE_NOUVEAU,
+  epingle,
 }: {
   enCours: { nom: string; slug: string }[]
   onRejoindre: () => void
@@ -335,6 +336,11 @@ export function AccueilJouer({
   cabinet?: boolean
   /** Les pages à l'affiche où il n'est pas encore allé (`ceQueMontreLAccueil`) : « Nouveau » sur leur bouton. */
   nouvelles?: readonly PageALAffiche[]
+  /**
+   * Le Sphinx remis à plus tard, épinglé jusqu'à minuit (`EpingleDuSphinx`, venu à la demande) : à droite du nom
+   * d'« Entre amis », entre deux cartes — sur aucun bouton, loin de la niche du compagnon.
+   */
+  epingle?: ReactNode
 }) {
   // Joué aujourd'hui (à l'heure de Paris) : le bouton le dit, sans pastille.
   // Le jour vient du serveur : calculé ici, son `Intl` chargeait les données
@@ -456,6 +462,8 @@ export function AccueilJouer({
         <span className="label" id="jouer-amis">
           Entre amis
         </span>
+        {/* Hors de son nom, qui nomme la section au lecteur d'écran : à côté, posé en absolu par sa feuille. */}
+        {epingle}
         {/* Une carte elle aussi, coupée en deux : les deux boutons côte à côte, leur nom d'abord. Leur ligne dit le plus
             court — la moitié d'une rangée n'a pas la place de « Avec son code, ou le QR de l'hôte ». */}
         <div className="jouer-carte jouer-duo">
