@@ -22,7 +22,7 @@ import { MOT_DU_CABINET, QCM_DU_CABINET, VALEUR_DU_CABINET, preparationDe } from
 import { detailsDeLaBase, tableauxDuDetailEnTranches } from '../../details'
 import { cibleDeLEstimation, supposeDesChoix } from '../../estimation'
 import type { PorteDeLaCampagne } from '../../porteDeLaCampagne'
-import { QUESTIONS_PAR_TRANCHE, rendreLaMain } from '../../tourniquet'
+import { QUESTIONS_PAR_TRANCHE, enTranches, rendreLaMain } from '../../tourniquet'
 import { contenuDuCabinetEnTranches, ecritDansLesMots } from '../contenu'
 import type { CeQueLesTireursLisent } from './communs'
 import {
@@ -38,6 +38,7 @@ import { motDeLaQuestion } from '../../../../../shared/cabinet/jeux/mot'
 import { emojiDUnSujet, type ThemeDuQuiz } from '../../../../../shared/cabinet/traversee'
 import { formeDeReponse, niveauDeQuestion, type MesureDUneQuestion } from '../../../../../shared/campagne'
 import { CATEGORIES, type Categorie } from '../../../../../shared/categories'
+import { dUneTraite, type CalculEnTranches } from '../../../../../shared/tranches'
 import { choisirLaFriseSansRepli, type EvenementDeLaFrise } from '../../../../../shared/frise'
 import { estRemplace, sujetParCle, sujetsDe, sujetsEtRubriqueDe } from '../../../../../shared/sujets'
 
@@ -320,29 +321,59 @@ const FRISES_DES_SUJETS = new WeakMap<readonly QuestionDeLaBase[], readonly Suje
  * la règle même du tirage (`choisirLaFriseSansRepli`) : « 1900 à 1918 » n'en a
  * qu'une suite, un sujet trop serré aucune. Soixante et un sujets sur la base
  * du 25 octobre 2026 (`cabinet-jeux-images.test.ts` en garde un plancher).
- * Quelques millisecondes par liste : une étape du tourniquet à elle seule.
+ * D'une traite pour le tireur qui les trouve pas prêtes ; en tranches pour les
+ * tas (`frisesEnTranches`).
  */
 export function frisesDesSujets(porte: CeQueLaBaseDonne, jouables: readonly QuestionDeLaBase[]): readonly SujetDeLaFrise[] {
   const gardees = FRISES_DES_SUJETS.get(jouables)
   if (gardees) return gardees
+  const sujets = dUneTraite(frisesEnTranches(porte, jouables))
+  FRISES_DES_SUJETS.set(jouables, sujets)
+  return sujets
+}
+
+/** Les événements des frises rangés sous leurs sujets d'une traite, puis les sujets jugés d'une traite. */
+export const EVENEMENTS_D_UNE_TRANCHE_DES_FRISES = 400
+export const SUJETS_D_UNE_TRANCHE_DES_FRISES = 8
+
+/**
+ * Les frises des sujets en tranches : les événements lus d'abord — leur table
+ * et leurs dates, une étape —, puis rangés sous leurs sujets
+ * (`EVENEMENTS_D_UNE_TRANCHE_DES_FRISES` par tranche : les sujets d'une
+ * question se relisent pour chacun), puis chaque sujet jugé
+ * (`SUJETS_D_UNE_TRANCHE_DES_FRISES` par tranche : la règle du tirage cherche
+ * sa suite). D'une traite, c'était la plus longue étape des tas — 9 à 16 ms sur
+ * un vrai cœur, au banc de la correction du QG du 24 novembre 2026, sous le
+ * gel des tas que la production relevait chaque matin. Le tireur qui les
+ * trouve pas prêtes le mène d'une traite, le même calcul (`cabinet-charge.test.ts`).
+ */
+export function* frisesEnTranches(porte: CeQueLaBaseDonne, jouables: readonly QuestionDeLaBase[]): CalculEnTranches<readonly SujetDeLaFrise[]> {
   const parId = porte.parIdDe(jouables)
+  const evenements = porte.evenementsDe(jouables)
   const parSujet = new Map<string, EvenementDeLaFrise[]>()
-  for (const e of porte.evenementsDe(jouables)) {
-    const q = parId.get(e.id)
-    if (!q) continue
-    for (const cle of sujetsDe(q.meta)) {
-      if (estRemplace(cle)) continue
-      let siens = parSujet.get(cle)
-      if (!siens) parSujet.set(cle, (siens = []))
-      siens.push(e)
+  for (let debut = 0; debut < evenements.length; debut += EVENEMENTS_D_UNE_TRANCHE_DES_FRISES) {
+    yield
+    for (const e of evenements.slice(debut, debut + EVENEMENTS_D_UNE_TRANCHE_DES_FRISES)) {
+      const q = parId.get(e.id)
+      if (!q) continue
+      for (const cle of sujetsDe(q.meta)) {
+        if (estRemplace(cle)) continue
+        let siens = parSujet.get(cle)
+        if (!siens) parSujet.set(cle, (siens = []))
+        siens.push(e)
+      }
     }
   }
-  const sujets = [...parSujet].flatMap(([cle, evenements]): SujetDeLaFrise[] => {
-    const sujet = sujetParCle(cle)
-    // Qu'une suite tienne l'écart ne dépend pas du hasard : il ne fait que choisir laquelle.
-    return sujet && choisirLaFriseSansRepli(evenements, ECART_DES_ANNEES_DE_LA_FRISE, EVENEMENTS_D_UNE_FRISE_A_THEME, () => 0) ? [{ cle, nom: sujet.nom, evenements }] : []
-  })
-  FRISES_DES_SUJETS.set(jouables, sujets)
+  const sujets: SujetDeLaFrise[] = []
+  const aJuger = [...parSujet]
+  for (let debut = 0; debut < aJuger.length; debut += SUJETS_D_UNE_TRANCHE_DES_FRISES) {
+    yield
+    for (const [cle, siens] of aJuger.slice(debut, debut + SUJETS_D_UNE_TRANCHE_DES_FRISES)) {
+      const sujet = sujetParCle(cle)
+      // Qu'une suite tienne l'écart ne dépend pas du hasard : il ne fait que choisir laquelle.
+      if (sujet && choisirLaFriseSansRepli(siens, ECART_DES_ANNEES_DE_LA_FRISE, EVENEMENTS_D_UNE_FRISE_A_THEME, () => 0)) sujets.push({ cle, nom: sujet.nom, evenements: siens })
+    }
+  }
   return sujets
 }
 
@@ -467,10 +498,13 @@ export const LECTURES_DU_DISQUE: readonly (() => unknown)[] = [tableauxDuDetailE
  * ce qu'ils lisent de cette base.
  */
 export async function preparerLesTas(
-  porte: CeQueLesTireursLisent & Partial<Pick<PorteDeLaCampagne, 'mesures'>>,
+  porte: CeQueLesTireursLisent & Partial<Pick<PorteDeLaCampagne, 'mesures' | 'preparerLesTables'>>,
   jouables: readonly QuestionDeLaBase[],
   lectures: readonly (() => unknown)[] = LECTURES_DU_DISQUE,
 ): Promise<void> {
+  // Les tables de la liste d'abord, en tranches : la première catégorie rangeait celle des catégories d'une traite, la
+  // question des tableaux celle des identifiants.
+  await porte.preparerLesTables?.(jouables)
   for (const c of CATEGORIES) {
     await rendreLaMain()
     const parCategorie = tasDeLaListe(jouables)
@@ -504,6 +538,8 @@ export async function preparerLesTas(
   if (!litLaBase(porte)) return
   await rendreLaMain()
   questionsDesTableaux(porte, jouables)
-  await rendreLaMain()
-  frisesDesSujets(porte, jouables)
+  if (FRISES_DES_SUJETS.has(jouables)) return
+  const frises = await enTranches(frisesEnTranches(porte, jouables))
+  // Un tireur qui les a faites d'une traite pendant ce temps l'emporte : c'est celles qu'il a tirées.
+  if (!FRISES_DES_SUJETS.has(jouables)) FRISES_DES_SUJETS.set(jouables, frises)
 }

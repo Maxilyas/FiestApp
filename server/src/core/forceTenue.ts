@@ -137,7 +137,7 @@ export class ForceTenue {
    * sa semaine glisse — et quand sa force change : elle en part.
    */
   saSemaine(heure: number, depuis: number, forceDeDepart: number, seuil: number): void {
-    if (this.heure === heure || !this.lui) return
+    if (this.semaineAJour(heure)) return
     this.anciennes.fill(0)
     this.recentes.fill(0)
     let avant = 0
@@ -151,7 +151,12 @@ export class ForceTenue {
         this.anciennes[this.categories[i]]++
       } else this.recentes[this.categories[i]]++
     }
-    this.luiAvant = this.lui.reponses < seuil ? null : forceDesTableaux({ difficultes: this.difficultes, categories: this.categories, quelles, justes }, forceDeDepart, this.lui)
+    this.luiAvant = this.lui!.reponses < seuil ? null : forceDesTableaux({ difficultes: this.difficultes, categories: this.categories, quelles, justes }, forceDeDepart, this.lui!)
     this.heure = heure
+  }
+
+  /** Sa semaine n'a rien à refaire à cette heure : faite, ou sans force d'où partir. */
+  semaineAJour(heure: number): boolean {
+    return this.heure === heure || !this.lui
   }
 }

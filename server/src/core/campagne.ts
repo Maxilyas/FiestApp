@@ -16,7 +16,7 @@ import { enTranches, laisserPasserLaSalle, rendreLaMain } from './tourniquet'
 import { LECTURES_GARDEES_MS, LecturesGardees, type LectureDansUnLot } from './lecturesGardees'
 import { preparationDe } from './preparees'
 import { QUESTIONS_D_UNE_TRANCHE, dUneTraite, type CalculEnTranches } from '../../../shared/tranches'
-import { enFond, sousLeNom, suivre } from './gels'
+import { enFond, pendant, sousLeNom, suivre } from './gels'
 import {
   CARTES_DU_SECOND_ESSAI,
   DECLENCHEURS_DES_TRANCHES,
@@ -2445,6 +2445,37 @@ export class CampagneStore {
     return parId
   }
 
+  /**
+   * Les deux tables d'une liste neuve — chaque jouable par son identifiant
+   * (`parIdDe`), celles de chaque catégorie (`deLaCategorie`) —, rangées en
+   * tranches de `this.tranche` questions, une par tour de boucle, avant que les
+   * tas du Cabinet ne les lisent (`preparerLesTables`, `porteDeLaCampagne.ts`).
+   * Chacune se rangeait d'une traite sous la première étape qui la demandait :
+   * sur les vingt-huit mille huit cents questions de la base, 7 et 4 ms sur un
+   * vrai cœur — et les tas du Cabinet gelaient chaque matin, après les dépôts
+   * de la routine, de 0,9 à 2,3 s en production (le bilan du 24 novembre 2026).
+   * Les mêmes tables que d'une traite, dans le même ordre ; une demande arrivée
+   * pendant ce temps les range pour elle, et ce qu'elle a rangé l'emporte.
+   */
+  private async preparerLesTables(jouables: readonly QuestionDeLaBase[]): Promise<void> {
+    if (this.parIdGardes.has(jouables) && this.listesDesCategories.has(jouables)) return
+    const parId = new Map<string, QuestionDeLaBase>()
+    const parCategorie = new Map<string, QuestionDeLaBase[]>()
+    for (let debut = 0; debut < jouables.length; debut += this.tranche) {
+      await rendreLaMain()
+      if (this.ferme) return
+      for (let i = debut; i < Math.min(debut + this.tranche, jouables.length); i++) {
+        const q = jouables[i]
+        parId.set(q.id, q)
+        const siennes = parCategorie.get(q.meta.categorie)
+        if (siennes) siennes.push(q)
+        else parCategorie.set(q.meta.categorie, [q])
+      }
+    }
+    if (!this.parIdGardes.has(jouables)) this.parIdGardes.set(jouables, parId)
+    if (!this.listesDesCategories.has(jouables)) this.listesDesCategories.set(jouables, parCategorie)
+  }
+
   /** Les événements des frises (v13) que ces jouables datent, gardés avec elles : une base neuve les relit. */
   private evenementsGardes = new WeakMap<readonly QuestionDeLaBase[], readonly EvenementDeLaFrise[]>()
 
@@ -2864,7 +2895,16 @@ export class CampagneStore {
     return this.avecVerrou(profileId, async () => {
       const suivi = sujet === undefined ? undefined : sujetParCle(sujet)
       if (sujet !== undefined && !suivi) throw new Error('Ce sujet n’existe plus : choisis-en un autre')
-      const [toutes, mesure, vues, laissee] = await Promise.all([this.jouables(suivi ? undefined : categories), this.mesures(), this.vuesPar(profileId), this.serieEnCours(profileId)])
+      // Ses étapes se nomment pour la sonde des gels (`core/gels.ts`) : du 16 au 24 novembre 2026, la production a gelé
+      // neuf fois sous cette seule route, jusqu'à 2,9 s, sur le premier départ après dix à trente minutes de calme — et le
+      // banc, même bridé au dixième de cœur et laissé au calme, ne gelait pas (`retours/2026-11-24/`) : le relevé dira
+      // laquelle.
+      const [toutes, mesure, vues, laissee] = await Promise.all([
+        pendant('campagne · questions jouables', this.jouables(suivi ? undefined : categories)),
+        this.mesures(),
+        pendant('campagne · ce qu’il a vu', this.vuesPar(profileId)),
+        this.serieEnCours(profileId),
+      ])
       const jouables = suivi ? this.duSujet(toutes, suivi.cle) : toutes
       if (jouables.length < QUESTIONS_POUR_JOUER) {
         throw new Error(
@@ -2876,7 +2916,8 @@ export class CampagneStore {
         )
       }
       const maintenant = this.maintenant()
-      const questions = (await this.tirage(jouables, mesure)).tirer(vues, maintenant).map(x => versQuestionDeSerie(x.question, x.niveau))
+      const preparation = await pendant('campagne · tirage d’une série', this.tirage(jouables, mesure))
+      const questions = sousLeNom('campagne · tirage d’une série', () => preparation.tirer(vues, maintenant).map(x => versQuestionDeSerie(x.question, x.niveau)))
       const serie: Serie = {
         id: randomUUID(),
         profileId,
@@ -2912,7 +2953,7 @@ export class CampagneStore {
       // joué fait tomber ses hauts faits — trente bonnes réponses avant de
       // poser le téléphone font la Grande Série. Rien ne s'annonce : la
       // nouvelle commence, et la collection les garde.
-      if (laissee) await this.recompenserLaSerie(profileId, { ...laissee, finieLe: maintenant })
+      if (laissee) await pendant('campagne · série laissée récompensée', this.recompenserLaSerie(profileId, { ...laissee, finieLe: maintenant }))
       return vueDeSerie(serie)
     })
   }
@@ -3283,6 +3324,7 @@ export class CampagneStore {
       mesures: () => this.mesures(),
       parIdDe: jouables => this.parIdDe(jouables),
       deLaCategorie: (jouables, categorie) => this.deLaCategorie(jouables, categorie),
+      preparerLesTables: jouables => this.preparerLesTables(jouables),
       evenementsDe: jouables => this.evenementsDe(jouables),
       // Sans lecture, le journal seul, frais s'il a été lu depuis la dernière réponse écrite ici : le tirage d'un départ
       // ne paie rien quand la page vient de le rattraper. Celui de la campagne (`lireAvecLeJournal([])`) le relit
@@ -6724,13 +6766,20 @@ export class CampagneStore {
   ): Promise<ChanceDuSentier[] | undefined> {
     const reference = await this.referencePour(jouables, mesure, modele)
     const tenue = this.forceTenue(profileId, journal, reference, base, modele, mesure)
-    const lui = tenue.lui!
-    if (lui.reponses < PREMIERES_REPONSES_POUR_SA_CHANCE) return undefined
+    if (tenue.lui!.reponses < PREMIERES_REPONSES_POUR_SA_CHANCE) return undefined
     const maintenant = this.maintenant()
+    const heure = Math.floor(maintenant / HEURE_MS)
+    // Sa semaine, quand elle se refait, à son propre tour de boucle : au retour d'une épreuve, sa force et sa semaine
+    // se refaisaient d'un seul tenant — deux passes du modèle sur toutes ses premières réponses, le « ×2 » de la sonde —,
+    // et la production gelait de 0,5 à 2,4 s sous la page des sentiers (le bilan du 24 novembre 2026). Un
+    // `setImmediate`, pas le tourniquet : la page ne passe pas derrière le travail de fond qui attend son tour.
+    if (!tenue.semaineAJour(heure)) await new Promise(rendre => setImmediate(rendre))
     // Sous son nom pour la sonde des gels (`core/gels.ts`) : s'il gèle encore, le relevé le dira.
     sousLeNom('campagne · force sur les sentiers', () =>
-      tenue.saSemaine(Math.floor(maintenant / HEURE_MS), maintenant - JOURS_DE_SA_PROGRESSION * 24 * HEURE_MS, reference.forceDeDepart, PREMIERES_REPONSES_POUR_SA_CHANCE),
+      tenue.saSemaine(heure, maintenant - JOURS_DE_SA_PROGRESSION * 24 * HEURE_MS, reference.forceDeDepart, PREMIERES_REPONSES_POUR_SA_CHANCE),
     )
+    // Relue après le tour rendu : une autre lecture a pu la tenir à jour entre-temps, et sa semaine en part.
+    const lui = tenue.lui!
     const { luiAvant, anciennes, recentes } = tenue
     const avantSeLit = luiAvant !== null && luiAvant.reponses >= PREMIERES_REPONSES_POUR_SA_CHANCE
     const melanges = this.melangesRegles()

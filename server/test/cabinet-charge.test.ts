@@ -79,7 +79,19 @@ import { motDeLaQuestion } from '../../shared/cabinet/jeux/mot'
 import { PARTIES_GARDEES, type PartieLue } from '../src/core/cabinet/magasin'
 import { vueDeLaPartie } from '../src/core/cabinet/vue'
 import { contenuDuCabinet, contenuDuCabinetEnTranches } from '../src/core/cabinet/contenu'
-import { estUnQcmDuCabinet, LECTURES_DU_DISQUE, motsDeLaCategorie, preparerLesTas, qcmDeLaCategorie, valeurDuFilet, valeursDeLaCategorie } from '../src/core/cabinet/tirages/tas'
+import {
+  EVENEMENTS_D_UNE_TRANCHE_DES_FRISES,
+  estUnQcmDuCabinet,
+  frisesDesSujets,
+  frisesEnTranches,
+  LECTURES_DU_DISQUE,
+  motsDeLaCategorie,
+  preparerLesTas,
+  qcmDeLaCategorie,
+  valeurDuFilet,
+  valeursDeLaCategorie,
+} from '../src/core/cabinet/tirages/tas'
+import { QUESTIONS_D_UNE_TRANCHE } from '../../shared/tranches'
 import { tirerLePlan } from '../src/core/cabinet/tirages/index'
 import { ENJEU_ORDINAIRE } from '../../shared/cabinet/partie'
 import { BaseDeLaCampagne, lireLaBase, QUESTIONS_PAR_TRANCHE, type QuestionDeLaBase } from '../src/core/baseCampagne'
@@ -472,6 +484,68 @@ test('les tas de la base livrée : une tranche de questions au crible par tour d
       assert.deepEqual(lesIds(qcmDeLaCategorie(porte, neuve, c)), lesIds(siennes.filter(estUnQcmDuCabinet)), `les QCM de ${c}`)
       assert.deepEqual(lesIds(motsDeLaCategorie(porte, neuve, c)), lesIds(siennes.filter(q => motDeLaQuestion(q) !== null)), `les mots de ${c}`)
       assert.deepEqual(lesIds(valeursDeLaCategorie(porte, neuve, c)), lesIds(siennes.filter(q => valeurDuFilet(q) !== null)), `les valeurs de ${c}`)
+    }
+  } finally {
+    compteur.arreter()
+  }
+})
+
+test('les tables d’une liste neuve et les frises des sujets se rangent par tranches : aucun tour des tas n’en range plus d’une', async () => {
+  // Chaque matin, après les dépôts de la routine, la production gelait sous « fond · tas du Cabinet » de 0,9 à 2,3 s
+  // (le bilan du 24 novembre 2026) : la première catégorie rangeait la table des catégories d'une traite, la question
+  // des tableaux celle des identifiants, et les frises des sujets se faisaient d'un bloc — 4, 7 et 9 à 16 ms sur un vrai
+  // cœur pour la base livrée. On compte ce que chaque tour de boucle lit, jamais le temps.
+  const { campagne } = await magasinDEssai(path.join(dossierDEssai(), 'tables.db'), { t: DIX_HEURES }, baseLivree())
+  const porte = campagne.porte()
+  const jouables = await porte.jouables()
+  const compteur = compteurDeTours()
+  /** Les identifiants lus, tour par tour : les deux tables lisent celui de chaque question, et rien d'autre de la préparation. */
+  const lus = new Map<number, number>()
+  const liste = jouables.map(
+    q =>
+      new Proxy(q, {
+        get(cible, cle, recepteur) {
+          if (cle === 'id') lus.set(compteur.tour(), (lus.get(compteur.tour()) ?? 0) + 1)
+          return Reflect.get(cible, cle, recepteur)
+        },
+      }),
+  )
+  try {
+    await porte.preparerLesTables(liste)
+    const parTour = [...lus.values()]
+    assert.equal(
+      parTour.reduce((n, k) => n + k, 0),
+      liste.length,
+      'chaque question lue une fois',
+    )
+    assert.ok(parTour.length > 1 && Math.max(...parTour) <= QUESTIONS_D_UNE_TRANCHE, `un tour range ${Math.max(...parTour)} questions, pour ${QUESTIONS_D_UNE_TRANCHE} par tranche`)
+    // Les mêmes tables que d'une traite, et gardées : la demande qui suit ne relit rien.
+    lus.clear()
+    const rangeeDUneTraite = [...liste]
+    assert.deepEqual(lesIds([...porte.parIdDe(liste).values()]), lesIds([...porte.parIdDe(rangeeDUneTraite).values()]))
+    for (const c of CATEGORIES) assert.deepEqual(lesIds(porte.deLaCategorie(liste, c)), lesIds(porte.deLaCategorie(rangeeDUneTraite, c)), `les jouables de ${c}`)
+    lus.clear()
+    porte.parIdDe(liste)
+    porte.deLaCategorie(liste, CATEGORIES[0])
+    assert.equal(lus.size, 0, 'gardées : rien ne se relit')
+
+    // Les frises des sujets, tranche par tranche : des événements rangés sous leurs sujets, puis des sujets jugés.
+    const frises = frisesEnTranches(porte, liste)
+    let tranches = 0
+    for (let r = frises.next(); !r.done; r = frises.next()) tranches++
+    const evenements = porte.evenementsDe(liste).length
+    assert.ok(evenements > EVENEMENTS_D_UNE_TRANCHE_DES_FRISES, `${evenements} événements : la base livrée en a assez pour plusieurs tranches`)
+    assert.ok(tranches >= Math.ceil(evenements / EVENEMENTS_D_UNE_TRANCHE_DES_FRISES) + 1, `${tranches} tranches pour ${evenements} événements`)
+    // Préparées par les tas, elles sont celles que le tireur lit, sans se refaire sous lui.
+    await preparerLesTas(porte, liste, [])
+    const lesEvenements = porte.evenementsDe
+    let relus = 0
+    porte.evenementsDe = j => (relus++, lesEvenements(j))
+    try {
+      assert.ok(frisesDesSujets(porte, liste).length > 0)
+      assert.equal(relus, 0, 'prêtes : le tireur ne les refait pas')
+    } finally {
+      porte.evenementsDe = lesEvenements
     }
   } finally {
     compteur.arreter()

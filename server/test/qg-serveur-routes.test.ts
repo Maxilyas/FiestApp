@@ -290,6 +290,29 @@ test('une version ne ralentit que ce qui se sent — 200 ms de plus au moins —
   assert.deepEqual(neuve.ralenties, [{ route: 'POST /api/cabinet/traversee/:id/geste', avant: 300, apres: 520 }])
 })
 
+test('une heure de hoquet ne fait pas une version qui ralentit : les routes se comparent sur leur heure médiane', () => {
+  // `GET /api/jour` sous `6c6e74d`, le 23 novembre 2026 : 81 appels sur dix-sept heures, autour de 150 ms, et deux à
+  // 10,3 s à 21 h, quand Turso ne répondait plus — la moyenne des heures disait 468 ms, et la règle « 238 → 508 ms ».
+  const heure = debutDeLHeure(maintenant)
+  const demarrages = [
+    demarrage('a', { version: 'a41c9e2', demarreLe: heure - 50 * H, vuLe: heure - 26 * H, arreteLe: heure - 26 * H }),
+    demarrage('b', { version: 'b52d0f3', demarreLe: heure - 25 * H, vuLe: maintenant }),
+  ]
+  const jour = (p95: number, n: number) => ({ parRoute: [route({ route: 'GET /api/jour', n, p95 })] })
+  const lignes = [
+    ...[[92, 8], [114, 4], [53, 3], [545, 8], [344, 7], [86, 2], [47, 3], [315, 3]].map(([p95, n], i) => ligne(heure - (48 - i) * H, 'a', jour(p95, n))),
+    ...[[338, 6], [70, 5], [287, 3], [367, 5], [156, 4], [129, 13], [148, 3], [161, 7], [10_302, 2], [380, 9], [357, 8], [112, 6], [50, 4]].map(
+      ([p95, n], i) => ligne(heure - (24 - i) * H, 'b', jour(p95, n)),
+    ),
+  ]
+  const [neuve] = versionsDuServeur(lignes, demarrages, maintenant, 'b')
+  assert.deepEqual(neuve.ralenties, [], 'une heure à dix secondes, les autres comme avant')
+  // Une vraie lenteur, elle, touche la plupart des heures : la même route, chaque heure 300 ms plus lente.
+  const plusLente = lignes.map(l => (l.demarrage === 'b' ? { ...l, parRoute: l.parRoute!.map(r => ({ ...r, p95: r.p95 + 300 })) } : l))
+  const [ralentie] = versionsDuServeur(plusLente, demarrages, maintenant, 'b')
+  assert.deepEqual(ralentie.ralenties, [{ route: 'GET /api/jour', avant: 114, apres: 461 }])
+})
+
 test('un vrai serveur relève chaque route servie, et sa page se lit sur une heure, une journée ou une semaine', async () => {
   const banc = await demarrer()
   try {

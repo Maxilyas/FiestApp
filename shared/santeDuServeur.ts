@@ -1306,6 +1306,42 @@ function cumulsDesRoutes<L>(lignes: readonly L[], lire: LireLaTable<L>): Map<str
   return cumuls
 }
 
+/** Une route sur des heures, pour comparer deux versions : ses appels, et le 95ᵉ centile de son heure médiane. */
+interface CentileDesHeures {
+  n: number
+  p95: number
+}
+
+/**
+ * Le 95ᵉ centile de chaque route sur des heures, tel que deux versions se
+ * comparent : celui de l'heure médiane, chaque heure pesant ses appels — pas
+ * leur moyenne. Sur une route peu appelée, une seule heure de hoquet faisait la
+ * version : `GET /api/jour` sous `6c6e74d`, 81 appels autour de 150 ms et deux
+ * à 10,3 s le 23 novembre 2026 à 21 h, quand Turso ne répondait plus — la
+ * moyenne disait 468 ms, la règle « 238 → 508 ms ». Une lenteur qu'apporte une
+ * version touche la plupart de ses heures, et l'heure médiane avec elles.
+ */
+function centileDesHeures(lignes: readonly Pick<HeureDeSante, 'parRoute'>[]): Map<string, CentileDesHeures> {
+  const heures = new Map<string, { n: number; p95: number }[]>()
+  for (const l of lignes) {
+    for (const r of l.parRoute ?? []) {
+      if (r.n <= 0) continue
+      const siennes = heures.get(r.route) ?? []
+      siennes.push({ n: r.n, p95: r.p95 })
+      heures.set(r.route, siennes)
+    }
+  }
+  const centiles = new Map<string, CentileDesHeures>()
+  for (const [route, siennes] of heures) {
+    const n = siennes.reduce((s, h) => s + h.n, 0)
+    siennes.sort((a, b) => a.p95 - b.p95)
+    let vus = 0
+    const mediane = siennes.find(h => (vus += h.n) * 2 >= n) ?? siennes[siennes.length - 1]
+    centiles.set(route, { n, p95: mediane.p95 })
+  }
+  return centiles
+}
+
 const routeDuCumul = (route: string, c: CumulDUneRoute): RouteDeLHeure => ({
   route,
   n: c.n,
@@ -1436,8 +1472,9 @@ export function tempsReelDeLaPeriode(
  * réveil fait attendre le premier accueil près de trente secondes sous toutes
  * les versions, et comptait pour celle qui en avait eu le plus — `a929c69`
  * passait pour avoir porté `GET /api/joueur/moi` de 779 ms à 2,1 s, sur cinq
- * réveils de nuit (le bilan du 23 novembre 2026). Ce qu'un joueur a attendu
- * sous elle (`routes`), lui, les garde : il les a attendus.
+ * réveils de nuit (le bilan du 23 novembre 2026). Et sur le 95ᵉ centile de
+ * leur heure médiane (`centileDesHeures`). Ce qu'un joueur a attendu sous elle
+ * (`routes`), lui, garde tout : il l'a attendu.
  */
 export function versionsDuServeur(
   lignes: readonly HeureDeSante[],
@@ -1460,7 +1497,7 @@ export function versionsDuServeur(
   }
   const ordre = [...parVersion].sort(([, a], [, b]) => Math.min(...a.demarrages.map(d => d.demarreLe)) - Math.min(...b.demarrages.map(d => d.demarreLe)))
   const versions: VersionDuServeur[] = []
-  let avant: Map<string, CumulDUneRoute> | null = null
+  let avant: Map<string, CentileDesHeures> | null = null
   for (const [version, v] of ordre) {
     let n = 0
     let s50 = 0
@@ -1484,18 +1521,13 @@ export function versionsDuServeur(
         memoire = Math.max(memoire ?? 0, l.charge.memoireMaxMo)
       }
     }
-    const routes = cumulsDesRoutes(
-      v.lignes.filter(l => l.heure !== heureDuDemarrage.get(l.demarrage)),
-      sesRoutes,
-    )
+    const routes = centileDesHeures(v.lignes.filter(l => l.heure !== heureDuDemarrage.get(l.demarrage)))
     const ralenties: VersionDuServeur['ralenties'] = []
     for (const [route, c] of avant ?? []) {
       const ici = routes.get(route)
       if (!ici || ici.n < APPELS_POUR_COMPARER || c.n < APPELS_POUR_COMPARER) continue
-      const p95Avant = c.s95 / c.n
-      const p95Apres = ici.s95 / ici.n
-      if (p95Avant > 0 && p95Apres >= p95Avant * RALENTIE_DE && p95Apres - p95Avant >= ECART_QUI_SE_SENT_MS) {
-        ralenties.push({ route, avant: Math.round(p95Avant), apres: Math.round(p95Apres) })
+      if (c.p95 > 0 && ici.p95 >= c.p95 * RALENTIE_DE && ici.p95 - c.p95 >= ECART_QUI_SE_SENT_MS) {
+        ralenties.push({ route, avant: Math.round(c.p95), apres: Math.round(ici.p95) })
       }
     }
     ralenties.sort((a, b) => b.apres / b.avant - a.apres / a.avant)
