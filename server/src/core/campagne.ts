@@ -6756,13 +6756,20 @@ export class CampagneStore {
   ): Promise<ChanceDuSentier[] | undefined> {
     const reference = await this.referencePour(jouables, mesure, modele)
     const tenue = this.forceTenue(profileId, journal, reference, base, modele, mesure)
-    const lui = tenue.lui!
-    if (lui.reponses < PREMIERES_REPONSES_POUR_SA_CHANCE) return undefined
+    if (tenue.lui!.reponses < PREMIERES_REPONSES_POUR_SA_CHANCE) return undefined
     const maintenant = this.maintenant()
+    const heure = Math.floor(maintenant / HEURE_MS)
+    // Sa semaine, quand elle se refait, à son propre tour de boucle : au retour d'une épreuve, sa force et sa semaine
+    // se refaisaient d'un seul tenant — deux passes du modèle sur toutes ses premières réponses, le « ×2 » de la sonde —,
+    // et la production gelait de 0,5 à 2,4 s sous la page des sentiers (le bilan du 24 novembre 2026). Un
+    // `setImmediate`, pas le tourniquet : la page ne passe pas derrière le travail de fond qui attend son tour.
+    if (!tenue.semaineAJour(heure)) await new Promise(rendre => setImmediate(rendre))
     // Sous son nom pour la sonde des gels (`core/gels.ts`) : s'il gèle encore, le relevé le dira.
     sousLeNom('campagne · force sur les sentiers', () =>
-      tenue.saSemaine(Math.floor(maintenant / HEURE_MS), maintenant - JOURS_DE_SA_PROGRESSION * 24 * HEURE_MS, reference.forceDeDepart, PREMIERES_REPONSES_POUR_SA_CHANCE),
+      tenue.saSemaine(heure, maintenant - JOURS_DE_SA_PROGRESSION * 24 * HEURE_MS, reference.forceDeDepart, PREMIERES_REPONSES_POUR_SA_CHANCE),
     )
+    // Relue après le tour rendu : une autre lecture a pu la tenir à jour entre-temps, et sa semaine en part.
+    const lui = tenue.lui!
     const { luiAvant, anciennes, recentes } = tenue
     const avantSeLit = luiAvant !== null && luiAvant.reponses >= PREMIERES_REPONSES_POUR_SA_CHANCE
     const melanges = this.melangesRegles()

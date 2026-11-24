@@ -23,6 +23,7 @@ import {
   type EtatDesSentiers,
 } from '../../shared/sentiers'
 import { chance, chanceDeLEpreuve, indiceDeCategorie, serieDeReference } from '../src/core/modeleDuSavoir'
+import { ForceTenue } from '../src/core/forceTenue'
 
 // ── Les règles pures ───────────────────────────────────────────────────────
 
@@ -195,6 +196,54 @@ test('sa force se garde d’une visite à l’autre : la même que refaite de z�
     const apres = (await lireLesSentiers(banc.url, ines)).pourToi
     assert.ok(sur(apres, 'stade')!.chance < sur(premiere, 'stade')!.chance - 0.05, `le stade : ${sur(premiere, 'stade')!.chance} puis ${sur(apres, 'stade')!.chance}`)
   } finally {
+    await banc.close()
+  }
+})
+
+test('au retour d’une épreuve, sa force et sa semaine se refont chacune à son tour de boucle', async () => {
+  // Deux passes du modèle sur toutes ses premières réponses d'un seul tenant — « campagne · force sur les sentiers ×2 »
+  // à la sonde : onze gels de 0,5 à 2,4 s sous la page des sentiers en production, du 16 au 24 novembre 2026. On compte
+  // les tours de boucle, jamais le temps.
+  const banc = await demarrer({ horlogeDuJour: () => DEBUT, baseDeLaCampagne: BASE, prechauffageCampagneMs: 3_600_000 })
+  const { tenir, saSemaine } = ForceTenue.prototype
+  let tour = 0
+  let tourne = true
+  const tic = () => {
+    tour++
+    if (tourne) setImmediate(tic)
+  }
+  setImmediate(tic)
+  const refaites: { quoi: 'force' | 'semaine'; tour: number }[] = []
+  ForceTenue.prototype.tenir = function (this: ForceTenue, ...args: Parameters<ForceTenue['tenir']>) {
+    const avant = this.lui
+    const lui = tenir.apply(this, args)
+    if (lui !== avant) refaites.push({ quoi: 'force', tour })
+    return lui
+  }
+  ForceTenue.prototype.saSemaine = function (this: ForceTenue, ...args: Parameters<ForceTenue['saSemaine']>) {
+    if (!this.semaineAJour(args[0])) refaites.push({ quoi: 'semaine', tour })
+    return saSemaine.apply(this, args)
+  }
+  try {
+    const noe = await inscrireProfil(banc.url, 'noe', 'Noé', '🦊')
+    const id = await idDuProfil(banc.url, noe)
+    ecrireUnPasse(banc, id, DE('Sport').slice(0, 30).map((q, i): [string, boolean, number] => [q.id, true, DEBUT - 10 * JOUR + i * 10_000]))
+    acquerir(banc, id, { stade: 7 })
+    await lireLesSentiers(banc.url, noe)
+    await modeleAjuste(banc.url)
+    assert.ok((await lireLesSentiers(banc.url, noe)).pourToi, 'sa chance, une fois le modèle ajusté')
+    // Une épreuve de plus, derrière le dos du serveur : la page suivante refait sa force, puis sa semaine.
+    refaites.length = 0
+    ecrireUnPasse(banc, id, DE('Sport').slice(30, 46).map((q, i): [string, boolean, number] => [q.id, i % 2 === 0, DEBUT - JOUR + i * 10_000]))
+    assert.ok((await lireLesSentiers(banc.url, noe)).pourToi)
+    const force = refaites.find(r => r.quoi === 'force')
+    const semaine = refaites.find(r => r.quoi === 'semaine')
+    assert.ok(force && semaine, `sa force et sa semaine se refont : ${JSON.stringify(refaites)}`)
+    assert.ok(semaine.tour > force.tour, `sa force au tour ${force.tour}, sa semaine au ${semaine.tour} : d'un seul tenant`)
+  } finally {
+    ForceTenue.prototype.tenir = tenir
+    ForceTenue.prototype.saSemaine = saSemaine
+    tourne = false
     await banc.close()
   }
 })
