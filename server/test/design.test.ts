@@ -362,7 +362,7 @@ test('la pastille des nouveautés se lit dans le rouge des messages, sur « Prof
     // de trophée et de thème partageaient la règle de la case d'avatar ; elles ont la leur, du même rouge.
     '.case-avatar.neuve::before',
     '.loge-vignette.neuve::before',
-    // Le point de l'onglet « Ma plaque » (pièce « Thème »), sur l'épaule de l'onglet.
+    // Le point de l'onglet « Mon podium » (pièce « Thème »), sur l'épaule de l'onglet.
     '.loge-theme-neuf',
     '.finition-choix.neuve .finition-teinte::before',
     '.bordure-choix.neuve .bordure-apercu::before',
