@@ -183,6 +183,12 @@ export interface QuizServerOptions {
    */
   fraicheurDesLecturesMs?: number
   /**
+   * Combien de temps la vue d'ensemble du QG se garde (`VUE_GARDEE_MS`, une
+   * minute d'office). Le banc la met à 0 : ses épreuves jouent, puis relisent
+   * la vue aussitôt.
+   */
+  vueDuQgGardeeMs?: number
+  /**
    * Combien de temps un dépôt de la routine du matin attend le suivant avant
    * que la base qu'on joue ne le prenne (`PUBLICATION_DES_AJOUTS_MS`, dix
    * minutes d'office — tout de suite quand sa commande du jour est remplie).
@@ -1508,6 +1514,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
       point: pointDuMatin,
       // Tout l'historique du poste de commande : les jours d'avant les trente, que la mémoire a figés.
       memoire: memoireDuQg,
+      ...(opts.vueDuQgGardeeMs !== undefined && { vueGardeeMs: opts.vueDuQgGardeeMs }),
     },
     gestes,
     maintenance,

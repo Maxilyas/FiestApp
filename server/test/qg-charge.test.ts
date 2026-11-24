@@ -20,6 +20,7 @@ import type { ProfilDAdministration } from '../../shared/profil'
 import type { VueDEnsemble } from '../../shared/qg'
 import type { PageDeLEconomie } from '../../shared/qgEconomie'
 import { jourDe } from '../../shared/jour'
+import { VUE_GARDEE_MS } from '../src/qg'
 
 // ── Le compteur ───────────────────────────────────────────────────────────
 
@@ -163,6 +164,51 @@ test('la vue d’ensemble lit trente jours de séries et de parties du jour d’
   // Toutes comptées : chacune est une participation de son jour.
   const parties = vue.participations.reduce((n, j) => n + j.parties.campagne + j.parties.duel + j.parties.jour, 0)
   assert.equal(parties, SERIES + PARTIES)
+})
+
+// La vue d'ensemble coûtait une seconde par lecture en production — la moitié
+// des 89 lectures du 15 au 23 novembre 2026 au-delà, 2,7 % du temps du serveur —
+// et se recomptait à chaque retour au poste de commande, pour chaque onglet
+// ouvert, pour montrer la même chose qu'une minute plus tôt. Gardée une minute,
+// partagée par qui la demande pendant qu'elle se fait, oubliée au premier geste
+// du QG.
+test('la vue d’ensemble se garde une minute, partagée par les onglets, et un geste du QG la fait oublier', async () => {
+  // Midi à Paris : la minute qui passe ne franchit aucun minuit.
+  const horloge = { t: Date.UTC(2026, 10, 4, 11) }
+  const gardee = await demarrer({ vueDuQgGardeeMs: VUE_GARDEE_MS, horlogeDuJour: () => horloge.t })
+  try {
+    const cookie = await connexionAnimateur(gardee.url)
+    const vue = async () => {
+      const r = await fetch(`${gardee.url}/api/admin/qg`, { headers: { Cookie: cookie } })
+      assert.equal(r.status, 200)
+      return (await r.json()) as VueDEnsemble
+    }
+    const premiere = await mesurer(vue)
+    assert.ok(premiere.allersRetours > 0, 'la première se lit')
+    // Rouverte dans la minute — un retour au poste, un autre onglet : rien ne se relit, la même vue.
+    horloge.t += 30_000
+    const encore = await mesurer(vue)
+    assert.equal(encore.allersRetours, 0, 'gardée')
+    assert.deepEqual(encore.resultat, premiere.resultat)
+
+    // Un geste du QG — un bandeau posé — l'oublie : la vue suivante dit ce qui a changé.
+    const geste = await ecrire(gardee.url, '/api/admin/maintenance/bandeau', { texte: 'Un essai du banc' }, cookie, 'PUT')
+    assert.equal(geste.status, 200)
+    const apresLeGeste = await mesurer(vue)
+    assert.ok(apresLeGeste.allersRetours > 0, 'oubliée par le geste')
+    assert.equal(apresLeGeste.resultat.maintenant, horloge.t)
+
+    // La minute passée, elle se relit — une fois pour deux onglets qui la demandent ensemble.
+    horloge.t += VUE_GARDEE_MS
+    const seule = await mesurer(vue)
+    assert.ok(seule.allersRetours > 0, 'la minute passée, relue')
+    horloge.t += VUE_GARDEE_MS
+    const deux = await mesurer(() => Promise.all([vue(), vue()]))
+    assert.ok(deux.allersRetours > 0 && deux.allersRetours <= seule.allersRetours, `deux onglets, une lecture : ${deux.allersRetours} contre ${seule.allersRetours}`)
+    assert.deepEqual(deux.resultat[0], deux.resultat[1])
+  } finally {
+    await gardee.close()
+  }
 })
 
 // La page de l'économie comptait les bonnes réponses de la campagne heure par
