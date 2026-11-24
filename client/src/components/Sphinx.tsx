@@ -68,6 +68,7 @@ const DIT = {
   proposer: 'Chacun en reçoit des mots différents. Résous mon énigme, et je t’en souffle un.',
   revoila: 'Te revoilà. Mon énigme t’attendait.',
   plusTard: 'Comme tu voudras. Je reste là jusqu’à minuit.',
+  plusTardEnigme: 'Prends ton temps. Mon énigme t’attend jusqu’à minuit, et tes essais aussi.',
   ecoute: 'Celle-ci a été écrite en *1858*. Écoute bien…',
   quiSuisJe: (sorte: EnigmeDuSphinx['sorte'], essais: number) =>
     `${sorte === 'charade' ? 'Quel est mon tout ?' : 'Qui suis-je ?'} Écris ta réponse en haut. ${essais >= 3 ? 'Tu as trois essais.' : essais === 2 ? 'Il te reste deux essais.' : 'Il te reste un seul essai.'}`,
@@ -90,7 +91,8 @@ const DIT = {
   plusTardDansLAlbum: 'Comme tu voudras. Elle t’attend dans ton album, le jour où tu voudras la lire.',
   perdu: (solution: string) => `Le sable se referme. C’était ${solution}.`,
   chat: (solution: string) => `Dommage. C’était ${solution}.`,
-  demain: 'Reviens demain : j’aurai une autre énigme, et un autre mot à souffler.',
+  // La maquette promettait le lendemain : une visite ne vient qu'un jour sur trois.
+  autreJour: 'Je reviendrai un autre jour, avec une autre énigme et un autre mot à souffler.',
   sansReseau: (motif: string) => `Le sable m’a retenu. ${motif}.`,
 }
 
@@ -340,9 +342,12 @@ export function BoiteDuSphinx({
 /**
  * L'énigme, écrite en haut de l'écran — le clavier du téléphone monte par le
  * bas : son numéro, ses essais en losanges, ses vers qui paraissent un à un,
- * sa source, le champ de la réponse et « Je donne ma langue au chat ». Le
- * champ n'a jamais le focus d'office : le clavier pousserait la boîte hors de
- * l'écran — on le touche quand on a sa réponse.
+ * sa source, le champ de la réponse, puis ses deux sorties : « Plus tard » et
+ * « Je donne ma langue au chat ». Le champ n'a jamais le focus d'office : le
+ * clavier pousserait la boîte hors de l'écran — on le touche quand on a sa
+ * réponse. « Plus tard » est le retour du propriétaire du 24 novembre 2026 :
+ * Échap seul remettait une énigme ouverte à plus tard, et un téléphone n'en a
+ * pas — qui voulait y réfléchir n'avait que la langue au chat.
  */
 export function ParcheminDeLEnigme({
   enigme,
@@ -354,6 +359,7 @@ export function ParcheminDeLEnigme({
   onValeur,
   onRepondre,
   onChat,
+  onPlusTard,
   refChamp,
 }: {
   enigme: EnigmeDuSphinx
@@ -365,6 +371,7 @@ export function ParcheminDeLEnigme({
   onValeur: (v: string) => void
   onRepondre: () => void
   onChat: () => void
+  onPlusTard: () => void
   refChamp?: Ref<HTMLInputElement>
 }) {
   const source = laSource(enigme.source.recueil)
@@ -416,9 +423,14 @@ export function ParcheminDeLEnigme({
         />
         <button type="submit">Répondre</button>
       </form>
-      <button type="button" className="sx-chat" onClick={onChat}>
-        Je donne ma langue au chat
-      </button>
+      <div className="sx-issues">
+        <button type="button" className="sx-plus-tard" onClick={onPlusTard}>
+          Plus tard
+        </button>
+        <button type="button" className="sx-chat" onClick={onChat}>
+          Je donne ma langue au chat
+        </button>
+      </div>
     </section>
   )
 }
@@ -591,8 +603,8 @@ interface EtatDeLaScene {
   glorieux: boolean
 }
 
-/** L'issue d'une réponse, attendue par le scénario : juste, perdue, ou la langue au chat. */
-type Issue = { quoi: 'juste' | 'perdu' | 'abandon'; verdict: VerdictDuSphinx }
+/** L'issue d'une énigme, attendue par le scénario : juste, perdue, la langue au chat, ou remise à plus tard. */
+type Issue = { quoi: 'juste' | 'perdu' | 'abandon' | 'plus-tard'; verdict: VerdictDuSphinx }
 
 /** La phrase d'avant le mot gagné : sa place encore cachée, ses comptes d'avant. */
 function avantLeMot(apres: PhraseDuSphinx, index: number, neuf: boolean): PhraseDuSphinx {
@@ -852,11 +864,14 @@ function SceneDuSphinx({
     }
   }
 
-  /** Le menu du Sphinx : écouter son énigme, ou la remettre à plus tard. Un geste qui n'aboutit pas redemande. */
+  /**
+   * Le menu du Sphinx : écouter son énigme, ou la remettre à plus tard. Un geste qui n'aboutit pas redemande.
+   * « Plus tard », et plus « Pas aujourd'hui » (la maquette) : il ne part pas, il reste épinglé jusqu'à minuit.
+   */
   const proposer = async (moi: number, texte: string): Promise<void> => {
     const r = await demander(moi, texte, [
       ['oui', 'J’écoute !'],
-      ['non', 'Pas aujourd’hui'],
+      ['non', 'Plus tard'],
     ])
     if (r === 'non') {
       // Remise à plus tard : écrit pendant qu'il le dit ; déjà épinglée, rien à écrire.
@@ -872,7 +887,7 @@ function SceneDuSphinx({
     return enigme(moi, v.visite)
   }
 
-  /** L'énigme : en haut de l'écran, ses vers un à un, puis l'issue — juste, perdue, ou la langue au chat. */
+  /** L'énigme : en haut de l'écran, ses vers un à un, puis l'issue — juste, perdue, la langue au chat, ou plus tard. */
   const enigme = async (moi: number, v: LaVisite) => {
     repondu.current = false
     setFaux(false)
@@ -889,14 +904,29 @@ function SceneDuSphinx({
     const ecrite = ecrire(moi, DIT.ecoute).catch(() => {})
     for (let i = 1; i <= v.enigme.vers.length; i++) {
       await attendre(moi, calme ? 0 : 650)
+      // L'énigme a déjà son issue (`issue.current` rendu à null) : plus tard ou la langue au chat touchés pendant les
+      // vers ne laissent pas les suivants paraître, puis la réplique s'écrire, avant que le Sphinx réponde.
+      if (!issue.current) break
       setVersMontres(i)
     }
-    await ecrite
-    if (!repondu.current) await ecrire(moi, DIT.quiSuisJe(v.enigme.sorte, v.essaisRestants)).catch(() => {})
+    if (issue.current) {
+      await ecrite
+      if (!repondu.current) await ecrire(moi, DIT.quiSuisJe(v.enigme.sorte, v.essaisRestants)).catch(() => {})
+    }
     const fin = await attendue
     verifier(moi)
     if (fin.quoi === 'juste') return victoire(moi, fin.verdict)
+    if (fin.quoi === 'plus-tard') return remettre(moi)
     return defaite(moi, fin)
+  }
+
+  /** Remise à plus tard depuis l'énigme : elle garde ses essais et ses réponses, et le Sphinx s'épingle jusqu'à minuit. */
+  const remettre = async (moi: number) => {
+    setScene(s => ({ ...s, enigme: false }))
+    setVue('focus')
+    await dire(moi, DIT.plusTardEnigme)
+    await partir(moi)
+    onPartir('epingle')
   }
 
   const victoire = async (moi: number, v: VerdictDuSphinx) => {
@@ -997,7 +1027,7 @@ function SceneDuSphinx({
     setVue('focus')
     const solution = laSolution(fin.verdict.visite.enigme)
     await dire(moi, fin.quoi === 'abandon' ? DIT.chat(solution) : DIT.perdu(solution))
-    await dire(moi, DIT.demain)
+    await dire(moi, DIT.autreJour)
     await partir(moi)
     onPartir('close')
   }
@@ -1054,6 +1084,23 @@ function SceneDuSphinx({
     try {
       const v = await envoyer(moi, 'chat')
       if (v) issue.current?.({ quoi: 'abandon', verdict: v })
+    } catch (e) {
+      if (!(e instanceof Abandon)) throw e
+    } finally {
+      occupe.current = false
+    }
+  }
+
+  /** « Plus tard », l'énigme ouverte : écrit au serveur d'abord — un refus ou le réseau perdu se disent, et l'énigme reste. */
+  const plusTard = async () => {
+    const moi = tour.current
+    if (occupe.current || !issue.current) return
+    occupe.current = true
+    repondu.current = true
+    sons.menu()
+    try {
+      const v = await envoyer(moi, 'plus-tard')
+      if (v) issue.current?.({ quoi: 'plus-tard', verdict: v })
     } catch (e) {
       if (!(e instanceof Abandon)) throw e
     } finally {
@@ -1201,6 +1248,7 @@ function SceneDuSphinx({
               onValeur={setValeur}
               onRepondre={() => void repondre()}
               onChat={() => void langueAuChat()}
+              onPlusTard={() => void plusTard()}
               refChamp={champ}
             />
           )}

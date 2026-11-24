@@ -137,7 +137,16 @@ chacun la lit s'il le choisit, et l'accueil l'annonce une fois (plus bas).
   (`ceQueMontreLeSphinx`) : elle s'épingle, sans rien écrire au serveur. Une
   visite remise à plus tard, ou déjà présentée ce jour-là sur ce téléphone,
   va droit à son menu (« Te revoilà ») ; Échap la remet à plus tard
-  (`plus-tard`, si elle était proposée).
+  (`plus-tard`, si elle était proposée). Un téléphone n'a pas d'Échap :
+  l'énigme ouverte a son « Plus tard », à côté de la langue au chat (le
+  retour du propriétaire du 24 novembre 2026, `ParcheminDeLEnigme`
+  `onPlusTard`) — écrit au serveur avant que le Sphinx s'épingle, ses essais
+  et ses réponses gardés (`appliquerLeGeste`) ; une issue touchée pendant
+  les vers les arrête (`issue.current` rendu à null). Le menu dit « Plus
+  tard », plus « Pas aujourd'hui » (la maquette) : le Sphinx reste épinglé
+  jusqu'à minuit, ce n'est pas un refus. Et la fin d'une énigme perdue ou
+  abandonnée ne promet pas le lendemain (`autreJour`) : une visite ne vient
+  qu'un jour sur trois.
 - **La solution se dit entre guillemets** (`laSolution`) : la clé du livre
   s'écrit sans article, avec une majuscule, et nue dans la phrase du Sphinx
   elle se lisait de travers. Une charade y ajoute son découpage.

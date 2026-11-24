@@ -399,7 +399,11 @@
   font: 700 0.9375rem var(--sx-texte);
 }
 .sx-reponse.sx-faux input { border-color: var(--sx-faux); animation: sx-frisson 0.42s steps(6) 1; }
-.sx-parchemin .sx-chat { display: block; min-height: 44px; margin: 4px auto 0; padding: 0 10px; border: 0; background: none; color: var(--sx-muted); font-size: 0.8125rem; text-decoration: underline; text-underline-offset: 3px; }
+/* Les deux sorties de l'énigme, côte à côte sous la réponse : remettre à plus tard, abandonner. Elles passent l'une
+   sous l'autre là où la ligne n'a plus la place — le texte agrandi —, chacune sa cible de 44 px. */
+.sx-parchemin .sx-issues { display: flex; flex-wrap: wrap; justify-content: center; column-gap: 12px; margin-top: 4px; }
+.sx-parchemin .sx-plus-tard,
+.sx-parchemin .sx-chat { min-height: 44px; padding: 0 10px; border: 0; background: none; color: var(--sx-muted); font-size: 0.8125rem; text-decoration: underline; text-underline-offset: 3px; }
 
 /* Le mot gagné, qui part se ranger dans la phrase. */
 .sx-mot-vole {

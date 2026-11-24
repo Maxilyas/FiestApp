@@ -22,9 +22,9 @@ L'accueil s'assombrit, l'écran frissonne, du sable se lève ; la boîte monte d
 1. Il se présente : il ne se montre qu'aux habitués.
 2. **La vitrine des Divins** : cinq voiles, leur nom dessous, « et treize autres, tout aussi secrets ». Les plus rares des avatars, qui ne s'achètent pas et qu'aucun coffre ne donne ; un exploit bien précis les fait descendre, et personne ne sait lequel.
 3. **Le Divin du moment** — le même pour tout le serveur — et **sa phrase** : un trait par lettre de chaque mot caché, la longueur de chaque mot visible, les petits mots offerts (trois lettres ou moins, jamais un nombre). Dessous : « Toi : 1 mot · Tous les habitués : 5 sur 8 », et une jauge.
-4. **Le choix**, dans un petit menu au curseur ▶ : « J'écoute ! » ou « Pas aujourd'hui ».
+4. **Le choix**, dans un petit menu au curseur ▶ : « J'écoute ! » ou « Plus tard ».
 
-**Pas aujourd'hui** : « Je reste là jusqu'à minuit. » Le Sphinx retourne au sable et s'épingle sur l'accueil — son médaillon et un « ? », à droite d'« Entre amis », entre deux cartes, sur aucun bouton. Le toucher le rouvre, droit à son énigme. Rouverte le même jour sur le même téléphone, la visite ne refait pas toute sa présentation.
+**Plus tard** (« Pas aujourd'hui » jusqu'au 24 novembre 2026, qui se lisait comme un refus) : « Je reste là jusqu'à minuit. » Le Sphinx retourne au sable et s'épingle sur l'accueil — son médaillon et un « ? », à droite d'« Entre amis », entre deux cartes, sur aucun bouton. Le toucher le rouvre, droit à son énigme. Rouverte le même jour sur le même téléphone, la visite ne refait pas toute sa présentation.
 
 ## L'énigme
 
@@ -33,8 +33,9 @@ En haut de l'écran — le clavier du téléphone monte par le bas : son numéro
 - **Trois essais**, en trois losanges d'or qui s'éteignent un à un.
 - Une réponse **qui brûle** — proche, sans être la bonne — ne coûte pas d'essai : « Tu brûles… ». Une réponse déjà dite non plus.
 - La réponse se lit **sans accents, sans majuscules, sans article, sans « c'est »** : écrite de l'une ou l'autre façon, la même réponse reste la même.
-- « **Je donne ma langue au chat** » clôt la visite.
-- Perdue ou abandonnée, le Sphinx dit la réponse — jamais avant —, et « Reviens demain ».
+- « **Plus tard** », sous la réponse, à côté de la langue au chat : « Prends ton temps. Mon énigme t'attend jusqu'à minuit, et tes essais aussi. » Le Sphinx s'épingle comme au menu ; l'épingle rouvre la même énigme, avec les essais qui restaient et les réponses déjà dites. Ajouté le 24 novembre 2026, au premier essai du propriétaire : l'énigme ouverte ne se quittait que par Échap, qu'un téléphone n'a pas — qui voulait y réfléchir n'avait que la langue au chat. Passé minuit, une énigme ni résolue ni abandonnée est perdue : ni mot, ni réponse, et elle ne revient pas.
+- « **Je donne ma langue au chat** » clôt la visite : le Sphinx dit la réponse, aucun mot n'est soufflé, et l'énigme ne sera plus jamais posée — comme trois essais perdus, sans les épuiser.
+- Perdue ou abandonnée, le Sphinx dit la réponse — jamais avant —, et « Je reviendrai un autre jour » : une visite ne vient qu'un jour sur trois, « Reviens demain » promettait ce que le tirage ne tient pas.
 
 **Résolue** : le mot gagné naît là où était l'énigme, vole jusqu'à sa place dans la phrase, et ses lettres se retournent une à une. Le Sphinx dit si personne ne l'avait encore, combien les autres habitués en ont trouvé, « Comparez vos mots : à plusieurs, vous lirez la phrase entière », puis mène à l'album, où la phrase attend. Le dernier mot qui manquait à tous reconstitue la phrase, et le Sphinx passe au Divin suivant. Elle ne s'impose à personne : chacun avance à son rythme. Le Sphinx le dit à qui a trouvé ce dernier mot, et lui propose de la lire en entier — « La lire » : ce qu'il ne savait pas s'y retourne, lettre à lettre ; « Pas maintenant » : elle l'attend dans l'album.
 
