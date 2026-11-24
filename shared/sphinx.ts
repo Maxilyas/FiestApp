@@ -24,11 +24,19 @@ export const ESSAIS_DU_SPHINX = 3
 export type EtatDeLaVisite = 'proposee' | 'plus-tard' | 'resolue' | 'perdue' | 'abandonnee'
 export const VISITE_CLOSE: readonly EtatDeLaVisite[] = ['resolue', 'perdue', 'abandonnee']
 
-/** Ce qu'un joueur fait d'une visite (`POST /api/joueur/sphinx`). */
-export const GESTES_DU_SPHINX = ['ecouter', 'plus-tard', 'repondre', 'chat'] as const
+/**
+ * Ce qu'un joueur fait d'une visite (`POST /api/joueur/sphinx`). `surgir` est
+ * l'arrivée du Sphinx sur son accueil, que la page dit d'elle-même : il ne
+ * surgit qu'une fois par visite, ensuite il s'épingle (le retour du
+ * propriétaire du 24 novembre 2026).
+ */
+export const GESTES_DU_SPHINX = ['surgir', 'ecouter', 'plus-tard', 'repondre', 'chat'] as const
 export type GesteDuSphinx = (typeof GESTES_DU_SPHINX)[number]
 
-/** Ce que l'accueil lit dans ses missions (`MissionsDuJour.sphinx`) : une visite attend, ou il l'a remise à plus tard. */
+/**
+ * Ce que l'accueil lit dans ses missions (`MissionsDuJour.sphinx`) : une visite attend son arrivée — elle surgit —,
+ * ou elle est épinglée : il l'a remise à plus tard, ou le Sphinx lui a déjà parlé (`ecoutee_le`).
+ */
 export type SphinxDesMissions = 'attend' | 'epingle'
 
 /**

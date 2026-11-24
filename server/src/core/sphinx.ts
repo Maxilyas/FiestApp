@@ -411,8 +411,9 @@ export type IssueDUnGeste =
   | { apres: { etat: EtatDeLaVisite; essais: number; reponses: string[] }; verdict?: VerdictDuSphinx['verdict']; dejaDite?: true }
 
 /**
- * Ce qu'un geste fait d'une visite. L'écouter la rouvre — remise à plus
- * tard, elle quitte son épingle ; une réponse juste la résout ; une qui
+ * Ce qu'un geste fait d'une visite. Surgir ne la change pas. L'écouter la
+ * rouvre — remise à plus tard, elle passe proposée, et reste épinglée tant
+ * qu'il ne la finit pas (`Sphinx.decider`) ; une réponse juste la résout ; une qui
  * brûle ne coûte pas d'essai, ni une réponse fausse déjà dite (deux touchers
  * du même bouton) ; la troisième fausse la perd ; « Je donne ma langue au
  * chat » l'abandonne. Close, plus rien ne s'y joue.
@@ -422,6 +423,8 @@ export function appliquerLeGeste(v: EtatDUneVisite, geste: GesteDuSphinx, repons
     return { refus: 'Cette énigme est close : le Sphinx reviendra un autre jour.', statut: 409 }
   }
   const reponses = [...v.reponses]
+  // Son arrivée sur l'accueil : rien ne change à la visite, seul l'instant s'écrit (`ecoutee_le`, `geste`).
+  if (geste === 'surgir') return { apres: { etat: v.etat as EtatDeLaVisite, essais: v.essais, reponses } }
   if (geste === 'ecouter') return { apres: { etat: 'proposee', essais: v.essais, reponses } }
   if (geste === 'plus-tard') return { apres: { etat: 'plus-tard', essais: v.essais, reponses } }
   if (geste === 'chat') return { apres: { etat: 'abandonnee', essais: v.essais, reponses }, verdict: 'abandon' }
@@ -629,7 +632,14 @@ export class Sphinx {
   decider(profileId: string, aujourdhui: string, activites: ReadonlyMap<string, ActiviteDuJour>, lignes: readonly LigneDuSphinx[]): DecisionDuSphinx {
     const habitue = this.noterLHabitue(profileId, aujourdhui, activites)
     const deJour = lignes.find(l => l.jour === aujourdhui)
-    if (deJour) return deJour.etat === 'proposee' ? { champ: 'attend' } : deJour.etat === 'plus-tard' ? { champ: 'epingle' } : {}
+    // Il ne surgit qu'une fois (le retour du propriétaire du 24 novembre 2026 : « il devrait interpeller qu'une seule
+    // fois, puis c'est à l'utilisateur d'ouvrir l'énigme quand il le souhaite ») : arrivé sur l'accueil ou son énigme
+    // écoutée — `ecoutee_le` posé —, une visite pas encore close s'épingle. Il surgissait à chaque accueil tant qu'on
+    // ne l'avait pas remise à plus tard : l'appli fermée pendant sa présentation, ou l'énigme quittée, il revenait.
+    if (deJour) {
+      if (deJour.etat === 'proposee' && deJour.ecouteeLe === null) return { champ: 'attend' }
+      return deJour.etat === 'proposee' || deJour.etat === 'plus-tard' ? { champ: 'epingle' } : {}
+    }
     if (!habitue) return {}
     if ((this.deps.tirage ?? tirageDeLaVisite)(`${profileId}|${aujourdhui}`) >= CHANCE_D_UNE_VISITE) return {}
     const moment = divinDuMoment(this.motsDeTous(), undefined, this.legende)
@@ -757,7 +767,7 @@ export class Sphinx {
       const ecrit = await this.deps.profiles.ecrireUnGesteDuSphinx(profileId, ligne.jour, ligne, {
         ...issue.apres,
         mot,
-        ecouteeLe: geste === 'ecouter' || geste === 'repondre' ? maintenant : null,
+        ecouteeLe: geste === 'surgir' || geste === 'ecouter' || geste === 'repondre' ? maintenant : null,
         closeLe: close ? maintenant : null,
       })
       if (!ecrit) return { refus: 409, error: 'Le Sphinx a déjà entendu ce geste : recharge la page.' }

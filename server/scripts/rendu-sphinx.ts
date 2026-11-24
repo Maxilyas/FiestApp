@@ -615,7 +615,22 @@ try {
   // lire ; Nina la voit annoncée sur son accueil, puis sa fiche, « La phrase est retrouvée : la lire », et ses mots qui se
   // retournent ; Inès, l'annonce en 390 × 844.
   if (veut('reconstituee')) {
-    motsDeTous('figurant2', caches.slice(1))
+    // Tous les mots qui manquent encore, sauf un, que Marc trouvera. Lus en base : les cas d'avant ont gagné des mots
+    // tirés de la graine de leur profil, neuve à chaque lancement — en laisser un d'office (le premier), c'était, une
+    // fois sur quelques-unes, laisser un mot déjà trouvé : la phrase était entière avant lui, et son menu ne venait pas.
+    const trouves = new Set(
+      (() => {
+        const d = db()
+        try {
+          return (d.prepare('SELECT mot FROM profile_sphinx WHERE divin = ? AND mot IS NOT NULL').all(ORDRE_DU_SPHINX[0]) as { mot: number }[]).map(r => r.mot)
+        } finally {
+          d.close()
+        }
+      })(),
+    )
+    const manquent = caches.filter(i => !trouves.has(i))
+    if (manquent.length < 2) throw new Error(`la phrase inventée n’a plus que ${manquent.length} mot(s) à trouver : Marc ne peut pas trouver le dernier`)
+    motsDeTous('figurant2', manquent.slice(1))
     // Marc, venu pour l'occasion : sa première visite, quoi que les autres cas aient joué aujourd'hui.
     const marc = await inscrireProfil(banc.url, 'marc2', 'Marc', '🐶')
     habitue('marc2')

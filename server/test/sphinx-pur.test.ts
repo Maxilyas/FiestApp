@@ -287,3 +287,18 @@ test('trois essais ; une réponse qui brûle n’en coûte pas, la même répons
   ligne = { etat: 'proposee', essais: 0, reponses: [] }
   assert.ok('refus' in geste('repondre', '  ! '))
 })
+
+// Le retour du propriétaire du 24 novembre 2026 : « il devrait interpeller
+// une seule fois, puis c'est à l'utilisateur d'ouvrir l'énigme quand il le
+// souhaite ». Son arrivée sur l'accueil se dit au serveur (`surgir`) : elle
+// ne change rien à la visite, ni son état, ni ses essais, ni ses réponses.
+test('surgir ne change rien à la visite : ni son état, ni ses essais, ni ses réponses', () => {
+  const e = enigme('32')
+  for (const avant of [
+    { etat: 'proposee' as const, essais: 0, reponses: [] as string[] },
+    { etat: 'plus-tard' as const, essais: 1, reponses: ['pluie'] },
+  ]) {
+    assert.deepEqual(appliquerLeGeste(avant, 'surgir', undefined, e), { apres: avant })
+  }
+  assert.ok('refus' in appliquerLeGeste({ etat: 'resolue', essais: 1, reponses: [] }, 'surgir', undefined, e), 'close : rien à surgir')
+})
