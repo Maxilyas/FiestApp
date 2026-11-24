@@ -589,6 +589,18 @@ export class SanteDuServeur {
     return lus.rows.map(lireDemarrage)
   }
 
+  /**
+   * Le démarrage d'avant celui qui a démarré à cet instant, par l'index de leur date — une ligne : les règles des
+   * alertes y lisent jusqu'où il a guetté (`finDuGuetDAvant`), une fois, à la fermeture d'un incident qu'il a laissé.
+   */
+  async demarrageDAvant(demarreLe: number): Promise<DemarrageDuServeur | undefined> {
+    const lus = await this.client.execute({
+      sql: 'SELECT * FROM qg_demarrages WHERE demarre_le < ? AND id <> ? ORDER BY demarre_le DESC LIMIT 1',
+      args: [demarreLe, this.id],
+    })
+    return lus.rows.map(lireDemarrage)[0]
+  }
+
   private gardes: { le: number; lecture: Promise<DemarrageDuServeur[]> } | null = null
 
   /**

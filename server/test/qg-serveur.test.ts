@@ -20,6 +20,7 @@ import {
   arreteNet,
   cleDeLErreur,
   debutDeLHeure,
+  finDuGuetDAvant,
   fondreCharges,
   fondreConnexions,
   fondreRequetes,
@@ -825,6 +826,22 @@ test('un démarrage ne se juge pas arrêté net tant qu’il donne signe de vie 
   assert.equal(sorteDuDemarrage(neuf, ancien, maintenant + 21 * 60_000, 'y'), 'apres-arret')
   // Celui qui répond n'est jamais arrêté net, même sans relevé récent.
   assert.equal(arreteNet(neuf, maintenant + 5 * H, 'y'), false)
+})
+
+test('jusqu’où le serveur d’avant a guetté les alertes : endormi, son extinction ; arrêté net, son dernier signe ; à une mise en ligne, rien', () => {
+  const demarreLe = maintenant
+  // Endormi par l'hébergeur à minuit et demi, réveillé six heures plus tard.
+  const endormi = demarrage('nuit', { demarreLe: maintenant - 18 * H, vuLe: maintenant - 6 * H, arreteLe: maintenant - 6 * H })
+  assert.equal(finDuGuetDAvant(endormi, demarreLe), maintenant - 6 * H)
+  // Une mise en ligne : l'ancien répond encore au démarrage du neuf, puis s'éteint après lui — ils se chevauchent.
+  const enLigne = demarrage('ancien', { demarreLe: maintenant - 5 * H, vuLe: maintenant - 4 * 60_000, arreteLe: null })
+  assert.equal(finDuGuetDAvant(enLigne, demarreLe), null)
+  assert.equal(finDuGuetDAvant({ ...enLigne, arreteLe: maintenant + 30_000 }, demarreLe), null, 'éteint après le démarrage du neuf')
+  // Arrêté net : plus de vingt minutes sans un signe au démarrage du neuf, son dernier signe fait foi.
+  const tombe = demarrage('tombe', { demarreLe: maintenant - 5 * H, vuLe: maintenant - 3 * H, arreteLe: null })
+  assert.equal(finDuGuetDAvant(tombe, demarreLe), maintenant - 3 * H)
+  // Le premier démarrage d'une base neuve n'hérite de rien.
+  assert.equal(finDuGuetDAvant(undefined, demarreLe), null)
 })
 
 test('les alertes du serveur : un arrêt net du jour, les erreurs depuis l’heure d’avant, Turso sur assez d’allers-retours, la mémoire', () => {

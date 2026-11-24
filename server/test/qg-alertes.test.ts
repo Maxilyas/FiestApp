@@ -370,11 +370,17 @@ test('les chiffres des trente jours : la médiane du retour au calme, et la part
 })
 
 /** Un magasin des règles sur une base jetable, l'horloge et le relevé à la main. */
-async function desRegles(dir: string, etat: { maintenant: number; releve: ReleveDesAlertes }, prevenus: MessageDuQg[]) {
+async function desRegles(
+  dir: string,
+  etat: { maintenant: number; releve: ReleveDesAlertes },
+  prevenus: MessageDuQg[],
+  finDuGuetDAvant?: () => Promise<number | null>,
+) {
   const regles = new ReglesDuQg(`file:${path.join(dir, 'permanente.db')}`, undefined, {
     lire: async () => ({ ...etat.releve, maintenant: etat.maintenant }),
     prevenir: m => prevenus.push(m),
     maintenant: () => etat.maintenant,
+    finDuGuetDAvant,
   })
   await regles.init()
   return regles
@@ -416,6 +422,58 @@ test('un incident naît à la première minute, survit à un redémarrage, et se
   assert.ok(page.incidents.every(i => i.fin === auCalme), 'refermés à l’instant où le calme est revenu')
   assert.deepEqual(prevenus.map(m => sansInsecables(m.titre)).slice(1), ['Au calme : Taux d’erreur'])
   assert.deepEqual(regles.aTraiter(), [])
+  regles.close()
+})
+
+test('un incident laissé ouvert par un serveur endormi se referme à son extinction, pas au réveil — sauf s’il se redit au réveil', async () => {
+  // Le 20 novembre 2026, « Turso lent » ouvert à 0 h 33, le serveur endormi à 0 h 53 : refermé au réveil de 6 h 51,
+  // l'incident avait duré 379 minutes.
+  const dir = mkdtempSync(path.join(tmpdir(), 'quizz-regles-'))
+  const ouvert = 1_700_000_000_000
+  const etat = { maintenant: ouvert, releve: calme() }
+  const prevenus: MessageDuQg[] = []
+  let regles = await desRegles(dir, etat, prevenus)
+  etat.releve = { ...calme(), turso: { p95: 1100 }, gelMs: 3500 }
+  await regles.tour()
+  assert.equal((await regles.page(1)).incidents.length, 2)
+  // L'hébergeur l'endort vingt minutes plus tard ; le serveur suivant se réveille six heures après.
+  const endormi = ouvert + 20 * MINUTE
+  regles.close()
+  etat.maintenant = endormi + 6 * 60 * MINUTE
+  let lectures = 0
+  regles = await desRegles(dir, etat, prevenus, async () => (lectures++, endormi))
+  // Au réveil, Turso répond, mais le serveur gèle encore : le gel long se redit, il continue d'ici.
+  etat.releve = { ...calme(), gelMs: 3200 }
+  await regles.tour()
+  etat.releve = calme()
+  const auCalme = etat.maintenant + MINUTE
+  for (let m = 1; m <= 6; m++) {
+    etat.maintenant += MINUTE
+    await regles.tour()
+  }
+  const incidents = (await regles.page(1)).incidents
+  const fin = (cle: string) => incidents.find(i => i.regle === cle)?.fin
+  assert.equal(fin('turso-lent'), endormi, 'jamais redit au réveil : refermé quand l’autre a cessé de guetter')
+  assert.equal(fin('gel-long'), auCalme, 'redit au réveil : refermé au calme vu ici')
+  assert.equal(incidents.length, 2, 'ni l’un ni l’autre n’a fait naître un incident de plus')
+  assert.equal(lectures, 1, 'la fin du serveur d’avant se lit une fois, à la première fermeture d’un incident hérité')
+  regles.close()
+
+  // Une mise en ligne : l'ancien répondait encore au démarrage du neuf — rien à reprendre, le calme vu ici fait foi.
+  etat.releve = { ...calme(), turso: { p95: 1100 } }
+  regles = await desRegles(dir, etat, prevenus)
+  await regles.tour()
+  regles.close()
+  regles = await desRegles(dir, etat, prevenus, async () => null)
+  etat.releve = calme()
+  const calmeEnLigne = etat.maintenant + MINUTE
+  for (let m = 1; m <= 6; m++) {
+    etat.maintenant += MINUTE
+    await regles.tour()
+  }
+  const derniers = (await regles.page(1)).incidents.filter(i => i.regle === 'turso-lent')
+  assert.equal(derniers.length, 2)
+  assert.equal(derniers[0].fin, calmeEnLigne, 'le plus récent d’abord : refermé au calme vu ici')
   regles.close()
 })
 

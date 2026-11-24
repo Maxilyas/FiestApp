@@ -1146,6 +1146,17 @@ export function sorteDuDemarrage(d: DemarrageDuServeur, avant: DemarrageDuServeu
   return avant.arreteLe >= d.demarreLe - RELEVE_DE_L_ANCIEN_MS ? 'relance' : 'reveil'
 }
 
+/**
+ * Jusqu'où le serveur d'avant a guetté les alertes, s'il ne répondait plus quand celui-ci a démarré : son extinction —
+ * l'hébergeur l'a endormi —, ou son dernier signe s'il s'est arrêté net. Null s'il répondait encore — une mise en ligne,
+ * les deux se chevauchent : ce qu'il voyait ouvert, le nouveau le voit à sa suite —, ou sans serveur d'avant.
+ */
+export function finDuGuetDAvant(avant: DemarrageDuServeur | undefined, demarreLe: number): number | null {
+  if (!avant) return null
+  if (avant.arreteLe !== null) return avant.arreteLe < demarreLe ? avant.arreteLe : null
+  return demarreLe - avant.vuLe > SILENCE_D_UN_ARRET_MS ? avant.vuLe : null
+}
+
 /** Jusqu'où un démarrage a vécu : son extinction, sinon maintenant s'il répond, sinon son dernier signe. */
 export const finDe = (d: DemarrageDuServeur, maintenant: number, courant: string) => d.arreteLe ?? (d.id === courant ? maintenant : d.vuLe)
 

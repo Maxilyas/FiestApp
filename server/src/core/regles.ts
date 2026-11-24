@@ -57,6 +57,11 @@ interface Ouverte {
   cause: string
   /** Depuis quand elle ne se dit plus : elle se referme après `CALME_POUR_CLORE_MS`. */
   calmeDepuis: number | null
+  /**
+   * Laissée ouverte par le serveur d'avant, et pas encore redite par celui-ci : si elle se referme ainsi, elle s'est
+   * refermée au plus tard quand l'autre a cessé de guetter (`finDuGuetDAvant`), pas au réveil d'après.
+   */
+  heritee?: boolean
 }
 
 const messageDOuverture = (cle: CleDeRegle, cause: string): MessageDuQg => ({
@@ -109,6 +114,11 @@ export class ReglesDuQg {
       tourMs?: number
       /** Ce serveur est la production (`APP_ENV` absent) ; d'office, oui. */
       production?: boolean
+      /**
+       * Jusqu'où le serveur d'avant a guetté, s'il ne répondait plus au démarrage de celui-ci ; null s'il répondait
+       * encore (`finDuGuetDAvant`, `shared/santeDuServeur.ts`). Sans elle, un incident hérité se referme au calme vu ici.
+       */
+      finDuGuetDAvant?: () => Promise<number | null>
     },
   ) {
     this.client = clientDistant(url, authToken)
@@ -173,8 +183,29 @@ export class ReglesDuQg {
     // Les incidents laissés ouverts par le serveur d'avant continuent : la première minute dira s'ils durent.
     for (const r of encore.rows) {
       const cle = String(r.regle)
-      if (estUneRegle(cle)) this.ouvertes.set(cle, { id: Number(r.id), debut: Number(r.debut), cause: String(r.cause), calmeDepuis: null })
+      if (estUneRegle(cle)) this.ouvertes.set(cle, { id: Number(r.id), debut: Number(r.debut), cause: String(r.cause), calmeDepuis: null, heritee: true })
     }
+  }
+
+  /** La fin du guet d'avant, lue une fois — à la première fermeture d'un incident hérité, jamais au réveil même. */
+  private guetDAvant: Promise<number | null> | null = null
+
+  /**
+   * L'instant où un incident s'est refermé : celui où le calme est revenu, ou, pour un incident hérité que ce serveur
+   * n'a jamais redit, au plus tard la fin du guet d'avant. Un incident ouvert quand l'hébergeur a endormi le serveur
+   * se refermait au réveil d'après : « Turso lent » a duré 379 minutes le 20 novembre 2026, pour une heure à peine
+   * guettée — les incidents de la nuit gonflaient la médiane du retour au calme et la frise. Une lecture qui tombe
+   * garde le calme vu ici, et se refait à la fermeture suivante.
+   */
+  private async finDUnIncident(o: Ouverte, calmeDepuis: number): Promise<number> {
+    if (!o.heritee || !this.deps.finDuGuetDAvant) return calmeDepuis
+    this.guetDAvant ??= this.deps.finDuGuetDAvant().catch(e => {
+      this.guetDAvant = null
+      console.warn('[alertes] la fin du serveur d’avant ne se lit pas :', e instanceof Error ? e.message : e)
+      return null
+    })
+    const fin = await this.guetDAvant
+    return fin === null ? calmeDepuis : Math.max(o.debut, Math.min(calmeDepuis, fin))
   }
 
   demarrer() {
@@ -249,6 +280,8 @@ export class ReglesDuQg {
         if (deja) {
           deja.calmeDepuis = null
           deja.cause = cause
+          // Redite ici : son calme se jugera ici, comme celui d'un incident né ici.
+          deja.heritee = false
           continue
         }
         const o: Ouverte = { id: null, debut: maintenant, cause, calmeDepuis: null }
@@ -270,7 +303,8 @@ export class ReglesDuQg {
         this.ouvertes.delete(cle)
         if (o.id !== null) {
           const id = o.id
-          await this.enFile(() => this.client.execute({ sql: 'UPDATE qg_incidents SET fin = ? WHERE id = ? AND fin IS NULL', args: [o.calmeDepuis, id] })).catch(e =>
+          const fin = await this.finDUnIncident(o, o.calmeDepuis)
+          await this.enFile(() => this.client.execute({ sql: 'UPDATE qg_incidents SET fin = ? WHERE id = ? AND fin IS NULL', args: [fin, id] })).catch(e =>
             console.warn(`[alertes] l’incident « ${REGLE[cle].nom} » ne se referme pas :`, e instanceof Error ? e.message : e),
           )
         }
