@@ -77,7 +77,7 @@ laisse chaque fois une en route.
 |---|---|---|---|
 | Sur un vrai cœur, sous le profileur | 55 à 73 / 86 ms | 86 à 193 ms | aucun |
 | Au dixième de cœur, enchaînés | 23 à 32 / 65 ms | 158 à 293 / 525 ms | aucun |
-| Au dixième de cœur, le premier départ après douze minutes de calme | 47 ms | 369 ms | aucun |
+| Au dixième de cœur, chacun après douze minutes de calme (cinq départs) | 25 à 71 ms | 254 à 565 ms | aucun |
 
 Le profileur ne trouve aucun bloc qui approche les 457 ms de processeur du gel
 du 21 à 20 h 11 : le tirage (4 ms par départ), ce qu'il a vu (3 ms), la liste
