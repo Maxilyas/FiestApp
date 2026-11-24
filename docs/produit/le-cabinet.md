@@ -135,7 +135,7 @@ Le 4 novembre 2026 : « les trophées dans le cabinet ne sont pas très bien et 
 | ⭐ Le Perfectionniste | tes épreuves parfaites : trois étoiles à chacune de leurs trois manches | 10 · 40 · 100 |
 | 🔗 L'Invaincu | ta plus longue suite de traversées gagnées d'affilée | 2 · 4 · 7 |
 
-**Les exploits, à relever** : ils tombent au coup qui abat ton dernier gardien — le bilan de cette épreuve les dit, la fin de la traversée aussi —, et **se regagnent**, une traversée au plus chacun, comme les exploits des autres modes. **Plus un exploit est rare, plus il rapporte**, chaque fois : 50 XP s'il est commun, 75 peu commun, 100 rare, 200 épique, 400 légendaire. Aucun ne demande une carte : les défis de tes cartes le font déjà.
+**Les exploits, à relever** : ils tombent au coup qui abat ton dernier gardien — le bilan de cette épreuve les dit, la fin de la traversée aussi —, et **se regagnent**, une traversée au plus chacun, comme les exploits des autres modes. **Plus un exploit est rare, plus il rapporte**, chaque fois : 50 XP s'il est commun, 75 peu commun, 100 rare, 200 épique, 400 légendaire. Aucun ne nomme une carte, les défis de tes cartes le font déjà — mais L'Implacable ne tombe qu'avec Quitte ou double ++ en main : sans deux mises triplées, aucun premier assaut n'abat les 20 points de vie du gardien de l'acte III, même au Coup de grâce ++.
 
 | Exploit | Ce qu'il demande | Rareté · XP |
 |---|---|---|

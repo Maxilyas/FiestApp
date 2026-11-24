@@ -95,7 +95,10 @@ export const PHRASES_DES_DEFIS: Readonly<Record<CleDeCarte, readonly [string, st
   pourboire: phrasesSans('sans rien acheter'),
   // Un gardien de l'acte I tombe presque toujours au premier assaut — six fois sur sept chez le joueur moyen du
   // calibrage — : le Bronze demande de l'abattre dès la deuxième manche ; ceux des actes II et III, eux, ont plus de
-  // points de vie qu'un assaut n'a d'étoiles, sans mise ni Coup de grâce ++.
+  // points de vie qu'un assaut n'a d'étoiles — neuf. Celui de l'acte II (13) tombe au premier assaut sous Quitte ou
+  // double +, sous sa mise doublée avec le Coup de grâce, ou au Coup de grâce ++ sans une étoile perdue ; celui de
+  // l'acte III (20), l'Or, jamais sans Quitte ou double ++ en main, même au Coup de grâce ++ (16 points de vie, 15 au
+  // plus sous Quitte ou double +).
   'coup-de-grace': ['Un gardien abattu dès la deuxième manche de ton premier assaut', 'Un gardien de l’acte II ou III vaincu au premier assaut', 'Le gardien de l’acte III vaincu au premier assaut'],
   'second-souffle': ['Ton Second souffle sert, et tu finis l’acte quand même', 'La traversée gagnée après ton Second souffle', 'Ton Second souffle sert avant l’acte III, et la traversée est gagnée'],
 }
