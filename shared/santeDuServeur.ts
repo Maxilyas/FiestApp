@@ -53,8 +53,13 @@ export const TURSO_LENT_MS = 1000
  * (`refermerLesAttardees`) : Turso l'a peut-être fermée entre-temps.
  */
 export const GARDE_DE_NODE_MS = 4_000
-/** Un 95ᵉ centile ne se juge pas sur trois allers-retours : ceux du réveil, plus lents, le feraient mentir. */
-export const ALLERS_RETOURS_POUR_JUGER = 20
+/**
+ * Un 95ᵉ centile ne se juge pas sur trois allers-retours : ceux du réveil, plus lents, le feraient mentir. Ni sur
+ * vingt : c'est alors le deuxième plus lent, et l'heure en cours s'en jugeait dès ses premières minutes — vingt
+ * incidents « Turso lent » du 16 au 23 novembre 2026, pour quatre heures entières au-delà de la seconde ; à cent, il
+ * en reste une, et 162 heures sur 183 se jugent encore.
+ */
+export const ALLERS_RETOURS_POUR_JUGER = 100
 /** L'hébergeur gratuit donne 512 Mo et tue l'instance au-delà : l'alerte s'allume un peu avant. */
 export const MEMOIRE_PLAFOND_MO = 450
 export const MEMOIRE_DE_L_HEBERGEUR_MO = 512
@@ -630,6 +635,12 @@ export interface RouteDeLaPeriode extends RouteDeLHeure {
 export const APPELS_POUR_COMPARER = 20
 /** Ralentie : un tiers de plus au 95ᵉ centile moyen que sous la version d'avant. */
 export const RALENTIE_DE = 4 / 3
+/**
+ * Et de quoi le sentir : 200 ms de plus au moins, le seuil d'un geste qui fait attendre le doigt (`INP_LENT_MS`).
+ * Le tiers seul faisait sonner « Version qui ralentit » pour `GET /api/auth/me` passé de 4 à 9 ms, et la règle est
+ * restée ouverte onze jours sur trente en novembre 2026.
+ */
+export const ECART_QUI_SE_SENT_MS = 200
 
 /** Une version du serveur sur la semaine, et ce qu'elle a changé face à celle d'avant (`versionsDuServeur`). */
 export interface VersionDuServeur {
@@ -647,7 +658,10 @@ export interface VersionDuServeur {
   /** Le processeur moyen, en pour cent d'un cœur, et le pic de mémoire ; null sans relevé de charge. */
   processeur: number | null
   memoireMaxMo: number | null
-  /** Les routes plus lentes d'un tiers au moins que sous la version d'avant, la plus ralentie d'abord (trois au plus). */
+  /**
+   * Les routes plus lentes d'un tiers et de 200 ms au moins que sous la version d'avant, hors de l'heure de chaque
+   * démarrage, la plus ralentie d'abord (trois au plus).
+   */
   ralenties: { route: string; avant: number; apres: number }[]
 }
 
@@ -1132,6 +1146,17 @@ export function sorteDuDemarrage(d: DemarrageDuServeur, avant: DemarrageDuServeu
   return avant.arreteLe >= d.demarreLe - RELEVE_DE_L_ANCIEN_MS ? 'relance' : 'reveil'
 }
 
+/**
+ * Jusqu'où le serveur d'avant a guetté les alertes, s'il ne répondait plus quand celui-ci a démarré : son extinction —
+ * l'hébergeur l'a endormi —, ou son dernier signe s'il s'est arrêté net. Null s'il répondait encore — une mise en ligne,
+ * les deux se chevauchent : ce qu'il voyait ouvert, le nouveau le voit à sa suite —, ou sans serveur d'avant.
+ */
+export function finDuGuetDAvant(avant: DemarrageDuServeur | undefined, demarreLe: number): number | null {
+  if (!avant) return null
+  if (avant.arreteLe !== null) return avant.arreteLe < demarreLe ? avant.arreteLe : null
+  return demarreLe - avant.vuLe > SILENCE_D_UN_ARRET_MS ? avant.vuLe : null
+}
+
 /** Jusqu'où un démarrage a vécu : son extinction, sinon maintenant s'il répond, sinon son dernier signe. */
 export const finDe = (d: DemarrageDuServeur, maintenant: number, courant: string) => d.arreteLe ?? (d.id === courant ? maintenant : d.vuLe)
 
@@ -1281,6 +1306,42 @@ function cumulsDesRoutes<L>(lignes: readonly L[], lire: LireLaTable<L>): Map<str
   return cumuls
 }
 
+/** Une route sur des heures, pour comparer deux versions : ses appels, et le 95ᵉ centile de son heure médiane. */
+interface CentileDesHeures {
+  n: number
+  p95: number
+}
+
+/**
+ * Le 95ᵉ centile de chaque route sur des heures, tel que deux versions se
+ * comparent : celui de l'heure médiane, chaque heure pesant ses appels — pas
+ * leur moyenne. Sur une route peu appelée, une seule heure de hoquet faisait la
+ * version : `GET /api/jour` sous `6c6e74d`, 81 appels autour de 150 ms et deux
+ * à 10,3 s le 23 novembre 2026 à 21 h, quand Turso ne répondait plus — la
+ * moyenne disait 468 ms, la règle « 238 → 508 ms ». Une lenteur qu'apporte une
+ * version touche la plupart de ses heures, et l'heure médiane avec elles.
+ */
+function centileDesHeures(lignes: readonly Pick<HeureDeSante, 'parRoute'>[]): Map<string, CentileDesHeures> {
+  const heures = new Map<string, { n: number; p95: number }[]>()
+  for (const l of lignes) {
+    for (const r of l.parRoute ?? []) {
+      if (r.n <= 0) continue
+      const siennes = heures.get(r.route) ?? []
+      siennes.push({ n: r.n, p95: r.p95 })
+      heures.set(r.route, siennes)
+    }
+  }
+  const centiles = new Map<string, CentileDesHeures>()
+  for (const [route, siennes] of heures) {
+    const n = siennes.reduce((s, h) => s + h.n, 0)
+    siennes.sort((a, b) => a.p95 - b.p95)
+    let vus = 0
+    const mediane = siennes.find(h => (vus += h.n) * 2 >= n) ?? siennes[siennes.length - 1]
+    centiles.set(route, { n, p95: mediane.p95 })
+  }
+  return centiles
+}
+
 const routeDuCumul = (route: string, c: CumulDUneRoute): RouteDeLHeure => ({
   route,
   n: c.n,
@@ -1402,10 +1463,18 @@ export function tempsReelDeLaPeriode(
 /**
  * Les versions de la semaine, chacune comparée à celle d'avant : ce qu'un
  * joueur a attendu sous elle, ses erreurs pour mille requêtes, son processeur
- * et sa mémoire, et les routes qu'elle a ralenties d'un tiers et plus, sur
- * assez d'appels des deux côtés (`APPELS_POUR_COMPARER`, `RALENTIE_DE`). Hors
- * de l'hébergeur, un démarrage n'a pas de version : il n'y est pas. La plus
- * récente d'abord.
+ * et sa mémoire, et les routes qu'elle a ralenties d'un tiers et de 200 ms au
+ * moins, sur assez d'appels des deux côtés (`APPELS_POUR_COMPARER`,
+ * `RALENTIE_DE`, `ECART_QUI_SE_SENT_MS`). Hors de l'hébergeur, un démarrage n'a
+ * pas de version : il n'y est pas. La plus récente d'abord.
+ *
+ * Les routes se comparent hors de l'heure où chaque démarrage a commencé : un
+ * réveil fait attendre le premier accueil près de trente secondes sous toutes
+ * les versions, et comptait pour celle qui en avait eu le plus — `a929c69`
+ * passait pour avoir porté `GET /api/joueur/moi` de 779 ms à 2,1 s, sur cinq
+ * réveils de nuit (le bilan du 23 novembre 2026). Et sur le 95ᵉ centile de
+ * leur heure médiane (`centileDesHeures`). Ce qu'un joueur a attendu sous elle
+ * (`routes`), lui, garde tout : il l'a attendu.
  */
 export function versionsDuServeur(
   lignes: readonly HeureDeSante[],
@@ -1421,13 +1490,14 @@ export function versionsDuServeur(
     parVersion.set(d.version, v)
   }
   const versionDe = new Map(demarrages.map(d => [d.id, d.version]))
+  const heureDuDemarrage = new Map(demarrages.map(d => [d.id, debutDeLHeure(d.demarreLe)]))
   for (const l of lignes) {
     const version = versionDe.get(l.demarrage)
     if (version) parVersion.get(version)?.lignes.push(l)
   }
   const ordre = [...parVersion].sort(([, a], [, b]) => Math.min(...a.demarrages.map(d => d.demarreLe)) - Math.min(...b.demarrages.map(d => d.demarreLe)))
   const versions: VersionDuServeur[] = []
-  let avant: Map<string, CumulDUneRoute> | null = null
+  let avant: Map<string, CentileDesHeures> | null = null
   for (const [version, v] of ordre) {
     let n = 0
     let s50 = 0
@@ -1451,14 +1521,14 @@ export function versionsDuServeur(
         memoire = Math.max(memoire ?? 0, l.charge.memoireMaxMo)
       }
     }
-    const routes = cumulsDesRoutes(v.lignes, sesRoutes)
+    const routes = centileDesHeures(v.lignes.filter(l => l.heure !== heureDuDemarrage.get(l.demarrage)))
     const ralenties: VersionDuServeur['ralenties'] = []
     for (const [route, c] of avant ?? []) {
       const ici = routes.get(route)
       if (!ici || ici.n < APPELS_POUR_COMPARER || c.n < APPELS_POUR_COMPARER) continue
-      const p95Avant = c.s95 / c.n
-      const p95Apres = ici.s95 / ici.n
-      if (p95Avant > 0 && p95Apres >= p95Avant * RALENTIE_DE) ralenties.push({ route, avant: Math.round(p95Avant), apres: Math.round(p95Apres) })
+      if (c.p95 > 0 && ici.p95 >= c.p95 * RALENTIE_DE && ici.p95 - c.p95 >= ECART_QUI_SE_SENT_MS) {
+        ralenties.push({ route, avant: Math.round(c.p95), apres: Math.round(ici.p95) })
+      }
     }
     ralenties.sort((a, b) => b.apres / b.avant - a.apres / a.avant)
     versions.push({

@@ -103,6 +103,9 @@ test('son avatar : ce qu’il porte, son Éclat compris, un Divin aussi — seul
   assert.deepEqual(avatarQuiEclate(LEA), sonAvatar(LEA))
   // L'Éclat, lui, ne se montre ni sur l'emoji qu'il ne porte pas, ni sur le Divin, qui n'éclate pas.
   assert.deepEqual(avatarQuiEclate(LEA_DIVINE), { avatar: '', eclat: false })
+  // Ni sur l'avatar par défaut, qu'il n'a pas choisi (le 24 novembre 2026) — sauf sous un légendaire, qui éclate, lui.
+  assert.deepEqual(avatarQuiEclate({ ...LEA, avatar: '🎉', legendaire: null }), { avatar: '', eclat: false })
+  assert.deepEqual(avatarQuiEclate({ ...LEA, avatar: '🎉' }), sonAvatar({ ...LEA, avatar: '🎉' }))
 })
 
 // ── 2. La loge et « Ma collection » : ce que le propriétaire a vu ─────────
@@ -440,6 +443,16 @@ test('l’Éclat en réserve montre ce qu’il porte, pas l’emoji d’en desso
   const html = await rendu('components/Ouverts', 'EclatTombe', { cle: 'reserve:abc', avatar: '🪐', chance: 40, porte: { avatar: '🪐', legendaire: 'lg:phenix', eclat: true } })
   assert.match(html, /Un Éclat en réserve !/)
   assert.match(html, /<span class="fin-apparition"><span class="av av-legendaire/, 'le légendaire porté, en grand')
+  assert.match(html, /avait déjà éclaté/)
+  // Sous un Divin, l'Éclat part en réserve sans que rien ait éclaté (le 24 novembre 2026) : la carte ne lui dit pas
+  // qu'un avatar « avait déjà éclaté ».
+  const sousUnDivin = await rendu('components/Ouverts', 'EclatTombe', { cle: 'reserve:abc', avatar: '🪐', chance: 40, porte: { avatar: '🪐', legendaire: 'dv:helios', eclat: false } })
+  assert.match(sousUnDivin, /Un Divin n’éclate pas/)
+  assert.doesNotMatch(sousUnDivin, /avait déjà éclaté/)
+  // L'avatar par défaut non plus, qu'il n'a pas choisi : sous un légendaire, c'est le légendaire qui éclate.
+  const parDefaut = await rendu('components/Ouverts', 'EclatTombe', { cle: 'reserve:abc', avatar: '🎉', chance: 40, porte: { avatar: '🎉', eclat: false } })
+  assert.match(parDefaut, /Ton avatar par défaut n’éclate pas/)
+  assert.doesNotMatch(parDefaut, /avait déjà éclaté/)
   // Sans ce qu'il porte (une page d'avant), l'emoji reste : rien ne casse.
   assert.match(await rendu('components/Ouverts', 'EclatTombe', { cle: 'reserve:abc', avatar: '🪐', chance: 40 }), /🪐/)
   // Les trois écrans qui le posent le lui donnent.

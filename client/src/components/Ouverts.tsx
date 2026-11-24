@@ -1,7 +1,8 @@
 import { useState, useSyncExternalStore } from 'react'
 import type { Finition } from '../../../shared/profil'
 import type { SonAvatar } from '../../../shared/sonAvatar'
-import { estEnReserve, legendaire } from '../../../shared/legendaires'
+import { divin } from '../../../shared/divins'
+import { eclatEnReserveDOffice, estEnReserve, legendaire } from '../../../shared/legendaires'
 import { nomDansLaPhrase, portrait as portraitDe } from '../../../shared/branches'
 import { compagnon as leCompagnon, compagnonDe, formeDeCompagnon, type CleDeCompagnon, type FormeDeCompagnon } from '../../../shared/compagnons'
 import { api } from '../api'
@@ -129,8 +130,15 @@ const EN_LETTRES: Record<number, string> = { 20: 'vingt', 40: 'quarante' }
 export function EclatTombe({ cle, avatar, finition, chance, porte }: { cle: string; avatar: string; finition?: Finition; chance: number; porte?: SonAvatar }) {
   // Tombé sur un avatar qui avait déjà éclaté, il attend en réserve : rien n'a changé de couleurs, mais il n'est pas perdu.
   // Il montre ce qu'il porte (`porte`, `sonAvatar`) : l'emoji seul y paraissait, en grand, sous un légendaire porté — « ce
-  // n'était pas mon avatar équipé », le retour du 3 novembre 2026.
+  // n'était pas mon avatar équipé », le retour du 3 novembre 2026. Sous un Divin ou sur l'avatar par défaut, il y part
+  // d'office (`eclatEnReserveDOffice`, le 24 novembre 2026) : rien n'avait éclaté, et la phrase le dit autrement.
   if (estEnReserve(cle)) {
+    const vu: Pick<SonAvatar, 'avatar' | 'legendaire'> = porte ?? { avatar }
+    const pourquoi = divin(vu.legendaire)
+      ? 'Un Divin n’éclate pas : fais éclater l’avatar de ton choix, parmi ceux que tu as — ou taille-en un dans une matière.'
+      : eclatEnReserveDOffice(vu.legendaire, vu.avatar)
+        ? 'Ton avatar par défaut n’éclate pas : fais éclater celui de ton choix, parmi ceux que tu as — ou taille-en un dans une matière.'
+        : 'Ton avatar avait déjà éclaté : fais-en éclater un autre, parmi ceux que tu as — ou taille-le dans une matière.'
     return (
       <section className="card fin-eclat">
         <span className="label">{`Une chance sur ${EN_LETTRES[chance] ?? chance}`}</span>
@@ -138,7 +146,7 @@ export function EclatTombe({ cle, avatar, finition, chance, porte }: { cle: stri
           <Avatar {...(porte ?? { avatar })} finition={finition} />
         </span>
         <h2>Un Éclat en réserve !</h2>
-        <p className="serif-note">Ton avatar avait déjà éclaté : fais-en éclater un autre, parmi ceux que tu as — ou taille-le dans une matière.</p>
+        <p className="serif-note">{pourquoi}</p>
         <a className="btn btn-primary" href="/profil#avatar">
           Choisir mon avatar
         </a>

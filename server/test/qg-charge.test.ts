@@ -20,6 +20,7 @@ import type { ProfilDAdministration } from '../../shared/profil'
 import type { VueDEnsemble } from '../../shared/qg'
 import type { PageDeLEconomie } from '../../shared/qgEconomie'
 import { jourDe } from '../../shared/jour'
+import { VUE_GARDEE_MS, VUE_GARDEE_PENDANT_UNE_QUESTION_MS, VueGardee } from '../src/qg'
 
 // ── Le compteur ───────────────────────────────────────────────────────────
 
@@ -194,6 +195,96 @@ test('la page du Sphinx lit les visites de tous d’un seul aller-retour, en com
   for (const l of sphinx) assert.ok(l.lignes < VISITES / 2, `${l.lignes} lignes à décoder (${l.sql.slice(0, 80)}…)`)
   const suivante = await mesurer(() => lire('/api/admin/sphinx'))
   assert.equal(suivante.allersRetours, 1, 'la page d’un seul lot')
+})
+
+// La vue d'ensemble coûtait une seconde par lecture en production — la moitié
+// des 89 lectures du 15 au 23 novembre 2026 au-delà, 2,7 % du temps du serveur —
+// et se recomptait à chaque retour au poste de commande, pour chaque onglet
+// ouvert, pour montrer la même chose qu'une minute plus tôt. Gardée une minute,
+// partagée par qui la demande pendant qu'elle se fait, oubliée au premier geste
+// du QG.
+test('la vue d’ensemble se garde une minute, partagée par les onglets, et un geste du QG la fait oublier', async () => {
+  // Midi à Paris : la minute qui passe ne franchit aucun minuit.
+  const horloge = { t: Date.UTC(2026, 10, 4, 11) }
+  const gardee = await demarrer({ vueDuQgGardeeMs: VUE_GARDEE_MS, horlogeDuJour: () => horloge.t })
+  try {
+    const cookie = await connexionAnimateur(gardee.url)
+    const vue = async () => {
+      const r = await fetch(`${gardee.url}/api/admin/qg`, { headers: { Cookie: cookie } })
+      assert.equal(r.status, 200)
+      return (await r.json()) as VueDEnsemble
+    }
+    const premiere = await mesurer(vue)
+    assert.ok(premiere.allersRetours > 0, 'la première se lit')
+    // Rouverte dans la minute — un retour au poste, un autre onglet : rien ne se relit, la même vue.
+    horloge.t += 30_000
+    const encore = await mesurer(vue)
+    assert.equal(encore.allersRetours, 0, 'gardée')
+    assert.deepEqual(encore.resultat, premiere.resultat)
+
+    // Un geste du QG — un bandeau posé — l'oublie : la vue suivante dit ce qui a changé.
+    const geste = await ecrire(gardee.url, '/api/admin/maintenance/bandeau', { texte: 'Un essai du banc' }, cookie, 'PUT')
+    assert.equal(geste.status, 200)
+    const apresLeGeste = await mesurer(vue)
+    assert.ok(apresLeGeste.allersRetours > 0, 'oubliée par le geste')
+    assert.equal(apresLeGeste.resultat.maintenant, horloge.t)
+
+    // La minute passée, elle se relit — une fois pour deux onglets qui la demandent ensemble.
+    horloge.t += VUE_GARDEE_MS
+    const seule = await mesurer(vue)
+    assert.ok(seule.allersRetours > 0, 'la minute passée, relue')
+    horloge.t += VUE_GARDEE_MS
+    const deux = await mesurer(() => Promise.all([vue(), vue()]))
+    assert.ok(deux.allersRetours > 0 && deux.allersRetours <= seule.allersRetours, `deux onglets, une lecture : ${deux.allersRetours} contre ${seule.allersRetours}`)
+    assert.deepEqual(deux.resultat[0], deux.resultat[1])
+  } finally {
+    await gardee.close()
+  }
+})
+
+// Recomptée, la vue d'ensemble prend au dixième de cœur 0,6 à 1 s de
+// processeur rationné — la production relevait des gels de 0,5 à 0,8 s sous
+// elle seule, du 16 au 23 novembre 2026 —, et un gel plus long que la marge
+// d'une question fait recevoir « Trop tard » à une réponse partie à temps.
+// L'administrateur qui anime garde le poste ouvert : pendant une question de
+// soirée, la vue gardée sert au-delà de sa minute.
+test('pendant une question de soirée, la vue gardée sert au-delà de sa minute — dix au plus —, sans jamais retenir la requête', async () => {
+  const horloge = { t: 1_000 }
+  let enJeu = false
+  let calculs = 0
+  const garde = new VueGardee(VUE_GARDEE_MS, () => horloge.t, () => enJeu)
+  const lire = async () => (await garde.lire(async () => ({ maintenant: ++calculs }) as unknown as VueDEnsemble)).maintenant
+  assert.equal(await lire(), 1)
+
+  // Sa minute passée, une question se joue : elle sert telle quelle.
+  horloge.t += VUE_GARDEE_MS + 1
+  enJeu = true
+  assert.equal(await lire(), 1, 'une question se joue : la vue gardée sert')
+  horloge.t = 1_000 + VUE_GARDEE_PENDANT_UNE_QUESTION_MS - 1
+  assert.equal(await lire(), 1)
+  // Dix minutes au plus : une question laissée ouverte ne la fige pas pour la soirée.
+  horloge.t = 1_000 + VUE_GARDEE_PENDANT_UNE_QUESTION_MS
+  assert.equal(await lire(), 2, 'dix minutes au plus')
+
+  // La révélation passée, sa minute reprend.
+  enJeu = false
+  horloge.t += VUE_GARDEE_MS
+  assert.equal(await lire(), 3)
+  // Un geste du QG l'oublie, même pendant une question.
+  enJeu = true
+  garde.oublier()
+  assert.equal(await lire(), 4, 'oubliée par un geste')
+
+  // Rien de gardé pendant une question : elle se compte tout de suite — la requête n'attend jamais la salle.
+  const neuve = new VueGardee(VUE_GARDEE_MS, () => horloge.t, () => true)
+  const avant = Date.now()
+  assert.equal((await neuve.lire(async () => ({ maintenant: 9 }) as unknown as VueDEnsemble)).maintenant, 9)
+  assert.ok(Date.now() - avant < 200, 'servie sans attendre la révélation')
+  // Le banc, qui ne garde rien, ne garde rien non plus pendant une question.
+  const banc0 = new VueGardee(0, () => horloge.t, () => true)
+  let n = 0
+  for (let i = 0; i < 2; i++) await banc0.lire(async () => ({ maintenant: ++n }) as unknown as VueDEnsemble)
+  assert.equal(n, 2)
 })
 
 // La page de l'économie comptait les bonnes réponses de la campagne heure par

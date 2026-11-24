@@ -6,8 +6,7 @@
 // bordures de « Ma collection » le montraient en emoji. Ce module dit, pour
 // les écrans qui le dessinent, ce qu'il porte.
 
-import { divin } from './divins'
-import { cibleEclat } from './legendaires'
+import { cibleEclat, eclatEnReserveDOffice } from './legendaires'
 import { eclatChez, type PublicProfile } from './profil'
 import type { EclatPorte } from './matieres'
 
@@ -35,9 +34,11 @@ export function sonAvatar(p: CeQuIlPorte): SonAvatar {
  * Ce sur quoi un Éclat se montre dans un aperçu — le présentoir de la
  * boutique — : son avatar. Sous un Divin, qui n'éclate pas, rien : l'aperçu
  * se tait, plutôt que de faire briller l'emoji d'un avatar qu'il ne porte
- * pas. L'aperçu d'une finition ou d'une bordure, lui, entoure ce qu'il porte,
- * Divin compris, depuis le 22 novembre 2026 (`sonAvatar`).
+ * pas ; sur l'avatar par défaut non plus, qu'aucun Éclat ne fait éclater
+ * (`eclatEnReserveDOffice`, le 24 novembre 2026). L'aperçu d'une finition ou
+ * d'une bordure, lui, entoure ce qu'il porte, Divin compris, depuis le
+ * 22 novembre 2026 (`sonAvatar`).
  */
 export function avatarQuiEclate(p: CeQuIlPorte): SonAvatar {
-  return divin(p.legendaire) ? { avatar: '', eclat: false } : sonAvatar(p)
+  return eclatEnReserveDOffice(p.legendaire, p.avatar) ? { avatar: '', eclat: false } : sonAvatar(p)
 }

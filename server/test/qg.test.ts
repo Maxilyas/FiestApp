@@ -41,7 +41,7 @@ import { duelsDeLaVue } from '../../shared/qgDuels'
 import { dUneTraite } from '../../shared/tranches'
 import { ProfileStore } from '../src/auth/profiles'
 import { chiffresDeLaVue, type Journaux } from '../src/qg'
-import { PERIODES_DU_QG, activiteDeLaPeriode } from '../../shared/qgPeriodes'
+import { PERIODES_DU_QG, activiteDeLHistorique, activiteDeLaPeriode, joursDesJournaux } from '../../shared/qgPeriodes'
 import { etatDuService, phraseDeLEtat } from '../../shared/qgEtat'
 import type { AlertesDuServeur } from '../../shared/santeDuServeur'
 
@@ -196,8 +196,12 @@ test('les chiffres de la vue d’ensemble, un compte par tranche : les mêmes qu
     participations: participationsParJour(solo, soirees, minuits, maintenant),
     campagne: campagneDeLaVue(series, minuits, maintenant),
     duels: duelsDeLaVue(series, minuits, maintenant),
-    // Les quatre périodes de la barre du QG 2, chacune sur les mêmes journaux.
-    periodes: Object.fromEntries(PERIODES_DU_QG.map(p => [p, activiteDeLaPeriode(p, solo, soirees, activite, minuits, maintenant)])),
+    // Les quatre périodes de la barre du QG 2, chacune sur les mêmes journaux ; et tout l'historique, ces trente jours
+    // repassés jour par jour — sans mémoire, rien d'avant eux.
+    periodes: Object.fromEntries([
+      ...PERIODES_DU_QG.map(p => [p, activiteDeLaPeriode(p, solo, soirees, activite, minuits, maintenant)] as const),
+      ['tout', activiteDeLHistorique(joursDesJournaux(solo, soirees, activite, minuits, maintenant), maintenant)] as const,
+    ]),
   }
   assert.ok(dUnBloc.aujourdhui.profilsActifs.aujourdhui > 0 && dUnBloc.aujourdhui.seriesDeCampagne.habituel !== null, 'des chiffres à comparer')
   // Des parties finies à compter, et moins que de commencées : la vue les tient de la fin de chacune.

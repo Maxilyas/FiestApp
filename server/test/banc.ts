@@ -114,10 +114,12 @@ export async function demarrer(opts: Partial<QuizServerOptions> = {}): Promise<B
   // lectures qu'une épreuve compte ; `qg-memoire.test.ts` le lance, l'horloge à la main.
   // Et les dépôts de la routine publiés tout de suite (`publicationDesAjoutsMs`) : ses épreuves jouent ce qu'elles viennent
   // de déposer ; `campagne-routine.test.ts` remet le délai de la production pour l'éprouver.
+  // Et la vue d'ensemble du QG recomptée à chaque lecture (`vueDuQgGardeeMs`) : ses épreuves jouent, puis la relisent
+  // aussitôt ; `qg-charge.test.ts` remet la minute de la production pour l'éprouver.
   let reglages = opts
   const lancer = () =>
     // Sur une ligne : `cabinet-ouverture.test.ts` lit cet appel tel quel.
-    createQuizServer({ port, dbPath, quizDbUrl, admin: ADMIN, filetEnDeuxTemps: false, prechauffageAuProfil: false, fraicheurDesDuelsMs: 0, fraicheurDesLecturesMs: 0, pointDuMatinMs: null, publicationDesAjoutsMs: 0, ...reglages })
+    createQuizServer({ port, dbPath, quizDbUrl, admin: ADMIN, filetEnDeuxTemps: false, prechauffageAuProfil: false, fraicheurDesDuelsMs: 0, fraicheurDesLecturesMs: 0, pointDuMatinMs: null, publicationDesAjoutsMs: 0, vueDuQgGardeeMs: 0, ...reglages })
   let server = await lancer()
   port = server.port
   const banc: Banc = {

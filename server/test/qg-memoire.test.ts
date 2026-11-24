@@ -37,10 +37,13 @@ import {
   type JourDuPoint,
 } from '../../shared/pointDuMatin'
 import type { PageDesAlertes } from '../../shared/qgAlertes'
+import type { VueDEnsemble } from '../../shared/qg'
+import { PAS_D_UNE_SEMAINE } from '../../shared/qgPeriodes'
 import {
   VERSION_DE_LA_MEMOIRE,
   joursDeLaMemoire,
   lireLeServeurDUnJour,
+  lundiDe,
   minuitDuJour,
   nesEnSoiree,
   soireesDuJour,
@@ -621,5 +624,89 @@ test('au banc : rien avant l’heure ; son passage écrit la veille et sonne une
   } finally {
     await banc.close()
     await push.fermer()
+  }
+})
+
+// ── Tout l'historique, au banc (le 24 novembre 2026 : « une vue totale ») ────
+
+test('au banc : la mémoire se garde au-delà d’un an, et tout l’historique du poste de commande la lit — une fois, sans jamais l’écrire', async () => {
+  const banc = await demarrer({ horlogeDuJour: () => MAINTENANT })
+  try {
+    const admin = await connexionAnimateur(banc.url)
+    for (const login of ['lea', 'bob']) {
+      const res = await ecrire(banc.url, '/api/joueur/inscription', { login, password: 'motdepasse1', name: login, avatar: '🦊' })
+      assert.equal(res.status, 201)
+    }
+    const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+    const ids = Object.fromEntries((db.prepare('SELECT login, id FROM profiles').all() as { login: string; id: string }[]).map(p => [p.login, p.id]))
+    // Léa et Bob nés il y a quatre cents jours ; Léa joue au quiz du jour ce jour-là, il y a quarante-cinq jours et
+    // aujourd'hui, Bob un duel il y a quarante-cinq jours.
+    db.prepare('UPDATE profiles SET created_at = ? WHERE id IN (?, ?)').run(a(il_y_a(400), 8), ids.lea, ids.bob)
+    const partie = db.prepare('INSERT INTO jour_parties (profile_id, jour, commencee_le, question, justes) VALUES (?, ?, ?, 10, 6)')
+    for (const n of [400, 45, 0]) partie.run(ids.lea, il_y_a(n), a(il_y_a(n), n === 0 ? 18 : 9))
+    db.prepare(`INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode) VALUES ('s-bob', ?, '[]', 3, 0, 0, ?, NULL, 'duel')`).run(
+      ids.bob,
+      a(il_y_a(45), 20),
+    )
+    db.close()
+    const lire = async <T>(chemin: string): Promise<T> => {
+      const r = await fetch(`${banc.url}${chemin}`, { headers: { Cookie: admin } })
+      assert.equal(r.status, 200, chemin)
+      return (await r.json()) as T
+    }
+
+    // La mémoire pas encore écrite : le poste de commande ne la rattrape pas — tout l'historique s'arrête aux trente jours.
+    const { instructions: avant, resultat: sansMemoire } = await mesurer(() => lire<VueDEnsemble>('/api/admin/qg'))
+    assert.deepEqual(
+      avant.filter(sql => /INTO qg_(jours|presences)|DELETE FROM qg_(jours|presences)|MIN\(jour\) AS n FROM jour_parties/.test(sql)),
+      [],
+      'le poste de commande lit la mémoire, il ne l’écrit ni ne la rattrape jamais',
+    )
+    assert.deepEqual([sansMemoire.periodes?.tout.totaux.parties.jour, sansMemoire.periodes?.tout.depuis], [1, minuitDuJour(AUJOURDHUI)])
+
+    // La page des joueurs l'écrit — aussi loin que les journaux remontent, au-delà d'un an.
+    await lire<PageDesJoueurs>('/api/admin/joueurs')
+    const memoire = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true })
+    try {
+      const jours = (memoire.prepare('SELECT jour FROM qg_jours ORDER BY jour').all() as { jour: string }[]).map(r => r.jour)
+      assert.deepEqual([jours.length, jours[0], jours.at(-1)], [400, il_y_a(400), il_y_a(1)], 'quatre cents jours finis, le plus ancien gardé')
+      assert.deepEqual(
+        (memoire.prepare('SELECT jour, profile_id AS qui FROM qg_presences ORDER BY jour, profile_id').all() as { jour: string; qui: string }[]).map(p => [p.jour, p.qui]),
+        [
+          [il_y_a(400), ids.lea],
+          [il_y_a(45), ids.bob],
+          [il_y_a(45), ids.lea],
+        ].sort(),
+      )
+    } finally {
+      memoire.close()
+    }
+
+    // Le poste de commande la relit, puisqu'elle a changé : les jours d'avant les trente, de la mémoire ; ceux-là, des journaux.
+    const { instructions: apres, resultat: vue } = await mesurer(() => lire<VueDEnsemble>('/api/admin/qg'))
+    const tout = vue.periodes!.tout
+    assert.equal(tout.depuis, minuitDuJour(il_y_a(400)))
+    assert.equal(tout.pas, PAS_D_UNE_SEMAINE, 'quatre cent un jours : en semaines')
+    assert.deepEqual([tout.totaux.joueurs, tout.totaux.modes.jour, tout.totaux.modes.duel], [2, 1, 1], 'Léa et Bob, une fois chacun')
+    assert.deepEqual([tout.totaux.parties.jour, tout.totaux.parties.duel, tout.totaux.nouveauxProfils], [3, 1, 2])
+    assert.deepEqual(
+      tout.seaux.filter(s => s.joueurs > 0).map(s => [s.debut, s.joueurs]),
+      [
+        [minuitDuJour(lundiDe(il_y_a(400))), 1],
+        [minuitDuJour(lundiDe(il_y_a(45))), 2],
+        [minuitDuJour(lundiDe(AUJOURDHUI)), 1],
+      ],
+    )
+    assert.ok(tout.seaux.every(s => s.debut <= MAINTENANT))
+    const deLaMemoire = apres.filter(sql => /\bqg_(jours|presences)\b/.test(sql))
+    assert.equal(deLaMemoire.length, 2, 'ses chiffres et ses feuilles, d’un aller-retour')
+    assert.ok(deLaMemoire.every(sql => /WHERE jour < \?/.test(sql)), 'les jours d’avant les trente, par leur clé')
+
+    // Rouverte : rien de la mémoire ne se relit avant minuit.
+    const { instructions: encore, resultat: memeVue } = await mesurer(() => lire<VueDEnsemble>('/api/admin/qg'))
+    assert.deepEqual(encore.filter(sql => /\bqg_(jours|presences)\b/.test(sql)), [])
+    assert.deepEqual(memeVue.periodes?.tout, tout)
+  } finally {
+    await banc.close()
   }
 })

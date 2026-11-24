@@ -253,6 +253,66 @@ test('les versions de la semaine : chacune ce qu’un joueur a attendu sous elle
   assert.deepEqual([neuve.depuis, neuve.jusqua], [heure - 25 * H, maintenant])
 })
 
+test('une version ne ralentit que ce qui se sent — 200 ms de plus au moins —, et hors de l’heure où chaque démarrage a commencé', () => {
+  // La semaine du 16 au 23 novembre 2026 : « Version qui ralentit » ouverte onze jours sur trente, pour
+  // `GET /api/auth/me` passé de 4 à 9 ms, ou pour les réveils de nuit d'une version qui en avait eu cinq.
+  const heure = debutDeLHeure(maintenant)
+  const demarrages = [
+    demarrage('a', { version: 'a41c9e2', demarreLe: heure - 50 * H + 30 * 60_000, vuLe: heure - 26 * H, arreteLe: heure - 26 * H }),
+    // Un réveil de nuit à la seizième minute, puis le réveil du matin à la cinquante-sixième.
+    demarrage('b1', { version: 'b52d0f3', demarreLe: heure - 30 * H + 16 * 60_000, vuLe: heure - 30 * H + 40 * 60_000, arreteLe: heure - 30 * H + 40 * 60_000 }),
+    demarrage('b2', { version: 'b52d0f3', demarreLe: heure - 20 * H + 56 * 60_000, vuLe: maintenant }),
+  ]
+  const lignes = [
+    ligne(heure - 40 * H, 'a', {
+      parRoute: [
+        route({ route: 'GET /api/auth/me', n: 300, p95: 4 }),
+        route({ route: 'GET /api/joueur/moi', n: 100, p95: 780 }),
+        route({ route: 'POST /api/campagne/epreuve/:id/reponse', n: 100, p95: 210 }),
+        route({ route: 'POST /api/cabinet/traversee/:id/geste', n: 40, p95: 300 }),
+      ],
+    }),
+    // Le premier accueil du réveil attend vingt-huit secondes, sous cette version comme sous les autres.
+    ligne(heure - 30 * H, 'b1', { parRoute: [route({ route: 'GET /api/joueur/moi', n: 20, p95: 28_000 })] }),
+    ligne(heure - 20 * H, 'b2', { parRoute: [route({ route: 'GET /api/joueur/moi', n: 3, p95: 3_000 })] }),
+    ligne(heure - 19 * H, 'b2', {
+      parRoute: [
+        route({ route: 'GET /api/auth/me', n: 300, p95: 9 }),
+        route({ route: 'GET /api/joueur/moi', n: 100, p95: 800 }),
+        // 210 → 385 : un tiers de plus, mais 175 ms ; 300 → 520 : 220 ms, ralentie.
+        route({ route: 'POST /api/campagne/epreuve/:id/reponse', n: 100, p95: 385 }),
+        route({ route: 'POST /api/cabinet/traversee/:id/geste', n: 30, p95: 520 }),
+      ],
+    }),
+  ]
+  const [neuve] = versionsDuServeur(lignes, demarrages, maintenant, 'b2')
+  assert.equal(neuve.version, 'b52d0f3')
+  assert.deepEqual(neuve.ralenties, [{ route: 'POST /api/cabinet/traversee/:id/geste', avant: 300, apres: 520 }])
+})
+
+test('une heure de hoquet ne fait pas une version qui ralentit : les routes se comparent sur leur heure médiane', () => {
+  // `GET /api/jour` sous `6c6e74d`, le 23 novembre 2026 : 81 appels sur dix-sept heures, autour de 150 ms, et deux à
+  // 10,3 s à 21 h, quand Turso ne répondait plus — la moyenne des heures disait 468 ms, et la règle « 238 → 508 ms ».
+  const heure = debutDeLHeure(maintenant)
+  const demarrages = [
+    demarrage('a', { version: 'a41c9e2', demarreLe: heure - 50 * H, vuLe: heure - 26 * H, arreteLe: heure - 26 * H }),
+    demarrage('b', { version: 'b52d0f3', demarreLe: heure - 25 * H, vuLe: maintenant }),
+  ]
+  const jour = (p95: number, n: number) => ({ parRoute: [route({ route: 'GET /api/jour', n, p95 })] })
+  const lignes = [
+    ...[[92, 8], [114, 4], [53, 3], [545, 8], [344, 7], [86, 2], [47, 3], [315, 3]].map(([p95, n], i) => ligne(heure - (48 - i) * H, 'a', jour(p95, n))),
+    ...[[338, 6], [70, 5], [287, 3], [367, 5], [156, 4], [129, 13], [148, 3], [161, 7], [10_302, 2], [380, 9], [357, 8], [112, 6], [50, 4]].map(
+      ([p95, n], i) => ligne(heure - (24 - i) * H, 'b', jour(p95, n)),
+    ),
+  ]
+  const [neuve] = versionsDuServeur(lignes, demarrages, maintenant, 'b')
+  assert.deepEqual(neuve.ralenties, [], 'une heure à dix secondes, les autres comme avant')
+  // Une vraie lenteur, elle, touche la plupart des heures : la même route, chaque heure 300 ms plus lente.
+  const plusLente = lignes.map(l => (l.demarrage === 'b' ? { ...l, parRoute: l.parRoute!.map(r => ({ ...r, p95: r.p95 + 300 })) } : l))
+  const [ralentie] = versionsDuServeur(plusLente, demarrages, maintenant, 'b')
+  assert.deepEqual(ralentie.ralenties, [{ route: 'GET /api/jour', avant: 114, apres: 461 }])
+})
+
 test('un vrai serveur relève chaque route servie, et sa page se lit sur une heure, une journée ou une semaine', async () => {
   const banc = await demarrer()
   try {

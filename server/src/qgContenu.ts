@@ -159,17 +159,20 @@ export class ContenuDuQg {
 
 /**
  * Un geste de l'administrateur — corriger, reclasser, retirer, annuler, coller
- * une liste, supprimer un profil… — peut changer ce que les pages du contenu
- * montrent : toute écriture sous `/api/admin` oublie leur lecture gardée, à
- * son arrivée et à sa fin — une page relue pendant le geste aurait gardé
- * l'état d'avant une minute de plus. Les gestes sont rares : la page suivante
- * relit, c'est tout ce que ça coûte.
+ * une liste, supprimer un profil, trier une erreur… — peut changer ce que les
+ * pages du contenu et la vue d'ensemble montrent : toute écriture sous
+ * `/api/admin` oublie leurs lectures gardées, à son arrivée et à sa fin — une
+ * page relue pendant le geste aurait gardé l'état d'avant une minute de plus.
+ * Les gestes sont rares : la page suivante relit, c'est tout ce que ça coûte.
  */
-export function oublierApresUnGeste(contenu: ContenuDuQg): RequestHandler {
+export function oublierApresUnGeste(...gardees: { oublier(): void }[]): RequestHandler {
+  const oublier = () => {
+    for (const g of gardees) g.oublier()
+  }
   return (req, res, next) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') {
-      contenu.oublier()
-      res.on('finish', () => contenu.oublier())
+      oublier()
+      res.on('finish', oublier)
     }
     next()
   }

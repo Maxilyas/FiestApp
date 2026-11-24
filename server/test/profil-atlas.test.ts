@@ -352,13 +352,14 @@ test('la loge, sur le thème : ses thèmes et sa plaque en deux onglets, deux li
   assert.doesNotMatch(html, /Mes gerbes|gerbes-choix/, 'la gerbe a son panneau')
   // Sa plaque se découvre sans défiler (le propriétaire, le 17 novembre 2026 : « la plaque des thèmes qui est caché tout
   // en bas et donc impossible pour des utilisateurs de savoir que ça existe ») : deux onglets tout en haut de la pièce,
-  // avant toute vignette — « Mes thèmes » et leur compte, ouvert d'office, puis « Ma plaque » et son échantillon.
+  // avant toute vignette — « Mes thèmes » et leur compte, ouvert d'office, puis « Mon podium » (« Ma plaque » jusqu'au
+  // 24 novembre 2026) et son échantillon.
   const onglets = [...html.matchAll(/<button id="loge-theme-(\w+)" type="button" role="tab" aria-selected="(true|false)"[^>]*tabindex="(-1|0)"/g)].map(m => `${m[1]}${m[2] === 'true' ? '*' : ''}${m[3]}`)
   assert.deepEqual(onglets, ['themes*0', 'plaque-1'])
-  assert.match(html, /<div class="onglets loge-theme-onglets" role="tablist" aria-label="Thème ou plaque">/)
+  assert.match(html, /<div class="onglets loge-theme-onglets" role="tablist" aria-label="Thème ou podium">/)
   assert.ok(html.indexOf('loge-theme-onglets') < html.indexOf('loge-vignettes'), 'les onglets avant les vignettes')
   assert.match(html, /Mes thèmes<span class="loge-theme-compte"><span class="sr-only">, <\/span>2<\/span>/)
-  assert.match(html, /<span class="loge-plaque-echantillon[^"]*" aria-hidden="true">(<span class="plaque-embleme" aria-hidden="true"><\/span>)?<\/span>Ma plaque<svg class="icon loge-theme-oeil"[^>]*>.*?<\/svg><span class="sr-only">, [^<]*, les autres la voient<\/span>/)
+  assert.match(html, /<span class="loge-plaque-echantillon[^"]*" aria-hidden="true">(<span class="plaque-embleme" aria-hidden="true"><\/span>)?<\/span>Mon podium<svg class="icon loge-theme-oeil"[^>]*>.*?<\/svg><span class="sr-only">, [^<]*, les autres le voient<\/span>/)
   // Ce qui s'achète au rayon des thèmes de la boutique, ce qui se gagne dans la collection : sur une ligne, au pied.
   assert.match(html, /<div class="loge-pied"><a class="loge-a-gagner loge-vers-boutique" href="\/boutique#themes"><svg[^>]*>.*?<\/svg>\d+ à la boutique<\/a><a class="loge-a-gagner" href="#collection-themes">5 thèmes à gagner\s:\soù\s\?<svg/)
   // Seulement ceux qu'il a, dans leurs vignettes : les autres se montrent dans la collection.

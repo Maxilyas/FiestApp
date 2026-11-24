@@ -342,10 +342,10 @@ export function lignesDeLEssai(essai: Essai, profil: Pick<PublicProfileDetail, '
     const t = theme(essai.theme ?? 'velours')
     lignes.push({ piece: 'theme', nom: t?.nom ?? 'Velours', detail: t ? `Thème · ${NOM_DE_RARETE[t.rarete]}` : 'Thème' })
   }
-  // La plaque se choisit dans la pièce « Thème » : sa ligne y mène.
+  // La plaque se choisit dans la pièce « Thème », sous son nom d'écran, « Mon podium » (le 24 novembre 2026) : sa ligne y mène.
   if (essai.plaque !== undefined) {
     const p = essai.plaque
-    lignes.push({ piece: 'theme', nom: p === 'auto' ? 'Comme ton thème' : p === AUCUNE_PLAQUE ? 'Sans plaque' : (theme(p)?.nom ?? 'Velours'), detail: 'Plaque' })
+    lignes.push({ piece: 'theme', nom: p === 'auto' ? 'Comme ton thème' : p === AUCUNE_PLAQUE ? 'Classique' : (theme(p)?.nom ?? 'Velours'), detail: 'Podium' })
   }
   if (essai.camp) {
     const c = THEMES.flatMap(t => t.camps ?? []).find(x => x.key === essai.camp)

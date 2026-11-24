@@ -55,6 +55,8 @@
 // musée n'a plus d'écran, son serveur range encore la même ligne.
 
 import { clePalier } from './hautsfaits'
+import { DEFAULT_AVATAR } from './avatars'
+import { divin } from './divins'
 import { portrait } from './branches'
 import { formeDeCompagnon } from './compagnons'
 import { CABINET_EN_PRODUCTION } from './cabinet/ouverture'
@@ -666,12 +668,27 @@ export function legendairesOuvertsPar(
  * Ce qui éclate quand l'Éclat tombe sur un profil : le légendaire ou le
  * portrait d'une branche qu'il porte, s'il en porte un — il prend sa version
  * rare —, ou la forme de compagnon qu'il porte — sa gemme l'annonce, à
- * toutes ses formes (`clesQuiBrillent`) —, son emoji sinon. Un Divin
- * n'éclate jamais : sous un Divin, c'est l'emoji qui éclate. Le serveur tire
- * l'Éclat sur cette cible, et chaque écran demande si c'est elle qui brille.
+ * toutes ses formes (`clesQuiBrillent`) —, son emoji sinon. Chaque écran
+ * demande si c'est elle qui brille, et le serveur tire l'Éclat sur elle —
+ * sauf quand il part en réserve d'office (`eclatEnReserveDOffice`) : sous un
+ * Divin, la cible reste l'emoji pour qui regarde.
  */
 export function cibleEclat(porte: string | null | undefined, emoji: string): string {
   return porte && (legendaire(porte) || portrait(porte) || formeDeCompagnon(porte)) ? porte : emoji
+}
+
+/**
+ * L'Éclat tiré sur ce qu'il porte n'y éclate pas, il part en réserve, que le
+ * joueur pose où il veut (le choix du propriétaire du 24 novembre 2026) :
+ * sous un Divin, qui n'éclate jamais — l'emoji caché dessous brillait sans
+ * que personne le voie —, et sur l'avatar par défaut, qu'il n'a pas choisi
+ * (un compte d'avant, un emoji de collection redescendu ; la loge ne le
+ * propose pas, et la réserve ne se dépense pas sur lui). Une seule règle : le
+ * tirage (`ProfileStore.cibleEclatDe`), l'aperçu de la boutique
+ * (`avatarQuiEclate`) et la carte de fin (`EclatTombe`) la lisent.
+ */
+export function eclatEnReserveDOffice(porte: string | null | undefined, emoji: string): boolean {
+  return !!divin(porte) || cibleEclat(porte, emoji) === DEFAULT_AVATAR
 }
 
 // ── Le sceau ───────────────────────────────────────────────────────────────

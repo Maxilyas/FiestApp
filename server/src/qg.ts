@@ -29,6 +29,7 @@ import {
   bilanDesSoirees,
   compteDuJour,
   etatDeLaSoiree,
+  joursDesMinuits,
   lesChosesATraiter,
   minuitsDeParis,
   modeDeLaSerie,
@@ -42,7 +43,17 @@ import {
   type SorteDeGeste,
   type VueDEnsemble,
 } from '../../shared/qg'
-import { PERIODES_DU_QG, activiteDeLaPeriode, type ActiviteDUnePeriode, type PeriodeDuQg } from '../../shared/qgPeriodes'
+import {
+  PERIODES_DU_QG,
+  activiteDeLHistorique,
+  activiteDeLaPeriode,
+  historiqueDeLaMemoire,
+  joursDesJournaux,
+  type ActiviteDUnePeriode,
+  type JourDeLHistorique,
+  type PeriodeDuPoste,
+} from '../../shared/qgPeriodes'
+import type { MemoireDuQg } from './core/memoireDuQg'
 import { enTranches } from './core/tourniquet'
 import type { CalculEnTranches } from '../../shared/tranches'
 import { campagneDeLaVue } from '../../shared/qgCampagne'
@@ -88,6 +99,92 @@ export interface QgDeps {
   telephonesDuQg?: () => Promise<number>
   /** Le point du matin (`core/pointDuMatin.ts`) : « Hier, en bref » au poste de commande, son réglage sous les alertes. */
   point?: LePointDuMatin
+  /**
+   * La mémoire du QG (`core/memoireDuQg.ts`) : tout l'historique du poste de
+   * commande y lit les jours d'avant les trente — lue, jamais rattrapée d'ici.
+   * Sans elle, tout l'historique s'arrête aux trente jours.
+   */
+  memoire?: Pick<MemoireDuQg, 'toutAvant' | 'revision'>
+  /** Combien de temps la vue d'ensemble se garde (`VUE_GARDEE_MS` d'office ; le banc, rien : ses épreuves écrivent entre deux lectures). */
+  vueGardeeMs?: number
+  /** La vue d'ensemble gardée, qu'un geste du QG fait oublier (`api.ts`) ; sans elle, chaque lecture la recompte. */
+  vueGardee?: Pick<VueGardee, 'lire'>
+  /** Une question de soirée attend-elle ses réponses ? La vue gardée sert alors au-delà de sa minute (`VueGardee`). */
+  salleEnJeu?: () => boolean
+}
+
+/**
+ * La vue d'ensemble se garde une minute. Elle coûtait une seconde à chaque
+ * lecture en production — la moitié des 89 lectures du 15 au 23 novembre 2026
+ * au-delà, la pire à 7,6 s, 2,7 % du temps du serveur, et une part d'un gel de
+ * 910 ms le 20 — : relue à chaque retour au poste de commande, par chaque
+ * onglet ouvert, elle recomptait trente jours de séries pour montrer la même
+ * chose qu'une minute plus tôt. La page la redemande toutes les cinq minutes :
+ * gardée une minute, elle n'en est jamais plus vieille pour elle, et le
+ * direct, qui dit l'instant, passe par son flux.
+ */
+export const VUE_GARDEE_MS = 60_000
+
+/**
+ * Pendant qu'une question de soirée attend ses réponses, la vue gardée sert
+ * au-delà de sa minute, jusqu'à tant (le 24 novembre 2026) : la recompter
+ * coûte au dixième de cœur 0,6 à 1 s de processeur rationné — la production
+ * relevait des gels de 0,5 à 0,8 s sous la seule vue d'ensemble —, et un gel
+ * plus long que la marge d'une question fait recevoir « Trop tard » à une
+ * réponse partie à temps (règle `exploitation.md`). L'administrateur qui anime
+ * sa soirée garde le poste ouvert : il le relit toutes les cinq minutes. Il
+ * lit l'instant par le direct, qui ne coûte rien ; la vue se recompte à la
+ * révélation, ou au premier geste du QG.
+ */
+export const VUE_GARDEE_PENDANT_UNE_QUESTION_MS = 10 * 60_000
+
+/**
+ * Une lecture de la vue d'ensemble, gardée `gardeeMs` et partagée par qui la
+ * demande pendant qu'elle se fait — deux onglets, le téléphone et l'ordinateur
+ * ne la recomptent pas deux fois ; ratée, elle ne se garde pas. Un geste du QG
+ * l'oublie, à son arrivée et à sa fin (`oublierApresUnGeste`) : la vue relue
+ * après un tri d'erreur ou une question retirée dit ce qui attend encore. Ce
+ * que les joueurs font pendant la minute, elle l'apprend à la suivante — ou
+ * après la question de soirée qui se joue (`salleEnJeu`,
+ * `VUE_GARDEE_PENDANT_UNE_QUESTION_MS`). Elle n'attend jamais la salle : elle
+ * sert ce qu'elle a, ou se recompte, sans retenir la requête — retenue, la
+ * route serait de chaque gel de la question. Passée sa durée, elle s'oublie
+ * d'elle-même : elle ne reste pas en mémoire QG fermé.
+ */
+export class VueGardee {
+  private garde: { a: number; lue: Promise<VueDEnsemble> } | null = null
+
+  constructor(
+    private readonly gardeeMs: number,
+    private readonly maintenant: () => number,
+    /** Une question de soirée attend-elle ses réponses, dans un espace ou un autre ? */
+    private readonly salleEnJeu: () => boolean = () => false,
+  ) {}
+
+  oublier(): void {
+    this.garde = null
+  }
+
+  lire(faire: () => Promise<VueDEnsemble>): Promise<VueDEnsemble> {
+    const maintenant = this.maintenant()
+    const age = this.garde ? maintenant - this.garde.a : -1
+    if (this.garde && age >= 0 && (age < this.gardeeMs || (age < VUE_GARDEE_PENDANT_UNE_QUESTION_MS && this.salleEnJeu()))) return this.garde.lue
+    const garde = { a: maintenant, lue: faire() }
+    if (this.gardeeMs <= 0) return garde.lue
+    this.garde = garde
+    garde.lue.catch(() => {
+      if (this.garde === garde) this.garde = null
+    })
+    // Une minuterie qui ne retient pas le processus : le serveur qui s'arrête ne l'attend pas. Gardée le temps d'une
+    // question de plus au besoin ; passé sa minute, elle ne sert qu'à elle.
+    setTimeout(
+      () => {
+        if (this.garde === garde) this.garde = null
+      },
+      Math.max(this.gardeeMs, VUE_GARDEE_PENDANT_UNE_QUESTION_MS),
+    ).unref()
+    return garde.lue
+  }
 }
 
 /** Une soirée pas encore close, telle que la base locale la garde. */
@@ -203,6 +300,8 @@ export function* chiffresDeLaVue(
   soirees: readonly SoireeDesParticipations[],
   minuits: readonly number[],
   maintenant: number,
+  /** Les jours d'avant les trente, tels que la mémoire du QG les a figés : tout l'historique les ajoute aux trente jours. */
+  historique: readonly JourDeLHistorique[] = [],
 ): CalculEnTranches<ChiffresDeLaVue> {
   // Leur fin aussi : chaque période compte ses parties finies, l'entonnoir d'une page de mode.
   const solo: { quand: number; qui: string; mode: Exclude<ModeDuQg, 'soiree'>; fin: number | null }[] = [
@@ -229,11 +328,16 @@ export function* chiffresDeLaVue(
   const deLaCampagne = campagneDeLaVue(series, minuits, maintenant)
   yield
   // Les quatre périodes de la barre du QG 2, une par tranche : chacune repasse les trente jours.
-  const periodes = {} as Record<PeriodeDuQg, ActiviteDUnePeriode>
+  const periodes = {} as Record<PeriodeDuPoste, ActiviteDUnePeriode>
   for (const periode of PERIODES_DU_QG) {
     periodes[periode] = activiteDeLaPeriode(periode, solo, soirees, activite, minuits, maintenant)
     yield
   }
+  // Tout l'historique : les trente jours repassés une fois de plus, jour par jour, puis les jours de la mémoire avec eux.
+  const trente = joursDesJournaux(solo, soirees, activite, minuits, maintenant)
+  yield
+  periodes.tout = activiteDeLHistorique([...historique, ...trente], maintenant)
+  yield
   return {
     aujourdhui: { profilsActifs, partiesDuJour, seriesDeCampagne, duels: duelsDuJour, nouveauxProfils, achats },
     participations,
@@ -307,8 +411,9 @@ const ESPACE_SUPPRIME: SoireeDuQg['salon'] = { nom: 'Un espace supprimé', avata
  * `/qg/direct` se lit en mémoire et dans la base locale, sans un aller-retour
  * vers Turso pour les soirées : la page le redemande toutes les dix secondes.
  * `/qg` lit la base permanente — trente jours de parties, de séries, de
- * soirées — : la page le redemande toutes les cinq minutes, et il ne relit
- * des jours finis que les soirées (`lesTrenteJours`). `/soirees`, le bilan
+ * soirées, et pour tout l'historique la mémoire du QG d'avant eux — : la page
+ * le redemande toutes les cinq minutes, et il ne relit des jours finis que les
+ * soirées (`lesTrenteJours`, `lHistorique`). `/soirees`, le bilan
  * des soirées, se lit à l'ouverture de leur page.
  *
  * Des soirées des autres, rien que des chiffres : le salon, où elle en est,
@@ -448,12 +553,39 @@ export function mountQg(app: Express, deps: QgDeps) {
     }
   }
 
+  // Tout l'historique : les jours d'avant les trente, tels que la mémoire du QG les a figés — ils ne bougent plus.
+  // Lus une fois par jour, au premier poste de commande, et gardés jusqu'au minuit suivant ou jusqu'à ce que ce
+  // processus réécrive la mémoire (`revision` : le point du matin, une version neuve qui la refait) — quelques centaines
+  // de lignes par an, en deux textes JSON. Une lecture partagée par qui la demande pendant qu'elle se fait ; échouée,
+  // elle ne se garde pas. Le poste de commande ne rattrape jamais la mémoire (règle `qg.md`) : il lit ce qu'elle sait,
+  // et elle sait chaque jour fini dès le point du matin — trente jours avant qu'on la lise ici.
+  let historique: { cle: string; promesse: Promise<JourDeLHistorique[]> } | null = null
+  const lHistorique = (avant: string): Promise<JourDeLHistorique[]> => {
+    const memoire = deps.memoire
+    if (!memoire) return Promise.resolve([])
+    const cle = `${avant}|${memoire.revision}`
+    if (historique?.cle !== cle) {
+      const promesse = memoire.toutAvant(avant).then(lu => historiqueDeLaMemoire(lu.jours, lu.presences))
+      const lecture = { cle, promesse }
+      historique = lecture
+      promesse.catch(() => {
+        if (historique === lecture) historique = null
+      })
+    }
+    return historique!.promesse
+  }
+
   const vueDEnsemble = async (): Promise<VueDEnsemble> => {
     const maintenant = deps.maintenant()
     const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
     const depuis = minuits[0]
-    const [journaux, soirees, aTraiter] = await Promise.all([lesTrenteJours(minuits), lesSoireesDepuis(deps, depuis), aTraiterDuQg()])
-    const chiffres = await enTranches(chiffresDeLaVue(journaux, soirees, minuits, maintenant))
+    const [journaux, soirees, aTraiter, avantLesTrente] = await Promise.all([
+      lesTrenteJours(minuits),
+      lesSoireesDepuis(deps, depuis),
+      aTraiterDuQg(),
+      lHistorique(joursDesMinuits(minuits)[0]),
+    ])
+    const chiffres = await enTranches(chiffresDeLaVue(journaux, soirees, minuits, maintenant, avantLesTrente))
     return { maintenant, jour: jourDe(maintenant), ...chiffres, aTraiter }
   }
 
@@ -627,7 +759,7 @@ export function mountQg(app: Express, deps: QgDeps) {
   app.get(
     '/api/admin/qg',
     wrap(async (_req, res) => {
-      res.json(await vueDEnsemble())
+      res.json(await (deps.vueGardee ? deps.vueGardee.lire(vueDEnsemble) : vueDEnsemble()))
     }),
   )
   app.get(

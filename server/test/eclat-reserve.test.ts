@@ -18,6 +18,7 @@ import path from 'node:path'
 import Database from 'better-sqlite3'
 import { ProfileStore } from '../src/auth/profiles'
 import { estEnReserve } from '../../shared/legendaires'
+import { DEFAULT_AVATAR } from '../../shared/avatars'
 
 ProfileStore.tirageEclat = () => false
 
@@ -77,6 +78,66 @@ test('un Éclat sur un avatar déjà éclaté attend en réserve, au lieu de se 
       lignes(lire, id).map(l => l.soiree_id),
       ['soiree-1', 'soiree-2'],
     )
+  }))
+
+// Sous un Divin, l'Éclat tombait sur l'emoji caché dessous : il brillait sans
+// que personne le voie, et le joueur n'avait rien choisi (le choix du
+// propriétaire du 24 novembre 2026 : « si l'avatar c'est le divin […]
+// directement envoyé dans la réserve »).
+test('sous un Divin, l’Éclat part en réserve : l’emoji caché dessous n’éclate pas', () =>
+  dansUneBase(async (profils, id) => {
+    await profils.ranger(id, 'jour:2026-11-20', ['dv:helios'])
+    await profils.update(id, { legendaire: 'dv:helios' })
+
+    // Le tirage d'une soirée (`space.ts`) comme celui d'une partie du jour ou du défi.
+    const cle = await profils.donnerUnEclat(id, '🦊', 'soiree-1')
+    assert.ok(estEnReserve(cle), cle)
+    ProfileStore.tirageEclat = () => true
+    try {
+      const tire = await profils.tirerUnEclat(id, 'jour:2026-11-21', 40)
+      assert.ok(tire && estEnReserve(tire.avatar), 'l’Éclat du jour est dit en réserve')
+      assert.deepEqual(tire.paliers, [], 'en réserve, il ne compte pas encore pour La Pluie d’Éclats')
+    } finally {
+      ProfileStore.tirageEclat = () => false
+    }
+    assert.equal(profils.reserveOf(id), 2)
+    assert.deepEqual(profils.eclatsOf(id), [], 'rien n’a éclaté en cachette sous le Divin')
+
+    // Il le dépense où il veut — son emoji compris.
+    const rec = await profils.update(id, { eclatDeReserve: '🦊' })
+    assert.deepEqual(profils.toPublic(rec).eclats, ['🦊'])
+    assert.equal(profils.reserveOf(id), 1)
+
+    // Le Divin ôté, l'Éclat retombe sur ce qu'il porte.
+    await profils.update(id, { legendaire: null })
+    assert.equal(await profils.donnerUnEclat(id, '🐸', 'soiree-2'), '🐸')
+  }))
+
+// L'avatar par défaut (🎉) n'est pas un choix : un compte d'animateur d'avant,
+// un avatar illisible, ou un emoji de collection qu'il n'a plus le niveau de
+// porter le lui donnent, et la loge ne le propose jamais. L'Éclat qui y
+// tombait faisait briller ce qu'il n'avait pas choisi (le choix du
+// propriétaire du 24 novembre 2026 : « c'est pareil […] celui par défaut »).
+test('l’avatar par défaut n’éclate pas non plus : l’Éclat part en réserve', () =>
+  dansUneBase(async (profils, id) => {
+    await profils.update(id, { avatar: DEFAULT_AVATAR })
+
+    const cle = await profils.donnerUnEclat(id, DEFAULT_AVATAR, 'soiree-1')
+    assert.ok(estEnReserve(cle), cle)
+    ProfileStore.tirageEclat = () => true
+    try {
+      const tire = await profils.tirerUnEclat(id, 'jour:2026-11-21', 40)
+      assert.ok(tire && estEnReserve(tire.avatar), 'l’Éclat du jour est dit en réserve')
+      assert.deepEqual(tire.paliers, [])
+    } finally {
+      ProfileStore.tirageEclat = () => false
+    }
+    assert.equal(profils.reserveOf(id), 2)
+    assert.deepEqual(profils.eclatsOf(id), [], 'le 🎉 n’a pas éclaté')
+
+    // Un emoji choisi, l'Éclat retombe sur lui.
+    await profils.update(id, { avatar: '🐸' })
+    assert.equal(await profils.donnerUnEclat(id, '🐸', 'soiree-2'), '🐸')
   }))
 
 test('la réserve se dépense sur un avatar à lui : il éclate pour toujours, sous la soirée de l’Éclat', () =>

@@ -52,7 +52,7 @@ import { ReglesDuQg, heuresDeLHebergeur, lecteurDesAlertes } from './core/regles
 import { SondeDesGels, commencer } from './core/gels'
 import { connexionsGardeesChaudes, entretenirLesConnexions, gardeAnnoncee, noterUneDemande, type ReglagesDeLEntretien } from './core/connexions'
 import { clientDeLaBase, clientDistant, patienceDeLaBase, transportDeLaBase } from './core/distante'
-import { GARDE_DE_NODE_MS } from '../../shared/santeDuServeur'
+import { GARDE_DE_NODE_MS, finDuGuetDAvant } from '../../shared/santeDuServeur'
 import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore, cleDeSoiree } from './auth/profiles'
 import { mountApi } from './api'
@@ -193,6 +193,12 @@ export interface QuizServerOptions {
    * : ses épreuves écrivent des séries et des réponses à la main, dans la base.
    */
   fraicheurDesLecturesMs?: number
+  /**
+   * Combien de temps la vue d'ensemble du QG se garde (`VUE_GARDEE_MS`, une
+   * minute d'office). Le banc la met à 0 : ses épreuves jouent, puis relisent
+   * la vue aussitôt.
+   */
+  vueDuQgGardeeMs?: number
   /**
    * Combien de temps un dépôt de la routine du matin attend le suivant avant
    * que la base qu'on joue ne le prenne (`PUBLICATION_DES_AJOUTS_MS`, dix
@@ -645,6 +651,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const regles = new ReglesDuQg(opts.quizDbUrl, opts.quizDbToken, {
     tourMs: opts.reglesDuQgMs,
     production: (opts.appEnv ?? 'production') === 'production',
+    // Un incident laissé ouvert par un serveur que l'hébergeur a endormi se referme à son extinction, pas au réveil.
+    finDuGuetDAvant: async () => finDuGuetDAvant(await sante.demarrageDAvant(debutDuDemarrage), debutDuDemarrage),
     prevenir: m => {
       alertes.prevenir(m).catch(err => console.warn('[alertes] les téléphones du QG ne se lisent pas :', err instanceof Error ? err.message : err))
     },
@@ -664,6 +672,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
         }
       },
       version: opts.version ?? null,
+      demarreLe: debutDuDemarrage,
       // Une fois l'heure : la dernière sauvegarde, une ligne ; les heures de l'hébergeur, les démarrages gardés et le mois de la mémoire.
       sauvegarde: () => sante.derniereSauvegarde(),
       hebergeur: () =>
@@ -1533,6 +1542,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
       regles,
       telephonesDuQg: async () => (await alertes.telephones()).length,
       point: pointDuMatin,
+      // Tout l'historique du poste de commande : les jours d'avant les trente, que la mémoire a figés.
+      memoire: memoireDuQg,
+      ...(opts.vueDuQgGardeeMs !== undefined && { vueGardeeMs: opts.vueDuQgGardeeMs }),
+      // Pendant une question de soirée, la vue d'ensemble ne se recompte pas : elle sert celle qu'elle garde.
+      salleEnJeu: () => campagne.salleEnJeu?.() ?? false,
     },
     gestes,
     maintenance,

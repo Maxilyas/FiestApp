@@ -12,8 +12,8 @@
 // - la feuille de présence (`qg_presences`) : une ligne par profil et par jour
 //   de Paris, les modes qu'il y a joués et la minute de sa première partie ;
 // - la mémoire longue (`qg_jours`) : les chiffres de chaque jour, figés une
-//   fois le jour fini, gardés un an — quatre-vingt-dix jours se lisent en
-//   quatre-vingt-dix lignes.
+//   fois le jour fini, gardés depuis toujours — quatre-vingt-dix jours se
+//   lisent en quatre-vingt-dix lignes.
 //
 // Un jour fini s'écrit une fois, au premier passage du QG après minuit, et se
 // rattrape s'il manque ; seul aujourd'hui se relit des journaux, par leurs
@@ -43,8 +43,14 @@ import { RANG_DES_TROIS } from './missions'
  */
 export const VERSION_DE_LA_MEMOIRE = 2
 
-/** Ce que la mémoire garde : un an de jours, et de feuilles de présence. Au-delà, elle s'efface d'elle-même. */
-export const JOURS_DE_LA_MEMOIRE = 366
+/**
+ * Ce que l'effet des annonces et des affiches relit de la mémoire, au plus :
+ * un an de jours et de feuilles de présence — une annonce plus vieille n'a
+ * plus d'effet à dire. La mémoire, elle, se garde depuis toujours (le
+ * 24 novembre 2026 : tout l'historique du poste de commande la lit) ; elle
+ * s'effaçait au bout de ce même an.
+ */
+export const JOURS_DES_EFFETS = 366
 
 /** Le graphique des joueurs, jour par jour : quatre-vingt-dix jours au plus, aujourd'hui compris. */
 export const JOURS_DU_GRAPHE_DES_ACTIFS = 90

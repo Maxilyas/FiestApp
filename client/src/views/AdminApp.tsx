@@ -40,7 +40,7 @@ import { formatDay } from '../../../shared/archive'
 import { formatNumber } from '../../../shared/typographie'
 import { jourDe, jourEnToutesLettres } from '../../../shared/jour'
 import { heureEcrite, lesChosesATraiter, pireGravite, type DirectDuQg, type GraviteDUneChose, type VueDEnsemble } from '../../../shared/qg'
-import { NOM_DE_LA_PERIODE, PERIODES_DU_QG, PERIODE_EN_TOUTES_LETTRES, type PeriodeDuQg } from '../../../shared/qgPeriodes'
+import { NOM_DE_LA_PERIODE, PERIODES_DU_POSTE, PERIODES_DU_QG, PERIODE_EN_TOUTES_LETTRES, type PeriodeDuPoste, type PeriodeDuQg } from '../../../shared/qgPeriodes'
 import { periodeDuServeur } from '../../../shared/santeDuServeur'
 import type { EspaceDAdministration } from '../../../shared/space'
 import { ceQuiEstPose, PAGES_EN_MAINTENANCE, type EtatDeLaMaintenance } from '../../../shared/maintenance'
@@ -269,9 +269,12 @@ function lireLesGroupes(): Record<string, boolean> {
  * Les pages qui lisent la période de la barre, celles qu'elles offrent, et si
  * elles comparent à la période d'avant. Le serveur ne garde que huit jours :
  * trente jours n'y sont pas, et la période retenue au-delà s'y lit en semaine.
+ * Tout l'historique est au poste de commande seul — la mémoire du QG ne garde
+ * ni l'entonnoir ni la réussite d'un mode — : ailleurs, il se lit en trente
+ * jours.
  */
-const PERIODES_DES_PAGES: Partial<Record<Ecran | 'poste', { periodes: readonly PeriodeDuQg[]; comparer: boolean }>> = {
-  poste: { periodes: PERIODES_DU_QG, comparer: true },
+const PERIODES_DES_PAGES: Partial<Record<Ecran | 'poste', { periodes: readonly PeriodeDuPoste[]; comparer: boolean }>> = {
+  poste: { periodes: PERIODES_DU_POSTE, comparer: true },
   serveur: { periodes: ['1h', '24h', '7j'], comparer: false },
   base: { periodes: ['1h', '24h', '7j'], comparer: false },
   telephones: { periodes: ['1h', '24h', '7j'], comparer: false },
@@ -293,7 +296,7 @@ const PERIODES_DES_PAGES: Partial<Record<Ecran | 'poste', { periodes: readonly P
  */
 const FENETRE_PROPRE: Partial<Record<Ecran, string>> = { economie: 'Aujourd’hui · 30 j', sphinx: 'Aujourd’hui · 30 j', joueurs: 'Jour · 7 j · 30 j', alertes: '30 j', erreurs: '7 j' }
 
-/** À quoi « Comparer » compare : « Comparer » seul ne disait pas à quoi. */
+/** À quoi « Comparer » compare : « Comparer » seul ne disait pas à quoi. Tout l'historique n'a pas d'avant : rien à comparer, pas de bouton. */
 const LA_PERIODE_D_AVANT: Record<PeriodeDuQg, string> = { '1h': 'l’heure d’avant', '24h': 'la veille', '7j': 'la semaine d’avant', '30j': 'le mois d’avant' }
 
 /**
@@ -564,6 +567,11 @@ export function AdminApp() {
   const lecture = PERIODES_DES_PAGES[ecran ?? 'poste']
   const lisLaPeriode = !!lecture
   const periodeDeLaPage = lecture && !lecture.periodes.includes(periode) ? lecture.periodes[lecture.periodes.length - 1] : periode
+  // Ce que lisent les pages hors du poste de commande : leurs périodes s'arrêtent à trente jours, tout l'historique
+  // n'en est jamais une (`PERIODES_DES_PAGES`) — la ligne d'au-dessus l'y a déjà ramené ; ceci le dit au typage.
+  const periodeDesJournaux: PeriodeDuQg = periodeDeLaPage === 'tout' ? '30j' : periodeDeLaPage
+  // Tout l'historique n'a pas de période d'avant : « Comparer » s'efface.
+  const comparable = !!lecture?.comparer && periodeDeLaPage !== 'tout'
   const groupeDeLEcran = PAGES_DU_QG.find(g => g.pages.some(p => p.ecran === ecran))?.groupe ?? 'Commande'
   const pret = !!(vue || direct)
 
@@ -666,7 +674,7 @@ export function AdminApp() {
             <button type="button" className="qg-bouton qg-periode-courte" aria-haspopup="dialog" onClick={() => setPeriodesOuvertes(true)}>
               <Icon name="clock" />
               {NOM_DE_LA_PERIODE[periodeDeLaPage]}
-              <span className="sr-only">, la période de la page{lecture.comparer && comparer ? `, comparée à ${LA_PERIODE_D_AVANT[periodeDeLaPage]}` : ''}</span>
+              <span className="sr-only">, la période de la page{comparable && comparer ? `, comparée à ${LA_PERIODE_D_AVANT[periodeDesJournaux]}` : ''}</span>
               <Icon name="chevron-down" />
             </button>
           </>
@@ -678,10 +686,10 @@ export function AdminApp() {
             <span className="sr-only"> : cette page ne suit pas la période de la barre</span>
           </span>
         )}
-        {lecture?.comparer && (
+        {comparable && (
           <button type="button" className="qg-bascule" aria-pressed={comparer} onClick={() => setComparer(!comparer)} title="La période d’avant en filet sur le graphique">
             <span className="qg-interrupteur" aria-hidden="true" />
-            Comparer à {LA_PERIODE_D_AVANT[periodeDeLaPage]}
+            Comparer à {LA_PERIODE_D_AVANT[periodeDesJournaux]}
           </button>
         )}
         <span className="qg-commande-droite">
@@ -772,12 +780,12 @@ export function AdminApp() {
         {/* Un tri change ce qui sonne : la ligne de « À traiter », et la pastille du rail, se relisent. */}
         {ecran === 'erreurs' && <QgErreurs apresUnTri={relireLaVue} versLaMaintenance={() => aller('maintenance')} />}
         {ecran === 'serveur' && (
-          <QgServeur periode={periodeDuServeur(periodeDeLaPage)} versLesErreurs={() => aller('erreurs')} onglet={onglet} changerDOnglet={changerDOnglet} />
+          <QgServeur periode={periodeDuServeur(periodeDesJournaux)} versLesErreurs={() => aller('erreurs')} onglet={onglet} changerDOnglet={changerDOnglet} />
         )}
         {/* Le miroir de chaque salon et les sauvegardes, à côté de Turso et de son quota ; la période, celle de la barre. */}
-        {ecran === 'base' && <QgBase periode={periodeDuServeur(periodeDeLaPage)} />}
+        {ecran === 'base' && <QgBase periode={periodeDuServeur(periodeDesJournaux)} />}
         {/* Ce que vivent les téléphones des joueurs, sur la même période que le serveur, lu dans sa page. */}
-        {ecran === 'telephones' && <QgTelephones periode={periodeDuServeur(periodeDeLaPage)} />}
+        {ecran === 'telephones' && <QgTelephones periode={periodeDuServeur(periodeDesJournaux)} />}
         {/* Chaque geste rend l'état d'après : le rail le compte aussitôt. La panne réglée, l'annonce qui le dit à tous. */}
         {ecran === 'maintenance' && <QgMaintenance onEtat={setMaintenance} versLesAnnonces={() => aller('annonces')} />}
         {/* Écrire à un segment, depuis la page des joueurs : les annonces s'ouvrent sur lui. */}
@@ -794,9 +802,9 @@ export function AdminApp() {
         {ecran === 'affiches' && <QgAffiches maintenance={maintenance} />}
         {ecran === 'grand-prix' && <QgGrandPrix />}
         {/* Les modes côte à côte, et le gabarit de chaque page de mode : la période de la barre, la vue d'ensemble déjà lue. */}
-        {ecran === 'activite' && <QgActivite periode={periodeDeLaPage} />}
+        {ecran === 'activite' && <QgActivite periode={periodeDesJournaux} />}
         {/* Le direct de la page des soirées est celui du QG, relu toutes les dix secondes ; relu aussitôt après un geste. */}
-        {ecran === 'soirees' && <QgSoirees direct={direct} apresUnGeste={relireLeDirect} vue={vue} periode={periodeDeLaPage} comparer={comparer} />}
+        {ecran === 'soirees' && <QgSoirees direct={direct} apresUnGeste={relireLeDirect} vue={vue} periode={periodeDesJournaux} comparer={comparer} />}
         {ecran === 'profils' && <AdminProfils />}
         {/* Le carnet de chaque salon, et « Les salons » en onglet ; « Leur écrire » ouvre les annonces sur un état. */}
         {ecran === 'animateurs' && (
@@ -817,7 +825,7 @@ export function AdminApp() {
             vue={vue}
             versLesSignalements={() => aller('signalements')}
             versLesReserves={() => aller('reserves')}
-            periode={periodeDeLaPage}
+            periode={periodeDesJournaux}
             comparer={comparer}
           />
         )}
@@ -830,13 +838,13 @@ export function AdminApp() {
               setQuestionsSur('contredites')
               aller('questions')
             }}
-            periode={periodeDeLaPage}
+            periode={periodeDesJournaux}
             comparer={comparer}
           />
         )}
-        {ecran === 'cabinet' && <QgCabinet versLaMaintenance={() => aller('maintenance')} vue={vue} periode={periodeDeLaPage} comparer={comparer} />}
+        {ecran === 'cabinet' && <QgCabinet versLaMaintenance={() => aller('maintenance')} vue={vue} periode={periodeDesJournaux} comparer={comparer} />}
         {ecran === 'sphinx' && <QgSphinx maintenance={maintenance} versLaMaintenance={() => aller('maintenance')} />}
-        {ecran === 'duels' && <AdminDuels vue={vue} periode={periodeDeLaPage} comparer={comparer} />}
+        {ecran === 'duels' && <AdminDuels vue={vue} periode={periodeDesJournaux} comparer={comparer} />}
         {ecran === 'economie' && <AdminEconomie />}
         {/* Un geste referme des signalements : ce qui attend, et la pastille du rail, se relisent. */}
         {ecran === 'signalements' && <AdminSignalements apresUnGeste={relireLaVue} />}
@@ -924,10 +932,10 @@ export function AdminApp() {
               </button>
             ))}
           </div>
-          {lecture.comparer && (
+          {comparable && (
             <button type="button" className="qg-bascule" aria-pressed={comparer} onClick={() => setComparer(!comparer)}>
               <span className="qg-interrupteur" aria-hidden="true" />
-              Comparer à {LA_PERIODE_D_AVANT[periodeDeLaPage]}
+              Comparer à {LA_PERIODE_D_AVANT[periodeDesJournaux]}
             </button>
           )}
         </Feuille>
@@ -940,7 +948,7 @@ export function AdminApp() {
           periode={lisLaPeriode ? periodeDeLaPage : null}
           periodes={lecture?.periodes ?? []}
           changerDePeriode={setPeriode}
-          comparer={lecture?.comparer ? comparer : null}
+          comparer={comparable ? comparer : null}
           changerLaComparaison={setComparer}
           ouvrirLeProfil={setFiche}
           raccourci={RACCOURCI}
