@@ -11,7 +11,6 @@ import { minuitDe, modeDeLaSerie, type SoireeDesParticipations } from '../../sha
 import { confettisParJour, type MouvementsDeConfettis } from '../../shared/qgEconomie'
 import {
   COHORTES_MONTREES,
-  JOURS_DE_LA_MEMOIRE,
   JOURS_DU_GRAPHE_DES_ACTIFS,
   SEGMENTS,
   VERSION_DE_LA_MEMOIRE,
@@ -217,20 +216,21 @@ export function audienceDuQg(deps: AudienceDeps) {
   /**
    * Écrit les jours finis qui manquent, jusqu'à hier : depuis le dernier
    * écrit, ou — la première fois, ou sous une version neuve des dérivations,
-   * qui efface tout d'abord — depuis le premier instant des journaux, un an au
-   * plus. Les feuilles des vingt-neuf jours d'avant se relisent pour la
-   * semaine et le mois du premier jour ; ensuite, chaque mois écrit passe les
-   * siennes au suivant.
+   * qui efface tout d'abord — depuis le premier instant des journaux, aussi
+   * loin qu'ils remontent (un an au plus jusqu'au 24 novembre 2026 : la mémoire
+   * se garde depuis, tout l'historique du poste de commande la lit). Les
+   * feuilles des vingt-neuf jours d'avant se relisent pour la semaine et le
+   * mois du premier jour ; ensuite, chaque mois écrit passe les siennes au
+   * suivant.
    */
   const rattraper = (aujourdhui: string) =>
     deps.memoire.pendantUnRattrapage(async () => {
       const hier = jourAvant(aujourdhui)
-      const plusAncien = jourAvant(aujourdhui, JOURS_DE_LA_MEMOIRE)
       let dernier = await deps.memoire.dernierJour()
       // Ce que la mémoire savait du serveur de chaque jour, lu avant d'effacer : ses démarrages ne se refont pas.
       let heritage: CeQueLaMemoireLitDePlus['heritage'] = new Map()
       if (dernier && dernier.version !== VERSION_DE_LA_MEMOIRE) {
-        heritage = await deps.memoire.serveursDesJours(plusAncien)
+        heritage = await deps.memoire.serveursDesJours('')
         await deps.memoire.effacer()
         dernier = null
       }
@@ -241,7 +241,6 @@ export function audienceDuQg(deps: AudienceDeps) {
         if (instant === null) return
         premier = jourDe(instant)
       }
-      if (premier < plusAncien) premier = plusAncien
       if (premier > hier) return
       const avant = new Map<string, string[]>()
       if (dernier) {
@@ -260,7 +259,7 @@ export function audienceDuQg(deps: AudienceDeps) {
         const journaux = await lirePlage(minuits[0], fin, { jouees: true })
         const plus = await lirePlus(journaux, minuits, fin, serveur, heritage)
         const ecrits = await enTranches(joursDeLaMemoire(journaux, minuits, fin, avant, plus))
-        await deps.memoire.ecrire(ecrits, plusAncien)
+        await deps.memoire.ecrire(ecrits)
         for (const j of ecrits) avant.set(j.jour, j.presences.map(p => p.qui))
         for (const j of [...avant.keys()]) if (j < jourAvant(finDeLaPlage, 28)) avant.delete(j)
       }
@@ -364,14 +363,14 @@ export function audienceDuQg(deps: AudienceDeps) {
 
     /**
      * La mémoire en tableur (`GET /api/admin/joueurs/memoire.csv`, la revue
-     * d'expert du 4 novembre 2026, P2.10) : à jour jusqu'à hier, l'année que
+     * d'expert du 4 novembre 2026, P2.10) : à jour jusqu'à hier, tout ce que
      * la mémoire garde, un jour par ligne. Rare et demandée à la main : lue à
      * chaque fois, jamais gardée.
      */
     async laMemoireEnTableur(): Promise<{ jour: string; lignes: (string | number)[][] }> {
       await aJour()
       const aujourdhui = jourDe(deps.maintenant())
-      const { jours } = await deps.memoire.joursDepuis(jourAvant(aujourdhui, JOURS_DE_LA_MEMOIRE))
+      const { jours } = await deps.memoire.joursDepuis('')
       return { jour: aujourdhui, lignes: lignesDeLaMemoire(jours) }
     },
 

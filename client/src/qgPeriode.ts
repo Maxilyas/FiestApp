@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { PERIODES_DU_QG, PERIODE_PAR_DEFAUT, type PeriodeDuQg } from '../../shared/qgPeriodes'
+import { PERIODES_DU_POSTE, PERIODE_PAR_DEFAUT, type PeriodeDuPoste } from '../../shared/qgPeriodes'
 
 // La période de la barre du QG 2, et « Comparer » : le navigateur les retient
 // d'une visite à l'autre — la journée à la première ouverture, puis la
@@ -25,14 +25,14 @@ function ecrire(cle: string, valeur: string) {
   }
 }
 
-/** La période retenue, si elle en est une ; sinon la journée. */
-export function periodeRetenue(): PeriodeDuQg {
+/** La période retenue, si elle en est une — tout l'historique compris, que seul le poste de commande lit ; sinon la journée. */
+export function periodeRetenue(): PeriodeDuPoste {
   const lue = lire(CLE_DE_LA_PERIODE)
-  return (PERIODES_DU_QG as readonly string[]).includes(lue ?? '') ? (lue as PeriodeDuQg) : PERIODE_PAR_DEFAUT
+  return (PERIODES_DU_POSTE as readonly string[]).includes(lue ?? '') ? (lue as PeriodeDuPoste) : PERIODE_PAR_DEFAUT
 }
 
-export function usePeriodeDuQg(): [PeriodeDuQg, (p: PeriodeDuQg) => void] {
-  const [periode, setPeriode] = useState<PeriodeDuQg>(periodeRetenue)
+export function usePeriodeDuQg(): [PeriodeDuPoste, (p: PeriodeDuPoste) => void] {
+  const [periode, setPeriode] = useState<PeriodeDuPoste>(periodeRetenue)
   return [
     periode,
     p => {

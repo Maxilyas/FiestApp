@@ -5,7 +5,7 @@ import { HierEnBref } from './QgHier'
 import { CopierLeTableau } from './CopierLeTableau'
 import { reperesDeLaCourbe, useReperesDuQg } from '../qgReperes'
 import { formatNumber } from '../../../shared/typographie'
-import { jourDe, jourEnToutesLettres, minutesDeParis } from '../../../shared/jour'
+import { jourDe, jourEnToutesLettres, minutesDeParis, moisEnToutesLettres } from '../../../shared/jour'
 import {
   MODES_DU_QG,
   NOM_DU_MODE,
@@ -21,7 +21,7 @@ import {
   type SoireeDuQg,
   type VueDEnsemble,
 } from '../../../shared/qg'
-import { PAS_EN_MOTS, PERIODE_EN_TOUTES_LETTRES, ecartALaPeriodeDAvant, type ActiviteDUnePeriode, type PeriodeDuQg } from '../../../shared/qgPeriodes'
+import { PAS_D_UNE_SEMAINE, PAS_D_UN_MOIS, PERIODE_EN_TOUTES_LETTRES, ecartALaPeriodeDAvant, pasEnMots, type ActiviteDUnePeriode, type PeriodeDuPoste } from '../../../shared/qgPeriodes'
 import { etatDuService, phraseDeLEtat, type VoyantDuService } from '../../../shared/qgEtat'
 
 /** Les écrans du QG qu'une chose à traiter, un voyant ou une tuile ouvrent — la tuile d'un mode, sa page. */
@@ -66,7 +66,7 @@ export function VueDEnsembleDuQg({
   vueEnPanne: boolean
   directEnPanne: boolean
   ouvrir: Ouvrir
-  periode?: PeriodeDuQg
+  periode?: PeriodeDuPoste
   /** La période d'avant en filet sur le graphique — l'écart des tuiles se dit toujours. */
   comparer?: boolean
 }) {
@@ -163,7 +163,7 @@ const PAGE_DU_MODE: Record<ModeDuQg, EcranATraiter> = { soiree: 'soirees', campa
 
 const somme = (parties: Record<ModeDuQg, number>) => MODES_DU_QG.reduce((n, m) => n + parties[m], 0)
 
-function ChiffresDeLaPeriode({ vue, periode, ouvrir }: { vue: VueDEnsemble | null; periode: PeriodeDuQg; ouvrir: Ouvrir }) {
+function ChiffresDeLaPeriode({ vue, periode, ouvrir }: { vue: VueDEnsemble | null; periode: PeriodeDuPoste; ouvrir: Ouvrir }) {
   const a: ActiviteDUnePeriode | undefined = vue?.periodes?.[periode]
   const avant = a?.avant?.totaux
   const t = a?.totaux
@@ -173,7 +173,15 @@ function ChiffresDeLaPeriode({ vue, periode, ouvrir }: { vue: VueDEnsemble | nul
         <h2 className="compte-groupe" id="qg-chiffres-titre">
           Sur {PERIODE_EN_TOUTES_LETTRES[periode]}
         </h2>
-        <span className="muted small">{a?.avant ? 'comparé à la période d’avant, arrêtée au même instant' : periode === '30j' ? 'le mois d’avant n’est pas gardé' : ''}</span>
+        <span className="muted small">
+          {a?.avant
+            ? 'comparé à la période d’avant, arrêtée au même instant'
+            : periode === '30j'
+              ? 'le mois d’avant n’est pas gardé'
+              : a?.depuis !== undefined && vue
+                ? `depuis le ${jourDAvant(jourDe(a.depuis + 12 * HEURE), vue.maintenant)}`
+                : ''}
+        </span>
       </div>
       <ul className="qg-tuiles qg-tuiles-quatre">
         {/* Des personnes, pas des profils : chaque invité sans profil y compte une fois par soirée — la page des joueurs, elle, ne compte que des profils. */}
@@ -213,16 +221,26 @@ export const COMPTES_DU_GRAPHE = ['joueurs', 'participations'] as const
 export type CompteDuGraphe = (typeof COMPTES_DU_GRAPHE)[number]
 
 const NOM_DU_COMPTE: Record<CompteDuGraphe, string> = { joueurs: 'Joueurs', participations: 'Participations' }
-const REGLE_DU_COMPTE: Record<CompteDuGraphe, (periode: PeriodeDuQg) => string> = {
-  joueurs: periode => `Chaque personne compte une fois ${PAS_EN_MOTS[periode].par}, à quoi qu’elle joue`,
+const REGLE_DU_COMPTE: Record<CompteDuGraphe, (periode: PeriodeDuPoste, pas: number) => string> = {
+  joueurs: (periode, pas) => `Chaque personne compte une fois ${pasEnMots(periode, pas).par}, à quoi qu’elle joue`,
   participations: () => 'Chaque partie compte, qui que ce soit ; en soirée, chaque invité qui a joué',
 }
 
 const HEURE = 3_600_000
 
-/** Le nom d'un seau dans l'infobulle et la lecture : « mardi 3 novembre », « mardi 3 novembre, 18 h 00 → 21 h 00 », « 21 h 00 → 22 h 00 ». */
+/** « 12 juillet », et l'année quand ce n'est pas celle de maintenant : tout l'historique passe un jour l'an. */
+function jourDAvant(jour: string, maintenant: number): string {
+  return `${jourEnToutesLettres(jour, true)}${jour.slice(0, 4) === jourDe(maintenant).slice(0, 4) ? '' : ` ${jour.slice(0, 4)}`}`
+}
+
+/**
+ * Le nom d'un seau dans l'infobulle et la lecture : « mardi 3 novembre », « mardi 3 novembre, 18 h 00 → 21 h 00 »,
+ * « 21 h 00 → 22 h 00 » — et pour tout l'historique, « semaine du 2 novembre », « novembre 2026 ».
+ */
 export function nomDuSeau(debut: number, pas: number, fin: number): string {
   const jusqua = Math.min(debut + pas, fin)
+  if (pas >= PAS_D_UN_MOIS) return moisEnToutesLettres(jourDe(debut + 12 * HEURE).slice(0, 7))
+  if (pas >= PAS_D_UNE_SEMAINE) return `semaine du ${jourDAvant(jourDe(debut + 12 * HEURE), fin)}`
   if (pas >= 20 * HEURE) return jourEnToutesLettres(jourDe(debut + 12 * HEURE))
   if (pas >= 3 * HEURE) return `${jourEnToutesLettres(jourDe(debut))}, ${heureEcrite(debut)} → ${heureEcrite(jusqua)}`
   return `${heureEcrite(debut)} → ${heureEcrite(jusqua)}`
@@ -230,8 +248,9 @@ export function nomDuSeau(debut: number, pas: number, fin: number): string {
 
 /**
  * Les étiquettes sous l'axe, comptées depuis le dernier seau : une heure,
- * un jour — à minuit, pour une semaine en seaux de trois heures —, autant
- * qu'il en tient, jamais l'une sur l'autre.
+ * un jour — à minuit, pour une semaine en seaux de trois heures —, le lundi
+ * d'une semaine, un mois — l'année avec janvier —, autant qu'il en tient,
+ * jamais l'une sur l'autre.
  */
 export function etiquetteDeLAxe(debuts: readonly number[], pas: number, i: number, largeur: number): string | null {
   const n = debuts.length
@@ -245,7 +264,10 @@ export function etiquetteDeLAxe(debuts: readonly number[], pas: number, i: numbe
   }
   const saut = Math.ceil(n / tiennent)
   if ((n - 1 - i) % saut !== 0) return null
-  if (pas >= 20 * HEURE) return i === n - 1 ? 'aujourd’hui' : jourAbrege(jourDe(debuts[i] + 12 * HEURE))
+  const jour = jourDe(debuts[i] + 12 * HEURE)
+  if (pas >= PAS_D_UN_MOIS) return i === n - 1 ? 'ce mois-ci' : `${jourAbrege(jour).replace(/^\S+\s/, '')}${jour.slice(5, 7) === '01' ? ` ${jour.slice(0, 4)}` : ''}`
+  if (pas >= PAS_D_UNE_SEMAINE) return i === n - 1 ? 'cette semaine' : jourAbrege(jour)
+  if (pas >= 20 * HEURE) return i === n - 1 ? 'aujourd’hui' : jourAbrege(jour)
   return heureEcrite(debuts[i])
 }
 
@@ -267,7 +289,7 @@ export function Participations({
 }: {
   vue: VueDEnsemble | null
   enPanne: boolean
-  periode?: PeriodeDuQg
+  periode?: PeriodeDuPoste
   comparer?: boolean
   depart?: CompteDuGraphe
 }) {
@@ -294,9 +316,9 @@ export function Participations({
         <div>
           <span className="qg-etiquette">{NOM_DU_COMPTE[quoi]}</span>
           <h2 id="qg-participations-titre">
-            {PAS_EN_MOTS[periode].titre}, sur {PERIODE_EN_TOUTES_LETTRES[periode]}
+            {pasEnMots(periode, a?.pas ?? HEURE).titre}, sur {PERIODE_EN_TOUTES_LETTRES[periode]}
           </h2>
-          <span className="muted small">{REGLE_DU_COMPTE[quoi](periode)}</span>
+          <span className="muted small">{REGLE_DU_COMPTE[quoi](periode, a?.pas ?? HEURE)}</span>
         </div>
         <div className="onglets onglets-puces" role="group" aria-label="Ce que le graphique compte">
           {COMPTES_DU_GRAPHE.map(q => (
@@ -349,7 +371,7 @@ export function Participations({
             {tableau && <CopierLeTableau nom="les chiffres de la période" />}
             {tableau && (
               <table>
-                <caption className="sr-only">{`${NOM_DU_COMPTE[quoi]} ${PAS_EN_MOTS[periode].par} et par mode`}</caption>
+                <caption className="sr-only">{`${NOM_DU_COMPTE[quoi]} ${pasEnMots(periode, a.pas).par} et par mode`}</caption>
                 <thead>
                   <tr>
                     <th scope="col">Quand</th>

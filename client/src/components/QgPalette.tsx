@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { api } from '../api'
 import { Icon, type IconName } from './Icon'
 import { Feuille } from './Pieces'
-import { PERIODE_EN_TOUTES_LETTRES, type PeriodeDuQg } from '../../../shared/qgPeriodes'
+import { PERIODE_EN_TOUTES_LETTRES, type PeriodeDuPoste } from '../../../shared/qgPeriodes'
 import type { ProfilDAdministration } from '../../../shared/profil'
 
 /** Une page du QG, telle que la palette la propose : son nom, son groupe du rail, son icône, et ce qu'on y trouve. */
@@ -72,10 +72,10 @@ export function PaletteDuQg<E>({
   gestes?: readonly GesteDeLaPalette<E>[]
   aller: (e: E) => void
   /** La période de la page, quand elle en lit une ; sinon, la palette n'en propose pas. */
-  periode: PeriodeDuQg | null
+  periode: PeriodeDuPoste | null
   /** Celles que la page offre : le serveur ne garde pas trente jours. */
-  periodes: readonly PeriodeDuQg[]
-  changerDePeriode: (p: PeriodeDuQg) => void
+  periodes: readonly PeriodeDuPoste[]
+  changerDePeriode: (p: PeriodeDuPoste) => void
   /** Null sur une page qui ne compare pas. */
   comparer: boolean | null
   changerLaComparaison: (oui: boolean) => void
