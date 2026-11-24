@@ -3,6 +3,7 @@ import { commencer } from './gels'
 import {
   CALME_POUR_CLORE_MS,
   CLES_DES_REGLES,
+  DEMARRAGE_A_FROID_MS,
   JOURS_DES_INCIDENTS,
   MOT_D_UN_INCIDENT_MAX,
   REGLE,
@@ -56,6 +57,11 @@ interface Ouverte {
   cause: string
   /** Depuis quand elle ne se dit plus : elle se referme après `CALME_POUR_CLORE_MS`. */
   calmeDepuis: number | null
+  /**
+   * Laissée ouverte par le serveur d'avant, et pas encore redite par celui-ci : si elle se referme ainsi, elle s'est
+   * refermée au plus tard quand l'autre a cessé de guetter (`finDuGuetDAvant`), pas au réveil d'après.
+   */
+  heritee?: boolean
 }
 
 const messageDOuverture = (cle: CleDeRegle, cause: string): MessageDuQg => ({
@@ -108,6 +114,11 @@ export class ReglesDuQg {
       tourMs?: number
       /** Ce serveur est la production (`APP_ENV` absent) ; d'office, oui. */
       production?: boolean
+      /**
+       * Jusqu'où le serveur d'avant a guetté, s'il ne répondait plus au démarrage de celui-ci ; null s'il répondait
+       * encore (`finDuGuetDAvant`, `shared/santeDuServeur.ts`). Sans elle, un incident hérité se referme au calme vu ici.
+       */
+      finDuGuetDAvant?: () => Promise<number | null>
     },
   ) {
     this.client = clientDistant(url, authToken)
@@ -172,8 +183,29 @@ export class ReglesDuQg {
     // Les incidents laissés ouverts par le serveur d'avant continuent : la première minute dira s'ils durent.
     for (const r of encore.rows) {
       const cle = String(r.regle)
-      if (estUneRegle(cle)) this.ouvertes.set(cle, { id: Number(r.id), debut: Number(r.debut), cause: String(r.cause), calmeDepuis: null })
+      if (estUneRegle(cle)) this.ouvertes.set(cle, { id: Number(r.id), debut: Number(r.debut), cause: String(r.cause), calmeDepuis: null, heritee: true })
     }
+  }
+
+  /** La fin du guet d'avant, lue une fois — à la première fermeture d'un incident hérité, jamais au réveil même. */
+  private guetDAvant: Promise<number | null> | null = null
+
+  /**
+   * L'instant où un incident s'est refermé : celui où le calme est revenu, ou, pour un incident hérité que ce serveur
+   * n'a jamais redit, au plus tard la fin du guet d'avant. Un incident ouvert quand l'hébergeur a endormi le serveur
+   * se refermait au réveil d'après : « Turso lent » a duré 379 minutes le 20 novembre 2026, pour une heure à peine
+   * guettée — les incidents de la nuit gonflaient la médiane du retour au calme et la frise. Une lecture qui tombe
+   * garde le calme vu ici, et se refait à la fermeture suivante.
+   */
+  private async finDUnIncident(o: Ouverte, calmeDepuis: number): Promise<number> {
+    if (!o.heritee || !this.deps.finDuGuetDAvant) return calmeDepuis
+    this.guetDAvant ??= this.deps.finDuGuetDAvant().catch(e => {
+      this.guetDAvant = null
+      console.warn('[alertes] la fin du serveur d’avant ne se lit pas :', e instanceof Error ? e.message : e)
+      return null
+    })
+    const fin = await this.guetDAvant
+    return fin === null ? calmeDepuis : Math.max(o.debut, Math.min(calmeDepuis, fin))
   }
 
   demarrer() {
@@ -248,6 +280,8 @@ export class ReglesDuQg {
         if (deja) {
           deja.calmeDepuis = null
           deja.cause = cause
+          // Redite ici : son calme se jugera ici, comme celui d'un incident né ici.
+          deja.heritee = false
           continue
         }
         const o: Ouverte = { id: null, debut: maintenant, cause, calmeDepuis: null }
@@ -269,7 +303,8 @@ export class ReglesDuQg {
         this.ouvertes.delete(cle)
         if (o.id !== null) {
           const id = o.id
-          await this.enFile(() => this.client.execute({ sql: 'UPDATE qg_incidents SET fin = ? WHERE id = ? AND fin IS NULL', args: [o.calmeDepuis, id] })).catch(e =>
+          const fin = await this.finDUnIncident(o, o.calmeDepuis)
+          await this.enFile(() => this.client.execute({ sql: 'UPDATE qg_incidents SET fin = ? WHERE id = ? AND fin IS NULL', args: [fin, id] })).catch(e =>
             console.warn(`[alertes] l’incident « ${REGLE[cle].nom} » ne se referme pas :`, e instanceof Error ? e.message : e),
           )
         }
@@ -463,6 +498,8 @@ export function lecteurDesAlertes(d: {
   memoireMo: () => number | null
   version: string | null
   maintenant?: () => number
+  /** Quand ce serveur a démarré : ses dix premières minutes ne se jugent pas au ressenti (`DEMARRAGE_A_FROID_MS`). */
+  demarreLe?: number
   /** La dernière sauvegarde notée (`qg_sauvegardes`) ; null, jamais une. */
   sauvegarde?: () => Promise<number | null>
   /** Les heures éveillées de ce service ce mois-ci (`heuresDeLHebergeur`). */
@@ -484,12 +521,21 @@ export function lecteurDesAlertes(d: {
     const [a, reserve] = await Promise.all([d.alertes(memoireMo), reserveGardee(maintenant)])
     const { points, enCours } = d.direct.lire()
     const tous = [...points, enCours]
-    const dixMinutes = tous.slice(-60)
+    // Le ressenti laisse de côté les dix premières minutes du démarrage : un réveil y fait attendre chaque nuit.
+    const aFroidJusqua = d.demarreLe === undefined ? -Infinity : d.demarreLe + DEMARRAGE_A_FROID_MS
+    const dixMinutes = tous.slice(-60).filter(p => p.a >= aFroidJusqua)
     const unQuart = tous.slice(-90)
     const uneMinute = tous.slice(-6)
     const appels = dixMinutes.reduce((n, p) => n + (p.routes?.n ?? 0), 0)
     // Le 95ᵉ centile de dix minutes : celui de chaque pas, pondéré par ses appels — comme celui d'une semaine (`cumulsDesRoutes`).
-    const ressenti = appels > 0 ? { p95: Math.round(dixMinutes.reduce((s, p) => s + (p.routes ? p.routes.p95 * p.routes.n : 0), 0) / appels), appels } : null
+    const ressenti =
+      appels > 0
+        ? {
+            p95: Math.round(dixMinutes.reduce((s, p) => s + (p.routes ? p.routes.p95 * p.routes.n : 0), 0) / appels),
+            appels,
+            moments: dixMinutes.flatMap(p => (p.routes && p.routes.n > 0 ? [p.routes.p95] : [])),
+          }
+        : null
     const gel = Math.max(0, ...uneMinute.map(p => p.boucleMaxMs ?? 0))
     // Le soir se juge de 22 h à minuit, sur 19 h - 22 h, si le serveur l'a écouté tout du long.
     const minutes = minutesDeParis(maintenant)
