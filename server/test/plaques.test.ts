@@ -316,20 +316,23 @@ test('la loge : la plaque s’essaie comme le reste, et se compare à son choix'
   const { plaqueChoisie: _, ...avant } = porte
   assert.deepEqual(essayer({}, { plaque: 'auto' }, avant), {})
 
+  // À l'écran, la plaque est « le podium » depuis le 24 novembre 2026 (« la plaque n'est pas représentative de ce que ça
+  // donne vraiment, un skin de podium », le propriétaire), et `aucune` la marche de la maison, « Classique ».
   assert.deepEqual(
     lignesDeLEssai({ plaque: 'kintsugi' }, { niveau: 1 }).map(l => [l.piece, l.nom, l.detail]),
-    [['theme', 'Kintsugi', 'Plaque']],
+    [['theme', 'Kintsugi', 'Podium']],
   )
   assert.equal(lignesDeLEssai({ plaque: 'auto' }, { niveau: 1 })[0].nom, 'Comme ton thème')
-  assert.equal(lignesDeLEssai({ plaque: AUCUNE_PLAQUE }, { niveau: 1 })[0].nom, 'Sans plaque')
+  assert.equal(lignesDeLEssai({ plaque: AUCUNE_PLAQUE }, { niveau: 1 })[0].nom, 'Classique')
   assert.equal(avecLEssai({ ...porte, finition: 'mat', niveau: 1 }, { plaque: 'ocean' }).plaqueChoisie, 'ocean')
 
   // Elle se choisit dans la pièce de ses thèmes — son onglet, à côté d'eux, depuis le 17 novembre 2026 : sous eux, à
-  // 1180 px du haut, personne ne la trouvait —, et la fiche d'un thème la montre à la boutique.
+  // 1180 px du haut, personne ne la trouvait —, et la fiche d'un thème la montre à la boutique : l'aperçu de son podium,
+  // sa marche et sa ligne, sous la plaque de ce thème (le 24 novembre 2026 : sa ligne seule, la marche ne se voyait pas).
   const boutique = lu('components/Boutique.tsx')
   assert.match(boutique, /<MaPlaque profil=\{profil\} essai=\{essai\} essayer=\{essayer\} neufs=\{neufs\} \/>/)
   assert.match(boutique, /\{vue === 'themes' \? \([\s\S]*?\) : \(\s*<MaPlaque /)
-  assert.match(lu('components/Presentoir.tsx'), /plaqueDuTheme\(t\.key\) && \([\s\S]{0,200}<LigneDePlaque profil=\{profil\} plaque=\{plaqueAvecSonCamp\(t\.key, profil\.camp\)\} \/>/)
+  assert.match(lu('components/Presentoir.tsx'), /plaqueDuTheme\(t\.key\) && \(\s*<ApercuDuPodium\s+profil=\{profil\}\s+plaque=\{plaqueAvecSonCamp\(t\.key, profil\.camp\)\}/)
   // Un toucher essaie, rien ne s'enregistre d'ici.
   const piece = lu('components/MaPlaque.tsx')
   assert.match(piece, /onClick=\{\(\) => essayer\(\{ plaque: c\.cle \}\)\}/)
@@ -412,7 +415,7 @@ test('au banc : le camp se choisit, sa plaque le dit, la page le reçoit — et 
   }
 })
 
-test('l’onglet « Ma plaque » : sa ligne une fois, puis une petite plaque par choix, qui prend les couleurs de la sienne', async () => {
+test('l’onglet « Mon podium » : sa marche et sa ligne une fois, puis une petite plaque par choix, qui prend les couleurs de la sienne', async () => {
   const React = (await import('react')).default
   Object.assign(globalThis, { React })
   const { renderToStaticMarkup } = await import('react-dom/server')
@@ -429,26 +432,40 @@ test('l’onglet « Ma plaque » : sa ligne une fois, puis une petite plaque par
     boutique: { confettis: { gagnes: 0, depenses: 0, solde: 0 }, possedes: ['velours', 'ivoire', 'ocean', 'neige'], porte: null, jour: '2026-11-17' },
   }
   const html = renderToStaticMarkup(React.createElement(MaPlaque, { profil: lea, essai: { plaque: 'neige' }, essayer: () => {}, neufs: new Set(['neige']) }))
-  // Sa ligne de classement une seule fois, son avatar dans l'écrin de la plaque que la page montre : une ligne entière
-  // par choix faisait commencer la plaque à 1180 px en 360 × 640.
+  // L'aperçu une seule fois, sous la plaque que la page montre : lui sur la première marche, peinte au thème de la
+  // plaque — la vraie pièce des classements, sans prénom ni score à l'œil —, et sa ligne, son avatar dans l'écrin. Une
+  // ligne entière par choix faisait commencer la plaque à 1180 px en 360 × 640 ; la ligne seule ne montrait pas la
+  // marche, ce que la plaque donne le plus à voir (le 24 novembre 2026).
   assert.equal(html.match(/class="lb-row /g)?.length, 1)
-  assert.match(html, /^<div class="lb-row plaque-apercu" role="img" aria-label="Ta ligne aux classements, sous la plaque Neige"><span class="ecrin plaque plaque-neige"><span class="av lb-avatar">/)
-  // Puis les choix en vignettes, dans l'ordre : d'office, aucune, puis une par thème à lui — Velours n'en a pas.
+  assert.equal(html.match(/class="pdc-marche /g)?.length, 1)
+  assert.match(html, /^<div class="podium-apercu" role="img" aria-label="Ton podium Neige, tel que les autres le verront : [^"]+"><div class="podium-du-classement"[^>]*><div role="listitem" class="pdc-marche pdc-1 plaque plaque-neige">/)
+  assert.match(html, /<span class="pdc-avatar"><span class="av lb-avatar">/, 'debout sur sa marche, son avatar tel qu’il le porte')
+  assert.match(html, /<div class="lb-row plaque-apercu"><span class="ecrin plaque plaque-neige"><span class="av lb-avatar">/)
+  // Rien ne s'y touche : un aperçu, pas un bouton de classement qui ouvrirait une carte.
+  assert.doesNotMatch(html.slice(0, html.indexOf('<ul')), /<button/)
+  // Sans plaque, la marche de la maison — le Velours, sous `.podium-du-classement` — et l'écrin vide : ce que tous ont.
+  const classique = renderToStaticMarkup(React.createElement(MaPlaque, { profil: lea, essai: { plaque: AUCUNE_PLAQUE }, essayer: () => {}, neufs: new Set() }))
+  assert.match(classique, /aria-label="Ton podium classique, [^"]+"/)
+  assert.match(classique, /<div role="listitem" class="pdc-marche pdc-1">/)
+  assert.match(classique, /<span class="ecrin"><span class="av lb-avatar">/)
+  // Le prénom et le score de la marche se taisent à l'œil : sa ligne dit son prénom, et ce n'est pas un classement.
+  assert.match(CSS, /\.podium-apercu :is\(\.pdc-nom, \.pdc-valeur\) \{ display: none; \}/)
+  // Puis les choix en vignettes, dans l'ordre : d'office, classique, puis une par thème à lui — Velours n'en a pas.
   const vignettes = [...html.matchAll(/<button type="button" class="loge-vignette([^"]*)" aria-pressed="(true|false)" aria-label="([^"]+)">/g)].map(m => [m[3], m[2], m[1].trim()])
   assert.deepEqual(vignettes, [
-    ['Plaque Comme mon thème, portée', 'false', 'porte'],
-    ['Plaque Aucune', 'false', ''],
-    ['Plaque Ivoire', 'false', ''],
-    ['Plaque Océan', 'false', ''],
-    // À l'essai, et neuve avec son thème : le rouge mène jusqu'à elle.
-    ['Plaque Neige, à l’essai, nouvelle', 'true', 'selected essaye neuve'],
+    ['Podium Comme mon thème, porté', 'false', 'porte'],
+    ['Podium Classique', 'false', ''],
+    ['Podium Ivoire', 'false', ''],
+    ['Podium Océan', 'false', ''],
+    // À l'essai, et neuf avec son thème : le rouge mène jusqu'à lui.
+    ['Podium Neige, à l’essai, nouveau', 'true', 'selected essaye neuve'],
   ])
   // Chaque vignette, un échantillon à ses couleurs : sa classe de plaque, qui lui donne ses jetons ; « Comme mon thème »
-  // suit le thème porté ; « Aucune », la ligne de tous.
+  // suit le thème porté ; « Classique », la ligne de tous.
   const echantillons = [...html.matchAll(/<span class="loge-plaque-echantillon([^"]*)" aria-hidden="true"><span class="loge-plaque-texte">([^<]+)<\/span>/g)].map(m => [m[2], m[1].trim()])
   assert.deepEqual(echantillons, [
     ['Comme mon thème', 'plaque plaque-ocean'],
-    ['Aucune', ''],
+    ['Classique', ''],
     ['Ivoire', 'plaque plaque-ivoire'],
     ['Océan', 'plaque plaque-ocean'],
     ['Neige', 'plaque plaque-neige'],
@@ -460,7 +477,8 @@ test('l’onglet « Ma plaque » : sa ligne une fois, puis une petite plaque par
   // phrase — la ligne « qui le voit » est partie avec les autres (le 17 novembre 2026).
   const { MesThemes } = await import(new URL('components/Boutique.tsx', CLIENT).href)
   const onglets = renderToStaticMarkup(React.createElement(MesThemes, { profil: lea, essai: {}, essayer: () => {}, neufs: new Set() }))
-  assert.match(onglets, /Ma plaque<svg class="icon loge-theme-oeil"[^>]*>.*?<\/svg><span class="sr-only">, [^<]*, les autres la voient<\/span>/)
+  assert.match(onglets, /Mon podium<svg class="icon loge-theme-oeil"[^>]*>.*?<\/svg><span class="sr-only">, [^<]*, les autres le voient<\/span>/)
+  assert.doesNotMatch(onglets, /Ma plaque/, 'le nom d’avant')
   assert.doesNotMatch(onglets, /loge-entete-consigne|Toi seul vois/)
 })
 
@@ -495,7 +513,7 @@ test('au banc : elle se choisit parmi ses thèmes, suit le thème porté, et par
     for (const k of ['velours', 'n-existe-pas', 42]) {
       const refus = await porter({ plaque: k })
       assert.equal(refus.status, 400, String(k))
-      assert.match(((await refus.json()) as any).error, /Cette plaque n’existe pas/)
+      assert.match(((await refus.json()) as any).error, /Ce podium n’existe pas/)
     }
     assert.equal((await profil()).plaque, 'ivoire', 'un refus n’a rien changé')
 

@@ -4898,7 +4898,8 @@ export class ProfileStore {
       else {
         const cle = plaqueDuTheme(patch.plaque)
         const choisi = cle ? themeDuCatalogue(cle) : undefined
-        if (!choisi) throw new Error('Cette plaque n’existe pas')
+        // « Podium » : son nom à l'écran depuis le 24 novembre 2026 — le code garde « plaque ».
+        if (!choisi) throw new Error('Ce podium n’existe pas')
         await this.verifierQuIlALeTheme(id, choisi)
         champs.plaque = choisi.key
       }

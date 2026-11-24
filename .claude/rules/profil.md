@@ -493,8 +493,9 @@ paths:
   voisine, qui mène au même album) ;
   **Fond**, une petite carte (`fond-apercu carte-fond`, le
   Velours au halo de la carte d'office), trois par rangée ; **Thème**, deux
-  onglets (`OngletsDuTheme` : « Mes thèmes », d'office, et « Ma plaque », son
-  échantillon et un œil dessus — règle `themes.md`), un thème en vignette
+  onglets (`OngletsDuTheme` : « Mes thèmes », d'office, et « Mon podium » —
+  « Ma plaque » jusqu'au 24 novembre 2026 —, son échantillon et un œil dessus,
+  l'aperçu de sa marche au-dessus de ses choix — règle `themes.md`), un thème en vignette
   (`CaseDeTheme` : le haut de son aperçu, sa gemme, son nom), sans fiche
   dessous ; **Gerbe**, un bouquet de ses trois premières particules à une
   seule taille de police, l'éventail par `transform` (`.gerbe-bouquet`,
@@ -509,7 +510,8 @@ paths:
   (ses gemmes finissent à 513, 62 px au-dessus du menu). Le
   vétéran, en 360 × 640 puis 412 × 915 : 12 titres entiers puis 24 (4 et 23
   avant), 8 trophées puis 16 (2 et 5), 6 fonds puis 15, 6 thèmes puis 12, 9
-  plaques puis 21, 12 gerbes puis 20 ; en 360 × 640, sa vitrine défile de
+  plaques puis 21 — 3 puis 12 depuis l'aperçu du podium au-dessus d'elles, le
+  24 novembre 2026 (règle `themes.md`) —, 12 gerbes puis 20 ; en 360 × 640, sa vitrine défile de
   961 px (3536 avant), ses titres de 917 (1734). **Ce qui la casserait** :
   un choix qui ne serait pas un enfant direct de `.loge-vignettes` (le
   script ne le compterait pas), une phrase qui revient au-dessus d'une

@@ -1160,15 +1160,32 @@ h3 > .icon {
 .plaque-sommet { --p-clair: #f6b475; --p-sombre: #6a4928; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%236a4928%22 stroke=%22%236a4928%22 stroke-width=%222.2%22 d=%22M2 20.5 9.2 8l4 6.6 2.6-3.8 6.2 9.7z%22/%3E%3Cpath fill=%22none%22 stroke=%22%236a4928%22 stroke-width=%223.5%22 d=%22M9.2 8V2.8%22/%3E%3Cpath fill=%22%236a4928%22 stroke=%22%236a4928%22 stroke-width=%222.2%22 d=%22M9.6 2.8h4.4l-1.3 1.5 1.3 1.5H9.6z%22/%3E%3Cpath fill=%22%23f6b475%22 d=%22M2 20.5 9.2 8l4 6.6 2.6-3.8 6.2 9.7z%22/%3E%3Cpath fill=%22none%22 stroke=%22%23f6b475%22 stroke-width=%221.3%22 d=%22M9.2 8V2.8%22/%3E%3Cpath fill=%22%23f6b475%22 d=%22M9.6 2.8h4.4l-1.3 1.5 1.3 1.5H9.6z%22/%3E%3C/svg%3E"); }
 /* ── Fin des emblèmes des plaques ── */
 
-/* Là où elle se choisit (la loge, onglet « Ma plaque » de la pièce « Thème »)
-   et là où elle se vend (la fiche d'un thème) : sa propre ligne de classement,
-   son avatar dans l'écrin de la plaque montrée (`LigneDePlaque`). Elle n'entre
-   pas en glissant — on la regarde, on ne la découvre pas. Les choix de la loge étaient chacun
-   une ligne entière (`.plaque-choix`) jusqu'au 17 novembre 2026 : ils sont
-   devenus des vignettes, leurs échantillons dans la section de la loge
-   (`.loge-plaque-echantillon`). */
-.presentoir-plaque { display: flex; flex-direction: column; gap: 6px; }
-.lb-row.plaque-apercu { min-height: 44px; animation: none; }
+/* Là où elle se choisit (la loge, onglet « Mon podium » de la pièce « Thème »)
+   et là où elle se vend (la fiche d'un thème) : l'aperçu de son podium
+   (`ApercuDuPodium`) — lui debout sur la première marche, peinte au thème de la
+   plaque montrée, la vraie pièce des classements en petit, et à côté sa ligne,
+   son avatar dans l'écrin. Jusqu'au 24 novembre 2026, la ligne seule : la
+   marche ne se découvrait qu'au classement (« la plaque n'est pas
+   représentative de ce que ça donne vraiment, un skin de podium », le
+   propriétaire). Rien n'y entre en glissant — on le regarde, on ne le découvre
+   pas —, et la marche n'a ni prénom ni score : sa ligne dit son prénom, et ce
+   n'est pas un classement ; l'avatar garde son air au-dessus de lui (22 px) :
+   à 12, la couronne d'une bordure de ligue touchait les onglets de la loge. Au
+   présentoir, l'écart du corps (12 px) le précède et rien ne se touche au-dessus :
+   10 px suffisent — à 22, le présentoir d'un thème tenait à 2 px près en
+   360 × 640. Sa légende, à la boutique, se pose au-dessus de sa ligne, dans sa
+   colonne : sur sa propre rangée, en deux lignes, elle le faisait défiler de
+   57 px. Les choix
+   de la loge étaient chacun une ligne entière (`.plaque-choix`) jusqu'au
+   17 novembre 2026 : ils sont devenus des vignettes, leurs échantillons dans la
+   section de la loge (`.loge-plaque-echantillon`). */
+.podium-apercu { display: grid; grid-template-columns: 104px minmax(0, 1fr); align-items: end; gap: 12px; }
+.podium-apercu .podium-du-classement { grid-template-columns: minmax(0, 1fr); margin-top: 0; padding: 0; }
+.podium-apercu :is(.pdc-nom, .pdc-valeur) { display: none; }
+.presentoir-corps > .podium-apercu .pdc-1 .pdc-avatar { padding-top: 10px; }
+.podium-apercu-cote { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding-bottom: 8px; }
+.podium-apercu-legende { display: flex; align-items: center; gap: 6px; }
+.podium-apercu .lb-row.plaque-apercu { min-height: 44px; animation: none; }
 
 /* ── Écran commun ───────────────────────────────── */
 /* L'écran commun se lit à la hauteur de l'écran : 16 px en 768, 22,5 en
@@ -10252,7 +10269,7 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
   .loge-vignettes.loge-medailles { --loge-vignette: 54px; }
 }
 
-/* La pièce « Thème » : « Mes thèmes · Ma plaque » en deux onglets, tout en
+/* La pièce « Thème » : « Mes thèmes · Mon podium » en deux onglets, tout en
    haut (`MesThemes`, `OngletsDuTheme` — le 17 novembre 2026). Sa plaque
    vivait sous ses thèmes, à 1180 px du haut en 360 × 640 : personne ne la
    trouvait. Les onglets tiennent lieu de titre à l'œil — ils disent déjà
@@ -10270,7 +10287,7 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-theme-compte { color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
 .loge-theme-onglets .onglet.actif .loge-theme-compte { color: inherit; }
 /* Du neuf dans l'autre onglet : le point rouge des pièces et des gemmes, sur son épaule. */
-/* L'œil de l'onglet « Ma plaque » : seul réglage de la pièce que les autres voient, dit sans phrase. */
+/* L'œil de l'onglet « Mon podium » : seul réglage de la pièce que les autres voient, dit sans phrase. */
 .loge-theme-oeil { flex: none; width: 14px; height: 14px; }
 .loge-theme-neuf { position: absolute; top: 5px; right: 12px; width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--surface); }
 .loge-theme-vue { display: flex; flex-direction: column; gap: var(--loge-bloc); }

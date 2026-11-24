@@ -250,7 +250,7 @@ export function RayonDesThemes({
 type VueDuTheme = 'themes' | 'plaque'
 
 /**
- * « Mes thèmes · Ma plaque », tout en haut de la pièce « Thème » : sa plaque
+ * « Mes thèmes · Mon podium », tout en haut de la pièce « Thème » : sa plaque
  * vivait sous ses thèmes, une ligne de classement entière par choix, et
  * commençait à 1180 px en 360 × 640 pour une habituée — « caché tout en bas
  * et donc impossible pour des utilisateurs de savoir que ça existe » (le
@@ -309,7 +309,7 @@ function OngletsDuTheme({
     </button>
   )
   return (
-    <div ref={liste} className="onglets loge-theme-onglets" role="tablist" aria-label="Thème ou plaque">
+    <div ref={liste} className="onglets loge-theme-onglets" role="tablist" aria-label="Thème ou podium">
       {onglet(
         'themes',
         0,
@@ -328,10 +328,11 @@ function OngletsDuTheme({
         1,
         <>
           <EchantillonDePlaque plaque={plaque} />
-          Ma plaque
+          {/* « Ma plaque » jusqu'au 24 novembre 2026 : le nom ne disait pas ce que les autres en voient, sa marche peinte. */}
+          Mon podium
           {/* Le seul réglage du panneau « Toi seul » que les autres voient : un petit œil, sans phrase (le souhait du 17 novembre 2026). */}
           <Icon name="eye" className="loge-theme-oeil" />
-          <span className="sr-only">{`, ${nomDeLaPlaque}, les autres la voient`}</span>
+          <span className="sr-only">{`, ${nomDeLaPlaque}, les autres le voient`}</span>
         </>,
         neufs.plaque,
       )}
@@ -416,13 +417,13 @@ export function MesThemes({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   return (
     <section className="mes-themes">
       {/* Les onglets tiennent lieu de titre à l'œil (`.mes-themes .loge-entete-titre`) : le lecteur d'écran le lit. */}
-      <EnteteDeLaPiece id="loge-theme-titre" titre={vue === 'themes' ? 'Mes thèmes' : 'Ma plaque'}>
+      <EnteteDeLaPiece id="loge-theme-titre" titre={vue === 'themes' ? 'Mes thèmes' : 'Mon podium'}>
         <OngletsDuTheme
           vue={vue}
           onVue={setVue}
           themes={siens.length}
           plaque={plaques.vue}
-          nomDeLaPlaque={plaques.vue ? nomDeLaPlaque(plaques.vue) : 'sans plaque'}
+          nomDeLaPlaque={plaques.vue ? nomDeLaPlaque(plaques.vue) : 'classique'}
           neufs={{ themes: siens.some(t => neufs?.has(t.key)), plaque: plaques.choix.some(c => neufs?.has(c.cle)) }}
         />
       </EnteteDeLaPiece>

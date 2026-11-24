@@ -127,10 +127,11 @@ function annonceDUnChamp(choix: ChoixDuProfil): string {
     const nom = gerbe(choix.gerbe)?.nom
     return nom ? `Ta gerbe : ${nom.charAt(0).toLowerCase()}${nom.slice(1)}.` : 'Sans gerbe.'
   }
+  // La plaque se dit « podium » à l'écran depuis le 24 novembre 2026, et `aucune` « classique » : la marche de la maison.
   if (choix.plaque !== undefined) {
-    if (choix.plaque === 'auto') return 'Ta plaque suit ton thème.'
+    if (choix.plaque === 'auto') return 'Ton podium suit ton thème.'
     const nom = theme(choix.plaque)?.nom
-    return nom ? `Ta plaque : ${nom}.` : 'Sans plaque.'
+    return nom ? `Ton podium : ${nom}.` : 'Ton podium classique.'
   }
   if (choix.theme !== undefined) {
     const nom = choix.theme ? theme(choix.theme)?.nom : undefined

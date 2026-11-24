@@ -5,7 +5,7 @@ import { Feuille } from './Pieces'
 import { etatDuTheme, gemme } from './Boutique'
 import { FicheDuCompagnon, dansLaPhrase } from './RayonDesCompagnons'
 import { SaCarte, etatDuFond } from './RayonDesFonds'
-import { LigneDePlaque } from './MaPlaque'
+import { ApercuDuPodium } from './MaPlaque'
 import { OBJETS } from './Objets'
 import type { Comptoir } from './Comptoir'
 import type { ChoixDuProfil } from './choix'
@@ -368,12 +368,20 @@ export function Presentoir({
           <span className="small">{`${o.compte(nombre)} · ${enConfettis(prix)}`}</span>
         </div>
       )}
-      {/* Sa plaque : la part du thème que les autres voient, montrée sur sa propre ligne (`shared/plaques.ts`). */}
+      {/* Son podium : la part du thème que les autres voient (`shared/plaques.ts`), lui debout sur sa marche et sa ligne
+          des classements — ce qu'il essaie là n'habille que sa page. L'œil dit « les autres le voient », comme sur
+          l'onglet « Mon podium » de la loge : « Sa plaque · les autres te verront ainsi » prenait deux lignes. */}
       {t && plaqueDuTheme(t.key) && (
-        <div className="presentoir-plaque">
-          <span className="label">Sa plaque · les autres te verront ainsi</span>
-          <LigneDePlaque profil={profil} plaque={plaqueAvecSonCamp(t.key, profil.camp)} />
-        </div>
+        <ApercuDuPodium
+          profil={profil}
+          plaque={plaqueAvecSonCamp(t.key, profil.camp)}
+          legende={
+            <>
+              Son podium
+              <Icon name="eye" />
+            </>
+          }
+        />
       )}
       {t && enVente && (
         <p className="presentoir-dit">

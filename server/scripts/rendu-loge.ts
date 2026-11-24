@@ -22,7 +22,7 @@
 // qu'elle porte puis sur celle de ses neuf avatars communs ; Tom, qui vient de
 // créer son profil ; tout au plus long — les douze finitions du niveau 50, les
 // six bordures, un Éclat en réserve, sept pages d'avatars — ; chacune des cinq
-// autres pièces, et l'onglet « Ma plaque » de la pièce « Thème » — chaque
+// autres pièces, et l'onglet « Mon podium » de la pièce « Thème » — chaque
 // plaque essayée tour à tour au petit téléphone (`plaques`), sous l'Ivoire
 // aussi — ; un essai en route, la barre « Annuler · Porter » à la place
 // du menu ; une tablette, aux mesures d'avant ; le texte agrandi à 130 % ; sous
@@ -151,7 +151,7 @@ const LA_LOGE = (piece: PieceDeLaLoge) => `(() => {
     'une gemme': '.gemmes-loge .gemme',
     [PIECE.cible]: PIECE.cases + ' button, ' + PIECE.cases + '[type=button]',
     'à gagner': '.loge-a-gagner',
-    // La pièce « Thème » : ses deux onglets, « Mes thèmes · Ma plaque ».
+    // La pièce « Thème » : ses deux onglets, « Mes thèmes · Mon podium ».
     'un onglet': '.loge-theme-onglets [role=tab]',
     'l’Éclat': '.loge-reserve .btn',
     'la barre': '.loge-barre .btn',
@@ -492,16 +492,18 @@ try {
   }
 
   /**
-   * L'onglet « Ma plaque » de la pièce « Thème », touché comme on y va : sa ligne de classement, puis ses plaques en
-   * vignettes — mesurées comme les thèmes (son en-tête avant elles, ses vignettes), et qui doivent tenir de même.
+   * L'onglet « Mon podium » de la pièce « Thème » (« Ma plaque » jusqu'au 24 novembre 2026), touché comme on y va :
+   * l'aperçu de son podium — sa marche, sa ligne de classement —, puis ses plaques en vignettes — mesurées comme les
+   * thèmes (son en-tête avant elles, ses vignettes), et qui doivent tenir de même.
    */
   const plaque = async (page: any, nom: string, n: string, ecran: Ecran) => {
     await page.tap('#loge-theme-plaque')
     await page.waitForSelector('.loge-panneau .loge-plaques')
     await page.waitForTimeout(300)
     const m = await mesurer(page, nom, 'theme', ecran, n)
-    const ligne = (await page.evaluate(`(() => { const r = document.querySelector('.loge-panneau .plaque-apercu').getBoundingClientRect(); return { haut: Math.round(r.top + scrollY), bas: Math.round(r.bottom + scrollY) } })()`)) as { haut: number; bas: number }
-    console.log(`   sa ligne ${ligne.haut}→${ligne.bas}`)
+    const ou = (sel: string) => page.evaluate(`(() => { const r = document.querySelector(${JSON.stringify(sel)}).getBoundingClientRect(); return { haut: Math.round(r.top + scrollY), bas: Math.round(r.bottom + scrollY) } })()`) as Promise<{ haut: number; bas: number }>
+    const [apercu, ligne] = [await ou('.loge-panneau .podium-apercu'), await ou('.loge-panneau .plaque-apercu')]
+    console.log(`   son aperçu ${apercu.haut}→${apercu.bas} (${apercu.bas - apercu.haut} px) · sa ligne ${ligne.haut}→${ligne.bas}`)
     // Revenue aux thèmes : la pièce suivante s'ouvre comme on la quitte.
     await page.tap('#loge-theme-themes')
     await page.waitForTimeout(200)
@@ -637,8 +639,9 @@ try {
     await mesurer(page, nom, 'theme', ecran, `${nom}-theme-360x640`)
     await page.tap('#loge-theme-plaque')
     await page.waitForSelector('.loge-panneau .loge-plaques')
-    for (const plaque of ['Ivoire', 'Océan', 'Neige', 'Aucune']) {
-      await page.tap(`.loge-plaques .loge-vignette[aria-label^="Plaque ${plaque}"]`)
+    // « Podium » et « Classique » : les noms d'écran de la plaque et d'`aucune` depuis le 24 novembre 2026.
+    for (const plaque of ['Ivoire', 'Océan', 'Neige', 'Classique']) {
+      await page.tap(`.loge-plaques .loge-vignette[aria-label^="Podium ${plaque}"]`)
       await page.waitForSelector('.loge-barre')
       await page.waitForTimeout(300)
       await mesurer(page, nom, 'theme', ecran, `${nom}-plaque-${plaque.normalize('NFD').replace(/[^a-z]/gi, '').toLowerCase()}-360x640`)
