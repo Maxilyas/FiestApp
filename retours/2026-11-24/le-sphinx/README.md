@@ -101,6 +101,32 @@ bassinoire, le soufflet, le ramoneur), les références savantes (les
 Danaïdes, Bellone, Clio), celles dont la clé manque (n° 44, 133, 534) ou se
 trompe (n° 401 : « Boulon » pour « Bouton »).
 
+**Le propriétaire ne les relit pas** (le même jour : « je vais te faire
+confiance sur les énigmes car si je les lis je ne vais pas pouvoir jouer moi
+même ») : il joue aussi. La relecture s'est donc faite à l'aveugle — deux
+joueurs simulés, sans outils ni réponses, un ordinaire (modèle rapide) et un
+fort, chargé aussi de dire si d'autres réponses remplissent le texte. Le
+joueur ordinaire en trouve 25 sur 40, le fort 38 ; ce qu'ils ont rendu est
+dans chaque énigme (`aveugle`), et a changé trois choses :
+
+- **Deux énigmes écartées** (`retenue: false`, `raison`) : le n° 140 et le
+  n° 97, où le joueur fort trouve une réponse aussi juste que celle du livre.
+  Le Sphinx refuserait une bonne réponse.
+- **Des réponses acceptées de plus**, celles qu'un juge honnête accepterait
+  (« clou de soulier », « deux points », « ténèbres », « Galatée »…), et des
+  « tu brûles » de plus : les erreurs que les joueurs ont faites.
+- **La difficulté mesurée** : facile quand les deux trouvent, moyenne quand
+  seul le fort trouve, difficile quand le joueur ordinaire se trompe avec
+  assurance — 16, 16 et 6.
+
+La coquille du n° 28 (« Vous sommes ») est corrigée et notée
+(`corrections`) : rendue à l'auteur, comme Wikisource le fait ailleurs.
+
+Ce que le propriétaire a déjà vu ne doit pas lui être posé : les trois
+énigmes de la maquette, et cinq réponses dites dans la conversation (n° 370,
+637, 349, 641, 659). À la mise en œuvre, son profil les compte pour vues. Et
+le QG ne montrera jamais une réponse sans un geste : l'administrateur joue.
+
 Wikisource marque les coquilles qu'elle corrige (`<span class="coquille">`) :
 le texte recopié porte la correction, l'imprimé de 1858 est dans la note
 (n° 4, 218, 397 ; et le n° 637, que le livre numérote 673). Les points au

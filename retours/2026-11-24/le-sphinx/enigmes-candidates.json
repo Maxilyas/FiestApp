@@ -7,22 +7,39 @@
  "enigmes": [
   {
    "numero": "370",
-   "difficulte": "facile",
+   "difficulte": "moyenne",
    "vers": [
     "Quand je suis sous les pieds, je marche sur la tête."
    ],
    "solution": "Clou",
    "acceptees": [
     "clou",
-    "clous"
+    "clous",
+    "clou de soulier",
+    "clou de chaussure"
    ],
    "presque": [
     "vis",
-    "punaise"
+    "punaise",
+    "soulier",
+    "chaussure",
+    "semelle",
+    "fer a cheval"
    ],
    "note": "Une seule ligne.",
    "page": "225",
-   "djvu": "259"
+   "djvu": "259",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le soulier",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "le clou de soulier",
+     "certitude": 4
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "704",
@@ -37,7 +54,9 @@
    "acceptees": [
     "ciseaux",
     "ciseau",
-    "paire de ciseaux"
+    "paire de ciseaux",
+    "deux points",
+    "signe de division"
    ],
    "presque": [
     "tenailles",
@@ -45,7 +64,18 @@
    ],
    "note": "La strophe finit sur une virgule dans le livre.",
    "page": "442",
-   "djvu": "476"
+   "djvu": "476",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "les ciseaux",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "les ciseaux",
+     "certitude": 3
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "32",
@@ -64,11 +94,23 @@
    "presque": [
     "foudre",
     "tonnerre",
-    "orage"
+    "orage",
+    "etincelle"
    ],
    "note": "",
    "page": "24",
-   "djvu": "58"
+   "djvu": "58",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "l'éclair",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "l'éclair",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "211",
@@ -86,11 +128,24 @@
    ],
    "presque": [
     "plume",
-    "plumes"
+    "plumes",
+    "oie",
+    "aile"
    ],
    "note": "Un jeu sur les lettres : o-i-s-e-a-u.",
    "page": "129",
-   "djvu": "163"
+   "djvu": "163",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "oiseau",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "l'oiseau",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "8",
@@ -109,15 +164,28 @@
    ],
    "presque": [
     "regard",
-    "larmes"
+    "larmes",
+    "regards",
+    "coeur"
    ],
    "note": "Des points au milieu des phrases : coquilles de l’édition ?",
    "page": "7",
-   "djvu": "41"
+   "djvu": "41",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "les yeux",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "les yeux",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "154",
-   "difficulte": "facile",
+   "difficulte": "moyenne",
    "vers": [
     "Avec nous en tous lieux, en tout temps on se couche.",
     "On nous charge parfois d’or et de diamants ;",
@@ -135,11 +203,22 @@
    ],
    "note": "Vers recollé à la transcription.",
    "page": "96",
-   "djvu": "130"
+   "djvu": "130",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "la lettre",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "les oreilles",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "302",
-   "difficulte": "facile",
+   "difficulte": "moyenne",
    "vers": [
     "Sous un air de douceur extrême,",
     "Être fourbe, hypocrite et de mauvaise foi",
@@ -154,15 +233,28 @@
    ],
    "presque": [
     "renard",
-    "fouine"
+    "fouine",
+    "chien",
+    "pie"
    ],
    "note": "",
    "page": "183",
-   "djvu": "217"
+   "djvu": "217",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le sommeil",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "le chat",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "477",
-   "difficulte": "facile",
+   "difficulte": "moyenne",
    "vers": [
     "Aidé du feu l’on me produit,",
     "Et par le feu l’on me détruit.",
@@ -180,11 +272,25 @@
    "presque": [
     "allumette",
     "flamme",
-    "lampe"
+    "lampe",
+    "feu d artifice",
+    "fusee",
+    "flambeau"
    ],
    "note": "",
    "page": "289",
-   "djvu": "323"
+   "djvu": "323",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le feu d'artifice",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "la chandelle",
+     "certitude": 3
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "413",
@@ -206,7 +312,18 @@
    ],
    "note": "",
    "page": "250",
-   "djvu": "284"
+   "djvu": "284",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le miroir",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "le miroir",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "140",
@@ -230,7 +347,19 @@
    ],
    "note": "Un point au milieu d’une phrase (« génie. »).",
    "page": "86",
-   "djvu": "120"
+   "djvu": "120",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "la lettre",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "la lettre E",
+     "certitude": 2
+    }
+   },
+   "retenue": false,
+   "raison": "Ambiguë : le joueur fort répond « la lettre E », qui est dans « imprimeurs », « Voltaire », « livre » et « registre » — aussi juste que « page »."
   },
   {
    "numero": "314",
@@ -249,11 +378,24 @@
    ],
    "presque": [
     "voyage",
-    "marche"
+    "marche",
+    "vie",
+    "promenade"
    ],
    "note": "",
    "page": "190",
-   "djvu": "224"
+   "djvu": "224",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le chemin",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "le chemin",
+     "certitude": 4
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "286",
@@ -267,20 +409,36 @@
    "solution": "Aujourd’hui",
    "acceptees": [
     "aujourd hui",
-    "aujourdhui"
+    "aujourdhui",
+    "jour",
+    "ce jour",
+    "ephemere"
    ],
    "presque": [
     "jour",
     "present",
-    "matin"
+    "matin",
+    "vie",
+    "rose"
    ],
    "note": "",
    "page": "173",
-   "djvu": "207"
+   "djvu": "207",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le jour",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "le jour",
+     "certitude": 4
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "16",
-   "difficulte": "facile",
+   "difficulte": "moyenne",
    "vers": [
     "Un bon vieux père a douze enfants.",
     "Ces douze en ont plus de trois cents :",
@@ -300,7 +458,18 @@
    ],
    "note": "La plus célèbre : le père aux douze enfants.",
    "page": "14",
-   "djvu": "48"
+   "djvu": "48",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le Pape",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "l'année",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "435",
@@ -317,15 +486,27 @@
    ],
    "presque": [
     "ennui",
-    "heure"
+    "heure",
+    "mort"
    ],
    "note": "Tuer le temps.",
    "page": "263",
-   "djvu": "297"
+   "djvu": "297",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le temps",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "le temps",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "146",
-   "difficulte": "moyenne",
+   "difficulte": "facile",
    "vers": [
     "Je suis quand mon frère n’est pas,",
     "Autrement je ne saurais être ;",
@@ -334,7 +515,8 @@
    ],
    "solution": "Nuit",
    "acceptees": [
-    "nuit"
+    "nuit",
+    "tenebres"
    ],
    "presque": [
     "jour",
@@ -345,7 +527,18 @@
    ],
    "note": "",
    "page": "90",
-   "djvu": "124"
+   "djvu": "124",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "la nuit",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "la nuit",
+     "certitude": 4
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "97",
@@ -366,11 +559,23 @@
    ],
    "note": "Vers recollé à la transcription.",
    "page": "61",
-   "djvu": "95"
+   "djvu": "95",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "l'écho",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "l'écriture",
+     "certitude": 3
+    }
+   },
+   "retenue": false,
+   "raison": "Ambiguë : « l’écriture » ou « la lettre » remplissent le texte aussi bien que « l’écho » (« si l’on ne m’envisage »)."
   },
   {
    "numero": "104",
-   "difficulte": "moyenne",
+   "difficulte": "difficile",
    "vers": [
     "En un seul mot j’offre une fleur, une île,",
     "Une arme, un fruit, un royaume, une ville."
@@ -379,10 +584,25 @@
    "acceptees": [
     "grenade"
    ],
-   "presque": [],
+   "presque": [
+    "orange",
+    "pomme",
+    "rose"
+   ],
    "note": "Deux vers : six sens d’un même mot.",
    "page": "65",
-   "djvu": "99"
+   "djvu": "99",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Orange",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "Grenade",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "637",
@@ -398,15 +618,28 @@
    "presque": [
     "fil",
     "coton",
-    "laine"
+    "laine",
+    "chanvre",
+    "soie"
    ],
    "note": "Une ligne : lin, et à l’envers, le Nil. Le livre la numérote 673 par erreur.",
    "page": "399",
-   "djvu": "433"
+   "djvu": "433",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le fil",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "le lin",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "52",
-   "difficulte": "moyenne",
+   "difficulte": "facile",
    "vers": [
     "Du monde je suis le tableau ;",
     "Ma mer n’eut pourtant jamais d’eau,",
@@ -429,7 +662,18 @@
    ],
    "note": "",
    "page": "35",
-   "djvu": "69"
+   "djvu": "69",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "la carte",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "la mappemonde",
+     "certitude": 4
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "218",
@@ -449,11 +693,24 @@
    "presque": [
     "encre",
     "page",
-    "buvard"
+    "buvard",
+    "neige",
+    "linge"
    ],
    "note": "Le livre imprime « je boi », pour la rime avec « moi » ; Wikisource écrit « bois ».",
    "page": "133",
-   "djvu": "167"
+   "djvu": "167",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le vin",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "le papier",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "241",
@@ -470,15 +727,33 @@
     "chapeau",
     "couvre chef",
     "coiffe",
-    "casquette"
+    "casquette",
+    "couvre-chef",
+    "coiffure",
+    "kepi",
+    "shako",
+    "casque"
    ],
    "presque": [
     "casque",
-    "perruque"
+    "perruque",
+    "colonel",
+    "drapeau"
    ],
    "note": "« ou s’apprête » : sans doute « on s’apprête ». Coquille à vérifier.",
    "page": "146",
-   "djvu": "180"
+   "djvu": "180",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le clou",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "le chapeau",
+     "certitude": 4
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "338",
@@ -499,15 +774,29 @@
    ],
    "presque": [
     "cloche",
-    "clocher"
+    "clocher",
+    "telegraphe",
+    "barometre",
+    "horloge"
    ],
    "note": "La clé dit « Coq du clocher » : la girouette.",
    "page": "205",
-   "djvu": "239"
+   "djvu": "239",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "la girouette",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "la girouette",
+     "certitude": 3
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "343",
-   "difficulte": "moyenne",
+   "difficulte": "facile",
    "vers": [
     "Si je n’ai pas des plus brillants carrosses",
     "Et la richesse et l’ornement,",
@@ -529,7 +818,18 @@
    ],
    "note": "« Rosses » : de mauvais chevaux.",
    "page": "209",
-   "djvu": "243"
+   "djvu": "243",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "la brouette",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "la brouette",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "397",
@@ -547,15 +847,29 @@
    "presque": [
     "pari",
     "match",
-    "jeu"
+    "jeu",
+    "partie",
+    "fortune",
+    "amitie"
    ],
    "note": "Wikisource a corrigé « dcsole » (imprimé) en « désole ».",
    "page": "241",
-   "djvu": "275"
+   "djvu": "275",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "l'amitié",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "le procès",
+     "certitude": 4
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "445",
-   "difficulte": "moyenne",
+   "difficulte": "facile",
    "vers": [
     "Je marche sur six pieds, je vis dans le silence,",
     "Et je suis, en amour,",
@@ -570,15 +884,27 @@
    ],
    "presque": [
     "silence",
-    "mystere"
+    "mystere",
+    "discretion"
    ],
    "note": "« Six pieds » : six lettres. Le livre écrit « ….. ».",
    "page": "269",
-   "djvu": "303"
+   "djvu": "303",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le secret",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "le secret",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "575",
-   "difficulte": "moyenne",
+   "difficulte": "difficile",
    "vers": [
     "Si vous croyez que sans argent",
     "On ne saurait vivre content,",
@@ -592,15 +918,29 @@
     "sourire"
    ],
    "presque": [
-    "rire"
+    "rire",
+    "fou",
+    "pauvre",
+    "rieur"
    ],
    "note": "Un jeu de mots : sou-rire.",
    "page": "357",
-   "djvu": "391"
+   "djvu": "391",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le philosophe",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "le sourire",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "344",
-   "difficulte": "moyenne",
+   "difficulte": "facile",
    "vers": [
     "Le nom que j’ai, lecteur, avant de naître,",
     "Quand je suis né ne me sert déjà plus.",
@@ -619,11 +959,22 @@
    ],
    "note": "",
    "page": "209",
-   "djvu": "243"
+   "djvu": "243",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "demain",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "demain",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "711",
-   "difficulte": "moyenne",
+   "difficulte": "facile",
    "vers": [
     "D’un père lumineux je suis la fille obscure",
     "Je méprise la terre et je m’élève aux cieux.",
@@ -638,19 +989,31 @@
    "presque": [
     "cendre",
     "vapeur",
-    "encens"
+    "encens",
+    "suie"
    ],
    "note": "Des points au milieu des phrases : coquilles de l’édition ?",
    "page": "447",
-   "djvu": "481"
+   "djvu": "481",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "la fumée",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "la fumée",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "28",
-   "difficulte": "moyenne",
+   "difficulte": "facile",
    "vers": [
-    "Vous sommes plusieurs sœurs à peu près du même âge,",
+    "Nous sommes plusieurs sœurs à peu près du même âge,",
     "Dans deux rangs différents, mais d’un semblable usage.",
-    "Vous avons en naissant un palais pour maison,",
+    "Nous avons en naissant un palais pour maison,",
     "Qu’on pourrait mieux nommer une étroite prison :",
     "Il faut nous y forcer, pour que quelqu’une en sorte.",
     "Quoique cent fois le jour on nous ouvre la porte."
@@ -665,13 +1028,34 @@
     "machoire",
     "langue"
    ],
-   "note": "« Vous sommes », « Vous avons » : sans doute « Nous », que Wikisource n’a pas relevé. À corriger ensemble, ou à laisser.",
+   "note": "Coquille de l’édition corrigée : le livre imprime « Vous sommes », « Vous avons ». Le joueur fort la relevait aussi.",
    "page": "22",
-   "djvu": "56"
+   "djvu": "56",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "les dents",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "les dents",
+     "certitude": 5
+    }
+   },
+   "retenue": true,
+   "corrections": [
+    {
+     "imprime": "Vous sommes",
+     "corrige": "Nous sommes"
+    },
+    {
+     "imprime": "Vous avons",
+     "corrige": "Nous avons"
+    }
+   ]
   },
   {
    "numero": "253",
-   "difficulte": "moyenne",
+   "difficulte": "facile",
    "vers": [
     "On vient me consulter pour savoir les saisons,",
     "Et quand le soleil entre en ses douze maisons,",
@@ -685,11 +1069,23 @@
    ],
    "presque": [
     "agenda",
-    "horoscope"
+    "horoscope",
+    "zodiaque"
    ],
    "note": "",
    "page": "152",
-   "djvu": "186"
+   "djvu": "186",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "l'almanach",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "l'almanach",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "349",
@@ -705,15 +1101,32 @@
    ],
    "solution": "Dictionnaire",
    "acceptees": [
-    "dictionnaire"
+    "dictionnaire",
+    "ordre alphabetique",
+    "lexique",
+    "index"
    ],
    "presque": [
     "alphabet",
-    "ordre alphabetique"
+    "ordre alphabetique",
+    "carnaval",
+    "monde a l envers",
+    "calendrier"
    ],
    "note": "L’ordre alphabétique : laquais avant maître, Noël avant Trinité.",
    "page": "213",
-   "djvu": "247"
+   "djvu": "247",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "l'Ordo",
+     "certitude": 2
+    },
+    "fort": {
+     "reponse": "le dictionnaire",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "641",
@@ -736,11 +1149,25 @@
    ],
    "presque": [
     "lettre",
-    "voyelle"
+    "voyelle",
+    "lettre e",
+    "lettre o",
+    "comete"
    ],
    "note": "Une lettre : feU, nUit, aoÛt… Vers recollé à la transcription.",
    "page": "402",
-   "djvu": "436"
+   "djvu": "436",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "la comète",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "la lettre U",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "659",
@@ -757,19 +1184,33 @@
    "acceptees": [
     "enigme",
     "enigmes",
-    "devinette"
+    "devinette",
+    "logogriphe"
    ],
    "presque": [
     "rebus",
-    "charade"
+    "charade",
+    "journal",
+    "revue"
    ],
    "note": "Une énigme dont la réponse est « énigme » : celle du Sphinx par excellence.",
    "page": "414",
-   "djvu": "448"
+   "djvu": "448",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "la revue",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "l'énigme",
+     "certitude": 3
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "578",
-   "difficulte": "difficile",
+   "difficulte": "moyenne",
    "vers": [
     "J’étais un élément ; mais une autre doctrine",
     "De cette liste m’élimine :",
@@ -787,15 +1228,29 @@
    "presque": [
     "o",
     "glace",
-    "element"
+    "element",
+    "air",
+    "feu",
+    "terre"
    ],
    "note": "Trois voyelles qui se prononcent « o ».",
    "page": "360",
-   "djvu": "394"
+   "djvu": "394",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "l'eau",
+     "certitude": 3
+    },
+    "fort": {
+     "reponse": "l'eau",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "187",
-   "difficulte": "difficile",
+   "difficulte": "moyenne",
    "vers": [
     "Sous les rois fainéants je gouvernai les hommes",
     "Je fus maître au palais, et je suis dans les pommes."
@@ -808,15 +1263,28 @@
    "presque": [
     "pomme",
     "charlemagne",
-    "maire du palais"
+    "maire du palais",
+    "charles martel",
+    "carloman"
    ],
    "note": "Histoire et jeu de mots.",
    "page": "116",
-   "djvu": "150"
+   "djvu": "150",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le pépin",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "Pépin",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "423",
-   "difficulte": "difficile",
+   "difficulte": "moyenne",
    "vers": [
     "Redouté des humains, désiré tour à tour,",
     "Je porte dans leurs cœurs la crainte et l’espérance.",
@@ -828,20 +1296,35 @@
    "solution": "Avenir",
    "acceptees": [
     "avenir",
-    "futur"
+    "futur",
+    "demain",
+    "lendemain"
    ],
    "presque": [
     "destin",
     "lendemain",
-    "demain"
+    "demain",
+    "esperance",
+    "mort"
    ],
    "note": "",
    "page": "255",
-   "djvu": "289"
+   "djvu": "289",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "l'avenir",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "l'avenir",
+     "certitude": 4
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "278",
-   "difficulte": "difficile",
+   "difficulte": "moyenne",
    "vers": [
     "L’Arabie est le lieu dans lequel je suis né.",
     "Nous sommes dix enfants : on me fît, par idée,",
@@ -856,15 +1339,28 @@
    ],
    "presque": [
     "chiffre",
-    "dix"
+    "dix",
+    "chiffre un",
+    "neuf"
    ],
    "note": "Les chiffres arabes.",
    "page": "168",
-   "djvu": "202"
+   "djvu": "202",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le zéro",
+     "certitude": 5
+    },
+    "fort": {
+     "reponse": "le zéro",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "230",
-   "difficulte": "difficile",
+   "difficulte": "moyenne",
    "vers": [
     "Je suis un joli corps, d’un très-léger volume,",
     "Qui va, revient dans l’air, et sans pied porte plume."
@@ -876,15 +1372,29 @@
    "presque": [
     "badminton",
     "plume",
-    "fleche"
+    "fleche",
+    "cerf-volant",
+    "oiseau",
+    "ballon"
    ],
    "note": "Le volant du badminton.",
    "page": "139",
-   "djvu": "173"
+   "djvu": "173",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "le volant",
+     "certitude": 4
+    },
+    "fort": {
+     "reponse": "le volant",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "238",
-   "difficulte": "difficile",
+   "difficulte": "moyenne",
    "vers": [
     "De grâce, accordez-moi, disait Lise à son père",
     "Ce que vous n’avez pas et ne pouvez avoir.",
@@ -900,11 +1410,25 @@
    "presque": [
     "mariage",
     "fiance",
-    "amour"
+    "amour",
+    "gendre",
+    "amant",
+    "dot"
    ],
    "note": "",
    "page": "144",
-   "djvu": "178"
+   "djvu": "178",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "un mari",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "un mari",
+     "certitude": 5
+    }
+   },
+   "retenue": true
   },
   {
    "numero": "4",
@@ -921,15 +1445,31 @@
    ],
    "solution": "Ève",
    "acceptees": [
-    "eve"
+    "eve",
+    "galatee"
    ],
    "presque": [
     "adam",
-    "lilith"
+    "lilith",
+    "pandore",
+    "venus",
+    "psyche"
    ],
    "note": "Wikisource a corrigé « avois » (imprimé) en « avais ». Des points au milieu des phrases : la typographie du livre.",
    "page": "4",
-   "djvu": "38"
+   "djvu": "38",
+   "aveugle": {
+    "ordinaire": {
+     "reponse": "Ève",
+     "certitude": 1
+    },
+    "fort": {
+     "reponse": "Ève",
+     "certitude": 4
+    }
+   },
+   "retenue": true
   }
- ]
+ ],
+ "aveugle": "Résolues à l’aveugle le 24 novembre 2026 par deux joueurs simulés, sans outils ni réponses : un joueur ordinaire (modèle rapide) et un joueur fort, chargé aussi de dire si d’autres réponses remplissent le texte."
 }
