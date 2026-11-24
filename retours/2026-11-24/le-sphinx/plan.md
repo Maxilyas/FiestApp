@@ -159,11 +159,14 @@ code.
 
 ## Le rythme
 
-Un mot trouvé à environ six énigmes sur dix (le joueur ordinaire : 25 sur 40).
-Avec une visite tous les trois jours, cinq habitués trouvent environ un mot par
-jour : un Divin tous les neuf ou dix jours ; dix habitués, tous les cinq jours.
-Trente-huit énigmes durent environ quatre mois à un habitué : la réserve
-grandira (le même livre en a plus de cent courtes, relues à l'aveugle de même).
+Un mot trouvé à environ six énigmes sur dix (le joueur ordinaire : 25 sur 40
+au premier lot). Avec une visite tous les trois jours, cinq habitués trouvent
+environ un mot par jour : un Divin tous les neuf ou dix jours ; dix habitués,
+tous les cinq jours. Les 86 pièces de départ (55 énigmes, 31 charades)
+durent environ huit mois à un habitué ; la réserve grandira de même (le livre
+a d'autres charades, et ses énigmes traduites de l'italien, de l'espagnol,
+de l'anglais et de l'allemand). Une charade se présente comme telle :
+« La charade n° 697 ».
 
 ## Les étapes
 

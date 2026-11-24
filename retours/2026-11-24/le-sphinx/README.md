@@ -122,6 +122,21 @@ dans chaque énigme (`aveugle`), et a changé trois choses :
 La coquille du n° 28 (« Vous sommes ») est corrigée et notée
 (`corrections`) : rendue à l'auteur, comme Wikisource le fait ailleurs.
 
+**Un second lot**, le même jour (« j'aimerais un peu plus d'énigmes pour la
+base de départ ») : 33 charades — le livre en a 152, dont 87 de six vers ou
+moins, lues toutes — et 22 énigmes écartées trop vite au premier tri
+(`lot: 2`, `sorte`). Résolu à l'aveugle de même : le joueur fort en trouve 48
+sur 55, l'ordinaire 24. Sept écartées : cinq où une autre réponse remplit le
+texte aussi bien (n° 180 « déboire », 259, 325, 456, 472), une où la réponse
+assurée du joueur ordinaire se défend autant (n° 615), une que personne ne
+trouve (n° 598). Quatre coquilles de l'édition corrigées et notées (n° 472,
+486, 494, 557). Une échelle pour les deux lots : facile quand les deux
+trouvent, moyenne quand seul le fort trouve, difficile quand le joueur
+ordinaire se trompe avec assurance (une certitude de 3 ou plus).
+
+**La réserve de départ : 86 pièces** — 55 énigmes et 31 charades ; 37
+faciles, 39 moyennes, 10 difficiles.
+
 Ce que le propriétaire a déjà vu ne doit pas lui être posé : les trois
 énigmes de la maquette, et cinq réponses dites dans la conversation (n° 370,
 637, 349, 641, 659). À la mise en œuvre, son profil les compte pour vues. Et
