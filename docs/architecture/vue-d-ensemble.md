@@ -248,12 +248,16 @@ geste est ignoré, la réponse reçoit `too-late`. Un « Révéler » arrivé 96
 après la révélation automatique passait à la question suivante.
 → [Le temps réel](./temps-reel.md)
 
-**21. Les règles des Divins ne quittent jamais le serveur.** Règles et
-légendes vivent dans `server/src/core/divins.ts`, que ni `shared/` ni `client/`
-n'importent (`server/test/divins.test.ts` y veille) ; le serveur n'envoie que
-la liste des Divins descendus, le récit à leur seul porteur, sans jauge ni
-progression. Un récit lu dans le code de la page en dirait presque autant que
-la règle. → [La sécurité](./securite.md)
+**21. Les règles des Divins ne quittent jamais le serveur, et leurs légendes
+ne le quittent que mot à mot.** Règles et légendes vivent dans
+`server/src/core/divins.ts`, que ni `shared/` ni `client/` n'importent
+(`server/test/divins.test.ts` y veille) ; le serveur n'envoie que la liste des
+Divins descendus, le récit à leur seul porteur, sans jauge ni progression. Un
+récit lu dans le code de la page en dirait presque autant que la règle. Depuis
+le 24 novembre 2026, le Sphinx de l'accueil souffle la légende du Divin du
+moment mot à mot : chacun reçoit ses mots, la forme de la phrase — jamais un
+nombre —, combien tous en ont trouvé, jamais lesquels, et la phrase entière
+une fois que tous l'ont reconstituée. → [La sécurité](./securite.md)
 
 ### Les données
 

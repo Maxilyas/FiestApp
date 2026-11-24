@@ -320,8 +320,18 @@ const COURT_D_UNE_PAGE: Record<PageALAffiche | PageEnMaintenance, string> = {
   boutique: 'la boutique',
   collectionneurs: 'le classement des collections',
   defi: 'le défi',
+  sphinx: 'le Sphinx',
 }
-const MODE_D_UNE_PAGE_FERMABLE: Record<PageEnMaintenance, ModeDuQg | null> = { jour: 'jour', campagne: 'campagne', defi: 'campagne', duels: 'duel', cabinet: 'cabinet', boutique: null }
+// Le Sphinx n'est pas un mode du QG : il ne se joue que sur l'accueil, et ses visites n'ont pas de courbe à elles.
+const MODE_D_UNE_PAGE_FERMABLE: Record<PageEnMaintenance, ModeDuQg | null> = {
+  jour: 'jour',
+  campagne: 'campagne',
+  defi: 'campagne',
+  duels: 'duel',
+  cabinet: 'cabinet',
+  boutique: null,
+  sphinx: null,
+}
 const estUnePageFermable = (x: unknown): x is PageEnMaintenance => (PAGES_EN_MAINTENANCE as readonly unknown[]).includes(x)
 
 /**

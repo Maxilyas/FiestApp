@@ -22,6 +22,7 @@ import { CabinetStore } from './core/cabinet/magasin'
 import { calendrierDuCabinet } from './core/saisons'
 import { FILET_EN_DEUX_TEMPS, cabinetOuvert } from '../../shared/cabinet/ouverture'
 import { Missions, rattraperLesEtoiles } from './core/missions'
+import { Sphinx, type Enigme } from './core/sphinx'
 import { Soins } from './core/soins'
 import type { BaseDeLaCampagne } from './core/baseCampagne'
 import { Budget } from './core/budget'
@@ -149,6 +150,10 @@ export interface QuizServerOptions {
   hasardDuCoffre?: () => number
   /** Le hasard du cadeau de son compagnon (`shared/trouvailles.ts`), dans [0, 1[ : les tests le fixent ; en ligne, une graine par profil, compagnon et jour. */
   hasardDuCadeau?: () => number
+  /** Le tirage d'une visite du Sphinx (`core/sphinx.ts`), dans [0, 1[, sur sa graine `profil|jour` : les tests le fixent ; en ligne, la graine seule. */
+  tirageDuSphinx?: (graine: string) => number
+  /** La réserve des énigmes du Sphinx : les tests en posent une à eux ; en ligne, `server/content/sphinx/enigmes.json`. */
+  enigmesDuSphinx?: readonly Enigme[]
   /**
    * Le jeton de la routine qui remplit la réserve du quiz du jour
    * (`RESERVE_TOKEN`, `quizDuJour.ts`). Absent : la porte n'existe pas, et
@@ -591,6 +596,16 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // traversée après trois corrections du soir (`retours/2026-11-08/`). Un crochet de plus de sa porte ; ses seuls tas, la
   // campagne qui l'appelle ayant déjà refait sa base.
   if (cabinetEstOuvert) campagne.baseRenouvelee = () => cabinet.preparerSesTas()
+  // Le Sphinx de l'accueil : ses visites vivent chez les profils (`profile_sphinx`) ; il lit les jours joués au quiz du
+  // jour et en campagne, à l'horloge du quiz du jour.
+  const sphinx = new Sphinx({
+    profiles,
+    jour,
+    campagne,
+    maintenant: maintenantDuJour,
+    ...(opts.tirageDuSphinx && { tirage: opts.tirageDuSphinx }),
+    ...(opts.enigmesDuSphinx && { enigmes: opts.enigmesDuSphinx }),
+  })
   // Le classement des collectionneurs : le relevé de tous en fond, gardé dans `meta`, et la fiche de chacun à sa visite —
   // il ne lit que ce que les trois magasins savent déjà dire, et le Cabinet par les trophées qu'il a rangés.
   const collectionneurs = new Collectionneurs({ profiles, campagne, jour }, { maintenant: maintenantDuJour })
@@ -865,6 +880,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // après le recalcul — la ligne `#missions` qu'ils réécrivent n'y repasse pas.
   await rattraperLesEtoiles(profiles, maintenantDuJour())
   await profiles.offrirLaCompensation(maintenantDuJour())
+  // Les énigmes du Sphinx que le propriétaire a déjà vues comptent pour vues sur le profil de l'administrateur, une fois
+  // (son drapeau) — sans profil tenu par le compte d'administration, rien ne se lit ni ne s'écrit.
+  await sphinx.compterLesVuesDuProprietaire(auth.list().flatMap(a => (a.role === 'admin' && a.profileId ? [a.profileId] : [])))
   // Les avatars du savoir se gagnent sur les sentiers : chacun garde ce qu'il
   // avait, en paliers — une fois, après le recalcul, qui a relu les soirées
   // dont il compte les bonnes réponses.
@@ -1047,6 +1065,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     // Sa feuille de présence au QG (`qg_presences`) : les chiffres des jours, sans un nom, restent.
     await audience.oublierProfil(profileId)
     await profiles.supprimer(profileId)
+    // Ses visites du Sphinx sont parties avec lui : les mots de tous se relisent, sans les siens.
+    sphinx.oublier()
     console.log(`[profils] profil « ${login} » supprimé` + (salon ? `, détaché de « ${salon.login} »` : ''))
     return { salon: salon ? 'detache' : null }
   }
@@ -1482,7 +1502,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
       maintenant: maintenantDuJour,
       cabinetOuvert: () => cabinetEstOuvert && !maintenance.estFermee('cabinet'),
       ...(opts.hasardDuCoffre && { hasard: opts.hasardDuCoffre }),
+      // Le Sphinx dit dans leur lecture s'il passe (`MissionsDuJour.sphinx`).
+      sphinx,
     }),
+    sphinx,
     // Les soins de son compagnon, à la même horloge : ses envies sont celles du jour de Paris.
     soins: new Soins({ profiles, maintenant: maintenantDuJour, ...(opts.hasardDuCadeau && { hasard: opts.hasardDuCadeau }) }),
     maintenant: maintenantDuJour,

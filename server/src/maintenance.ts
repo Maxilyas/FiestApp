@@ -37,6 +37,9 @@ export const PORTES_DES_PAGES: Record<PageEnMaintenance, readonly string[]> = {
     'POST /api/cabinet/visite/echange',
   ],
   boutique: ['POST /api/joueur/themes', 'POST /api/joueur/compagnons', 'POST /api/joueur/fonds'],
+  // Chaque geste d'une visite du Sphinx — l'écouter, la remettre, répondre, donner sa langue au chat : rien ne s'y joue
+  // sans lui. Sa lecture n'en est pas une : fermé, `GET /api/joueur/sphinx` le dit lui-même, sans rien poser.
+  sphinx: ['POST /api/joueur/sphinx'],
 }
 
 /**

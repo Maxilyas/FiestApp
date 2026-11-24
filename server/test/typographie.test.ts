@@ -209,8 +209,9 @@ test('une année devant un nombre reste à part, et le nombre se colle', () => {
 // reste tel quel doit ne pas en être un — une liste courte, qu'on lit ici.
 test('dans le contenu livré, tout nombre à milliers sort collé', () => {
   // Tous les dossiers du contenu livré — les curiosités de l'Expédition, ses rébus et ses plats, sont parties avec elle le
-  // 16 novembre 2026 : un dossier de plus y entre, la liste se compare au disque.
-  const dossiers = ['cabinet', 'campagne', 'details', 'frises', 'quiz']
+  // 16 novembre 2026 : un dossier de plus y entre, la liste se compare au disque — les énigmes du Sphinx de l'accueil
+  // depuis le 24 novembre 2026.
+  const dossiers = ['cabinet', 'campagne', 'details', 'frises', 'quiz', 'sphinx']
   assert.deepEqual(
     readdirSync(new URL('../content/', import.meta.url), { withFileTypes: true })
       .filter(e => e.isDirectory())

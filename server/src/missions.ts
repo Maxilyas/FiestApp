@@ -7,6 +7,8 @@ import { readPlayerToken } from './auth/http'
 interface MissionsDeps {
   missions: Missions
   profiles: ProfileStore
+  /** Sa page du Sphinx fermée pour qui demande (`sphinxFermePour`) : ses missions n'en disent rien. Absent, jamais ouverte. */
+  sphinxFerme?: (req: Request) => boolean
 }
 
 /**
@@ -33,7 +35,8 @@ export function mountMissions(app: Express, deps: MissionsDeps) {
     '/api/joueur/missions',
     wrap(async (req, res) => {
       const profil = await profilDe(req, res)
-      if (profil) res.json(await deps.missions.duJour(profil.id))
+      // Le Sphinx dit dans la même lecture s'il passe (`MissionsDuJour.sphinx`) — sa page ouverte pour lui.
+      if (profil) res.json(await deps.missions.duJour(profil.id, { sphinx: deps.sphinxFerme ? !deps.sphinxFerme(req) : false }))
     }),
   )
 

@@ -39,9 +39,8 @@ Deux suites, aucune dépendance de plus, et toujours ni linter ni formateur.
 soirée entière : c'est la référence du chemin normal. `npm test` lance
 `server/test/*.test.ts` avec `node:test` : ce qu'une soirée rejouée d'un bout
 à l'autre ne provoque jamais — pannes, courses, messages malformés,
-redémarrages. Un fichier qui a besoin d'un serveur en démarre un, jetable,
-avec `server/test/banc.ts` ; le moteur seul, horloge à la main, avec
-`server/test/salle.ts` ; les dérivations pures, directement. **Un nouveau
+redémarrages. Un serveur jetable : `server/test/banc.ts` ; le moteur seul,
+horloge à la main : `server/test/salle.ts`. **Un nouveau
 comportement arrive avec son test dans `server/test/`**, qui échoue avant la
 correction : on n'allonge plus le smoke.
 
@@ -70,7 +69,7 @@ Dans les règles, `core/`, `games/` et `auth/` sont sous `server/src/` ; `compon
 | Les avatars peints, la lumière, les portraits des branches | `medaillons.md` |
 | Le profil, l'accueil, la carte d'un joueur, la collection | `profil.md` |
 | Les thèmes, les fonds, les gerbes, la boutique · le CSS | `themes.md` · `css.md` |
-| Les missions du jour, le coffre de la semaine, le trésor, « À la une » | `missions.md` |
+| Les missions du jour, le coffre de la semaine, le trésor, « À la une » · le Sphinx de l'accueil | `missions.md` · `sphinx.md` |
 | L'écran commun (`/host`) | `ecran-commun.md` |
 | Ce que la page charge : l'entrée, la navigation, le préchargement | `client.md` |
 | Le quiz du jour · sa réserve · le rappel du soir et l'installation | `jour.md` · `jour-reserve.md` · `rappel-et-installation.md` |
@@ -79,7 +78,7 @@ Dans les règles, `core/`, `games/` et `auth/` sont sous `server/src/` ; `compon
 | Les duels : la cote, les ligues, les défis entre amis | `duels.md` |
 | Les quiz : l'éditeur, la liste collée, l'import, le partage | `bibliotheque.md` |
 | Les comptes, les profils, les sessions, la télé, l'administration | `auth-et-admin.md` |
-| Le QG de l'administrateur : la vue d'ensemble, le journal des gestes, la santé du serveur, la maintenance, les soirées, la fiche d'un joueur, les pages des modes, de l'économie et des signalements | `qg.md` |
+| Le QG de l'administrateur : la vue d'ensemble, le journal des gestes, le serveur, la maintenance, les soirées, la fiche d'un joueur, les modes, l'économie, les signalements | `qg.md` |
 | La mise en ligne : Render, le paquet, `/healthz` | `exploitation.md` |
 | Les tests · la tablée · les images peintes | `tests.md` · `tablee.md` · `peintures.md` |
 
@@ -105,7 +104,7 @@ Dans les règles, `core/`, `games/` et `auth/` sont sous `server/src/` ; `compon
 18. **L'historique s'écrit tout seul, et la soirée n'a qu'un geste de fin.** Elle se range après chaque quiz (`apresQuiz`) ; `host:closeParty` la clôt — le QG aussi, laissée en plan, par le même chemin (`cloreLaSoiree`, `sockets.ts` — « Terminer le quiz » du dernier quiz d'un programme aussi, `SpaceDeps.clore`) —, `host:discardParty` efface un essai avec tout ce qu'il avait crédité. **Une seule fin à la fois** (`finEnRoute`), et la fin de soirée ne part qu'une fois la soirée effacée. Le détail : `cloture-et-archives.md`.
 19. **L'expérience se mérite, et ne redescend jamais en cours de soirée.** En soirée, rien pour la présence, rien seul : tout se gagne dès deux joueurs, un podium de quiz dès cinq questions, celui de la soirée dès quinze (`SEUILS`), et un podium a toujours une marche de moins que la salle ; une soirée jouée seul ne compte pas (`soireeQuiCompte`). Les gains d'un quiz sont définitifs ; ce qui peut se renverser attend la clôture. **Un prix** — du palmarès ou remis à l'écran — **ne rapporte jamais d'expérience** ; un podium, si. Le détail : `recompenses.md`.
 20. **Les récompenses sont des dérivations des journaux.** Quand le barème ou un haut fait de soirée change, incrémente `VERSION_BAREME` : au démarrage, `recalculerHistorique` relit l'historique avec les règles du jour (le quiz du jour et la campagne ont leur version : `VERSION_DES_JOURS`, `VERSION_DES_SERIES`). Le détail : `recompenses.md`.
-21. **Les règles des Divins ne quittent jamais le serveur.** Elles vivent dans `core/divins.ts`, avec leurs légendes — qui en disent presque autant —, et ni `shared/` ni `client/` ne l'importent ni n'en recopient une ligne, pas même en commentaire ; la documentation non plus (`divins.test.ts` y veille). Le serveur n'envoie que les Divins descendus, le récit à leur seul porteur — pas de jauge, pas de progression, pas de ligne d'étagère (`badgesOf` les écarte), pas même un compte de badges ; seule la valeur d'une collection les compte. Un Divin ne prend ni Éclat ni matière.
+21. **Les règles des Divins ne quittent jamais le serveur, et leurs légendes ne le quittent que mot à mot.** Elles vivent dans `core/divins.ts` ; ni `shared/` ni `client/` ne l'importent ni n'en recopient une ligne, la documentation non plus (`divins.test.ts` y veille). Le serveur envoie la légende entière au seul porteur du Divin ; à un profil, les mots que le Sphinx lui a soufflés, la forme de la phrase du Divin du moment (la longueur des mots cachés, les petits mots offerts, jamais un nombre), combien tous en ont trouvé — jamais lesquels — et la phrase que tous ont reconstituée. Des Divins, il n'envoie que les descendus — pas de jauge, pas de progression, pas de ligne d'étagère (`badgesOf` les écarte), pas même un compte de badges ; seule la valeur d'une collection les compte. Un Divin ne prend ni Éclat ni matière.
 22. **Durcir un légendaire, la courbe des niveaux ou le palier d'un portrait ne reprend rien à personne.** Une règle qui se durcit ajoute une entrée — à `DURCISSEMENTS`, à `COURBES_D_AVANT`, avec un drapeau neuf dans `meta` — et n'en modifie jamais une. Un portrait, un haut fait de soirée ou un prix n'ont rien de tel — durcis, ils reprennent : retiens d'abord ce que chacun a. Un palier validé ne se perd jamais. **Tout niveau d'un profil passe par `niveauDuProfil`.** Le détail : `recompenses.md`.
 
 ## Les conventions
@@ -125,14 +124,14 @@ Dans les règles, `core/`, `games/` et `auth/` sont sous `server/src/` ; `compon
 
 ## Les deux environnements
 
-Deux services Render, la production (déployée à la main) et la préproduction (à chaque fusion sur `main`) : le même code, et des données qui ne diffèrent que par `QUIZ_DB_URL`. Leur tableau de bord fait foi, `render.yaml` n'en est que la référence. Leurs noms, leurs secrets, leur démarrage, la veille et le quota : `exploitation.md`.
+Deux services Render, la production (déployée à la main) et la préproduction (à chaque fusion sur `main`) : le même code, et des données qui ne diffèrent que par `QUIZ_DB_URL`. Leur tableau de bord fait foi, `render.yaml` n'en est que la référence. Leurs noms, leurs secrets, la veille : `exploitation.md`.
 
-**Jamais la même base Turso pour les deux** : un « C'était un essai » en préproduction effacerait de vraies soirées archivées. Hors production, `APP_ENV` marque chaque page que le serveur sert — une pastille, et `[preprod]` devant le titre de l'onglet (`server.ts`, `main.tsx` ; rien sous `npm run dev`). En ligne, le serveur refuse de démarrer sans `QUIZ_DB_URL`.
+**Jamais la même base Turso pour les deux** : un « C'était un essai » en préproduction effacerait de vraies soirées archivées. Hors production, `APP_ENV` marque chaque page servie (`exploitation.md`). En ligne, le serveur refuse de démarrer sans `QUIZ_DB_URL`.
 
 ## Les pièges qui valent partout
 
 - **`package-lock.json` bouge tout seul** selon la version de npm. Ne le committe pas si ce n'est pas le sujet (le hook installe en `--no-save`).
-- `retours/<date>/` — ce qu'une tablée a trouvé (`synthese.md` : les axes vérifiés un à un, les retours bruts) ou un rapport d'expert — à lire avant de retoucher un écran qu'ils citent ; un audit de code y range ses constats et leur verdict (`constats.json`), et leurs preuves (`reproductions/`, dans `retours/2026-09-27/`).
+- `retours/<date>/` — ce qu'une tablée a trouvé (`synthese.md`) ou un rapport d'expert — à lire avant de retoucher un écran qu'ils citent ; un audit de code y range ses constats et leur verdict (`constats.json`), et leurs preuves (`reproductions/`, dans `retours/2026-09-27/`).
 
 ## Ce qu'il ne faut pas faire
 

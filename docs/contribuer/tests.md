@@ -412,7 +412,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/saisons.test.ts` — les légendaires de saison.
 - `server/test/saisons-relues.test.ts` — les saisons des soirées déjà rangées.
 - `server/test/fetes.test.ts` — les huit fêtes (Pâques et ses dates, rien avant 2027 pour les cinq du 1er novembre 2026, jamais deux le même jour), leur légendaire et leur gerbe, les timbres et le carnet, au quiz du jour et en soirée, et les deux relectures qui rangent ceux d'Halloween 2026.
-- `server/test/sphinx.test.ts` — le Sphinx.
+- `server/test/sphinx.test.ts` — le Sphinx, le légendaire du quiz du jour (celui de l'accueil : `sphinx-accueil.test.ts`).
 - `server/test/recompenses-montrees.test.ts` — ce que les récompenses montrent.
 - `server/test/gains.test.ts` — l'écran des gains de toutes les fins : une ligne par piste, les plus rares d'abord, « À porter » et son « Essayer », les étoiles du quiz du jour ; chaque fin passe par les mêmes pièces.
 
@@ -446,7 +446,9 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/missions.test.ts` — trois missions par jour, ce qui est fait retenu une fois, le coffre du lundi.
 - `server/test/missions-compensation.test.ts` — les missions d’étoiles d’avant rattrapées d’une partie finie, leur tampon, le coffre de compensation une fois, le coffre que l’administrateur offre, l’Éclat acheté puis dépensé.
 - `server/test/missions-page.test.ts` — ce que la page sait de ses missions : une lecture partagée, le refus d'un invité.
-- `server/test/missions-charge.test.ts` — ce que la ligne de l'accueil attend de Turso.
+- `server/test/missions-charge.test.ts` — ce que la ligne de l'accueil attend de Turso — si le Sphinx passe compris, sans un aller-retour de plus.
+- `server/test/sphinx-pur.test.ts` — le Sphinx de l'accueil, en dérivations pures : la réponse lue sans accents ni article, l'habitué, le tirage de la visite, l'énigme jamais revue, la forme d'une phrase (jamais un nombre offert), le mot soufflé, le Divin du moment, trois essais.
+- `server/test/sphinx-accueil.test.ts` — le Sphinx de l'accueil sur un serveur jetable : « bientôt » au départ et ses testeurs, seul un habitué visité une fois par jour, la réponse jamais avant la fin, seuls ses mots, le mot neuf d'abord, la phrase reconstituée et le Divin suivant, les énigmes déjà vues du propriétaire, un profil supprimé.
 - `server/test/missions-decouvertes.test.ts` — les découvertes du 1er novembre 2026 : un duel à lancer sur un thème à qui a quelqu'un à défier, aussi souvent que les autres — ni les sentiers ni le Cabinet, qui ont l'aventure depuis le 10 ; ce que l'épreuve du sentier d'une catégorie, le Cabinet et le duel lisent de la journée, leur lecture, ce que la page en dit, et chacun fait par les routes de son mode — une épreuve ratée, un duel lancé (pas celui qu'on relève), la première réponse d'une épreuve de la traversée, puis ses manches à deux étoiles, une à une.
 - `server/test/missions-aventure.test.ts` — l'aventure du 10 novembre 2026 : chaque jour les sentiers ou le Cabinet, un jour l'un, le lendemain l'autre, sous six objectifs dont le dernier ne revient pas ; les sentiers seuls là où le Cabinet ne se joue pas ; la troisième mission, un savoir deux jours sur cinq, sinon une découverte, jamais celle d'hier ; ce que les aventures lisent de la journée, ce que la page en dit, une mission de catégorie qui mène à son sentier ; et dix bonnes réponses sur les sentiers comptées une à une, par les routes.
 - `server/test/coffre-du-mois.test.ts` — le coffre du mois : la place au classement du quiz du jour fait son rang, et il s'ouvre une fois, comme celui de la semaine.

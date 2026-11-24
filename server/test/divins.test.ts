@@ -269,6 +269,17 @@ test('ni les règles ni les légendes des Divins ne partent dans le navigateur',
     emporte.filter(({ texte }) => /from\s+['"][^'"]*core\/divins['"]/.test(texte)).map(({ f }) => f),
     [],
   )
+  // …ni le Sphinx de l'accueil, qui souffle les légendes mot à mot, ni sa réserve d'énigmes : le paquet emporterait
+  // les légendes entières et les réponses (invariant 21, le 24 novembre 2026). La page ne lit que `shared/sphinx.ts`.
+  assert.deepEqual(
+    emporte.filter(({ texte }) => /(from|import)\s*\(?\s*['"][^'"]*(core\/sphinx|content\/sphinx)[^'"]*['"]/.test(texte)).map(({ f }) => f),
+    [],
+  )
+  assert.deepEqual(
+    emporte.filter(({ texte }) => texte.includes('content/sphinx/') || texte.includes('enigmes.json')).map(({ f }) => f),
+    [],
+    'pas même le chemin de la réserve',
+  )
   // …ni recopier une légende, ni même son début : lue dans le code de la
   // page, elle en dirait presque autant que la règle. Le commentaire de
   // `shared/divins.ts` qui en citait une, pour dire de ne pas le faire, la

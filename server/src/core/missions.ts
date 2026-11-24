@@ -1,6 +1,7 @@
 import type { LigneDeMission, ProfileStore } from '../auth/profiles'
 import type { CampagneStore } from './campagne'
 import type { JourStore } from './jour'
+import type { Sphinx } from './sphinx'
 import { jourAvant, jourDe, minutesAvantMinuit } from '../../../shared/jour'
 import { minuitDe } from '../../../shared/qg'
 import { releve } from './pouls'
@@ -50,6 +51,11 @@ export interface DepsDesMissions {
   hasard?: () => number
   /** Ce qu'une lecture dure au plus (`DUREE_D_UNE_LECTURE_MS`) : les tests le raccourcissent. */
   dureeMaxMs?: number
+  /**
+   * Le Sphinx de l'accueil (`core/sphinx.ts`) : la ligne des missions dit s'il
+   * passe (`MissionsDuJour.sphinx`), dans la même lecture. Absent, jamais.
+   */
+  sphinx?: Pick<Sphinx, 'pret' | 'decider' | 'poser'>
 }
 
 /**
@@ -253,7 +259,7 @@ export class Missions {
    * d'un lot par magasin — son profil, le quiz du jour, la campagne — : huit
    * allers-retours de front jusqu'au 2 novembre 2026.
    */
-  duJour(profileId: string): Promise<MissionsDuJour> {
+  duJour(profileId: string, { sphinx: avecLeSphinx = false }: { sphinx?: boolean } = {}): Promise<MissionsDuJour> {
     return this.unALaFois(profileId, async etape => {
       const { profiles, jour, campagne } = this.deps
       etape('ses journaux')
@@ -264,12 +270,37 @@ export class Missions {
       const debut = minuitDuJour(depuis)
       // Ce que seul le tirage lit — son carnet, quelqu'un à défier —, parti avec ses journaux tant qu'on ne sait pas ses missions tirées.
       const tirage = this.tireesLe.get(profileId) === aujourdhui ? null : this.ceQueLeTirageLit(profileId)
-      const [{ lignes, soirees, auxTrois, ouverts, offerts }, { coffresDuMois: deMois, ...duJour }, deCampagne] = await Promise.all([
-        profiles.lecturesDesMissions(profileId, { depuis, debut, lundi }),
+      // Le Sphinx, sa page ouverte pour lui : ses visites dans le lot du profil, les mots de tous lus de front — en
+      // mémoire après la première fois. Pas un aller-retour de plus à la suite des autres (`missions-charge.test.ts`).
+      const sphinx = avecLeSphinx ? this.deps.sphinx : undefined
+      const [{ lignes, soirees, auxTrois, ouverts, offerts, sphinx: visites }, { coffresDuMois: deMois, ...duJour }, deCampagne, sphinxPret] = await Promise.all([
+        profiles.lecturesDesMissions(profileId, { depuis, debut, lundi, sphinx: !!sphinx }),
         jour.activiteDepuis(profileId, depuis),
         campagne.activiteDepuis(profileId, debut),
+        // Les mots de tous illisibles taisent le Sphinx, pas les missions.
+        sphinx?.pret().then(
+          () => true,
+          e => {
+            console.error('[sphinx] les mots de tous ne se lisent pas :', e)
+            return false
+          },
+        ) ?? false,
       ])
       const activites = activiteDesJours({ ...duJour, ...deCampagne, soirees })
+      const decision = sphinx && sphinxPret ? sphinx.decider(profileId, aujourdhui, activites, visites) : null
+      // La visite tirée à cette lecture se pose tout de suite, de front avec ce qui suit — le tirage des missions, ce qui
+      // est fait : la première lecture du jour n'attend pas un aller-retour de plus. Elle échoue : le champ se tait, et
+      // la lecture de la visite la reposera.
+      const visitePosee =
+        sphinx && decision?.aPoser
+          ? sphinx.poser(profileId, decision.aPoser).then(
+              () => true,
+              e => {
+                console.error('[sphinx] la visite ne se pose pas :', e)
+                return false
+              },
+            )
+          : Promise.resolve(true)
       let siennes = lignes
       if (!lignes.some(l => l.jour === aujourdhui)) {
         etape('son carnet')
@@ -287,6 +318,8 @@ export class Missions {
       // que cette lecture vient de retenir — joué à 23 h 50, lu lundi — compte déjà.
       const joursAuxTrois = [...auxTrois, ...retenues.filter(r => r.rang === RANG_DES_TROIS && r.jour < lundi).map(r => r.jour)]
       const activite = activites.get(aujourdhui) ?? AUCUNE_ACTIVITE
+      etape('le Sphinx')
+      const champDuSphinx = decision?.champ && (await visitePosee) ? decision.champ : undefined
       return {
         jour: aujourdhui,
         missions: siennes
@@ -298,6 +331,7 @@ export class Missions {
         // Un coffre offert d'abord, puis celui du mois : il vient de loin, et vaut plus qu'un lundi.
         coffres: [...coffresOffertsEnAttente(offerts, ouverts), ...coffresDuMoisEnAttente(deMois, ouverts), ...coffresEnAttente(joursAuxTrois, ouverts)],
         minutesAvantMinuit: minutesAvantMinuit(maintenant),
+        ...(champDuSphinx && { sphinx: champDuSphinx }),
       }
     })
   }

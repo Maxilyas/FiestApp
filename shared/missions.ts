@@ -43,6 +43,7 @@ import { CATEGORIES } from './categories'
 import type { CoffreEnAttente } from './coffre'
 import { jourAvant, jourDe } from './jour'
 import type { FamilleDeSujet } from './sujets'
+import type { SphinxDesMissions } from './sphinx'
 
 /** Trois par jour : une habitude, une aventure, puis un savoir ou une découverte. */
 export const MISSIONS_PAR_JOUR = 3
@@ -214,6 +215,14 @@ export interface ActiviteDuJour {
   justesAuxSentiers: number
   /** Ses bonnes réponses au Cabinet : une manche à deux étoiles ou plus (`justeDeLaPiece`), chaque bonne réponse au Pari. */
   justesAuCabinet: number
+  /**
+   * Il a joué ce jour-là, quel que soit le mode : une partie du quiz du jour
+   * commencée, une réponse de campagne ou du Cabinet, une partie de campagne
+   * finie, une soirée qui compte. Le Sphinx de l'accueil compte les habitués
+   * sur lui (`server/src/core/sphinx.ts`) — une soirée jouée seul, qui ne
+   * compte pas (`soireeQuiCompte`), n'en fait pas un jour joué.
+   */
+  joue?: boolean
 }
 
 export const AUCUNE_ACTIVITE: ActiviteDuJour = {
@@ -259,8 +268,11 @@ export interface JournauxDesJours {
   series: readonly PartieQueLesMissionsLisent[]
   /** Ses réponses de campagne, une par question posée. */
   reponses: readonly { serie: string; mode: string; juste: boolean; le: number; categorie: string | null }[]
-  /** Ses soirées qui comptent, à leur première ligne de crédit, et leurs confettis (`confettisDeSoiree`). */
-  soirees: readonly { le: number; confettis: number }[]
+  /**
+   * Ses soirées, à leur première ligne de crédit, et leurs confettis (`confettisDeSoiree`) ; `compte` faux pour une
+   * soirée jouée seul (`soireeQuiCompte`) — absent, elle compte.
+   */
+  soirees: readonly { le: number; confettis: number; compte?: boolean }[]
 }
 
 /**
@@ -299,13 +311,18 @@ export function activiteDesJours(j: JournauxDesJours): Map<string, ActiviteDuJou
     const a = du(p.jour)
     a.quizDuJour = { finie: p.finie, justes: p.justes, questions: p.questions }
     a.justes += p.justes
+    a.joue = true
   }
   for (const c of j.jourParCategorie) {
     if (!c.categorie) continue
     const a = du(c.jour)
     a.parCategorie[c.categorie] = (a.parCategorie[c.categorie] ?? 0) + c.n
   }
-  for (const s of j.soirees) du(jourDe(s.le)).justes += s.confettis
+  for (const s of j.soirees) {
+    const a = du(jourDe(s.le))
+    a.justes += s.confettis
+    if (s.compte !== false) a.joue = true
+  }
   // Une série jouée sur deux jours compte ses bonnes réponses au jour de chacune.
   const parSerie = new Map<string, number>()
   // Une épreuve du Cabinet se lit dans ses réponses, une fois par jour où il y a répondu : ses parties, dix par jour et
@@ -316,6 +333,7 @@ export function activiteDesJours(j: JournauxDesJours): Map<string, ActiviteDuJou
   for (const r of j.reponses) {
     const jour = jourDe(r.le)
     const a = du(jour)
+    a.joue = true
     if (r.mode === 'revision') a.revues++
     if (r.mode === 'cabinet' && !auCabinet.has(`${r.serie}|${jour}`)) {
       auCabinet.add(`${r.serie}|${jour}`)
@@ -338,6 +356,8 @@ export function activiteDesJours(j: JournauxDesJours): Map<string, ActiviteDuJou
   for (const s of j.series) {
     if (s.finieLe === null) continue
     const a = du(jourDe(s.finieLe))
+    // Une épreuve libérée par l'administrateur n'a pas été jouée (plus bas) ; ses réponses, s'il en a donné, le disent.
+    if (!(s.mode === 'sentier' && s.issue === null)) a.joue = true
     if (s.mode === 'duel' || s.mode === 'rencontre') {
       a.duels++
       // Lancé par lui contre quelqu'un, sa tentative finie : le duel part à l'autre. Celui qu'il relève ne compte pas — c'est
@@ -764,6 +784,12 @@ export interface MissionsDuJour {
   coffres: CoffreEnAttente[]
   /** Les minutes avant minuit, à Paris : « trois nouvelles à minuit, plus que 7 h ». */
   minutesAvantMinuit: number
+  /**
+   * Le Sphinx de l'accueil (`shared/sphinx.ts`) : une visite attend, ou il
+   * l'a remise à plus tard et le Sphinx reste épinglé jusqu'à minuit. Absent
+   * sinon — pas de visite, close, ou sa page fermée pour lui.
+   */
+  sphinx?: SphinxDesMissions
 }
 
 /** Ce qui reste à gagner aujourd'hui : une mission pas faite paie la sienne, et les trois le bonus. */

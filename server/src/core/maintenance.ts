@@ -2,6 +2,7 @@ import { clientDistant, type Client } from './distante'
 import { tronquer } from '../../../shared/avatars'
 import {
   BANDEAU_MAX,
+  DITES_PAR_LEUR_ROUTE,
   PAGES_EN_MAINTENANCE,
   estUnEtatDePage,
   estUnePageEnMaintenance,
@@ -71,6 +72,9 @@ export function lireLeBandeau(brut: unknown): string | null {
  * tenus en mémoire, testeurs compris : chaque page servie, chaque route qui
  * commence une partie les lit sans un aller-retour.
  */
+/** Le drapeau, dans `meta`, qui dit que le Sphinx a été posé « bientôt » une fois (`init`). */
+export const DRAPEAU_DU_SPHINX = 'sphinx_bientot_pose'
+
 export class Maintenance {
   private client: Client
   private bandeau: { texte: string; depuis: number } | null = null
@@ -94,7 +98,7 @@ export class Maintenance {
   }
 
   async init() {
-    const [, , lus, testeurs] = await this.client.batch(
+    const [, , , , , lus, testeurs] = await this.client.batch(
       [
         // Une ligne par chose posée : `bandeau` et son texte, ou une page fermée — son texte dit pourquoi :
         // `bientot`, bientôt disponible ; rien, en maintenance. Rien de posé, la table est vide.
@@ -111,6 +115,21 @@ export class Maintenance {
            depuis     INTEGER NOT NULL,
            PRIMARY KEY (page, profile_id)
          )`,
+        // La table des drapeaux, que partagent les comptes, les profils et la bibliothèque : ce magasin s'ouvre
+        // aussi seul (`maintenance.test.ts`).
+        `CREATE TABLE IF NOT EXISTS meta (
+           key   TEXT PRIMARY KEY,
+           value TEXT NOT NULL
+         )`,
+        // Le Sphinx de l'accueil démarre « bientôt », une fois, sur une base qui ne le connaît pas : ses testeurs
+        // d'abord, puis tous, d'un geste du QG — jamais un drapeau dans le code. Le drapeau dit qu'il a été posé :
+        // rouvert ensuite, il ne se referme plus au démarrage suivant.
+        {
+          sql: `INSERT INTO qg_maintenance (cle, texte, depuis) SELECT 'sphinx', 'bientot', ?
+                WHERE NOT EXISTS (SELECT 1 FROM meta WHERE key = ?) ON CONFLICT(cle) DO NOTHING`,
+          args: [this.deps.maintenant(), DRAPEAU_DU_SPHINX],
+        },
+        { sql: 'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO NOTHING', args: [DRAPEAU_DU_SPHINX, String(this.deps.maintenant())] },
         // Dans le même aller-retour : un réveil de l'hébergeur n'en paie pas un de plus.
         'SELECT cle, texte, depuis FROM qg_maintenance',
         'SELECT page, profile_id, depuis FROM qg_testeurs ORDER BY depuis',
@@ -190,8 +209,14 @@ export class Maintenance {
    */
   pourLaPage(route: Route, quiEstCe: () => Visiteur): ServiceDeLaPage | null {
     const bandeau = this.bandeau && montreLeBandeau(route) ? this.bandeau.texte : null
-    if (!bandeau && this.pages.size === 0) return null
-    const vu = this.pages.size > 0 ? this.vuPar(quiEstCe()) : { fermees: [], bientot: [], admin: false, avantPremiere: [] }
+    // Le Sphinx ne s'écrit pas dans les pages (`DITES_PAR_LEUR_ROUTE`) : fermé seul, il ne fait rien dire à une page.
+    const dite = (p: PageEnMaintenance) => !DITES_PAR_LEUR_ROUTE.includes(p)
+    const ditesFermees = [...this.pages.keys()].some(dite)
+    if (!bandeau && !ditesFermees) return null
+    const tout = ditesFermees ? this.vuPar(quiEstCe()) : null
+    const vu = tout
+      ? { ...tout, fermees: tout.fermees.filter(dite), bientot: tout.bientot.filter(dite), avantPremiere: tout.avantPremiere.filter(dite) }
+      : { fermees: [], bientot: [], admin: false, avantPremiere: [] }
     const page = pageDeLAdresse(route)
     return { bandeau, ...vu, ici: page && vu.fermees.includes(page) ? page : null }
   }
