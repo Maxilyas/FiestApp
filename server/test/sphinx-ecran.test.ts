@@ -216,6 +216,37 @@ test('le champ de la réponse est nommé, et rien ne lui donne le focus d’offi
   assert.match(charade, /La charade n°/, 'une charade se présente comme telle')
 })
 
+// Le premier essai du propriétaire, en production, le 24 novembre 2026 : « un
+// bouton qui permet de revenir plus tard si on ne veut pas y réfléchir de
+// suite ». L'énigme ouverte n'avait que la langue au chat — Échap seul la
+// remettait à plus tard, et un téléphone n'en a pas —, et le menu disait « Pas
+// aujourd'hui » pour un Sphinx qui reste épinglé jusqu'à minuit.
+test('l’énigme se remet à plus tard d’un toucher, ses essais gardés, et le Sphinx ne promet pas de revenir demain', async () => {
+  const html = await rendu('components/Sphinx.tsx', 'ParcheminDeLEnigme', {
+    enigme: { numero: '32', sorte: 'enigme', vers: ['Premier vers,'], source: { recueil: 'Un recueil', page: '1', facSimile: 'https://fr.wikisource.org/' } },
+    essaisRestants: 2,
+    versMontres: 1,
+    valeur: '',
+    faux: false,
+    onValeur: () => {},
+    onRepondre: () => {},
+    onChat: () => {},
+    onPlusTard: () => {},
+  })
+  // Les deux sorties, côte à côte sous la réponse : remettre à plus tard d'abord, abandonner ensuite.
+  assert.match(html, /<div class="sx-issues"><button type="button" class="sx-plus-tard">Plus tard<\/button><button type="button" class="sx-chat">Je donne ma langue au chat<\/button><\/div>/)
+  const source = lire('client/src/components/Sphinx.tsx')
+  // Le menu dit ce que fait le Sphinx : il reste, épinglé, jusqu'à minuit.
+  assert.doesNotMatch(source, /Pas aujourd’hui/)
+  assert.match(source, /demander\(moi, texte, \[\s*\['oui', 'J’écoute !'\],\s*\['non', 'Plus tard'\],?\s*\]\)/)
+  // Le geste part au serveur, qui garde ses essais et ses réponses (`sphinx-pur.test.ts`) ; puis le Sphinx s'épingle.
+  assert.match(source, /envoyer\(moi, 'plus-tard'\)[\s\S]*?issue\.current\?\.\(\{ quoi: 'plus-tard', verdict: v \}\)/)
+  assert.match(source, /if \(fin\.quoi === 'plus-tard'\) return remettre\(moi\)/)
+  assert.match(source, /const remettre = async[\s\S]*?onPartir\('epingle'\)/)
+  // Une visite n'arrive qu'un jour sur trois : « Reviens demain » promettait ce que le tirage ne tient pas.
+  assert.doesNotMatch(source, /[Rr]eviens demain/)
+})
+
 // ── L'épingle, dans l'accueil ─────────────────────────────────────────────
 
 test('l’épingle se pose près d’« Entre amis », hors de son nom, et rouvre la visite', async () => {

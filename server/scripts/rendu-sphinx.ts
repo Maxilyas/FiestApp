@@ -4,8 +4,9 @@
 // l'accueil, l'arrivée, chaque réplique, la vitrine des Divins, le Divin du
 // moment et sa phrase, le menu, l'énigme, une réponse qui brûle, une fausse, la
 // bonne, le mot qui vole, la fin et l'album —, en 360 × 640 et en 390 × 844 ;
-// puis « Pas aujourd'hui » et l'épingle sur l'accueil, la visite rouverte de
-// l'épingle et la langue au chat, trois essais perdus, l'épingle seule quand
+// puis « Plus tard » et l'épingle sur l'accueil, la visite rouverte de
+// l'épingle, « Plus tard » l'énigme ouverte et sa reprise, ses essais gardés,
+// puis la langue au chat, trois essais perdus, l'épingle seule quand
 // une soirée attend, l'album d'un non-habitué, une phrase reconstituée par
 // tous, moins de mouvement, l'Ivoire et le texte agrandi à 130 %.
 //
@@ -334,7 +335,7 @@ async function replique(page: any, cas: string, quoi: string | null, ecran: Ecra
   if (quoi) await photo(page, cas, quoi, ecran)
   await toucherLaBoite(page)
 }
-/** Le menu ouvert, puis le choix touché : « J'écoute ! » (0) ou « Pas aujourd'hui » (1). */
+/** Le menu ouvert, puis le choix touché : « J'écoute ! » (0) ou « Plus tard » (1). */
 async function choisir(page: any, cas: string, quoi: string | null, ecran: Ecran, rang: 0 | 1) {
   await page.waitForSelector('.sx-choix button', { timeout: 30000 })
   await page.waitForTimeout(250)
@@ -451,14 +452,14 @@ try {
     await laVisite('lea', profils.leaa, MOYEN, enigme('32'))
   }
 
-  // ── Tom : « Pas aujourd'hui », l'épingle sur l'accueil, puis rouverte, et la langue au chat ──
+  // ── Tom : « Plus tard », l'épingle sur l'accueil, rouverte, « Plus tard » dans l'énigme, reprise, et la langue au chat ──
   if (veut('tom')) {
     await reserve('211')
     const { ctx, page } = await telephone({ cookie: profils.tom, ecran: PETIT })
     await accueil(page)
     for (let i = 0; i < 6; i++) await replique(page, 'tom', null, PETIT)
     await choisir(page, 'tom', null, PETIT, 1)
-    await replique(page, 'tom', 'pas-aujourd-hui', PETIT)
+    await replique(page, 'tom', 'plus-tard', PETIT)
     await page.waitForSelector('.sx-epingle', { timeout: 20000 })
     await page.waitForTimeout(800)
     await photo(page, 'tom', 'l-epingle', PETIT, { surAccueil: true })
@@ -473,12 +474,28 @@ try {
     await choisir(autre.page, 'tom', 'rouverte', MOYEN, 0)
     await lEnigme(autre.page)
     await photo(autre.page, 'tom', 'l-enigme', MOYEN)
+    // Une fausse, puis « Plus tard », l'énigme ouverte (le retour du propriétaire du 24 novembre 2026) : le Sphinx
+    // s'épingle, et l'épingle rouvre la même énigme, son essai perdu compté. Une réponse qu'aucune énigme n'attend.
+    await repondre(autre.page, 'xylophone')
+    await quandIlADit(autre.page, 'Encore deux essais')
+    await autre.page.locator('.sx-plus-tard').tap()
+    await quandIlADit(autre.page, 'Prends ton temps')
+    await replique(autre.page, 'tom', 'plus-tard-dans-l-enigme', MOYEN)
+    await autre.page.waitForSelector('.sx-epingle', { timeout: 20000 })
+    await autre.page.waitForTimeout(800)
+    await photo(autre.page, 'tom', 'l-epingle-apres-l-enigme', MOYEN, { surAccueil: true })
+    await autre.page.locator('.sx-epingle').tap()
+    await choisir(autre.page, 'tom', 'te-revoila', MOYEN, 0)
+    await lEnigme(autre.page)
+    const essais = await autre.page.locator('.sx-essais').getAttribute('aria-label')
+    if (essais !== '2 essais restants') ratees.push(`tom : l’énigme reprise dit « ${essais} », pas « 2 essais restants »`)
+    await photo(autre.page, 'tom', 'l-enigme-reprise', MOYEN)
     await autre.page.locator('.sx-chat').tap()
     await enAttente(autre.page)
     await autre.page.waitForTimeout(300)
     await photo(autre.page, 'tom', 'langue-au-chat', MOYEN)
     await toucherLaBoite(autre.page)
-    await replique(autre.page, 'tom', 'reviens-demain', MOYEN)
+    await replique(autre.page, 'tom', 'un-autre-jour', MOYEN)
     await autre.page.waitForTimeout(1500)
     await photo(autre.page, 'tom', 'parti', MOYEN, { surAccueil: true })
     await autre.ctx.close()
