@@ -44,7 +44,15 @@ paths:
   sans lui, la collection mentirait (« 14 sur 20 ») — `fin-de-soiree.test.ts`
   relit les clés du calcul.
 - **Un Éclat tombé sur un avatar déjà éclaté attend en réserve** (le 20 octobre
-  2026) : une ligne de `profile_eclats` sous `reserve:<uuid>`
+  2026) — **et d'office sous un Divin porté ou sur l'avatar par défaut**
+  (🎉, `DEFAULT_AVATAR` : un compte d'avant, un emoji de collection
+  redescendu — jamais choisi, la loge ne le propose pas ; le choix du
+  propriétaire du 24 novembre 2026). Une seule règle,
+  `eclatEnReserveDOffice` (`shared/legendaires.ts`), que lisent le tirage
+  (`cibleEclatDe` rend `null`), l'aperçu de la boutique (`avatarQuiEclate`)
+  et la carte de fin, qui le dit autrement (`EclatTombe`) ; `cibleEclat`,
+  que lisent les écrans, rend toujours l'emoji sous un Divin. La réserve
+  tient en une ligne de `profile_eclats` sous `reserve:<uuid>`
   (`PREFIXE_DE_LA_RESERVE`), tenue à part des Éclats éclatés
   (`ProfileStore.reserves`, `reserveOf`) — `eclats` ne compte, ne montre et ne
   fait briller que ce qui a éclaté, et `eclatsHors` écarte la réserve : elle
