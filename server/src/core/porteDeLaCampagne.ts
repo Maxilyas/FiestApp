@@ -46,6 +46,11 @@ export interface PorteDeLaCampagne {
   parIdDe(jouables: readonly QuestionDeLaBase[]): ReadonlyMap<string, QuestionDeLaBase>
   /** Les jouables d'une catégorie, rangées une fois par liste. */
   deLaCategorie(jouables: readonly QuestionDeLaBase[], categorie: Categorie): readonly QuestionDeLaBase[]
+  /**
+   * Ces deux tables d'une liste neuve rangées en tranches, une par tour de boucle : les tas du Cabinet les demandent
+   * avant leur première étape, qui les rangeait d'une traite (`CampagneStore.preparerLesTables`). Ne rejette pas.
+   */
+  preparerLesTables(jouables: readonly QuestionDeLaBase[]): Promise<void>
   /** Les événements des frises que ces jouables datent (`evenementsDeLaBase`), gardés avec elles. */
   evenementsDe(jouables: readonly QuestionDeLaBase[]): readonly EvenementDeLaFrise[]
   /**

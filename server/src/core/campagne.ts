@@ -2445,6 +2445,37 @@ export class CampagneStore {
     return parId
   }
 
+  /**
+   * Les deux tables d'une liste neuve — chaque jouable par son identifiant
+   * (`parIdDe`), celles de chaque catégorie (`deLaCategorie`) —, rangées en
+   * tranches de `this.tranche` questions, une par tour de boucle, avant que les
+   * tas du Cabinet ne les lisent (`preparerLesTables`, `porteDeLaCampagne.ts`).
+   * Chacune se rangeait d'une traite sous la première étape qui la demandait :
+   * sur les vingt-huit mille huit cents questions de la base, 7 et 4 ms sur un
+   * vrai cœur — et les tas du Cabinet gelaient chaque matin, après les dépôts
+   * de la routine, de 0,9 à 2,3 s en production (le bilan du 24 novembre 2026).
+   * Les mêmes tables que d'une traite, dans le même ordre ; une demande arrivée
+   * pendant ce temps les range pour elle, et ce qu'elle a rangé l'emporte.
+   */
+  private async preparerLesTables(jouables: readonly QuestionDeLaBase[]): Promise<void> {
+    if (this.parIdGardes.has(jouables) && this.listesDesCategories.has(jouables)) return
+    const parId = new Map<string, QuestionDeLaBase>()
+    const parCategorie = new Map<string, QuestionDeLaBase[]>()
+    for (let debut = 0; debut < jouables.length; debut += this.tranche) {
+      await rendreLaMain()
+      if (this.ferme) return
+      for (let i = debut; i < Math.min(debut + this.tranche, jouables.length); i++) {
+        const q = jouables[i]
+        parId.set(q.id, q)
+        const siennes = parCategorie.get(q.meta.categorie)
+        if (siennes) siennes.push(q)
+        else parCategorie.set(q.meta.categorie, [q])
+      }
+    }
+    if (!this.parIdGardes.has(jouables)) this.parIdGardes.set(jouables, parId)
+    if (!this.listesDesCategories.has(jouables)) this.listesDesCategories.set(jouables, parCategorie)
+  }
+
   /** Les événements des frises (v13) que ces jouables datent, gardés avec elles : une base neuve les relit. */
   private evenementsGardes = new WeakMap<readonly QuestionDeLaBase[], readonly EvenementDeLaFrise[]>()
 
@@ -3283,6 +3314,7 @@ export class CampagneStore {
       mesures: () => this.mesures(),
       parIdDe: jouables => this.parIdDe(jouables),
       deLaCategorie: (jouables, categorie) => this.deLaCategorie(jouables, categorie),
+      preparerLesTables: jouables => this.preparerLesTables(jouables),
       evenementsDe: jouables => this.evenementsDe(jouables),
       // Sans lecture, le journal seul, frais s'il a été lu depuis la dernière réponse écrite ici : le tirage d'un départ
       // ne paie rien quand la page vient de le rattraper. Celui de la campagne (`lireAvecLeJournal([])`) le relit
