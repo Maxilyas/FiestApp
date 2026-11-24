@@ -614,6 +614,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     profiles,
     jour,
     campagne,
+    // Un masqué du classement ne paraît pas parmi ceux à qui demander des mots, comme dans toute liste de joueurs.
+    masque: id => jour.estMasque(id),
     maintenant: maintenantDuJour,
     ...(opts.tirageDuSphinx && { tirage: opts.tirageDuSphinx }),
     ...(opts.enigmesDuSphinx && { enigmes: opts.enigmesDuSphinx }),

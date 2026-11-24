@@ -8,7 +8,7 @@ import { readPlayerToken } from './auth/http'
 import { quiEstCe } from './maintenance'
 
 export interface DepsDesRoutesDuSphinx {
-  sphinx: Pick<Sphinx, 'lire' | 'geste' | 'lirePhrase' | 'annoncerLaPhrase'>
+  sphinx: Pick<Sphinx, 'lire' | 'geste' | 'lirePhrase' | 'annoncerLaPhrase' | 'inscrire'>
   profiles: ProfileStore
   auth: AuthStore
   maintenance: Maintenance
@@ -82,6 +82,22 @@ export function mountSphinx(app: Express, deps: DepsDesRoutesDuSphinx) {
       const profil = await profilDe(req, res)
       if (!profil) return
       const issue = await deps.sphinx.lirePhrase(profil.id, req.body)
+      if ('refus' in issue) res.status(issue.refus).json({ error: issue.error })
+      else res.json(issue)
+    }),
+  )
+
+  // Un mot qu'on lui a dit, inscrit sur un trait de sa phrase (`{ divin, place, mot }` ; le premier retour de la
+  // production, le 24 novembre 2026 : « Je vois nulle part où rentrer le mot des autres ») : juste et déjà trouvé par
+  // quelqu'un, il est à lui ; sinon une erreur de moins pour la journée, et plus d'erreur permise, 429. Sa porte se ferme
+  // avec la page (`PORTES_DES_PAGES.sphinx`).
+  app.post(
+    '/api/joueur/sphinx/inscrire',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      const issue = await deps.sphinx.inscrire(profil.id, req.body)
       if ('refus' in issue) res.status(issue.refus).json({ error: issue.error })
       else res.json(issue)
     }),

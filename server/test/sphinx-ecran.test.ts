@@ -310,6 +310,47 @@ test('l’album montre la phrase du Divin du moment à tout profil, et dit à qu
   assert.match(album, /rarete === 'divin'/)
 })
 
+// ── Les mots des autres, inscrits sur sa phrase ──────────────────────────
+//
+// Le premier retour de la production, le 24 novembre 2026 : « Je vois nulle
+// part où rentrer le mot des autres. » Dans l'album, chaque trait se touche
+// pour y inscrire un mot qu'on lui a dit ; dessous, à qui les demander.
+
+test('dans l’album, un trait se touche pour y inscrire un mot, un mot appris se lit en argent, et la liste dit à qui demander', async () => {
+  const p = phrase()
+  const caches = p.mots.flatMap((m: any, i: number) => (m.texte === undefined ? [i] : []))
+  // Sans `onInscrire` — la visite —, rien ne se touche ; dans l'album, chaque trait caché est un bouton nommé.
+  const visite = await rendu('components/PhraseDuDivin.tsx', 'PhraseDuDivin', { phrase: p })
+  assert.doesNotMatch(visite, /<button/)
+  const album = await rendu('components/PhraseDuDivin.tsx', 'PhraseDuDivin', { phrase: p, onInscrire: () => {}, choisie: caches[0] })
+  assert.equal((album.match(/<button[^>]*phrase-a-inscrire/g) ?? []).length, caches.length)
+  assert.match(album, /aria-label="mot caché de \d+ lettres : y inscrire un mot qu’on t’a dit"/)
+  assert.match(album, /phrase-choisi[^>]*aria-pressed="true"/)
+  // Un mot appris : à lui, en argent, à part de l'or des siens.
+  const appris = { ...p, mots: p.mots.map((m: any, i: number) => (i === caches[0] ? { forme: m.forme, texte: 'Appris', appris: true } : m)), appris: 1 }
+  assert.match(await rendu('components/PhraseDuDivin.tsx', 'PhraseDuDivin', { phrase: appris }), /phrase-trouve phrase-appris[^>]*>Appris</)
+  assert.match(await rendu('components/PhraseDuDivin.tsx', 'CompteDeLaPhrase', { phrase: { ...appris, siens: 1 } }), /Toi\s:\s1 mot, 1 appris/)
+  // Le champ : sa longueur dite, nommé, jamais de focus d'office.
+  const champ = await rendu('components/PhraseDuDivin.tsx', 'InscrireUnMot', { phrase: p, place: caches[0], onInscrire: async () => ({ juste: true, erreursRestantes: 5 }), onFermer: () => {} })
+  assert.match(champ, /<label for="phrase-inscrire-mot">Un mot qu’on t’a dit, pour ce trait\s:\s\d+ lettres?<\/label>/)
+  assert.match(champ, /<input id="phrase-inscrire-mot"/)
+  assert.doesNotMatch(lire('client/src/components/PhraseDuDivin.tsx'), /autoFocus/)
+  // À qui demander : leur nom, leur compte, ses amis marqués ; touchés, leur carte.
+  const qui = await rendu('components/PhraseDuDivin.tsx', 'QuiADesMotsDeLaPhrase', {
+    phrase: { ...p, quiADesMots: [{ id: 'a', nom: 'Léa', mots: 3, ami: true }, { id: 'b', nom: 'Tom', mots: 1 }], autresQuiEnOnt: 2 },
+    onOuvrir: () => {},
+  })
+  assert.match(qui, /<li class="phrase-qui-ami"><button[^>]*aria-label="Léa, 3 mots, ton ami : ouvrir sa carte"/)
+  assert.match(qui, /aria-label="Tom, 1 mot : ouvrir sa carte"/)
+  assert.match(qui, /et 2 autres/)
+  assert.equal(await rendu('components/PhraseDuDivin.tsx', 'QuiADesMotsDeLaPhrase', { phrase: p }), '', 'personne : rien')
+  // L'album les pose sous la phrase du Divin du moment et d'une phrase retrouvée pas encore lue ; le Sphinx dit où.
+  const album2 = lire('client/src/components/AlbumDesAvatars.tsx')
+  assert.match(album2, /api\.joueur\.inscrireUnMotDuSphinx\(cle, place, mot\)/)
+  assert.match(album2, /<QuiADesMotsDeLaPhrase phrase=\{phrase\} onOuvrir=\{ouvrirLaCarte\} \/>/)
+  assert.match(lire('client/src/components/Sphinx.tsx'), /dans ton album, tu inscriras leurs mots sur ta phrase/)
+})
+
 // ── Une phrase retrouvée par tous : un choix, jamais imposée ──────────────
 
 test('une phrase retrouvée se dévoile à la demande : l’album la propose, la visite la propose, l’accueil l’annonce sans un mot', async () => {

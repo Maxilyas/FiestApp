@@ -52,7 +52,27 @@ export interface MotDeLaPhrase {
   offert?: true
   /** Un mot que le Sphinx lui a soufflé. */
   sien?: true
+  /** Un mot qu'il a inscrit lui-même, juste — qu'un autre lui a dit (`POST /api/joueur/sphinx/inscrire`). */
+  appris?: true
 }
+
+/**
+ * Qui a trouvé des mots de cette phrase, et combien — jamais lesquels : à qui
+ * les demander. Ses amis d'abord, puis les plus riches en mots ; jamais
+ * lui-même, ni un masqué ou un suspendu. Le prénom tel qu'on le lit
+ * (`nomsAffiches`, invariant 17).
+ */
+export interface QuiADesMots {
+  id: string
+  nom: string
+  mots: number
+  ami?: true
+}
+
+/** Les erreurs qu'il peut faire chaque jour en inscrivant des mots : au-delà, on demande, on ne devine pas. */
+export const ERREURS_D_INSCRIPTION_PAR_JOUR = 5
+/** Combien de noms la liste de ceux qui ont des mots montre, avant « et N autres ». */
+export const QUI_A_DES_MOTS_MONTRES = 8
 
 /** La phrase d'un Divin, telle que ce profil la voit. */
 export interface PhraseDuSphinx {
@@ -62,6 +82,8 @@ export interface PhraseDuSphinx {
   aTrouver: number
   /** Combien il en a trouvé. */
   siens: number
+  /** Combien il en a inscrit lui-même, juste, de ceux qu'on lui a dits. */
+  appris?: number
   /** Combien tous les profils en ont trouvé ensemble — un nombre, jamais lesquels. */
   parTous: number
   /**
@@ -84,6 +106,24 @@ export interface PhraseDuSphinx {
   legende?: string
   /** Il porte ce Divin : il en connaît la légende, elle se montre entière à lui. */
   porteur?: true
+  /** Qui en a trouvé des mots, et combien — à qui les demander (`GET /api/joueur/sphinx` seulement). */
+  quiADesMots?: QuiADesMots[]
+  /** Ceux qui en ont aussi, au-delà de la liste. */
+  autresQuiEnOnt?: number
+}
+
+/**
+ * Un mot inscrit sur un trait de sa phrase (`POST /api/joueur/sphinx/inscrire`,
+ * `{ divin, place, mot }`) : juste, il se retourne ; faux — ou juste mais que
+ * personne n'a encore trouvé, la même réponse —, une erreur de moins pour la
+ * journée.
+ */
+export interface InscriptionDuSphinx {
+  accuse: true
+  juste: boolean
+  /** Ses erreurs qui restent aujourd'hui. */
+  erreursRestantes: number
+  phrase: PhraseDuSphinx
 }
 
 /** Une énigme, telle que la page la reçoit : sa réponse seulement une fois la visite close. */

@@ -43,7 +43,7 @@ import type { Envie } from '../../shared/envie'
 import type { NouveautesDeLaLoge, VusDeLaLoge } from '../../shared/piecesDeLaLoge'
 import type { MissionsDuJour } from '../../shared/missions'
 import type { CoffreOuvert } from '../../shared/coffre'
-import type { GesteDuSphinx, LeSphinx, PhraseLueDuSphinx, VerdictDuSphinx } from '../../shared/sphinx'
+import type { GesteDuSphinx, InscriptionDuSphinx, LeSphinx, PhraseLueDuSphinx, VerdictDuSphinx } from '../../shared/sphinx'
 import type { PageDuSphinxAuQg, ReponseDuSphinxAuQg } from '../../shared/qgSphinx'
 import type { CompagnonAcquis } from '../../shared/compagnons'
 import type { ReglageDesOrnements } from '../../shared/ornements'
@@ -499,6 +499,12 @@ export const api = {
     lirePhraseDuSphinx: (divin: string) => req<PhraseLueDuSphinx>('/api/joueur/sphinx/phrase', { method: 'POST', body: JSON.stringify({ divin }) }),
     /** L'accueil a montré la carte d'une phrase retrouvée : le serveur ne la redira plus, sur aucun de ses appareils. */
     phraseAnnoncee: (divin: string) => req<{ accuse: true }>('/api/joueur/sphinx/annonce', { method: 'POST', body: JSON.stringify({ divin }) }),
+    /**
+     * Un mot qu'on lui a dit, inscrit sur un trait de sa phrase : juste et déjà trouvé par quelqu'un, il se retourne ;
+     * sinon une erreur de moins pour la journée. Pas de reprise au réveil : rejouée, une erreur compterait deux fois.
+     */
+    inscrireUnMotDuSphinx: (divin: string, place: number, mot: string) =>
+      req<InscriptionDuSphinx>('/api/joueur/sphinx/inscrire', { method: 'POST', body: JSON.stringify({ divin, place, mot }) }),
     enregistrer: (patch: {
       name?: string
       avatar?: string

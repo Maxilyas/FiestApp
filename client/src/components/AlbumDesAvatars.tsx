@@ -29,11 +29,45 @@ import { estScellable, legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { compagnonDe, formeDeCompagnon, nomDeLaForme } from '../../../shared/compagnons'
 import { aLEclat, brilleChez, eclatChez, type PublicProfileDetail } from '../../../shared/profil'
-import type { SphinxOuvert } from '../../../shared/sphinx'
+import type { PhraseDuSphinx, SphinxOuvert } from '../../../shared/sphinx'
 import { api, motifDe } from '../api'
 import { lirePourLAlbum, type PourLAlbum } from '../sphinx'
-import { CompteDeLaPhrase, ConseilDuSphinx, PhraseDuDivin, placesDevoilees } from './PhraseDuDivin'
+import {
+  CompteDeLaPhrase,
+  ConseilDuSphinx,
+  InscrireUnMot,
+  PhraseDuDivin,
+  QuiADesMotsDeLaPhrase,
+  placesDevoilees,
+  type IssueDUneInscription,
+} from './PhraseDuDivin'
 import { confirmDialog } from './Dialog'
+import { aLaDemande, useALaDemande } from '../aLaDemande'
+
+/** La carte d'un joueur, au toucher de son nom dans « Ils ont des mots » : rien ne la télécharge avant. */
+const laCarteDUnJoueur = aLaDemande(() => import('./CarteJoueur'))
+
+/**
+ * La carte de qui a des mots, touché dans la liste — ses gestes au pied :
+ * l'ajouter à ses amis, le défier. `useCarteDUnProfil` le fait ailleurs, mais
+ * il importe l'état de la page (`state.ts`), qui lit sa fenêtre en se
+ * chargeant : l'album se rend aussi dans Node (`grille-avatars.test.ts`).
+ * Une carte qui ne vient pas se referme, sans plus.
+ */
+function useCarteDeQuiADesMots(): { ouvrir: (profileId: string) => void; carte: ReactNode } {
+  const [qui, setQui] = useState<string | null>(null)
+  const module = useALaDemande(laCarteDUnJoueur, !!qui)
+  useEffect(() => {
+    if (qui && module === 'perdu') setQui(null)
+  }, [qui, module])
+  return {
+    ouvrir: setQui,
+    carte:
+      qui && module && module !== 'perdu' ? (
+        <module.CarteJoueur key={qui} adresse={`/api/joueur/carte/${encodeURIComponent(qui)}`} gestes={{ profileId: qui }} onFermer={() => setQui(null)} />
+      ) : null,
+  }
+}
 
 // L'album « Mes avatars », dans « Ma collection » (la maquette 1, choisie le
 // 13 octobre 2026) : tous les avatars qui se gagnent, une page par rareté —
@@ -176,6 +210,12 @@ const LeSphinxDeLAlbum = createContext<{
   devoilee: { cle: string; places: number[] } | null
   /** Le geste refusé — la page fermée entre-temps, le réseau —, dit sous lui. */
   refus: { cle: string; motif: string } | null
+  /** Un mot qu'on lui a dit, inscrit sur un trait de la phrase d'un Divin : juste, la phrase d'après remplace celle d'avant. */
+  inscrire: (cle: string, place: number, mot: string) => Promise<IssueDUneInscription>
+  /** Le dernier mot qu'il a inscrit juste, qui se retourne dans sa phrase. */
+  inscrit: { cle: string; place: number } | null
+  /** La carte d'un de ceux qui ont des mots, touché dans la liste. */
+  ouvrirLaCarte: (profileId: string) => void
 } | null>(null)
 
 /**
@@ -195,6 +235,9 @@ function SaPhrase({
   devoiler,
   devoilee,
   refus,
+  inscrire,
+  inscrit,
+  ouvrirLaCarte,
 }: {
   cle: string
   sphinx: SphinxOuvert
@@ -202,13 +245,42 @@ function SaPhrase({
   devoiler?: (cle: string) => void
   devoilee?: { cle: string; places: number[] } | null
   refus?: { cle: string; motif: string } | null
+  inscrire?: (cle: string, place: number, mot: string) => Promise<IssueDUneInscription>
+  inscrit?: { cle: string; place: number } | null
+  ouvrirLaCarte?: (profileId: string) => void
 }) {
+  // Le trait qu'il a touché pour y inscrire un mot qu'on lui a dit ; juste, le champ s'en va et le mot se retourne.
+  const [choisie, setChoisie] = useState<number | null>(null)
+  // Le mot qu'il vient d'inscrire se retourne, comme un mot gagné ; sinon celui que la visite vient de lui souffler.
+  const tourne = inscrit?.cle === cle ? inscrit.place : retourne
+  /** Sa phrase, ses traits à toucher s'il en reste, le champ du trait touché, et à qui demander. */
+  const phraseAInscrire = (phrase: PhraseDuSphinx) => {
+    const ouverte = choisie !== null && phrase.mots[choisie]?.texte === undefined ? choisie : null
+    return (
+      <>
+        <PhraseDuDivin phrase={phrase} retourne={tourne} onInscrire={inscrire && (p => setChoisie(c => (c === p ? null : p)))} choisie={ouverte} />
+        {inscrire && ouverte !== null && (
+          <InscrireUnMot
+            phrase={phrase}
+            place={ouverte}
+            onFermer={() => setChoisie(null)}
+            onInscrire={async mot => {
+              const issue = await inscrire(cle, ouverte, mot)
+              if (!('refus' in issue) && issue.juste) setChoisie(null)
+              return issue
+            }}
+          />
+        )}
+        <CompteDeLaPhrase phrase={phrase} />
+        <QuiADesMotsDeLaPhrase phrase={phrase} onOuvrir={ouvrirLaCarte} />
+      </>
+    )
+  }
   if (sphinx.phrase?.divin.key === cle) {
     return (
       <div className="album-phrase">
         <span className="label album-etiquette">Le Divin du moment · sa phrase</span>
-        <PhraseDuDivin phrase={sphinx.phrase} retourne={retourne} />
-        <CompteDeLaPhrase phrase={sphinx.phrase} />
+        {phraseAInscrire(sphinx.phrase)}
         <ConseilDuSphinx phrase={sphinx.phrase} habitue={sphinx.habitue} />
       </div>
     )
@@ -235,8 +307,8 @@ function SaPhrase({
   return (
     <div className="album-phrase">
       <span className="label album-etiquette">Sa phrase, retrouvée par tous</span>
-      <PhraseDuDivin phrase={retrouvee} retourne={retourne} />
-      <CompteDeLaPhrase phrase={retrouvee} />
+      {/* Pas encore lue : il peut aussi y inscrire, un à un, les mots qu'on lui a dits — à son rythme. */}
+      {phraseAInscrire(retrouvee)}
       {devoiler && (
         <button type="button" className="btn btn-primary album-phrase-lire" onClick={() => devoiler(cle)}>
           La phrase est retrouvée : la lire
@@ -333,7 +405,19 @@ export function FicheDeLAvatar({
       {recit && <p className="serif-note">{recit.legende}</p>}
       {inconnu && <p className="serif-note">Personne ne sait ce qui le fait descendre. Ceux qui l’ont vu ne le cherchaient pas.</p>}
       {/* Descendu, il raconte déjà sa légende : la phrase du Sphinx n'y ajouterait rien. */}
-      {inconnu && sphinx && <SaPhrase cle={a.cle} sphinx={sphinx} retourne={retourne} devoiler={duSphinx?.devoiler} devoilee={duSphinx?.devoilee} refus={duSphinx?.refus} />}
+      {inconnu && sphinx && (
+        <SaPhrase
+          cle={a.cle}
+          sphinx={sphinx}
+          retourne={retourne}
+          devoiler={duSphinx?.devoiler}
+          devoilee={duSphinx?.devoilee}
+          refus={duSphinx?.refus}
+          inscrire={duSphinx?.inscrire}
+          inscrit={duSphinx?.inscrit}
+          ouvrirLaCarte={duSphinx?.ouvrirLaCarte}
+        />
+      )}
       {aLui && (
         <p className="small album-a-toi">
           <Icon name="check" />
@@ -457,6 +541,23 @@ export function AlbumDesAvatars({
       }
     })()
   }
+  // Un mot qu'on lui a dit, inscrit sur un trait : juste, la phrase d'après prend la place de celle d'avant — le Divin du
+  // moment ou une phrase retrouvée — et le mot s'y retourne ; faux, le champ le dit. Un refus (plus d'erreur permise, la page
+  // fermée entre-temps, le réseau) se dit sous le champ, tel quel.
+  const [inscrit, setInscrit] = useState<{ cle: string; place: number } | null>(null)
+  const inscrire = async (cle: string, place: number, mot: string): Promise<IssueDUneInscription> => {
+    try {
+      const { juste, erreursRestantes, phrase } = await api.joueur.inscrireUnMotDuSphinx(cle, place, mot)
+      const remplace = (p: PhraseDuSphinx): PhraseDuSphinx => (p.divin.key === cle ? { ...phrase, quiADesMots: p.quiADesMots, autresQuiEnOnt: p.autresQuiEnOnt } : p)
+      setSphinx(s => (s ? { ...s, phrase: s.phrase && remplace(s.phrase), reconstituees: s.reconstituees.map(remplace) } : s))
+      if (juste) setInscrit({ cle, place })
+      return { juste, erreursRestantes }
+    } catch (e) {
+      return { refus: motifDe(e) }
+    }
+  }
+  // La carte de qui a des mots, touché dans la liste : d'où l'ajouter à ses amis, ou le défier.
+  const { ouvrir: ouvrirLaCarte, carte } = useCarteDeQuiADesMots()
   // Venu de la visite : la fiche du Divin s'ouvre, le mot qu'il vient de gagner s'y retourne.
   const [venuDuSphinx] = useState(() => (page === 'divin' ? lirePourLAlbum() : null))
   useEffect(() => {
@@ -507,7 +608,8 @@ export function AlbumDesAvatars({
         <b>{`${NOM_DE_RARETE_D_AVATAR[choisie.rarete]} · ${choisie.acquis} sur ${choisie.total}.`}</b> {CE_QU_ELLE_RANGE[choisie.rarete]}
       </p>
       {/* Ce que le Sphinx dit des Divins, jusqu'à leurs fiches. */}
-      <LeSphinxDeLAlbum.Provider value={sphinx ? { sphinx, venu: venuDuSphinx, devoiler, devoilee, refus: refusDuSphinx } : null}>
+      {carte}
+      <LeSphinxDeLAlbum.Provider value={sphinx ? { sphinx, venu: venuDuSphinx, devoiler, devoilee, refus: refusDuSphinx, inscrire, inscrit, ouvrirLaCarte } : null}>
         <div
           className={'album-avatars' + (choisie.rarete === 'divin' ? ' album-divins' : '')}
           role="tabpanel"

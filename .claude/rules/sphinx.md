@@ -204,6 +204,35 @@ chacun la lit s'il le choisit, et l'accueil l'annonce une fois (plus bas).
   `vue`) : une ligne de plus qui n'est pas une visite rejoint cette liste, que
   `estUneVisite`, `visiteDuJour` et les comptes du QG lisent — sans elle, elle
   compterait parmi ses premières visites faciles, ou au QG.
+- **Les mots des autres s'inscrivent, juste et déjà trouvés** (le premier
+  retour de la production, le 24 novembre 2026 : « Je vois nulle part où
+  rentrer le mot des autres » ; la décision « Les mots des autres
+  s'inscrivent, et l'on sait à qui les demander ») : `Sphinx.inscrire`,
+  `POST /api/joueur/sphinx/inscrire`, sa porte avec la page. Un mot juste
+  **que personne n'a trouvé est un faux** — la même réponse, la même erreur :
+  sinon les petits mots et les nombres se devineraient seuls, leur longueur
+  dite par la forme. Cinq erreurs par jour (`ERREURS_D_INSCRIPTION_PAR_JOUR`,
+  la ligne à part `inscrits:<jour>`, bornée dans son `UPSERT`) ; à zéro, plus
+  rien ne s'inscrit, même juste (429). Appris (`appris:<Divin>:<place>`),
+  **jamais un `mot`** : les mots de tous, le Divin du moment, les crédits de
+  l'annonce et ceux à qui demander ne lisent que `mot IS NOT NULL` — un mot
+  appris y compterait pour trouvé. Il se montre à lui (`phraseVue` `appris`,
+  `sesAppris`), compte pour la lire entière, et le Sphinx ne le lui souffle
+  plus (`cequIlSait`, dans `decider` et `geste`). La comparaison
+  (`motsEgaux`) : lettres et chiffres seuls, sans casse ni accents, l'élision
+  permise. Ses tests ne tapent que les mots de la phrase inventée
+  (`sphinx-accueil.test.ts`, `phraseInventeeDuSphinx`) : une vraie légende
+  dans un test, c'est un mot de plus dans le dépôt.
+- **À qui demander, de mémoire** (`quiADesMotsPour`) : les trouveurs de la
+  mémoire du Sphinx (`trouveurs`, leur compte `mots` — `COUNT(DISTINCT mot)`
+  dans `motsDuSphinx`, tenu à chaque mot gagné), sans lui, sans un masqué
+  (`masque`, branché par `server.ts` sur `JourStore.estMasque`), les
+  suspendus jamais lus ; ses amis d'abord (`CampagneStore.amisDe`, lu de front
+  dans `lire` — une lecture qui tombe ne coûte que leur ordre). Seule la page
+  du Sphinx le dit (`vue` avec `amis`) ; un verdict, non. Dans l'album, un nom
+  ouvre sa carte par un crochet à lui (`useCarteDeQuiADesMots`) :
+  `useCarteDUnProfil` importe `state.ts`, qui lit sa fenêtre au chargement,
+  et l'album se rend dans Node (`grille-avatars.test.ts`).
 - **L'annonce d'une phrase retrouvée est une carte de l'administrateur**
   (sorte `phrase` d'`AnnonceDeLAdministrateur`), couchée en bandeau à la place
   d'« À la une » (`AnnonceDeLaPhrase`, `.annonce-phrase`) : en carte, l'accueil

@@ -13656,6 +13656,37 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 @media (prefers-reduced-motion: reduce) {
   .phrase-neuf .phrase-lettre { animation: none; }
 }
+/* Un mot que les autres lui ont dit, inscrit juste : à lui, mais pas trouvé — l'argent, à côté de l'or des siens
+   (le premier retour de la production, le 24 novembre 2026 : « Je vois nulle part où rentrer le mot des autres »). */
+.phrase-appris { color: var(--argent-text); border-bottom-color: var(--argent-text); }
+/* Dans l'album, chaque trait se touche pour y inscrire un mot. Sa cible déborde du mot sans le grandir — 44 px de haut, six
+   de plus de chaque côté —, et ses rangées s'écartent d'autant : deux cibles ne se chevauchent pas. */
+.phrase-divin:has(.phrase-a-inscrire) { row-gap: 1.375rem; }
+.phrase-a-inscrire { position: relative; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.phrase-a-inscrire::after { content: ''; position: absolute; inset: calc((1.375rem - 44px) / 2) -6px; }
+/* Ses traits restent pleins, un par lettre : en pointillé, chaque trait se fondait dans ses voisins, et l'on ne comptait
+   plus les lettres (le rendu du 24 novembre 2026). Qu'il se touche, la phrase le dit dessous, et le survol l'allume. */
+.phrase-a-inscrire:hover .phrase-trait,
+.phrase-choisi .phrase-trait { border-bottom: 2px solid var(--accent); }
+.phrase-choisi { outline: 2px solid rgba(var(--accent-rgb), 0.35); outline-offset: 4px; border-radius: 4px; }
+/* Le champ du trait touché, sous la phrase : sa longueur, le mot, « Inscrire », ce que le serveur en a dit. */
+.phrase-inscrire { width: 100%; max-width: 21rem; margin: 14px auto 0; display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.phrase-inscrire label { font-size: 0.8125rem; color: var(--muted); }
+.phrase-inscrire-ligne { display: flex; gap: 8px; }
+.phrase-inscrire-ligne input { flex: 1; min-width: 0; min-height: 44px; padding: 0 12px; border: 1px solid var(--edge-strong); border-radius: var(--radius-xs, 8px); background: var(--bg-raised); color: var(--ink); font: 500 max(16px, 1rem) var(--sans); }
+.phrase-inscrire-ligne .btn { min-height: 44px; }
+.phrase-inscrire-dit { min-height: 1.2em; margin: 0; color: var(--muted); }
+.phrase-inscrire-fermer { align-self: flex-start; min-height: 44px; }
+/* À qui demander : ceux qui ont des mots, et combien — jamais lesquels —, ses amis d'abord, un nom se touche pour sa carte. */
+.phrase-qui { width: 100%; max-width: 21rem; margin: 12px auto 0; text-align: left; }
+.phrase-qui-titre { margin: 0 0 6px; font-size: 0.8125rem; color: var(--muted); }
+.phrase-qui-liste { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.phrase-qui-liste li { display: flex; }
+.phrase-qui-nom { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; padding: 0 12px; border: 1px solid var(--edge); border-radius: 999px; background: var(--bg-raised); color: var(--ink); font: 500 0.875rem var(--sans); }
+button.phrase-qui-nom { cursor: pointer; }
+.phrase-qui-nom b { color: var(--accent-text); font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+.phrase-qui-ami .phrase-qui-nom { border-color: var(--accent); }
+.phrase-qui-autres { align-items: center; padding: 0 4px; font-size: 0.8125rem; color: var(--muted); }
 .album-etape-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .album-etape-texte b { font-weight: 600; }
 .album-progres { display: flex; align-items: center; gap: 10px; margin-top: 3px; font-size: 0.85rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }

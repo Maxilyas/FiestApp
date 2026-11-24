@@ -21,16 +21,18 @@ import {
   jugerLaReponse,
   joursJoues,
   motsDeLaLegende,
+  motsEgaux,
   normaliser,
   phraseVue,
   phrasesReconstituees,
+  quiADesMotsPour,
   tirageDeLaVisite,
   type Enigme,
 } from '../src/core/sphinx'
 import { legendeDe } from '../src/core/divins'
 import { DIVINS } from '../../shared/divins'
 import { AUCUNE_ACTIVITE, type ActiviteDuJour } from '../../shared/missions'
-import { ESSAIS_DU_SPHINX, JOURS_DE_L_HABITUE } from '../../shared/sphinx'
+import { ESSAIS_DU_SPHINX, JOURS_DE_L_HABITUE, QUI_A_DES_MOTS_MONTRES } from '../../shared/sphinx'
 import { jourAvant } from '../../shared/jour'
 import { hasardDe } from '../../shared/missions'
 
@@ -221,6 +223,73 @@ test('ce qu’un profil voit d’une phrase : ses mots, les petits mots, la form
   assert.equal(porteur.legende, legende)
   // Retrouvée par tous, son porteur n'a rien à dévoiler.
   assert.equal(phraseVue(divin, legende, { siens: new Set(), deTous: new Set([0, 1, 3, 4, 8]), porteur: true }).aDevoiler, undefined)
+})
+
+// Le premier retour de la production, le 24 novembre 2026 : « Je vois nulle
+// part où rentrer le mot des autres. » Un mot qu'un autre lui a dit s'inscrit
+// sur son trait (`Sphinx.inscrire`) : appris, il se montre à lui comme les
+// siens, en argent — et compte pour la lire entière, qu'il a gagnée en
+// coopérant.
+test('un mot appris se montre à qui l’a inscrit, à part des siens, et compte pour lire la phrase entière', () => {
+  const legende = 'Dix réponses, pas une faute : il n’a pas tremblé.'
+  const divin = { key: 'dv:essai', nom: 'L’Essai' }
+  const vue = phraseVue(divin, legende, { siens: new Set([1]), appris: new Set([4]), deTous: new Set([1, 4, 8]) })
+  assert.deepEqual(vue.mots[4], { forme: '_____', texte: 'faute', appris: true })
+  assert.deepEqual(vue.mots[8], { forme: '_______' }, 'trouvé par un autre, pas inscrit : il ne le voit pas')
+  assert.deepEqual([vue.siens, vue.appris, vue.parTous], [1, 1, 3])
+  assert.ok(!JSON.stringify(vue).includes('tremblé'))
+  // Trouvés ou appris, tous ses mots cachés : la phrase est à lui, entière — sans attendre qu'elle soit retrouvée par tous.
+  const entiere = phraseVue(divin, legende, { siens: new Set([1, 3]), appris: new Set([0, 4, 8]), deTous: new Set([1, 3, 4, 8]) })
+  assert.deepEqual([entiere.legende, entiere.aDevoiler], [legende, undefined])
+  // Un mot qu'il a aussi trouvé reste le sien, en or.
+  assert.deepEqual(phraseVue(divin, legende, { siens: new Set([4]), appris: new Set([4]), deTous: new Set([4]) }).mots[4], { forme: '_____', texte: 'faute', sien: true })
+})
+
+test('un mot inscrit se lit comme on le tape : sans casse, sans accents, l’élision et le trait d’union permis', () => {
+  // Les mots de la phrase inventée de la maquette, jamais ceux d'une légende.
+  for (const [tape, texte] of [
+    ['DEFIE', 'défie'],
+    ['  défie ', 'défie'],
+    ["l'heure", 'l’heure'],
+    ['heure', 'l’heure'],
+    ['rendez vous', 'rendez-vous'],
+    ['rendezvous', 'rendez-vous'],
+  ] as const) {
+    assert.ok(motsEgaux(tape, texte), `« ${tape} » pour « ${texte} »`)
+  }
+  for (const [tape, texte] of [
+    ['defi', 'défie'],
+    ['l', 'l’heure'],
+    ['', 'défie'],
+    ['temps', 'défie'],
+  ] as const) {
+    assert.ok(!motsEgaux(tape, texte), `« ${tape} » n’est pas « ${texte} »`)
+  }
+})
+
+test('à qui demander : ceux qui ont des mots, ses amis d’abord puis les plus riches — jamais lui, ni un masqué', () => {
+  const t = (id: string, name: string, mots: number, le: number) => ({ id, name, avatar: '🦊', legendaire: null, le, mots })
+  const trouveurs = [t('lea', 'Léa', 3, 1), t('tom', 'Tom', 1, 2), t('moi', 'Moi', 2, 3), t('zoe', 'Zoé', 2, 4), t('cache', 'Caché', 5, 5)]
+  const { liste, autres } = quiADesMotsPour(trouveurs, 'moi', new Set(['tom']), id => id === 'cache')
+  assert.deepEqual(
+    liste.map(q => [q.nom, q.mots, q.ami ?? false]),
+    [
+      ['Tom', 1, true],
+      ['Léa', 3, false],
+      ['Zoé', 2, false],
+    ],
+  )
+  assert.equal(autres, 0)
+  // Au-delà de la liste, combien d'autres.
+  const nombreux = Array.from({ length: QUI_A_DES_MOTS_MONTRES + 3 }, (_, i) => t(`p${i}`, `P${i}`, 1, i))
+  const grande = quiADesMotsPour(nombreux, 'moi', new Set(), () => false)
+  assert.deepEqual([grande.liste.length, grande.autres], [QUI_A_DES_MOTS_MONTRES, 3])
+  // Deux homonymes au même visage se marquent à l'affichage (invariant 17).
+  const deux = quiADesMotsPour([t('a', 'Léa', 1, 1), t('b', 'Léa', 1, 2)], 'moi', new Set(), () => false)
+  assert.deepEqual(
+    deux.liste.map(q => q.nom),
+    ['Léa', 'Léa (2)'],
+  )
 })
 
 test('le mot soufflé : d’abord un que personne n’a encore, sinon un qu’il n’a pas, au hasard de sa graine', () => {

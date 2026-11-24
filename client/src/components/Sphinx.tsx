@@ -81,7 +81,8 @@ const DIT = {
   dejaTrouve: 'Celui-là, d’autres habitués l’avaient déjà. Il est à toi maintenant.',
   autres: (n: number) =>
     n > 0
-      ? `Les autres habitués en ont trouvé ${enLettres(n)}. Comparez vos mots : à plusieurs, vous lirez la phrase entière.`
+      ? // « Comparez vos mots » ne disait pas où les mettre (le premier retour de la production, le 24 novembre 2026).
+        `Les autres habitués en ont trouvé ${enLettres(n)}. Demande-leur : dans ton album, tu inscriras leurs mots sur ta phrase.`
       : 'Les autres habitués n’en ont encore aucun. Parle-leur : à plusieurs, vous lirez la phrase entière.',
   album: 'Ta phrase t’attend dans ton album. Quand vous l’aurez reconstituée, je vous parlerai d’un autre Divin.',
   entiere: (nom: string) => `Avec ce mot, la phrase ${deLui(nom)} est entière : tous ensemble, vous l’avez *reconstituée* !`,
