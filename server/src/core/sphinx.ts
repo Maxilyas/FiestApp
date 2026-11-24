@@ -10,6 +10,7 @@ import { DIVINS, divin as leDivin } from '../../../shared/divins'
 import { jourAvant, jourDe } from '../../../shared/jour'
 import { activiteDesJours, hasardDe, type ActiviteDuJour } from '../../../shared/missions'
 import { minuitDe } from '../../../shared/qg'
+import { JOURS_DU_SPHINX_AU_QG, visitesParJour, type PageDuSphinxAuQg, type ReponseDuSphinxAuQg } from '../../../shared/qgSphinx'
 import {
   ESSAIS_DU_SPHINX,
   FENETRE_DE_L_HABITUE,
@@ -429,7 +430,15 @@ export function appliquerLeGeste(v: EtatDUneVisite, geste: GesteDuSphinx, repons
 export interface DepsDuSphinx {
   profiles: Pick<
     ProfileStore,
-    'lecturesDuSphinx' | 'visitesDuSphinx' | 'poserUneVisiteDuSphinx' | 'ecrireUnGesteDuSphinx' | 'motsDuSphinx' | 'divinsOf' | 'compterDesEnigmesPourVues'
+    | 'lecturesDuSphinx'
+    | 'visitesDuSphinx'
+    | 'poserUneVisiteDuSphinx'
+    | 'ecrireUnGesteDuSphinx'
+    | 'motsDuSphinx'
+    | 'divinsOf'
+    | 'compterDesEnigmesPourVues'
+    | 'lecturesDuSphinxAuQg'
+    | 'compterUneEnigmePourVue'
   >
   jour: Pick<JourStore, 'activiteDepuis'>
   campagne: Pick<CampagneStore, 'activiteDepuis'>
@@ -489,7 +498,26 @@ export class Sphinx {
   /** Une écriture à la fois par profil : deux touchers de « Répondre » ne coûtent pas deux essais à la même lecture. */
   private enCours = new Map<string, Promise<unknown>>()
 
+  /**
+   * Les habitués que le Sphinx a vus aujourd'hui, sur leur accueil — la ligne
+   * des missions, qui juge leurs jours joués de toute façon, sa page ouverte
+   * ou non — : l'audience du QG, sans rien relire ni rien écrire (la page
+   * ajoute ceux qu'il a visités, lus dans leurs lignes). En mémoire, oubliée à
+   * minuit et au redémarrage.
+   */
+  private habitues: { jour: string; ids: Set<string> } = { jour: '', ids: new Set() }
+
   constructor(private deps: DepsDuSphinx) {}
+
+  /** Est-il un habitué aujourd'hui ? Retenu pour le QG s'il l'est. */
+  noterLHabitue(profileId: string, aujourdhui: string, activites: ReadonlyMap<string, ActiviteDuJour>): boolean {
+    const habitue = estHabitue(joursJoues(activites, aujourdhui))
+    if (habitue) {
+      if (this.habitues.jour !== aujourdhui) this.habitues = { jour: aujourdhui, ids: new Set() }
+      this.habitues.ids.add(profileId)
+    }
+    return habitue
+  }
 
   private unALaFois<T>(profileId: string, travail: () => Promise<T>): Promise<T> {
     const avant = this.enCours.get(profileId) ?? Promise.resolve()
@@ -558,9 +586,10 @@ export class Sphinx {
    * dont un mot lui manque, une énigme qu'il n'a pas vue.
    */
   decider(profileId: string, aujourdhui: string, activites: ReadonlyMap<string, ActiviteDuJour>, lignes: readonly LigneDuSphinx[]): DecisionDuSphinx {
+    const habitue = this.noterLHabitue(profileId, aujourdhui, activites)
     const deJour = lignes.find(l => l.jour === aujourdhui)
     if (deJour) return deJour.etat === 'proposee' ? { champ: 'attend' } : deJour.etat === 'plus-tard' ? { champ: 'epingle' } : {}
-    if (!estHabitue(joursJoues(activites, aujourdhui))) return {}
+    if (!habitue) return {}
     if ((this.deps.tirage ?? tirageDeLaVisite)(`${profileId}|${aujourdhui}`) >= CHANCE_D_UNE_VISITE) return {}
     const moment = divinDuMoment(this.motsDeTous(), undefined, this.legende)
     // Il le porte : il en connaît la légende, le Sphinx n'a rien à lui souffler.
@@ -719,5 +748,99 @@ export class Sphinx {
     const pose = await this.deps.profiles.compterDesEnigmesPourVues(profileIds, numeros, DRAPEAU_DES_VUES_DU_PROPRIETAIRE, this.deps.maintenant())
     if (pose) console.log(`[sphinx] ${numeros.length} énigme(s) comptée(s) pour vues sur le profil de l’administrateur`)
     return pose
+  }
+
+  // ── Au QG ─────────────────────────────────────────────────────────────────
+
+  /**
+   * La page du Sphinx au QG (`GET /api/admin/sphinx`) : tout se dérive des
+   * visites (un lot, `lecturesDuSphinxAuQg`) et de la mémoire des mots de tous.
+   * Du Divin du moment, son nom et combien de ses mots cachés tous ont trouvés
+   * — ni lesquels, ni la forme de sa phrase : le propriétaire la cherche aussi ;
+   * d'une phrase reconstituée, son Divin et sa date, jamais son texte ; d'une
+   * énigme, ses vers et ses comptes, jamais sa réponse.
+   */
+  async auQg(profileId: string | null): Promise<PageDuSphinxAuQg> {
+    const maintenant = this.deps.maintenant()
+    const aujourdhui = jourDe(maintenant)
+    const [lu] = await Promise.all([
+      this.deps.profiles.lecturesDuSphinxAuQg({ depuis: jourAvant(aujourdhui, JOURS_DU_SPHINX_AU_QG - 1), aujourdhui, profileId }),
+      this.pret(),
+    ])
+    const mots = this.motsDeTous()
+    const moment = divinDuMoment(mots, undefined, this.legende)
+    const nomme = (cle: string) => ({ key: cle, nom: leDivin(cle)?.nom ?? '' })
+    // Le premier instant de chaque mot trouvé : une phrase est reconstituée le jour où son dernier mot l'a été.
+    const premier = new Map(lu.premiersMots.map(p => [`${p.divin}|${p.mot}`, p.le]))
+    const reconstituees = ORDRE_DU_SPHINX.filter(cle => CATALOGUE.has(cle) && reconstituee(cle, mots, this.legende)).map(cle => {
+      const dates = cachesDe(this.legende(cle)!).map(i => premier.get(`${cle}|${i}`))
+      return { divin: nomme(cle), le: dates.every((d): d is number => d !== undefined) ? Math.max(...dates) : null }
+    })
+    const parEnigme = new Map<string, Map<string, number>>()
+    for (const l of lu.parEnigme) {
+      if (!parEnigme.has(l.enigme)) parEnigme.set(l.enigme, new Map())
+      parEnigme.get(l.enigme)!.set(l.etat, l.n)
+    }
+    const siennes = new Map<string, 'vue' | 'aujourdhui'>()
+    for (const l of lu.siennes) {
+      const enAttente = l.jour === aujourdhui && (l.etat === 'proposee' || l.etat === 'plus-tard')
+      if (enAttente || !siennes.has(l.enigme)) siennes.set(l.enigme, enAttente ? 'aujourdhui' : 'vue')
+    }
+    const habitues = new Set([...(this.habitues.jour === aujourdhui ? this.habitues.ids : []), ...lu.visitesDuJour])
+    return {
+      maintenant,
+      aujourdhui,
+      moment: moment
+        ? (() => {
+            const caches = cachesDe(this.legende(moment)!)
+            return { divin: nomme(moment), parTous: caches.filter(i => mots.get(moment)?.has(i)).length, aTrouver: caches.length }
+          })()
+        : null,
+      reconstituees,
+      habitues: habitues.size,
+      jours: visitesParJour(lu.parJour, aujourdhui),
+      enigmes: this.enigmes.map(e => {
+        const issues = parEnigme.get(e.numero) ?? new Map<string, number>()
+        return {
+          numero: e.numero,
+          sorte: e.sorte,
+          difficulte: e.difficulte,
+          vers: e.vers,
+          vues: [...issues.values()].reduce((n, v) => n + v, 0),
+          resolues: issues.get('resolue') ?? 0,
+          perdues: issues.get('perdue') ?? 0,
+          chat: issues.get('abandonnee') ?? 0,
+          aToi: siennes.get(e.numero) ?? null,
+        }
+      }),
+      profil: profileId !== null,
+    }
+  }
+
+  /**
+   * « Voir la réponse », au QG : la réponse d'une énigme, rangée d'abord parmi
+   * celles que le profil de l'administrateur a vues — le Sphinx ne la lui
+   * proposera jamais (`choisirLEnigme`). Sans profil, rien où la ranger : elle
+   * ne part pas. Celle que le Sphinx lui pose aujourd'hui, pas encore close,
+   * ne se lit pas ici — il y répondrait en la sachant. Une écriture à la fois
+   * par profil, comme ses gestes.
+   */
+  reponseAuQg(numero: string, profileId: string | null): Promise<ReponseDuSphinxAuQg | RefusDuSphinx> {
+    const e = this.enigme(numero)
+    if (!e) return Promise.resolve({ refus: 404, error: 'Cette énigme n’est pas dans la réserve : recharge la page.' })
+    if (!profileId) {
+      return Promise.resolve({ refus: 409, error: 'Ton compte n’a pas de profil où ranger cette énigme : connecte-toi à ton profil, puis reviens.' })
+    }
+    const laPose = (lignes: readonly LigneDuSphinx[]) =>
+      lignes.some(l => l.enigme === numero && l.jour === jourDe(this.deps.maintenant()) && (l.etat === 'proposee' || l.etat === 'plus-tard'))
+    const refus: RefusDuSphinx = { refus: 409, error: 'Le Sphinx te la pose aujourd’hui : réponds-lui, ou donne ta langue au chat, avant de lire sa réponse ici.' }
+    return this.unALaFois(profileId, async () => {
+      const avant = await this.deps.profiles.visitesDuSphinx(profileId)
+      if (laPose(avant)) return refus
+      const { lignes } = await this.deps.profiles.compterUneEnigmePourVue(profileId, numero, this.deps.maintenant())
+      // Posée entre-temps par sa ligne des missions, d'un autre onglet : elle reste à lui, sans sa réponse.
+      if (laPose(lignes)) return refus
+      return { numero, solution: e.solution, ...(e.cle && { cle: e.cle }), acceptees: e.acceptees, presque: e.presque, deja: avant.some(l => l.enigme === numero) }
+    })
   }
 }

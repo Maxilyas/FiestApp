@@ -16542,6 +16542,27 @@ button.qg-route:hover .qg-route-chemin { text-decoration: underline; }
 .qg-cabinet-perdue { fill: var(--qg-critique); background: var(--qg-critique); }
 .qg-cabinet-en-route { fill: var(--qg-en-route); background: var(--qg-en-route); }
 .qg-cabinet-gagnee { fill: var(--qg-ok); background: var(--qg-ok); }
+/* La page du Sphinx (`/admin#sphinx`, `QgSphinx.tsx`) : ses visites aux mêmes couleurs d'état, dans le même ordre
+   (`ISSUES_DES_VISITES`), et l'ardoise claire d'une visite remise à plus tard entre l'ardoise de celles qui attendent et
+   le vert — plus claire de seize points, elle s'en distingue sans la teinte. */
+.qg-sphinx-chat { fill: var(--qg-veille); background: var(--qg-veille); }
+.qg-sphinx-perdue { fill: var(--qg-critique); background: var(--qg-critique); }
+.qg-sphinx-proposee { fill: var(--qg-en-route); background: var(--qg-en-route); }
+.qg-sphinx-remise { fill: var(--qg-encre-2); background: var(--qg-encre-2); }
+.qg-sphinx-resolue { fill: var(--qg-ok); background: var(--qg-ok); }
+/* Le Divin du moment : son nom en grand, combien de ses mots tous ont trouvés — un compte et sa piste, jamais un mot. */
+.qg-sphinx-moment { display: grid; justify-items: start; gap: 8px; }
+.qg-sphinx-divin { font: 600 1.6rem/1.1 var(--serif); color: var(--accent-text); }
+.qg-sphinx-jauge { justify-content: flex-start; font-size: 1rem; font-weight: 600; }
+.qg-sphinx-jauge .qg-part-piste { width: 120px; height: 8px; }
+.qg-sphinx-reconstituees > li { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; padding: 8px 0; }
+.qg-sphinx-a-toi { margin-left: 8px; vertical-align: 1px; }
+/* Une énigme ouverte : ses vers, un par ligne, puis ses chiffres, puis le geste — ou la réponse qu'il a rendue. */
+.qg-sphinx-vers { display: grid; gap: 2px; margin: 12px 0 16px; padding: 10px 14px; border-left: 3px solid var(--edge-strong); font: italic 1.05rem/1.45 var(--serif); color: var(--ink); }
+.qg-sphinx-chiffres { margin-bottom: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.qg-sphinx-voir { width: 100%; justify-content: center; }
+.qg-sphinx-reponse { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--edge-strong); border-radius: var(--radius-xs); background: var(--accent-soft); }
+.qg-sphinx-reponse > b { font: 600 1.25rem/1.2 var(--serif); color: var(--accent-text-hover); }
 /* Chaque ligne de la page : son nom au-dessus de sa piste, sa part au bout, ce qu'elle dit de plus dessous — et en
    colonnes dans une carte large (`.qg-cabinet-colonnes`) : sur une seule ligne, le nom d'un gardien passait sur trois
    dans le tiers d'une carte. */

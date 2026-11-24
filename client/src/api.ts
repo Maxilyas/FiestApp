@@ -44,6 +44,7 @@ import type { NouveautesDeLaLoge, VusDeLaLoge } from '../../shared/piecesDeLaLog
 import type { MissionsDuJour } from '../../shared/missions'
 import type { CoffreOuvert } from '../../shared/coffre'
 import type { GesteDuSphinx, LeSphinx, VerdictDuSphinx } from '../../shared/sphinx'
+import type { PageDuSphinxAuQg, ReponseDuSphinxAuQg } from '../../shared/qgSphinx'
 import type { CompagnonAcquis } from '../../shared/compagnons'
 import type { ReglageDesOrnements } from '../../shared/ornements'
 import type { CadeauOuvert, CueilletteEcrite, SoinsDuProfil } from '../../shared/soins'
@@ -1056,6 +1057,11 @@ export const api = {
     economie: () => req<PageDeLEconomie>('/api/admin/economie'),
     /** Le Cabinet de curiosités : ses traversées sur trente jours, ses jeux, ses cartes, ses gardiens, son contenu, ses joueurs. */
     cabinet: () => req<PageDuCabinetAuQg>('/api/admin/cabinet'),
+    /** Le Sphinx de l'accueil : le Divin du moment, l'audience, les visites, la réussite de chaque énigme — jamais une réponse. */
+    sphinx: () => req<PageDuSphinxAuQg>('/api/admin/sphinx'),
+    /** La réponse d'une énigme : ce geste la range parmi celles que le profil de l'administrateur a vues. */
+    reponseDuSphinx: (numero: string) =>
+      req<ReponseDuSphinxAuQg>(`/api/admin/sphinx/enigmes/${encodeURIComponent(numero)}/reponse`, { method: 'POST', body: '{}' }),
   },
 }
 

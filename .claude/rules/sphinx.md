@@ -1,14 +1,14 @@
 ---
 paths:
-  - "shared/sphinx.ts"
-  - "server/src/sphinx.ts"
+  - "shared/{sphinx,qgSphinx}.ts"
+  - "server/src/{sphinx,sphinxDuQg}.ts"
   - "server/src/core/sphinx.ts"
   - "server/content/sphinx/enigmes.json"
-  - "server/test/{sphinx-pur,sphinx-accueil,sphinx-ecran}.test.ts"
+  - "server/test/{sphinx-pur,sphinx-accueil,sphinx-ecran,qg-sphinx}.test.ts"
   - "client/src/sphinx.ts"
-  - "client/src/components/{Sphinx,PhraseDuDivin}.tsx"
+  - "client/src/components/{Sphinx,PhraseDuDivin,QgSphinx}.tsx"
   - "client/src/components/sphinx.css"
-  - "server/scripts/rendu-sphinx.ts"
+  - "server/scripts/{rendu-sphinx,rendu-sphinx-qg}.ts"
 ---
 
 # Le Sphinx de l'accueil
@@ -21,9 +21,12 @@ relues à l'aveugle : `retours/2026-11-24/le-sphinx/` (`plan.md` fait foi, ses
 recommandations acceptées ; la maquette validée, `sphinx.html`, fait foi pour
 le rendu et les mots) ; la décision : « Le Sphinx de l'accueil »
 (`docs/architecture/decisions.md`) ; ce que le joueur voit :
-`docs/produit/le-sphinx.md`. **Étapes 1 et 2, le 24 novembre 2026 : le
-serveur, puis les écrans** — la visite, l'épingle, l'album, la police pixel, le
-haut-parleur. Reste l'étape 3 : le QG et l'ouverture.
+`docs/produit/le-sphinx.md`. **Les trois étapes, le 24 novembre 2026 : le
+serveur, les écrans** — la visite, l'épingle, l'album, la police pixel, le
+haut-parleur — **puis le QG** (`/admin#sphinx`). L'ouverture est au
+propriétaire : testeurs en préproduction, puis en production, puis tous — les
+étapes et ce qu'il vérifie, `docs/guides/administrer.md` (« Le Sphinx de
+l'accueil »).
 
 ## Les fichiers
 
@@ -39,6 +42,7 @@ haut-parleur. Reste l'étape 3 : le QG et l'ouverture.
 - `client/src/components/PhraseDuDivin.tsx` — la phrase d'un Divin mot à mot (un trait par lettre, les petits mots offerts, ses mots en or), ce que tous en ont trouvé et sa jauge, le mot du Sphinx dans l'album (`ConseilDuSphinx` : à qui n'est pas habitué, `JOURS_DE_L_HABITUE` sur `FENETRE_DE_L_HABITUE`) ; ses règles dans `styles.css`, aux jetons du thème — la visite les repose à ses couleurs de nuit. La visite et l'album la partagent : l'album l'importe sans faire venir la visite
 - L'accueil (`ProfilApp.tsx`) : ses missions lues par `useMissionsDuJour`, ce que la visite devient gardé à côté (`sphinxIci` : un geste ne relit pas les missions), l'épingle passée à `AccueilJouer` (`epingle`, posée à côté du nom d'« Entre amis »), la visite rendue après la barre du menu. L'album (`AlbumDesAvatars.tsx`) : sa page des Divins lit le Sphinx en s'ouvrant, allume la case du Divin du moment (`album-moment`) et passe la phrase à ses fiches par un contexte (`LeSphinxDeLAlbum`, `SaPhrase`)
 - `server/scripts/rendu-sphinx.ts` — la visite pas à pas et ses cas, mesurée à chaque photo (règle de la skill `regarder-le-rendu`) ; `server/test/sphinx-ecran.test.ts`, ce qui ne se voit qu'en lisant le code
+- Le QG (`/admin#sphinx`, « Sphinx » sous « Modes », après le Cabinet ; règle `qg.md`) : `shared/qgSphinx.ts` — ce que la page reçoit, des comptes (`PageDuSphinxAuQg`, `EnigmeAuQg`, `ReponseDuSphinxAuQg`, `ISSUES_DES_VISITES`, `visitesParJour`, `reussiteDe`) — ; `server/src/sphinxDuQg.ts` — `GET /api/admin/sphinx` et « Voir la réponse », `POST /api/admin/sphinx/enigmes/:numero/reponse`, noté au journal des gestes (sorte `profil`, sa cible le profil de l'administrateur) — ; dans `Sphinx` (`core/sphinx.ts`), `auQg` (la page, d'un lot, `ProfileStore.lecturesDuSphinxAuQg`), `reponseAuQg` (`compterUneEnigmePourVue`, une ligne `vue:<numéro>`) et les habitués du jour en mémoire (`noterLHabitue`, que `decider` et la ligne des missions appellent, sa page ouverte ou non) ; `client/src/components/QgSphinx.tsx` — le Divin du moment, les phrases reconstituées, l'audience, jour par jour (`GrapheDuTemps`, aux couleurs d'état des traversées du Cabinet, `.qg-sphinx-*`), énigme par énigme (la table des questions, `qg-jouees-table`), la feuille d'une énigme et « Voir la réponse », la porte de la maintenance ; `server/test/qg-sphinx.test.ts` ; `server/scripts/rendu-sphinx-qg.ts` la photographie, l'énigme n° 32 seule ouverte
 
 ## Les pièges
 
@@ -140,3 +144,33 @@ haut-parleur. Reste l'étape 3 : le QG et l'ouverture.
   contexte (`LeSphinxDeLAlbum`), et elle ne se montre qu'à un Divin pas encore
   descendu (descendu, il raconte déjà sa légende). Ouverte par la visite, sa
   fiche reprend le focus sans l'anneau du clavier (`focusVisible: false`).
+- **Ses ailes partent en fondu par un masque sur sa toile, jamais repeintes**
+  (`.sx-sphinx canvas`, le 24 novembre 2026) : son dessin touche son propre
+  cadre en haut, à gauche et à droite, et découpé à `[0, 0, 256, 172]`, le
+  haut des ailes et leurs côtés finissaient coupés net. Quatre couches, dans
+  cet ordre — le bas entier, la tête entière (une ellipse autour de sa
+  coiffe), le haut fondu croisé aux côtés fondus — et leur composition, avec
+  et sans `-webkit-` (Safari) : mesuré sur la découpe, rien d'opaque au bord
+  au-delà de 2 %, le corps, la tête et les pattes à 100 %. Sur la toile, il
+  vaut pour la mosaïque comme pour le dessin, et sous « moins de mouvement »
+  (`sphinx-ecran.test.ts`). Un dessin repeint se remesure : sa tête ailleurs,
+  l'ellipse la couperait.
+- **La page du QG ne dévoile rien au propriétaire, qui joue aussi** : du
+  Divin du moment, son nom et un compte — ni ses mots, ni leur forme, ni
+  lesquels sont trouvés ; d'une phrase reconstituée, son Divin et sa date ;
+  d'une énigme, ses vers (montrés au toucher de sa ligne) et ses comptes.
+  `qg-sphinx.test.ts` cherche dans la page chaque réponse de la réserve et
+  chaque mot caché des vraies légendes — dans ses valeurs, ni ses vers ni ses
+  codes : un mot ordinaire d'un refus peut être la réponse d'une énigme, et
+  un refus se compare mot pour mot. **La réponse n'arrive que par son geste,
+  qui la range d'abord** pour vue sur le profil que tient le compte
+  d'administration (`accounts.profile_id`) : sans lui, rien où la ranger, 409 ;
+  celle que le Sphinx lui pose aujourd'hui, pas encore close, 409 aussi — il
+  y répondrait en la sachant. Le journal la nomme par son numéro, jamais par
+  sa réponse.
+- **Les habitués du QG sont ceux que le Sphinx a vus aujourd'hui**, en
+  mémoire (`noterLHabitue`) — la ligne des missions juge leurs jours de toute
+  façon, sa page fermée pour eux comprise : ils se comptent avant l'ouverture —
+  et ceux qu'il a visités, lus dans leurs lignes : compter tous les profils
+  d'après leurs jours joués relirait les journaux de tous les modes. Un
+  redémarrage oublie les premiers jusqu'à leur accueil suivant.

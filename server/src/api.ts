@@ -10,6 +10,7 @@ import type { CabinetStore } from './core/cabinet/magasin'
 import { mountProfilsAdmin } from './profilsAdmin'
 import { mountQg, type QgDeps } from './qg'
 import { mountCabinetDuQg } from './cabinetDuQg'
+import { mountSphinxDuQg } from './sphinxDuQg'
 import { ContenuDuQg, mountContenuDuQg, oublierApresUnGeste } from './qgContenu'
 import { fermerLesPortes, mountMaintenance } from './maintenance'
 import { mountAnnonces } from './annonces'
@@ -277,6 +278,9 @@ export function mountApi(app: Express, deps: ApiDeps) {
   })
   // Le Cabinet de curiosités au QG : ses traversées, ses jeux, ses cartes, ses gardiens, son contenu — l'administrateur seul.
   mountCabinetDuQg(app, { cabinet: deps.cabinet.magasin, profiles: deps.profiles, maintenant: deps.maintenant })
+  // Le Sphinx de l'accueil au QG : le Divin du moment, l'audience, les visites, la réussite de chaque énigme — et sa
+  // réponse, sous un geste qui la range parmi celles que l'administrateur a vues : l'administrateur seul.
+  mountSphinxDuQg(app, { sphinx: deps.sphinx, profiles: deps.profiles })
   // Les questions jouées de la campagne et du quiz du jour, la réserve, la base et le contenu du Cabinet : l'administrateur seul.
   mountContenuDuQg(app, contenu)
   // Le bandeau rouge, les pages fermées et leurs testeurs : l'administrateur seul.

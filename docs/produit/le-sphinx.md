@@ -53,9 +53,11 @@ La page des Divins de « Ma collection » (`/profil#collection-avatars-divin`) m
 
 La phrase d'un Divin est sa légende : elle ne quitte le serveur que mot à mot — les mots qu'il a gagnés, la forme du reste, les petits mots offerts —, entière seulement à qui porte ce Divin, ou à tous une fois reconstituée. Les réponses des énigmes ne quittent le serveur qu'une fois la visite close. Ni ce document, ni la documentation, ni le code du navigateur n'en citent une.
 
+Au QG non plus (« Sphinx », sous « Modes ») : l'administrateur joue aussi. La page compte — combien de mots du Divin du moment tous ont trouvés, les visites, la réussite de chaque énigme — sans dire lesquels ni montrer une phrase ; la réponse d'une énigme n'y paraît que derrière un geste confirmé, qui la retire d'abord de ses propres visites ([Administrer](../guides/administrer.md#le-sphinx-de-laccueil)).
+
 ## Pour aller plus loin
 
 - La règle de l'agent : `.claude/rules/sphinx.md` — les fichiers, les pièges.
 - La décision : « Le Sphinx de l'accueil » dans [les décisions](../architecture/decisions.md).
-- Les routes : `GET` et `POST /api/joueur/sphinx`, dans [l'API HTTP](../reference/api-http.md).
-- Ce qui se voit, photographié : `server/scripts/rendu-sphinx.ts` ([les commandes](../reference/commandes.md)).
+- Les routes : `GET` et `POST /api/joueur/sphinx`, et celles du QG, `/api/admin/sphinx`, dans [l'API HTTP](../reference/api-http.md).
+- Ce qui se voit, photographié : `server/scripts/rendu-sphinx.ts`, et le QG, `server/scripts/rendu-sphinx-qg.ts` ([les commandes](../reference/commandes.md)).

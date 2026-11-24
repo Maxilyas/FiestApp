@@ -2710,6 +2710,66 @@ export class ProfileStore {
   }
 
   /**
+   * Compte une énigme pour vue sur un profil, sans visite et sans drapeau : la
+   * réponse que l'administrateur lit au QG (`POST
+   * /api/admin/sphinx/enigmes/:numero/reponse`). Sa ligne `vue:<numéro>`,
+   * posée une fois ; rend ses visites telles que la base les garde, d'un même
+   * lot — le geste revérifie que le Sphinx ne la lui pose pas aujourd'hui.
+   */
+  async compterUneEnigmePourVue(profileId: string, numero: string, quand: number): Promise<{ posee: boolean; lignes: LigneDuSphinx[] }> {
+    const [pose, visites] = await this.client.batch(
+      [
+        {
+          sql: `INSERT INTO profile_sphinx (profile_id, jour, enigme, divin, etat, proposee_le) VALUES (?, ?, ?, '', 'vue', ?)
+                ON CONFLICT(profile_id, jour) DO NOTHING`,
+          args: [profileId, `vue:${numero}`, numero, quand],
+        },
+        lectureDuSphinx(profileId),
+      ],
+      'write',
+    )
+    return { posee: pose.rowsAffected > 0, lignes: lignesDuSphinxLues(visites.rows) }
+  }
+
+  /**
+   * Ce que la page du Sphinx au QG lit, d'un lot (`/api/admin/sphinx`) : les
+   * visites de chaque énigme par issue, de tout temps ; celles des trente
+   * derniers jours, jour par jour ; le premier instant où chaque mot de chaque
+   * Divin a été trouvé — la date d'une phrase reconstituée ; les profils
+   * visités aujourd'hui — des habitués, sûrement — ; et les lignes du profil
+   * de l'administrateur, pour dire ce qu'il a déjà vu. Des comptes, et des
+   * identifiants qui ne quittent pas le serveur : aucune réponse n'y est,
+   * aucune ligne d'un autre profil ne se décode. Les lignes `vue` ne sont pas
+   * des visites.
+   */
+  async lecturesDuSphinxAuQg({ depuis, aujourdhui, profileId }: { depuis: string; aujourdhui: string; profileId: string | null }): Promise<{
+    parEnigme: { enigme: string; etat: string; n: number }[]
+    parJour: { jour: string; etat: string; n: number }[]
+    premiersMots: { divin: string; mot: number; le: number }[]
+    visitesDuJour: string[]
+    siennes: LigneDuSphinx[]
+  }> {
+    const [parEnigme, parJour, premiers, duJour, siennes] = await this.client.batch(
+      [
+        `SELECT enigme, etat, COUNT(*) AS n FROM profile_sphinx WHERE etat <> 'vue' GROUP BY enigme, etat`,
+        { sql: `SELECT jour, etat, COUNT(*) AS n FROM profile_sphinx WHERE etat <> 'vue' AND jour >= ? AND jour <= ? GROUP BY jour, etat`, args: [depuis, aujourdhui] },
+        // Par l'index partiel des mots (`idx_profile_sphinx_mot`) : seules les visites résolues s'y trouvent.
+        'SELECT divin, mot, MIN(COALESCE(close_le, proposee_le)) AS le FROM profile_sphinx WHERE mot IS NOT NULL GROUP BY divin, mot',
+        { sql: `SELECT profile_id FROM profile_sphinx WHERE jour = ? AND etat <> 'vue'`, args: [aujourdhui] },
+        profileId ? lectureDuSphinx(profileId) : 'SELECT 1 WHERE 0',
+      ],
+      'read',
+    )
+    return {
+      parEnigme: parEnigme.rows.map(r => ({ enigme: String(r.enigme), etat: String(r.etat), n: Number(r.n) })),
+      parJour: parJour.rows.map(r => ({ jour: String(r.jour), etat: String(r.etat), n: Number(r.n) })),
+      premiersMots: premiers.rows.map(r => ({ divin: String(r.divin), mot: Number(r.mot), le: Number(r.le) })),
+      visitesDuJour: duJour.rows.map(r => String(r.profile_id)),
+      siennes: profileId ? lignesDuSphinxLues(siennes.rows) : [],
+    }
+  }
+
+  /**
    * Tire ses missions d'un jour, une fois : deux lectures parties ensemble
    * tirent les mêmes (la graine de `tirerLesMissions`), et la seconde
    * n'écrit rien. La ligne des trois naît avec elles. Rend les lignes du jour

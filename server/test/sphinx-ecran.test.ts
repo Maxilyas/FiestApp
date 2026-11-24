@@ -150,6 +150,34 @@ test('moins de mouvement : la réplique s’écrit d’un coup, sans mosaïque n
   assert.match(lire('client/src/components/sphinx.css'), /@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*\.sx-scene/)
 })
 
+// ── Ses ailes, en fondu ───────────────────────────────────────────────────
+
+test('ses ailes partent en fondu sur la toile qui porte la mosaïque et le dessin, sous « moins de mouvement » aussi', () => {
+  const feuille = lire('client/src/components/sphinx.css')
+  // Les règles de la toile : celle qui la pose, celle qui la masque.
+  const regles = [...feuille.matchAll(/\.sx-sphinx canvas\s*\{([^}]*)\}/g)].map(m => m[1]).join('\n')
+  for (const [prefixe, composition] of [
+    ['-webkit-', /-webkit-mask-composite:\s*source-over,\s*source-over,\s*source-in,\s*source-over;/],
+    ['', /(?<!-webkit-)mask-composite:\s*add,\s*add,\s*intersect,\s*add;/],
+  ] as const) {
+    const masque = regles.match(new RegExp(`(?<![\\w-])${prefixe}mask-image:\\s*([^;]+);`))
+    assert.ok(masque, `la toile porte son ${prefixe || 'propre '}masque`)
+    const couches = masque[1].split(/,\s*(?=(?:linear|radial)-gradient)/)
+    assert.equal(couches.length, 4, 'le bas, la tête, le haut, les côtés')
+    assert.match(couches[0], /linear-gradient\(to bottom, transparent \d+%, #000 \d+%\)/, 'le bas — le corps, la queue, les pattes — entier')
+    assert.match(couches[1], /radial-gradient\(ellipse [\d.]+% [\d.]+% at [\d.]+% [\d.]+%, #000 \d+%, transparent 100%\)/, 'la tête entière')
+    assert.match(couches[2], /linear-gradient\(to bottom, transparent, #000 \d+%\)/, 'le haut se fond')
+    assert.match(couches[3], /linear-gradient\(to right, transparent, #000 \d+%, #000 \d+%, transparent\)/, 'les côtés se fondent')
+    assert.match(regles, composition, `${prefixe || 'sans préfixe'} : les côtés croisés au haut, puis la tête et le bas ajoutés`)
+  }
+  // Rien ne le retire : ni « moins de mouvement », ni une autre règle de la feuille.
+  assert.doesNotMatch(feuille, /mask(-image)?:\s*none/)
+  // La mosaïque et le dessin se peignent sur la même toile : le masque vaut pour les deux.
+  const visite = lire('client/src/components/Sphinx.tsx')
+  assert.match(visite, /function peindre\(toile: HTMLCanvasElement/)
+  assert.match(visite, /className=\{'sx-sphinx'/)
+})
+
 // ── L'énigme, sans clavier imposé ─────────────────────────────────────────
 
 test('le champ de la réponse est nommé, et rien ne lui donne le focus d’office', async () => {

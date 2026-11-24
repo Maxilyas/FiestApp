@@ -55,7 +55,7 @@ export interface DepsDesMissions {
    * Le Sphinx de l'accueil (`core/sphinx.ts`) : la ligne des missions dit s'il
    * passe (`MissionsDuJour.sphinx`), dans la même lecture. Absent, jamais.
    */
-  sphinx?: Pick<Sphinx, 'pret' | 'decider' | 'poser'>
+  sphinx?: Pick<Sphinx, 'pret' | 'decider' | 'poser' | 'noterLHabitue'>
 }
 
 /**
@@ -288,6 +288,9 @@ export class Missions {
       ])
       const activites = activiteDesJours({ ...duJour, ...deCampagne, soirees })
       const decision = sphinx && sphinxPret ? sphinx.decider(profileId, aujourdhui, activites, visites) : null
+      // Sa page fermée pour lui, le Sphinx retient quand même s'il est un habitué : l'audience du QG la compte avant de
+      // l'ouvrir à tous, de ses jours déjà lus ici (`decider` le fait de lui-même).
+      if (!decision) this.deps.sphinx?.noterLHabitue(profileId, aujourdhui, activites)
       // La visite tirée à cette lecture se pose tout de suite, de front avec ce qui suit — le tirage des missions, ce qui
       // est fait : la première lecture du jour n'attend pas un aller-retour de plus. Elle échoue : le champ se tait, et
       // la lecture de la visite la reposera.

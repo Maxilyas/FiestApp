@@ -165,6 +165,37 @@ test('la vue d’ensemble lit trente jours de séries et de parties du jour d’
   assert.equal(parties, SERIES + PARTIES)
 })
 
+// La page du Sphinx au QG compte les visites de tous : d'un lot, en comptes
+// déjà faits par la base — jamais une ligne de visite par profil à décoder,
+// jamais un aller-retour par énigme ou par jour. Les mots de tous, la mémoire
+// du Sphinx, se lisent une fois par processus.
+test('la page du Sphinx lit les visites de tous d’un seul aller-retour, en comptes, quel que soit leur nombre', async () => {
+  const VISITES = 60
+  const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  try {
+    const profils = (db.prepare('SELECT id FROM profiles ORDER BY id LIMIT 8').all() as { id: string }[]).map(p => p.id)
+    const visite = db.prepare(`INSERT INTO profile_sphinx (profile_id, jour, enigme, divin, etat, mot, proposee_le, close_le) VALUES (?, ?, ?, 'dv:osiris', ?, ?, ?, ?)`)
+    const etats = ['resolue', 'perdue', 'abandonnee', 'plus-tard', 'proposee']
+    for (let i = 0; i < VISITES; i++) {
+      const quand = Date.now() - (i % 25) * 86_400_000
+      const etat = etats[i % etats.length]
+      // Huit profils, vingt-cinq jours : jamais deux visites d'un profil le même jour.
+      visite.run(profils[i % profils.length], jourDe(quand), ['32', '211', '146'][i % 3], etat, etat === 'resolue' ? i % 4 : null, quand, quand)
+    }
+  } finally {
+    db.close()
+  }
+  await banc.redemarrer()
+  const premiere = await mesurer(() => lire<{ jours: unknown[]; enigmes: unknown[] }>('/api/admin/sphinx'))
+  assert.ok(premiere.allersRetours <= 2, `les mots de tous, une fois, puis la page d’un lot — ${premiere.allersRetours}`)
+  const sphinx = compte.lignes.filter(l => /\bprofile_sphinx\b/.test(l.sql))
+  assert.ok(sphinx.length <= 6, `${sphinx.length} lectures`)
+  // Des comptes, déjà faits : jamais les soixante visites, une à une.
+  for (const l of sphinx) assert.ok(l.lignes < VISITES / 2, `${l.lignes} lignes à décoder (${l.sql.slice(0, 80)}…)`)
+  const suivante = await mesurer(() => lire('/api/admin/sphinx'))
+  assert.equal(suivante.allersRetours, 1, 'la page d’un seul lot')
+})
+
 // La page de l'économie comptait les bonnes réponses de la campagne heure par
 // heure, cherchées dans la base par leur série, une semaine de marge : sans
 // statistiques, SQLite y parcourait toutes les réponses de la campagne, puis
