@@ -147,7 +147,8 @@ test('la gemme de l’Éclat ne se pose plus qu’en liste, sur un médaillon pe
 test('ce qui éclate, c’est ce qu’on porte : le légendaire, l’emoji sinon — jamais un Divin', () => {
   assert.equal(cibleEclat('lg:phenix', '🦊'), 'lg:phenix')
   assert.equal(cibleEclat(null, '🦊'), '🦊')
-  assert.equal(cibleEclat('dv:seraphin', '🦊'), '🦊', 'sous un Divin, c’est l’emoji qui éclate')
+  // Sous un Divin, l'écran regarde l'emoji ; le tirage, lui, part en réserve (`eclat-reserve.test.ts`).
+  assert.equal(cibleEclat('dv:seraphin', '🦊'), '🦊', 'sous un Divin, l’écran regarde l’emoji')
 })
 
 // ── 3. Sur un vrai serveur ────────────────────────────────────────────────

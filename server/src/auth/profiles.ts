@@ -91,6 +91,7 @@ import {
   cibleEclat,
   cleDuCabinet,
   conditionTenue,
+  eclatEnReserveDOffice,
   estEnReserve,
   estUneVoieRangee,
   legendaire,
@@ -5562,11 +5563,15 @@ export class ProfileStore {
    * Ce qui éclatera si l'Éclat tombe sur ce profil ce soir : le légendaire
    * qu'il porte, ou l'emoji qu'il a joué (`cibleEclat`). Un compagnon n'éclate
    * qu'une fois, quelle que soit sa forme : déjà éclaté, la cible est son
-   * Éclat d'avant, et le tirage tombe dans le vide (`grantEclat`).
+   * Éclat d'avant, et le tirage tombe dans le vide (`grantEclat`). Rien sous
+   * un Divin ni sur l'avatar par défaut (`eclatEnReserveDOffice`) : l'Éclat
+   * y attend en réserve.
    */
-  cibleEclatDe(profileId: string, emoji: string): string {
+  cibleEclatDe(profileId: string, emoji: string): string | null {
     const p = this.profiles.get(profileId)
-    const cible = cibleEclat(p ? this.legendairePorte(p) : null, emoji)
+    const porte = p ? this.legendairePorte(p) : null
+    if (eclatEnReserveDOffice(porte, emoji)) return null
+    const cible = cibleEclat(porte, emoji)
     return clesQuiBrillent(this.eclats.get(profileId) ?? [], cible)[0] ?? cible
   }
 
@@ -5661,13 +5666,14 @@ export class ProfileStore {
 
   /**
    * Le tirage a réussi : l'Éclat tombe sur ce qu'il porte (`cibleEclatDe`),
-   * ou, si cela avait déjà éclaté, il attend en réserve — il se perdait, et
-   * le joueur qui portait un avatar éclaté ne gagnait rien d'un tirage heureux.
-   * Rend ce qui a éclaté, ou la clé de l'Éclat en réserve (`estEnReserve`).
+   * ou, si cela avait déjà éclaté — ou s'il porte un Divin, ou l'avatar par
+   * défaut —, il attend en réserve : il se perdait, et le joueur qui portait
+   * un avatar éclaté ne gagnait rien d'un tirage heureux. Rend ce qui a
+   * éclaté, ou la clé de l'Éclat en réserve (`estEnReserve`).
    */
   async donnerUnEclat(profileId: string, emoji: string, sous: string): Promise<string> {
     const avatar = this.cibleEclatDe(profileId, emoji)
-    if (await this.grantEclat(profileId, avatar, sous)) return avatar
+    if (avatar && (await this.grantEclat(profileId, avatar, sous))) return avatar
     const cle = `${PREFIXE_DE_LA_RESERVE}${randomUUID()}`
     await this.client.execute({
       sql: 'INSERT INTO profile_eclats (profile_id, avatar, soiree_id, created_at) VALUES (?, ?, ?, ?)',
