@@ -594,11 +594,61 @@ try {
   if (veut('nina')) await lAlbum('nina', profils.nina, PETIT, 'Osiris')
 
   // ── Une phrase reconstituée par tous : entière sous son voile, et le Sphinx passe au Divin suivant ──
+  // Elle ne s'impose plus (la décision du 24 novembre 2026) : Marc trouve le dernier mot, et le Sphinx lui propose de la
+  // lire ; Nina la voit annoncée sur son accueil, puis sa fiche, « La phrase est retrouvée : la lire », et ses mots qui se
+  // retournent ; Inès, l'annonce en 390 × 844.
   if (veut('reconstituee')) {
-    motsDeTous('figurant2', caches)
-    await banc.redemarrer()
-    await lAlbum('reconstituee', profils.nina, PETIT, 'Osiris')
-    await lAlbum('reconstituee', profils.lea, MOYEN, 'Osiris')
+    motsDeTous('figurant2', caches.slice(1))
+    // Marc, venu pour l'occasion : sa première visite, quoi que les autres cas aient joué aujourd'hui.
+    const marc = await inscrireProfil(banc.url, 'marc2', 'Marc', '🐶')
+    habitue('marc2')
+    await reserve('32')
+    {
+      const cas = 'reconstituee'
+      const { ctx, page } = await telephone({ cookie: marc, ecran: PETIT })
+      await accueil(page)
+      await page.waitForSelector('.sx-boite.sx-boite-la', { timeout: 30000 })
+      for (let i = 0; i < 6; i++) await replique(page, cas, null, PETIT)
+      await choisir(page, cas, null, PETIT, 0)
+      await lEnigme(page)
+      await repondre(page, reponses(enigme('32')).juste)
+      await quandIlADit(page, 'Exact')
+      await page.waitForFunction(() => !!(globalThis as any).document.querySelector('.sx-focus .phrase-sien'), null, { timeout: 15000 })
+      await replique(page, cas, 'le-dernier-mot', PETIT)
+      await choisir(page, cas, 'la-lire-ou-pas', PETIT, 0)
+      await quandIlADit(page, 'La voici')
+      await page.waitForTimeout(800)
+      await photo(page, cas, 'la-voici', PETIT)
+      await ctx.close()
+    }
+    for (const [qui, ecran] of [
+      ['nina', PETIT],
+      ['ines', MOYEN],
+    ] as const) {
+      const cas = `annonce-${qui}`
+      const { ctx, page } = await telephone({ cookie: profils[qui], ecran })
+      await accueil(page)
+      await page.waitForSelector('.annonce-phrase', { timeout: 20000 })
+      await page.waitForTimeout(600)
+      await photo(page, cas, 'l-accueil', ecran, { surAccueil: true })
+      if (qui === 'nina') {
+        // « La voir » : la fiche du Divin s'ouvre dans l'album, le choix l'y attend.
+        await page.locator('.annonce-phrase-ligne').tap()
+        await page.waitForURL(/\/profil#collection-avatars-divin/, { timeout: 20000 })
+        await page.waitForSelector('.album-phrase-lire', { timeout: 20000 })
+        await page.locator('.album-phrase').scrollIntoViewIfNeeded()
+        await page.waitForTimeout(800)
+        await photo(page, cas, 'la-fiche', ecran)
+        await page.locator('.album-phrase-lire').tap()
+        await page.waitForSelector('.dialog', { timeout: 20000 })
+        await photo(page, cas, 'la-lire', ecran)
+        await page.locator('.dialog button[type="submit"]').tap()
+        await page.waitForSelector('.album-phrase .phrase-neuf', { timeout: 20000 })
+        await page.waitForTimeout(1600)
+        await photo(page, cas, 'lue', ecran)
+      }
+      await ctx.close()
+    }
   }
 
   writeFileSync(path.join(sortie, 'mesures.json'), JSON.stringify(rapport, null, 2))

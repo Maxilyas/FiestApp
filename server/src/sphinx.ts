@@ -8,7 +8,7 @@ import { readPlayerToken } from './auth/http'
 import { quiEstCe } from './maintenance'
 
 export interface DepsDesRoutesDuSphinx {
-  sphinx: Sphinx
+  sphinx: Pick<Sphinx, 'lire' | 'geste' | 'lirePhrase' | 'annoncerLaPhrase'>
   profiles: ProfileStore
   auth: AuthStore
   maintenance: Maintenance
@@ -67,6 +67,35 @@ export function mountSphinx(app: Express, deps: DepsDesRoutesDuSphinx) {
       const profil = await profilDe(req, res)
       if (!profil) return
       const issue = await deps.sphinx.geste(profil.id, req.body)
+      if ('refus' in issue) res.status(issue.refus).json({ error: issue.error })
+      else res.json(issue)
+    }),
+  )
+
+  // « La phrase est retrouvée : la lire » (`{ divin }`) — la décision du propriétaire du 24 novembre 2026 : une phrase
+  // reconstituée par tous ne s'impose plus, chacun la dévoile quand il veut, pour de bon et sur tous ses appareils.
+  // Une phrase qui attend encore des mots se refuse (409). Sa porte se ferme avec la page (`PORTES_DES_PAGES.sphinx`).
+  app.post(
+    '/api/joueur/sphinx/phrase',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      const issue = await deps.sphinx.lirePhrase(profil.id, req.body)
+      if ('refus' in issue) res.status(issue.refus).json({ error: issue.error })
+      else res.json(issue)
+    }),
+  )
+
+  // L'accueil a montré la carte d'une phrase retrouvée (`{ divin }`) : elle ne s'y redira plus, sur aucun de ses appareils.
+  // Rien ne s'y joue : pas de porte. Sa page fermée pour lui, la carte ne paraît pas.
+  app.post(
+    '/api/joueur/sphinx/annonce',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      const issue = await deps.sphinx.annoncerLaPhrase(profil.id, req.body)
       if ('refus' in issue) res.status(issue.refus).json({ error: issue.error })
       else res.json(issue)
     }),

@@ -271,6 +271,38 @@ test('l’album montre la phrase du Divin du moment à tout profil, et dit à qu
   assert.match(album, /rarete === 'divin'/)
 })
 
+// ── Une phrase retrouvée par tous : un choix, jamais imposée ──────────────
+
+test('une phrase retrouvée se dévoile à la demande : l’album la propose, la visite la propose, l’accueil l’annonce sans un mot', async () => {
+  // L'album : ses mots, la forme du reste, et le geste — confirmé, puis ce qui s'y dévoile se retourne.
+  const album = lire('client/src/components/AlbumDesAvatars.tsx')
+  assert.match(album, /La phrase est retrouvée : la lire/)
+  assert.match(album, /confirmDialog\(\{[\s\S]*?title: 'Lire la phrase entière \?'/)
+  assert.match(album, /api\.joueur\.lirePhraseDuSphinx\(cle\)/)
+  assert.match(album, /placesDevoilees\(avant, phrase\)/)
+  // L'album n'emporte toujours pas la visite pour autant.
+  assert.ok(!importsStatiques(path.join(client, 'components/AlbumDesAvatars.tsx')).has(path.join(client, 'components/Sphinx.tsx')))
+  // La visite : le mot qui manquait à tous, et le Sphinx propose de la lire, ou pas maintenant.
+  const visite = lire('client/src/components/Sphinx.tsx')
+  assert.match(visite, /if \(entiere && apres\.aDevoiler\)/)
+  assert.match(visite, /demander\(moi, DIT\.laLire, \[\s*\['lire', 'La lire'\],\s*\['plus-tard', 'Pas maintenant'\],?\s*\]\)/)
+  // Ce qui s'y dévoile : seulement ce que la phrase d'après dit de plus.
+  const { placesDevoilees } = await import(url('components/PhraseDuDivin.tsx'))
+  assert.deepEqual(placesDevoilees(phrase(), phrase({ mots: [...phrase().mots.slice(0, 1), { forme: '_______', texte: 'Tsdfghj' }, ...phrase().mots.slice(2)] })), [1])
+  // L'accueil : son Divin et ceux qui l'ont retrouvée, à la place d'« À la une », et toute la ligne mène à l'album.
+  const html = await rendu('components/CarteDeLAdministrateur.tsx', 'CarteDeLAdministrateur', {
+    annonce: { id: 'phrase:dv:osiris', sorte: 'phrase', divin: { key: 'dv:osiris', nom: 'Osiris' }, grace: ['Léa', 'Tom', 'Camille (2)'], autres: 4, le: 1 },
+    prenom: 'Nina',
+    onRanger: () => {},
+  })
+  assert.match(blancs(html), /<li class="annonce-phrase"><button type="button" class="annonce-phrase-ligne" aria-label="La phrase d’Osiris est retrouvée, grâce à Léa, Tom, Camille \(2\) et 4 autres\. La voir dans ton album">/)
+  const feuille = lire('client/src/styles.css')
+  assert.match(feuille, /\.accueil:has\(\.annonce-phrase\) \.une-cadre \{ display: none; \}/)
+  assert.match(feuille, /\.accueil:has\(\.annonce-phrase\) \.haut-en-chemin \{ height: var\(--accueil-missions\); \}/)
+  // Ce qui est vu se retient au serveur, une fois montré.
+  assert.match(lire('client/src/components/AccueilDesRoles.tsx'), /if \(a\.sorte === 'phrase'\) api\.joueur\.phraseAnnoncee\(a\.divin\.key\)/)
+})
+
 // ── La phrase inventée des photos ─────────────────────────────────────────
 
 test('la phrase inventée remplace la légende que lit le Sphinx, au banc seulement — jamais en ligne', async () => {

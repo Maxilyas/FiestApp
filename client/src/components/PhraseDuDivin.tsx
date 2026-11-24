@@ -54,18 +54,24 @@ function Mot({ mot, i, retourne }: { mot: MotDeLaPhrase; i: number; retourne: bo
 }
 
 /**
- * La phrase, mot par mot. `retourne`, la place du mot qu'il vient de gagner :
- * ses lettres se retournent une à une, comme la maquette les montrait.
+ * La phrase, mot par mot. `retourne`, la place du mot qu'il vient de gagner —
+ * ou celles d'une phrase retrouvée qu'il vient de choisir de lire : leurs
+ * lettres se retournent une à une, comme la maquette les montrait.
  */
-export function PhraseDuDivin({ phrase, retourne, className = '' }: { phrase: PhraseDuSphinx; retourne?: number; className?: string }) {
+export function PhraseDuDivin({ phrase, retourne, className = '' }: { phrase: PhraseDuSphinx; retourne?: number | readonly number[]; className?: string }) {
+  const retournes = new Set(typeof retourne === 'number' ? [retourne] : (retourne ?? []))
   return (
     <p className={`phrase-divin ${className}`.trim()}>
       {phrase.mots.map((m, i) => (
-        <Mot key={i} mot={m} i={i} retourne={i === retourne} />
+        <Mot key={i} mot={m} i={i} retourne={retournes.has(i)} />
       ))}
     </p>
   )
 }
+
+/** Les places d'une phrase que la suivante dévoile : ce qui s'y retourne quand il choisit de la lire. */
+export const placesDevoilees = (avant: PhraseDuSphinx, apres: PhraseDuSphinx): number[] =>
+  apres.mots.flatMap((m, i) => (m.texte !== undefined && avant.mots[i]?.texte === undefined ? [i] : []))
 
 /**
  * Ce que chacun sait de la phrase : ses mots, et combien tous les habitués en
@@ -99,7 +105,8 @@ export function ConseilDuSphinx({ phrase, habitue }: { phrase: PhraseDuSphinx; h
   let dit: string
   let gras: string | null = null
   let suite = ''
-  if (phrase.reconstituee) dit = 'Tous ensemble, vous l’avez reconstituée.'
+  if (phrase.aDevoiler) dit = 'Tous ensemble, vous l’avez retrouvée. Elle t’attend : lis-la quand tu voudras.'
+  else if (phrase.reconstituee) dit = 'Tous ensemble, vous l’avez reconstituée.'
   else if (!habitue) dit = `Le Sphinx ne parle qu’aux habitués : joue ${JOURS_DE_L_HABITUE} jours sur ${FENETRE_DE_L_HABITUE}, et il viendra te souffler ses mots.`
   else if (autres > 0) {
     dit = 'Les autres habitués ont trouvé '

@@ -197,14 +197,30 @@ test('ce qu’un profil voit d’une phrase : ses mots, les petits mots, la form
   assert.deepEqual(vue.mots[4], { forme: '_____' }, 'trouvé par un autre : il ne le voit pas')
   assert.deepEqual([vue.aTrouver, vue.siens, vue.parTous, vue.reconstituee], [5, 1, 3, false])
   assert.ok(!JSON.stringify(vue).includes('faute') && !JSON.stringify(vue).includes('tremblé'))
-  // Tous les mots trouvés, par tous : la phrase se montre entière à chacun.
-  const entiere = phraseVue(divin, legende, { siens: new Set(), deTous: new Set([0, 1, 3, 4, 8]) })
+  // Tous les mots trouvés, par tous : retrouvée — elle ne s'impose plus (la décision du 24 novembre 2026). Rien de plus
+  // que ses mots ne part, et elle dit qu'elle se dévoile à sa demande.
+  const retrouvee = phraseVue(divin, legende, { siens: new Set([1]), deTous: new Set([0, 1, 3, 4, 8]) })
+  assert.deepEqual([retrouvee.reconstituee, retrouvee.aDevoiler, retrouvee.legende], [true, true, undefined])
+  assert.deepEqual(retrouvee.mots.map(m => m.texte), [undefined, 'réponses', 'pas', undefined, undefined, 'il', 'n’a', 'pas', undefined])
+  assert.ok(!JSON.stringify(retrouvee).includes('faute') && !JSON.stringify(retrouvee).includes('tremblé'))
+  // Choisie (`lue`), elle se montre entière, sa ponctuation comprise.
+  const entiere = phraseVue(divin, legende, { siens: new Set(), deTous: new Set([0, 1, 3, 4, 8]), lue: true })
   assert.equal(entiere.reconstituee, true)
+  assert.equal(entiere.aDevoiler, undefined)
   assert.deepEqual(entiere.mots.map(m => m.texte), ['Dix', 'réponses', 'pas', 'une', 'faute', 'il', 'n’a', 'pas', 'tremblé'])
+  assert.equal(entiere.legende, legende)
+  // Lue avant d'être retrouvée — une ligne d'un serveur d'avant : rien de plus.
+  assert.equal(phraseVue(divin, legende, { siens: new Set([1]), deTous: new Set([1, 4, 8]), lue: true }).legende, undefined)
+  // Qui a trouvé chaque mot caché lui-même la voit entière, sans geste.
+  const sienne = phraseVue(divin, legende, { siens: new Set([0, 1, 3, 4, 8]), deTous: new Set([0, 1, 3, 4, 8]) })
+  assert.deepEqual([sienne.aDevoiler, sienne.legende], [undefined, legende])
   // Son porteur en connaît la légende : elle se montre entière à lui.
   const porteur = phraseVue(divin, legende, { siens: new Set(), deTous: new Set(), porteur: true })
   assert.equal(porteur.porteur, true)
   assert.equal(porteur.mots.every(m => m.texte), true)
+  assert.equal(porteur.legende, legende)
+  // Retrouvée par tous, son porteur n'a rien à dévoiler.
+  assert.equal(phraseVue(divin, legende, { siens: new Set(), deTous: new Set([0, 1, 3, 4, 8]), porteur: true }).aDevoiler, undefined)
 })
 
 test('le mot soufflé : d’abord un que personne n’a encore, sinon un qu’il n’a pas, au hasard de sa graine', () => {

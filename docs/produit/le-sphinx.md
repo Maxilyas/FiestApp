@@ -36,11 +36,13 @@ En haut de l'écran — le clavier du téléphone monte par le bas : son numéro
 - « **Je donne ma langue au chat** » clôt la visite.
 - Perdue ou abandonnée, le Sphinx dit la réponse — jamais avant —, et « Reviens demain ».
 
-**Résolue** : le mot gagné naît là où était l'énigme, vole jusqu'à sa place dans la phrase, et ses lettres se retournent une à une. Le Sphinx dit si personne ne l'avait encore, combien les autres habitués en ont trouvé, « Comparez vos mots : à plusieurs, vous lirez la phrase entière », puis mène à l'album, où la phrase attend. Le dernier mot qui manquait à tous reconstitue la phrase : elle se lit alors entière, et le Sphinx passe au Divin suivant.
+**Résolue** : le mot gagné naît là où était l'énigme, vole jusqu'à sa place dans la phrase, et ses lettres se retournent une à une. Le Sphinx dit si personne ne l'avait encore, combien les autres habitués en ont trouvé, « Comparez vos mots : à plusieurs, vous lirez la phrase entière », puis mène à l'album, où la phrase attend. Le dernier mot qui manquait à tous reconstitue la phrase, et le Sphinx passe au Divin suivant. Elle ne s'impose à personne : chacun avance à son rythme. Le Sphinx le dit à qui a trouvé ce dernier mot, et lui propose de la lire en entier — « La lire » : ce qu'il ne savait pas s'y retourne, lettre à lettre ; « Pas maintenant » : elle l'attend dans l'album.
+
+**Annoncée une fois** : quand une phrase est retrouvée, chaque profil le lit une fois en tête de son accueil, à la place d'« À la une » — « La phrase d'Osiris est retrouvée », grâce aux trois premiers à y avoir trouvé un mot, puis « et 4 autres » —, jamais un mot de la phrase. La ligne mène à la fiche du Divin dans l'album, où le choix l'attend ; le serveur retient qu'elle a paru, sur tous ses appareils.
 
 ## Dans l'album
 
-La page des Divins de « Ma collection » (`/profil#collection-avatars-divin`) montre, **à tout profil, habitué ou non**, la fiche du Divin du moment — sa case allumée d'or, un « ? » à son épaule — avec sa phrase telle qu'il la voit : ses mots en or, les traits des autres, ce que tous en ont trouvé et la jauge. À qui n'est pas un habitué : « Le Sphinx ne parle qu'aux habitués : joue 4 jours sur 7 ». À un habitué : combien de mots les autres ont trouvés qu'il n'a pas. Une phrase que tous ont reconstituée se lit entière dans la fiche de son Divin, sous son voile.
+La page des Divins de « Ma collection » (`/profil#collection-avatars-divin`) montre, **à tout profil, habitué ou non**, la fiche du Divin du moment — sa case allumée d'or, un « ? » à son épaule — avec sa phrase telle qu'il la voit : ses mots en or, les traits des autres, ce que tous en ont trouvé et la jauge. À qui n'est pas un habitué : « Le Sphinx ne parle qu'aux habitués : joue 4 jours sur 7 ». À un habitué : combien de mots les autres ont trouvés qu'il n'a pas. Une phrase que tous ont reconstituée montre dans la fiche de son Divin ses mots en or, la forme du reste et « 8 sur 8 », puis « La phrase est retrouvée : la lire » : confirmé, elle se dévoile — pour de bon, sur tous ses appareils —, ses mots se retournent comme un mot gagné, et elle se lit ensuite entière, sous son voile. Qui porte ce Divin, ou en a trouvé chaque mot lui-même, la lit sans geste.
 
 ## Le son, le mouvement, la lecture
 
@@ -51,7 +53,7 @@ La page des Divins de « Ma collection » (`/profil#collection-avatars-divin`) m
 
 ## Ce qui reste secret
 
-La phrase d'un Divin est sa légende : elle ne quitte le serveur que mot à mot — les mots qu'il a gagnés, la forme du reste, les petits mots offerts —, entière seulement à qui porte ce Divin, ou à tous une fois reconstituée. Les réponses des énigmes ne quittent le serveur qu'une fois la visite close. Ni ce document, ni la documentation, ni le code du navigateur n'en citent une.
+La phrase d'un Divin est sa légende : elle ne quitte le serveur que mot à mot — les mots qu'il a gagnés, la forme du reste, les petits mots offerts —, entière seulement à qui porte ce Divin, à qui en a trouvé chaque mot, ou, une fois reconstituée, à qui choisit de la lire : à qui ne l'a pas choisie, son texte n'arrive même pas dans le navigateur. Les réponses des énigmes ne quittent le serveur qu'une fois la visite close. Ni ce document, ni la documentation, ni le code du navigateur n'en citent une.
 
 Au QG non plus (« Sphinx », sous « Modes ») : l'administrateur joue aussi. La page compte — combien de mots du Divin du moment tous ont trouvés, les visites, la réussite de chaque énigme — sans dire lesquels ni montrer une phrase ; la réponse d'une énigme n'y paraît que derrière un geste confirmé, qui la retire d'abord de ses propres visites ([Administrer](../guides/administrer.md#le-sphinx-de-laccueil)).
 

@@ -6,7 +6,7 @@ import { dejaPresente, retenirLaPresentation, retenirLeSon, retenirPourLAlbum, s
 import { Divin } from './Divin'
 import { Icon } from './Icon'
 import { IMAGES } from './legendaires-peints'
-import { CompteDeLaPhrase, PhraseDuDivin } from './PhraseDuDivin'
+import { CompteDeLaPhrase, PhraseDuDivin, placesDevoilees } from './PhraseDuDivin'
 import { DIVINS } from '../../../shared/divins'
 import type { EnigmeDuSphinx, GesteDuSphinx, PhraseDuSphinx, SphinxOuvert, VerdictDuSphinx, VisiteDuSphinx as LaVisite } from '../../../shared/sphinx'
 
@@ -85,6 +85,9 @@ const DIT = {
   album: 'Ta phrase t’attend dans ton album. Quand vous l’aurez reconstituée, je vous parlerai d’un autre Divin.',
   entiere: (nom: string) => `Avec ce mot, la phrase ${deLui(nom)} est entière : tous ensemble, vous l’avez *reconstituée* !`,
   entiereAlbum: 'Elle t’attend dans ton album. Je vous parlerai bientôt d’un autre Divin.',
+  laLire: 'Tu veux la lire en entier ? Chacun la lit quand il veut… ou jamais.',
+  laVoici: 'La voici. Je vous parlerai bientôt d’un autre Divin.',
+  plusTardDansLAlbum: 'Comme tu voudras. Elle t’attend dans ton album, le jour où tu voudras la lire.',
   perdu: (solution: string) => `Le sable se referme. C’était ${solution}.`,
   chat: (solution: string) => `Dommage. C’était ${solution}.`,
   demain: 'Reviens demain : j’aurai une autre énigme, et un autre mot à souffler.',
@@ -635,7 +638,7 @@ function SceneDuSphinx({
   const [vise, setVise] = useState(0)
   const [visite, setVisite] = useState<LaVisite | null>(donnees?.visite ?? null)
   const [phrase, setPhrase] = useState<PhraseDuSphinx | null>(donnees?.visite?.phrase ?? null)
-  const [retourne, setRetourne] = useState<number | undefined>(undefined)
+  const [retourne, setRetourne] = useState<number | readonly number[] | undefined>(undefined)
   const [vitrineLa, setVitrineLa] = useState(0)
   const [versMontres, setVersMontres] = useState(0)
   const [valeur, setValeur] = useState('')
@@ -950,7 +953,30 @@ function SceneDuSphinx({
       setVue('focus')
     }
     const entiere = apres.reconstituee || (v.phrase !== null && v.phrase.divin.key !== apres.divin.key)
-    if (entiere) {
+    if (entiere && apres.aDevoiler) {
+      // Son mot était le dernier qui manquait à tous : la phrase ne s'impose pas (la décision du 24 novembre 2026). Le
+      // Sphinx le dit, et lui laisse le choix — maintenant, ou plus tard dans l'album.
+      await dire(moi, DIT.entiere(nom))
+      const choix = await demander(moi, DIT.laLire, [
+        ['lire', 'La lire'],
+        ['plus-tard', 'Pas maintenant'],
+      ])
+      if (choix === 'lire') {
+        try {
+          const { phrase: toute } = await api.joueur.lirePhraseDuSphinx(lui.divin.key)
+          verifier(moi)
+          setPhrase(toute)
+          // Ce qu'il ne savait pas se retourne, lettre à lettre, comme un mot gagné.
+          setRetourne(placesDevoilees(apres, toute))
+          await attendre(moi, calme ? 300 : 1600)
+          await dire(moi, DIT.laVoici)
+        } catch (e) {
+          if (e instanceof Abandon) throw e
+          await dire(moi, DIT.sansReseau((e as Error).message.replace(/[.\s]+$/, '')))
+          await dire(moi, DIT.plusTardDansLAlbum)
+        }
+      } else await dire(moi, DIT.plusTardDansLAlbum)
+    } else if (entiere) {
       await dire(moi, DIT.entiere(nom))
       await dire(moi, DIT.entiereAlbum)
     } else {

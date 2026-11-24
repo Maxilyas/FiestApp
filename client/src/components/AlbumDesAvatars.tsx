@@ -8,7 +8,7 @@ import { EtapeDuChemin } from './LigneDeCollection'
 import { Gemmes } from './Gemmes'
 import { useFiche } from './Boutique'
 import { dessinDuCompagnon, dessinDuPortrait, useDessins } from './medaillons'
-import { espacesFines } from '../format'
+import { deNom, espacesFines } from '../format'
 import { gemmeDAvatar } from '../gemmes'
 import {
   NOM_COURT_DE_RARETE_D_AVATAR,
@@ -30,9 +30,10 @@ import { divin } from '../../../shared/divins'
 import { compagnonDe, formeDeCompagnon, nomDeLaForme } from '../../../shared/compagnons'
 import { aLEclat, brilleChez, eclatChez, type PublicProfileDetail } from '../../../shared/profil'
 import type { SphinxOuvert } from '../../../shared/sphinx'
-import { api } from '../api'
+import { api, motifDe } from '../api'
 import { lirePourLAlbum, type PourLAlbum } from '../sphinx'
-import { CompteDeLaPhrase, ConseilDuSphinx, PhraseDuDivin } from './PhraseDuDivin'
+import { CompteDeLaPhrase, ConseilDuSphinx, PhraseDuDivin, placesDevoilees } from './PhraseDuDivin'
+import { confirmDialog } from './Dialog'
 
 // L'album « Mes avatars », dans « Ma collection » (la maquette 1, choisie le
 // 13 octobre 2026) : tous les avatars qui se gagnent, une page par rareté —
@@ -166,16 +167,42 @@ function GemmesDeLAlbum({ pages, choisie, onChoisir }: { pages: PageDeLAlbum[]; 
  * laissé en y menant (`venu` : la fiche à ouvrir, le mot à y retourner).
  * Passé aux fiches par un contexte : leur appel reste celui de toujours.
  */
-const LeSphinxDeLAlbum = createContext<{ sphinx: SphinxOuvert; venu: PourLAlbum | null } | null>(null)
+const LeSphinxDeLAlbum = createContext<{
+  sphinx: SphinxOuvert
+  venu: PourLAlbum | null
+  /** « La phrase est retrouvée : la lire », confirmé : la phrase entière arrive, ses mots se retournent. */
+  devoiler: (cle: string) => void
+  /** La phrase qu'il vient de choisir de lire, et les places qui s'y retournent. */
+  devoilee: { cle: string; places: number[] } | null
+  /** Le geste refusé — la page fermée entre-temps, le réseau —, dit sous lui. */
+  refus: { cle: string; motif: string } | null
+} | null>(null)
 
 /**
  * Ce que le Sphinx dit d'un Divin, dans sa fiche (le plan du 24 novembre 2026) :
  * du Divin du moment, sa phrase — ses mots, ses traits, le compte de tous et
  * sa jauge — à tout profil, habitué ou non, et à qui ne l'est pas comment le
  * devenir ; d'une phrase que tous ont reconstituée, la phrase entière, sous
- * son voile. Rien d'autre : ni règle, ni mot qu'il n'a pas (invariant 21).
+ * son voile — s'il l'a choisie (la décision du 24 novembre 2026 : elle ne
+ * s'impose plus) ; sinon ses mots en or, la forme du reste, le compte, et
+ * « La phrase est retrouvée : la lire ». Rien d'autre : ni règle, ni mot qu'il
+ * n'a pas (invariant 21).
  */
-function SaPhrase({ cle, sphinx, retourne }: { cle: string; sphinx: SphinxOuvert; retourne?: number }) {
+function SaPhrase({
+  cle,
+  sphinx,
+  retourne,
+  devoiler,
+  devoilee,
+  refus,
+}: {
+  cle: string
+  sphinx: SphinxOuvert
+  retourne?: number
+  devoiler?: (cle: string) => void
+  devoilee?: { cle: string; places: number[] } | null
+  refus?: { cle: string; motif: string } | null
+}) {
   if (sphinx.phrase?.divin.key === cle) {
     return (
       <div className="album-phrase">
@@ -186,12 +213,40 @@ function SaPhrase({ cle, sphinx, retourne }: { cle: string; sphinx: SphinxOuvert
       </div>
     )
   }
-  const entiere = sphinx.reconstituees.find(r => r.divin.key === cle)
-  if (!entiere) return null
+  const retrouvee = sphinx.reconstituees.find(r => r.divin.key === cle)
+  if (!retrouvee) return null
+  // Qu'il vient de choisir de lire : ses mots se retournent, comme un mot gagné.
+  if (devoilee?.cle === cle) {
+    return (
+      <div className="album-phrase">
+        <span className="label album-etiquette">Sa phrase, retrouvée par tous</span>
+        <PhraseDuDivin phrase={retrouvee} retourne={devoilee.places} />
+      </div>
+    )
+  }
+  if (retrouvee.legende) {
+    return (
+      <div className="album-phrase">
+        <span className="label album-etiquette">Sa phrase, reconstituée</span>
+        <p className="serif-note album-phrase-entiere">{espacesFines(`« ${retrouvee.legende} »`)}</p>
+      </div>
+    )
+  }
   return (
     <div className="album-phrase">
-      <span className="label album-etiquette">Sa phrase, reconstituée</span>
-      <p className="serif-note album-phrase-entiere">{espacesFines(`« ${entiere.legende} »`)}</p>
+      <span className="label album-etiquette">Sa phrase, retrouvée par tous</span>
+      <PhraseDuDivin phrase={retrouvee} retourne={retourne} />
+      <CompteDeLaPhrase phrase={retrouvee} />
+      {devoiler && (
+        <button type="button" className="btn btn-primary album-phrase-lire" onClick={() => devoiler(cle)}>
+          La phrase est retrouvée : la lire
+        </button>
+      )}
+      {refus?.cle === cle && (
+        <p className="error small" role="alert">
+          {refus.motif}
+        </p>
+      )}
     </div>
   )
 }
@@ -278,7 +333,7 @@ export function FicheDeLAvatar({
       {recit && <p className="serif-note">{recit.legende}</p>}
       {inconnu && <p className="serif-note">Personne ne sait ce qui le fait descendre. Ceux qui l’ont vu ne le cherchaient pas.</p>}
       {/* Descendu, il raconte déjà sa légende : la phrase du Sphinx n'y ajouterait rien. */}
-      {inconnu && sphinx && <SaPhrase cle={a.cle} sphinx={sphinx} retourne={retourne} />}
+      {inconnu && sphinx && <SaPhrase cle={a.cle} sphinx={sphinx} retourne={retourne} devoiler={duSphinx?.devoiler} devoilee={duSphinx?.devoilee} refus={duSphinx?.refus} />}
       {aLui && (
         <p className="small album-a-toi">
           <Icon name="check" />
@@ -376,6 +431,32 @@ export function AlbumDesAvatars({
       vivant = false
     }
   }, [surLesDivins]) // eslint-disable-line react-hooks/exhaustive-deps
+  // « La phrase est retrouvée : la lire » : confirmé, le serveur la rend entière — à lui pour de bon, sur tous ses
+  // appareils —, et ce qu'il ne savait pas s'y retourne.
+  const [devoilee, setDevoilee] = useState<{ cle: string; places: number[] } | null>(null)
+  // Un refus se dit sous le geste, pas en toast : l'album se rend aussi dans Node (`grille-avatars.test.ts`), où l'état
+  // de la page, qui lit son adresse en se chargeant, n'a pas sa fenêtre.
+  const [refusDuSphinx, setRefusDuSphinx] = useState<{ cle: string; motif: string } | null>(null)
+  const devoiler = (cle: string) => {
+    void (async () => {
+      const avant = sphinx?.reconstituees.find(r => r.divin.key === cle)
+      if (!avant) return
+      const oui = await confirmDialog({
+        title: 'Lire la phrase entière ?',
+        message: `Tous ensemble, vous avez retrouvé la phrase ${deNom(avant.divin.nom)}. Tu la verras entière, les mots que tu n’as pas trouvés compris — pour de bon, sur tous tes appareils.`,
+        confirmLabel: 'La lire',
+        cancelLabel: 'Pas maintenant',
+      })
+      if (!oui) return
+      try {
+        const { phrase } = await api.joueur.lirePhraseDuSphinx(cle)
+        setSphinx(s => (s ? { ...s, reconstituees: s.reconstituees.map(r => (r.divin.key === cle ? phrase : r)) } : s))
+        setDevoilee({ cle, places: placesDevoilees(avant, phrase) })
+      } catch (e) {
+        setRefusDuSphinx({ cle, motif: motifDe(e) })
+      }
+    })()
+  }
   // Venu de la visite : la fiche du Divin s'ouvre, le mot qu'il vient de gagner s'y retourne.
   const [venuDuSphinx] = useState(() => (page === 'divin' ? lirePourLAlbum() : null))
   useEffect(() => {
@@ -426,7 +507,7 @@ export function AlbumDesAvatars({
         <b>{`${NOM_DE_RARETE_D_AVATAR[choisie.rarete]} · ${choisie.acquis} sur ${choisie.total}.`}</b> {CE_QU_ELLE_RANGE[choisie.rarete]}
       </p>
       {/* Ce que le Sphinx dit des Divins, jusqu'à leurs fiches. */}
-      <LeSphinxDeLAlbum.Provider value={sphinx ? { sphinx, venu: venuDuSphinx } : null}>
+      <LeSphinxDeLAlbum.Provider value={sphinx ? { sphinx, venu: venuDuSphinx, devoiler, devoilee, refus: refusDuSphinx } : null}>
         <div
           className={'album-avatars' + (choisie.rarete === 'divin' ? ' album-divins' : '')}
           role="tabpanel"

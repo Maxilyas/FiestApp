@@ -4,6 +4,7 @@ import { GrosBouton } from './Pieces'
 import { LienConsole } from './LienConsole'
 import { spacePath } from '../routes'
 import { api } from '../api'
+import { retenirPourLAlbum } from '../sphinx'
 import { PAGE_DES_DUELS, adresseDuDuel } from '../views/adressesDesDuels'
 import type { PublicSpace } from '../../../shared/space'
 import { jourDe, type CarriereDuJour } from '../../../shared/jour'
@@ -535,7 +536,11 @@ export function AnnoncesDeLAdministrateur({
   const [montrees, setMontrees] = useState<AnnonceDeLAdministrateur[]>([])
   const cle = annonces?.map(a => a.id).join('|') ?? ''
   useEffect(() => {
-    if (annonces && annonces.length > 0) setMontrees(annoncesNouvelles(profileId, annonces))
+    if (!annonces || annonces.length === 0) return
+    const nouvelles = annoncesNouvelles(profileId, annonces)
+    setMontrees(nouvelles)
+    // Une phrase retrouvée par tous ne s'annonce qu'une fois, sur tous ses appareils : le serveur retient qu'elle a paru.
+    for (const a of nouvelles) if (a.sorte === 'phrase') api.joueur.phraseAnnoncee(a.divin.key).catch(() => {})
     // Relues seulement quand le serveur en dit d'autres.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileId, cle])
@@ -547,7 +552,15 @@ export function AnnoncesDeLAdministrateur({
           key={a.id}
           annonce={a}
           prenom={prenom}
-          onRanger={() => setMontrees(m => m.filter(x => x.id !== a.id))}
+          onRanger={
+            a.sorte === 'phrase'
+              ? () => {
+                  // « La voir » : la fiche du Divin s'ouvre dans l'album, où il choisit de la lire — ou pas.
+                  retenirPourLAlbum({ divin: a.divin.key })
+                  window.location.assign('/profil#collection-avatars-divin')
+                }
+              : () => setMontrees(m => m.filter(x => x.id !== a.id))
+          }
           onRepondre={
             a.sorte === 'annonce' && a.question
               ? async reponse => {

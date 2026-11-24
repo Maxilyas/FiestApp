@@ -13608,6 +13608,8 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .album-phrase .album-etiquette { margin-bottom: 10px; }
 .album-phrase .phrase-compte { margin-top: 1rem; }
 .album-phrase-entiere { margin: 0; text-align: center; }
+/* Une phrase retrouvée par tous, pas encore lue : son geste sous la jauge, détaché d'elle (le 24 novembre 2026). */
+.album-phrase .album-phrase-lire { margin-top: 14px; }
 
 /* ── La phrase d'un Divin, mot à mot (le Sphinx de l'accueil, `PhraseDuDivin`) ──
    Un trait par lettre des mots cachés, les petits mots offerts en retrait, ses mots à lui en or sous un filet, puis ce que
@@ -16618,6 +16620,25 @@ button.qg-route:hover .qg-route-chemin { text-decoration: underline; }
 .annonce-admin-merci { flex: none; align-self: center; display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: none; color: var(--ink); font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
 /* À l'aperçu du QG, le bouton n'est qu'une image (`CarteDeLAdministrateur` sans `onRanger`). */
 span.annonce-admin-merci { cursor: default; }
+/* La phrase d'un Divin retrouvée par tous (le Sphinx de l'accueil) : un bandeau d'une ligne de doigt, à la place d'« À
+   la une » (plus bas, « L'accueil compact ») — en carte, l'accueil défilait de 190 px en 360 × 640. Toute la ligne se
+   touche ; son titre et ses crédits tiennent chacun sur une ligne, coupés au bout, entiers au lecteur d'écran. Sur l'or
+   pâle, le texte s'écrit à l'or de survol (règle `css.md`). */
+.annonce-phrase { list-style: none; }
+.annonce-phrase-ligne { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 5px 12px; border: 1px solid rgba(var(--accent-rgb), 0.45); border-radius: var(--radius); background: var(--accent-soft); color: var(--ink); font: inherit; text-align: left; }
+button.annonce-phrase-ligne { cursor: pointer; }
+.annonce-phrase-icone { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: rgba(var(--accent-rgb), 0.15); color: var(--accent-text-hover); }
+.annonce-phrase-icone .icon { width: 15px; height: 15px; }
+.annonce-phrase-texte { display: grid; min-width: 0; line-height: 1.25; }
+.annonce-phrase-texte > * { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.annonce-phrase-texte b { font-size: 0.9rem; color: var(--accent-text-hover); }
+.annonce-phrase-texte span { font-size: 0.78rem; color: var(--muted); }
+.annonce-phrase-voir { display: inline-flex; align-items: center; gap: 2px; font-size: 0.8rem; font-weight: 600; color: var(--accent-text-hover); white-space: nowrap; }
+.annonce-phrase-voir .icon { width: 14px; height: 14px; }
+/* Sous 400 px de large, le chevron seul : « La voir » coupait le titre en 360 (« est retro… »). */
+@media (max-width: 399px) {
+  .annonce-phrase-voir-mot { display: none; }
+}
 /* Le merci d'un signalement se lit en une longue phrase : son bouton passe sous le texte, qu'il serrait en colonne. */
 .annonce-admin-pile { flex-wrap: wrap; }
 .annonce-admin-pile .annonce-admin-texte { flex-basis: calc(100% - 46px); }
@@ -19288,6 +19309,11 @@ body.avec-menu .accueil {
   .accueil:has(.gros-principal) .une-cadre { display: none; }
   .accueil:has(.gros-principal) .haut-en-chemin { height: var(--accueil-missions); }
 }
+/* La phrase d'un Divin retrouvée par tous, annoncée une fois (`.annonce-phrase`) : son bandeau prend la place
+   d'« À la une » le temps qu'il se montre, à toutes les tailles, comme l'affiche d'une nouveauté — sa place gardée
+   aussi, sans quoi les boutons sauteraient à l'arrivée d'« À la une » cachée. */
+.accueil:has(.annonce-phrase) .une-cadre { display: none; }
+.accueil:has(.annonce-phrase) .haut-en-chemin { height: var(--accueil-missions); }
 /* L'affiche d'une nouveauté, couchée en bandeau à la place d'« À la une » (`.affiche-bandeau`, plus haut), est un peu plus
    haute qu'elle : la page se resserre de deux pixels entre ses blocs plutôt que de défiler — sur le petit téléphone et
    l'écran moyen ; un grand a la place. */

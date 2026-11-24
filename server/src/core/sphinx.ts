@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { SERVEUR } from '../racine'
-import type { LigneDuSphinx, ProfileStore } from '../auth/profiles'
+import { LIGNES_A_PART_DU_SPHINX, type LigneDuSphinx, type ProfileStore, type TrouveurDuSphinx } from '../auth/profiles'
 import type { CampagneStore } from './campagne'
 import type { JourStore } from './jour'
 import { legendeDe } from './divins'
@@ -11,6 +11,8 @@ import { jourAvant, jourDe } from '../../../shared/jour'
 import { activiteDesJours, hasardDe, type ActiviteDuJour } from '../../../shared/missions'
 import { minuitDe } from '../../../shared/qg'
 import { JOURS_DU_SPHINX_AU_QG, visitesParJour, type PageDuSphinxAuQg, type ReponseDuSphinxAuQg } from '../../../shared/qgSphinx'
+import { nomsAffiches } from '../../../shared/homonymes'
+import type { AnnonceDeLAdministrateur } from '../../../shared/profil'
 import {
   ESSAIS_DU_SPHINX,
   FENETRE_DE_L_HABITUE,
@@ -23,6 +25,7 @@ import {
   type SphinxOuvert,
   type MotDeLaPhrase,
   type PhraseDuSphinx,
+  type PhraseLueDuSphinx,
   type SphinxDesMissions,
   type VerdictDuSphinx,
   type VisiteDuSphinx,
@@ -60,6 +63,8 @@ export const VISITES_FACILES = 3
 export const POIDS_DES_DIFFICULTES = { facile: 2, moyenne: 2, difficile: 1 } as const
 /** Une réponse tient en une ligne : au-delà, elle se coupe (`tronquer`). */
 export const REPONSE_MAX = 80
+/** L'annonce d'une phrase retrouvée nomme les trois premiers à y avoir trouvé un mot, puis dit combien d'autres. */
+export const GRACE_A = 3
 
 /**
  * Les énigmes que le propriétaire connaît déjà — les trois de la maquette,
@@ -305,30 +310,37 @@ const cachesDe = (legende: string) => motsDeLaLegende(legende).flatMap((m, i) =>
 
 /**
  * La phrase d'un Divin, telle qu'un profil la voit : la forme de chaque mot,
- * le texte des petits mots offerts et de ceux qu'il a gagnés — de tous, une
- * fois la phrase reconstituée, ou pour son porteur, qui en connaît la
- * légende ; combien tous en ont trouvé, jamais lesquels.
+ * le texte des petits mots offerts et de ceux qu'il a gagnés ; combien tous en
+ * ont trouvé, jamais lesquels. Entière — chaque mot, et la légende même — à
+ * son porteur, qui la connaît, à qui en a trouvé chaque mot caché, et, une
+ * fois reconstituée par tous, à qui a choisi de la lire (`lue`). Retrouvée et
+ * pas encore lue, elle ne s'impose pas (la décision du 24 novembre 2026 :
+ * chacun avance à son rythme) : elle dit seulement qu'elle se dévoile à sa
+ * demande (`aDevoiler`), et rien de plus ne part vers lui.
  */
 export function phraseVue(
   divin: { key: string; nom: string },
   legende: string,
-  { siens, deTous, porteur = false }: { siens: ReadonlySet<number>; deTous: ReadonlySet<number>; porteur?: boolean },
+  { siens, deTous, porteur = false, lue = false }: { siens: ReadonlySet<number>; deTous: ReadonlySet<number>; porteur?: boolean; lue?: boolean },
 ): PhraseDuSphinx {
   const mots = motsDeLaLegende(legende)
   const caches = mots.flatMap((m, i) => (m.cache ? [i] : []))
   const parTous = caches.filter(i => siens.has(i) || deTous.has(i)).length
   const reconstituee = caches.length > 0 && parTous === caches.length
+  const entiere = porteur || caches.every(i => siens.has(i)) || (reconstituee && lue)
   return {
     divin,
     mots: mots.map((m, i): MotDeLaPhrase => {
       if (!m.cache) return { forme: m.forme, texte: m.texte, offert: true }
       if (siens.has(i)) return { forme: m.forme, texte: m.texte, sien: true }
-      return reconstituee || porteur ? { forme: m.forme, texte: m.texte } : { forme: m.forme }
+      return entiere ? { forme: m.forme, texte: m.texte } : { forme: m.forme }
     }),
     aTrouver: caches.length,
     siens: caches.filter(i => siens.has(i)).length,
     parTous,
     reconstituee,
+    ...(reconstituee && !entiere && { aDevoiler: true as const }),
+    ...(entiere && { legende }),
     ...(porteur && { porteur: true as const }),
   }
 }
@@ -439,6 +451,8 @@ export interface DepsDuSphinx {
     | 'compterDesEnigmesPourVues'
     | 'lecturesDuSphinxAuQg'
     | 'compterUneEnigmePourVue'
+    | 'retenirUnePhraseDuSphinx'
+    | 'byId'
   >
   jour: Pick<JourStore, 'activiteDepuis'>
   campagne: Pick<CampagneStore, 'activiteDepuis'>
@@ -479,6 +493,19 @@ function minuitDuJour(jour: string): number {
   return minuitDe(Date.UTC(a, m - 1, j, 12))
 }
 
+/**
+ * Une visite, et pas une ligne à part — une énigme comptée pour vue, une
+ * phrase lue ou annoncée (`LIGNES_A_PART_DU_SPHINX`) : ni ses premières
+ * visites faciles, ni la visite du jour, ni les comptes du QG ne les lisent.
+ */
+type Visite = LigneDuSphinx & { etat: EtatDeLaVisite }
+const estUneVisite = (l: LigneDuSphinx): l is Visite => !(LIGNES_A_PART_DU_SPHINX as readonly string[]).includes(l.etat)
+/** La visite d'un jour, s'il y en a une. */
+const visiteDuJour = (lignes: readonly LigneDuSphinx[], jour: string): Visite | undefined => lignes.filter(estUneVisite).find(l => l.jour === jour)
+
+/** Les Divins dont il a choisi de lire la phrase retrouvée : pour de bon, sur tous ses appareils. */
+const sesPhrasesLues = (lignes: readonly LigneDuSphinx[]) => new Set(lignes.flatMap(l => (l.etat === 'lue' ? [l.divin] : [])))
+
 /** Ses mots d'un Divin : les places gagnées par ses visites. */
 const sesMots = (lignes: readonly LigneDuSphinx[], divin: string) =>
   new Set(lignes.flatMap(l => (l.divin === divin && l.mot !== null ? [l.mot] : [])))
@@ -492,6 +519,14 @@ export class Sphinx {
    * dépend que pour un mot.
    */
   private mots: Map<string, Set<number>> | null = null
+  /**
+   * Lus avec eux, tenus de même : le premier instant où chaque mot de chaque
+   * Divin a été trouvé (`divin|mot`) — le jour d'une phrase reconstituée —, et
+   * ceux qui y ont trouvé un mot, du premier au dernier — les crédits de
+   * l'annonce de l'accueil.
+   */
+  private premiers = new Map<string, number>()
+  private trouveurs = new Map<string, TrouveurDuSphinx[]>()
   private enLecture: Promise<void> | null = null
   /** Le tour de lecture : un oubli pendant une lecture ne laisse pas celle-ci poser des mots d'avant. */
   private tour = 0
@@ -554,8 +589,12 @@ export class Sphinx {
     if (!this.enLecture) {
       const tour = this.tour
       this.enLecture = this.deps.profiles.motsDuSphinx().then(
-        mots => {
-          if (tour === this.tour) this.mots = mots
+        ({ mots, premiers, trouveurs }) => {
+          if (tour === this.tour) {
+            this.mots = mots
+            this.premiers = premiers
+            this.trouveurs = trouveurs
+          }
           this.enLecture = null
         },
         e => {
@@ -575,6 +614,8 @@ export class Sphinx {
   oublier(): void {
     this.tour++
     this.mots = null
+    this.premiers = new Map()
+    this.trouveurs = new Map()
     this.enLecture = null
   }
 
@@ -596,7 +637,7 @@ export class Sphinx {
     if (!moment || this.deps.profiles.divinsOf(profileId).includes(moment)) return {}
     const siens = sesMots(lignes, moment)
     if (cachesDe(this.legende(moment)!).every(i => siens.has(i))) return {}
-    const visitesAvant = lignes.filter(l => l.etat !== 'vue').length
+    const visitesAvant = lignes.filter(estUneVisite).length
     const enigme = choisirLEnigme(this.enigmes, new Set(lignes.map(l => l.enigme)), visitesAvant, hasardDe(`${profileId}|${aujourdhui}|enigme`))
     if (!enigme) return {}
     return { champ: 'attend', aPoser: { jour: aujourdhui, enigme: enigme.numero, divin: moment, quand: this.deps.maintenant() } }
@@ -638,11 +679,12 @@ export class Sphinx {
     const mots = this.motsDeTous()
     const porte = new Set(this.deps.profiles.divinsOf(profileId))
     const moment = divinDuMoment(mots, undefined, this.legende)
-    const ligne = lignes.find(l => l.jour === aujourdhui && l.etat !== 'vue')
+    const ligne = visiteDuJour(lignes, aujourdhui)
     return {
       visite: ligne ? this.visiteDe(ligne, lignes, porte) : null,
       phrase: moment ? this.phraseDe(moment, lignes, porte) : null,
-      reconstituees: phrasesReconstituees(mots, undefined, this.legende),
+      // Chacune telle qu'il la voit (`phraseVue`) : entière seulement s'il l'a choisie — la légende ne part plus à tous.
+      reconstituees: phrasesReconstituees(mots, undefined, this.legende).flatMap(r => this.phraseDe(r.divin.key, lignes, porte) ?? []),
     }
   }
 
@@ -653,14 +695,15 @@ export class Sphinx {
       siens: sesMots(lignes, cle),
       deTous: this.motsDeTous().get(cle) ?? new Set(),
       porteur: porte.has(cle),
+      lue: sesPhrasesLues(lignes).has(cle),
     })
   }
 
   /** Une visite telle que la page la reçoit : la solution seulement une fois close. */
-  private visiteDe(ligne: LigneDuSphinx, lignes: readonly LigneDuSphinx[], porte: ReadonlySet<string>): VisiteDuSphinx | null {
+  private visiteDe(ligne: Visite, lignes: readonly LigneDuSphinx[], porte: ReadonlySet<string>): VisiteDuSphinx | null {
     const e = this.enigme(ligne.enigme)
     const phrase = this.phraseDe(ligne.divin, lignes, porte)
-    if (!e || !phrase || ligne.etat === 'vue') return null
+    if (!e || !phrase) return null
     const close = (VISITE_CLOSE as readonly string[]).includes(ligne.etat)
     const enigme: EnigmeDuSphinx = {
       numero: e.numero,
@@ -697,7 +740,7 @@ export class Sphinx {
       const maintenant = this.deps.maintenant()
       const aujourdhui = jourDe(maintenant)
       const [lignes] = await Promise.all([this.deps.profiles.visitesDuSphinx(profileId), this.pret()])
-      const ligne = lignes.find(l => l.jour === aujourdhui)
+      const ligne = visiteDuJour(lignes, aujourdhui)
       const e = ligne ? this.enigme(ligne.enigme) : undefined
       if (!ligne || !e) return { refus: 404, error: 'Le Sphinx n’est pas passé aujourd’hui : reviens demain.' }
       const issue = appliquerLeGeste(ligne, geste, reponse, e)
@@ -721,6 +764,14 @@ export class Sphinx {
       if (mot !== null && this.mots) {
         if (!this.mots.has(ligne.divin)) this.mots.set(ligne.divin, new Set())
         this.mots.get(ligne.divin)!.add(mot)
+        const cle = `${ligne.divin}|${mot}`
+        if (!this.premiers.has(cle)) this.premiers.set(cle, maintenant)
+        // Son premier mot de ce Divin : il rejoint ceux que l'annonce de la phrase retrouvée remerciera.
+        const deCeDivin = this.trouveurs.get(ligne.divin) ?? []
+        if (!deCeDivin.some(t => t.id === profileId)) {
+          const p = await this.deps.profiles.byId(profileId).catch(() => null)
+          if (p) this.trouveurs.set(ligne.divin, [...deCeDivin, { id: p.id, name: p.name, avatar: p.avatar, legendaire: p.legendaire ?? null, le: maintenant }])
+        }
       }
       const apres = lignes.map(l => (l === ligne ? { ...l, ...issue.apres, mot: mot ?? l.mot } : l))
       const { visite, phrase } = this.vue(profileId, aujourdhui, apres)
@@ -748,6 +799,68 @@ export class Sphinx {
     const pose = await this.deps.profiles.compterDesEnigmesPourVues(profileIds, numeros, DRAPEAU_DES_VUES_DU_PROPRIETAIRE, this.deps.maintenant())
     if (pose) console.log(`[sphinx] ${numeros.length} énigme(s) comptée(s) pour vues sur le profil de l’administrateur`)
     return pose
+  }
+
+  // ── Une phrase retrouvée par tous : à lire, à annoncer ──────────────────
+
+  /** Un Divin dont la phrase est retrouvée par tous, ou null : un Divin inconnu, ou une phrase qui attend encore des mots. */
+  private retrouvee(brut: unknown): string | null {
+    const cle = typeof brut === 'string' ? brut : ''
+    if (!ORDRE_DU_SPHINX.includes(cle) || !CATALOGUE.has(cle)) return null
+    return reconstituee(cle, this.motsDeTous(), this.legende) ? cle : null
+  }
+
+  /**
+   * « La phrase est retrouvée : la lire » (`POST /api/joueur/sphinx/phrase`) :
+   * il choisit de voir entière la phrase d'un Divin que tous ont retrouvée —
+   * retenu par le serveur, pour tous ses appareils et pour de bon ; on ne
+   * « dé-voit » pas. Rend la phrase entière. Une phrase qui attend encore des
+   * mots se refuse : il la verrait avant les autres.
+   */
+  lirePhrase(profileId: string, brut: unknown): Promise<PhraseLueDuSphinx | RefusDuSphinx> {
+    const divin = (brut ?? {}) as { divin?: unknown }
+    return this.unALaFois(profileId, async (): Promise<PhraseLueDuSphinx | RefusDuSphinx> => {
+      await this.pret()
+      if (typeof divin.divin !== 'string' || !ORDRE_DU_SPHINX.includes(divin.divin)) return { refus: 400, error: 'Le Sphinx ne connaît pas ce Divin : recharge la page.' }
+      const cle = this.retrouvee(divin.divin)
+      if (!cle) return { refus: 409, error: 'Cette phrase n’est pas encore retrouvée par tous : le Sphinx en souffle encore les mots.' }
+      const lignes = await this.deps.profiles.retenirUnePhraseDuSphinx(profileId, cle, 'lue', this.deps.maintenant())
+      const phrase = this.phraseDe(cle, lignes, new Set(this.deps.profiles.divinsOf(profileId)))
+      return phrase ? { accuse: true, phrase } : { refus: 409, error: 'Cette phrase ne se lit pas : recharge la page.' }
+    })
+  }
+
+  /** L'accueil a annoncé la phrase retrouvée d'un Divin : elle ne s'y redira plus, sur aucun de ses appareils. */
+  async annoncerLaPhrase(profileId: string, brut: unknown): Promise<{ accuse: true } | RefusDuSphinx> {
+    await this.pret()
+    const cle = this.retrouvee(((brut ?? {}) as { divin?: unknown }).divin)
+    if (!cle) return { refus: 400, error: 'Cette phrase n’est pas retrouvée : recharge la page.' }
+    await this.deps.profiles.retenirUnePhraseDuSphinx(profileId, cle, 'annoncee', this.deps.maintenant())
+    return { accuse: true }
+  }
+
+  /**
+   * Ce que l'accueil annonce des phrases retrouvées par tous ce dernier mois
+   * (`fenetre`) : une carte chacune, une fois — celles déjà annoncées à ce
+   * profil écartées (`deja`, ses lignes `annoncee`, lues dans le lot de
+   * l'accueil) —, son Divin et ceux qui y ont trouvé un mot, les trois
+   * premiers nommés comme on les lit (`nomsAffiches`, invariant 17), puis
+   * combien d'autres. Jamais un mot de la phrase. De mémoire seulement : les
+   * mots de tous pas encore lus sur ce processus — la ligne des missions les
+   * lit, partie avec l'accueil —, rien ; l'accueil suivant la dira.
+   */
+  annoncesDeLAccueil(deja: ReadonlySet<string>, maintenant: number, fenetre: number): Extract<AnnonceDeLAdministrateur, { sorte: 'phrase' }>[] {
+    if (!this.mots) return []
+    return phrasesReconstituees(this.mots, undefined, this.legende).flatMap(({ divin }) => {
+      if (deja.has(divin.key)) return []
+      const dates = cachesDe(this.legende(divin.key)!).map(i => this.premiers.get(`${divin.key}|${i}`) ?? 0)
+      const le = Math.max(0, ...dates)
+      if (maintenant - le >= fenetre) return []
+      const qui = this.trouveurs.get(divin.key) ?? []
+      const marques = nomsAffiches(qui.map(t => ({ id: t.id, name: t.name, avatar: t.avatar, legendaire: t.legendaire })))
+      const grace = qui.slice(0, GRACE_A).map(t => marques.get(t.id) ?? t.name)
+      return [{ id: `phrase:${divin.key}`, sorte: 'phrase' as const, divin, grace, autres: Math.max(0, qui.length - GRACE_A), le }]
+    })
   }
 
   // ── Au QG ─────────────────────────────────────────────────────────────────
@@ -783,6 +896,8 @@ export class Sphinx {
     }
     const siennes = new Map<string, 'vue' | 'aujourdhui'>()
     for (const l of lu.siennes) {
+      // Une phrase lue ou annoncée n'est pas une énigme ; une énigme comptée pour vue, si.
+      if (l.etat === 'lue' || l.etat === 'annoncee') continue
       const enAttente = l.jour === aujourdhui && (l.etat === 'proposee' || l.etat === 'plus-tard')
       if (enAttente || !siennes.has(l.enigme)) siennes.set(l.enigme, enAttente ? 'aujourdhui' : 'vue')
     }

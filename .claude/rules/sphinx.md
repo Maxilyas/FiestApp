@@ -4,7 +4,7 @@ paths:
   - "server/src/{sphinx,sphinxDuQg}.ts"
   - "server/src/core/sphinx.ts"
   - "server/content/sphinx/enigmes.json"
-  - "server/test/{sphinx-pur,sphinx-accueil,sphinx-ecran,qg-sphinx}.test.ts"
+  - "server/test/{sphinx-pur,sphinx-accueil,sphinx-ecran,sphinx-annonce,qg-sphinx}.test.ts"
   - "client/src/sphinx.ts"
   - "client/src/components/{Sphinx,PhraseDuDivin,QgSphinx}.tsx"
   - "client/src/components/sphinx.css"
@@ -26,7 +26,8 @@ serveur, les écrans** — la visite, l'épingle, l'album, la police pixel, le
 haut-parleur — **puis le QG** (`/admin#sphinx`). L'ouverture est au
 propriétaire : testeurs en préproduction, puis en production, puis tous — les
 étapes et ce qu'il vérifie, `docs/guides/administrer.md` (« Le Sphinx de
-l'accueil »).
+l'accueil »). Le même jour, une phrase retrouvée par tous ne s'impose plus :
+chacun la lit s'il le choisit, et l'accueil l'annonce une fois (plus bas).
 
 ## Les fichiers
 
@@ -48,8 +49,9 @@ l'accueil »).
 
 - **Une légende ne part que mot à mot** (invariant 21) : un champ de plus qui
   part vers la page passe par `phraseVue` — les mots qu'il a gagnés, les
-  petits mots offerts, la forme du reste, entière à son porteur ou une fois
-  reconstituée par tous. `sphinx-accueil.test.ts` cherche dans chaque réponse
+  petits mots offerts, la forme du reste, entière à son porteur, à qui en a
+  trouvé chaque mot, ou reconstituée par tous et choisie (plus bas).
+  `sphinx-accueil.test.ts` cherche dans chaque réponse
   un mot caché qu'il n'a pas gagné. Ni une règle ni une légende ne s'écrit
   ici, dans `docs/`, `shared/`, `client/` ou un message de commit : l'ordre
   des Divins dit son pourquoi dans `core/sphinx.ts` seulement.
@@ -168,6 +170,30 @@ l'accueil »).
   celle que le Sphinx lui pose aujourd'hui, pas encore close, 409 aussi — il
   y répondrait en la sachant. Le journal la nomme par son numéro, jamais par
   sa réponse.
+- **Une phrase retrouvée par tous ne s'impose plus** (la décision du
+  propriétaire du 24 novembre 2026, « Une phrase retrouvée par tous ne
+  s'impose plus, et s'annonce », `docs/architecture/decisions.md`) : le texte
+  d'un mot caché qu'il n'a pas trouvé ne part que s'il porte le Divin, s'il a
+  trouvé chaque mot, ou s'il l'a choisie (`lue`, `phraseVue` : `legende` et
+  `aDevoiler`). `reconstituees` passe par la même vue par profil : la légende
+  n'arrive plus dans le navigateur de qui ne l'a pas choisie. Le choix
+  (`POST /api/joueur/sphinx/phrase`, sa porte avec la page) et l'annonce vue
+  (`POST /api/joueur/sphinx/annonce`) vivent dans `profile_sphinx`, en lignes
+  à part (`lue:<Divin>`, `annonce:<Divin>`, `LIGNES_A_PART_DU_SPHINX` avec
+  `vue`) : une ligne de plus qui n'est pas une visite rejoint cette liste, que
+  `estUneVisite`, `visiteDuJour` et les comptes du QG lisent — sans elle, elle
+  compterait parmi ses premières visites faciles, ou au QG.
+- **L'annonce d'une phrase retrouvée est une carte de l'administrateur**
+  (sorte `phrase` d'`AnnonceDeLAdministrateur`), couchée en bandeau à la place
+  d'« À la une » (`AnnonceDeLaPhrase`, `.annonce-phrase`) : en carte, l'accueil
+  défilait de 190 px en 360 × 640. Ses crédits viennent de la mémoire du
+  Sphinx, lue d'un lot avec les mots de tous (`motsDuSphinx` : les premiers
+  instants, les trouveurs, leur prénom et leur visage — `nomsAffiches`,
+  invariant 17), ses annonces déjà vues du lot de l'accueil (`achatsDe`,
+  `phrasesAnnoncees`) : pas un aller-retour de plus. Les mots de tous pas
+  encore lus sur ce serveur, rien ne s'annonce — la ligne des missions,
+  partie avec l'accueil, les lit ; l'accueil suivant la dit. Un mot gagné
+  tient ces crédits à jour (`trouveurs`, `premiers`, dans `geste`).
 - **Les habitués du QG sont ceux que le Sphinx a vus aujourd'hui**, en
   mémoire (`noterLHabitue`) — la ligne des missions juge leurs jours de toute
   façon, sa page fermée pour eux comprise : ils se comptent avant l'ouverture —

@@ -165,9 +165,13 @@ export function mountApi(app: Express, deps: ApiDeps) {
   mountAuthApi(app, { auth: deps.auth, profiles: deps.profiles, online: deps.online, removeAccount: deps.removeAccount, espaceChange: deps.espaceChange })
   // La télé qu'on branche depuis son téléphone, sans rien taper à la télécommande.
   mountAppairage(app, { auth: deps.auth, online: deps.online })
+  // Le Sphinx de l'accueil, sa page ouverte ou non pour qui demande : ses missions, sa route, et l'accueil qui annonce une
+  // phrase retrouvée le lisent.
+  const duSphinx = { sphinx: deps.sphinx, profiles: deps.profiles, auth: deps.auth, maintenance: deps.maintenance }
   // Les routes du profil joueur passent AVANT la porte : un invité n'a pas
   // de compte d'animateur, et n'a pas à en avoir un pour s'inscrire.
   mountProfileApi(app, {
+    sphinx: { sphinx: deps.sphinx, ferme: req => sphinxFermePour(duSphinx, req) !== null },
     profiles: deps.profiles,
     auth: deps.auth,
     archives: deps.archives,
@@ -201,7 +205,6 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // 31 octobre 2026 (`CABINET_EN_PRODUCTION`) — son drapeau refermé, chacune de ses routes y répondrait 404.
   mountCabinet(app, { cabinet: deps.cabinet.magasin, profiles: deps.profiles, ouvert: deps.cabinet.ouvert })
   // Ses missions du jour et le coffre de la semaine, de même — elles disent aussi si le Sphinx passe, sa page ouverte pour lui.
-  const duSphinx = { sphinx: deps.sphinx, profiles: deps.profiles, auth: deps.auth, maintenance: deps.maintenance }
   mountMissions(app, { missions: deps.missions, profiles: deps.profiles, sphinxFerme: req => sphinxFermePour(duSphinx, req) !== null })
   // Le Sphinx de l'accueil : sa visite et ses gestes, pour les profils aussi.
   mountSphinx(app, duSphinx)

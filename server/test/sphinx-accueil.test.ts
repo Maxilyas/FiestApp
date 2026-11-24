@@ -7,7 +7,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
-import { connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
+import { connexionAnimateur, cookieDe, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { ProfileStore } from '../src/auth/profiles'
 import { legendeDe } from '../src/core/divins'
 import { ENIGMES_DEJA_VUES_DU_PROPRIETAIRE, ORDRE_DU_SPHINX, enigmesDuSphinx, motsDeLaLegende, type Enigme } from '../src/core/sphinx'
@@ -81,15 +81,18 @@ async function avecBanc(debut: number, reglages: Parameters<typeof demarrer>[0],
 const enigmeDe = (numero: string): Enigme => enigmesDuSphinx().find(e => e.numero === numero)!
 
 /** Les mots cachés d'une légende qu'un profil n'a pas gagnés : aucun ne doit partir vers lui. */
-function motsQuIlNaPas(divin: string, siens: ReadonlySet<number>): string[] {
-  return motsDeLaLegende(legendeDe(divin)!).flatMap((m, i) => (m.cache && !siens.has(i) ? [m.texte] : []))
+function motsQuIlNaPas(divin: string, siens: ReadonlySet<number>): { place: number; texte: string }[] {
+  return motsDeLaLegende(legendeDe(divin)!).flatMap((m, i) => (m.cache && !siens.has(i) ? [{ place: i, texte: m.texte }] : []))
 }
 
-/** Une réponse, sans l'énigme (ses vers et sa source disent ce qu'ils veulent) : aucun mot caché qu'il n'a pas ne s'y lit. */
+/**
+ * Une réponse, sans l'énigme (ses vers et sa source disent ce qu'ils veulent) : aucun mot caché qu'il n'a pas ne s'y
+ * lit. L'échec dit sa place, jamais le mot : le propriétaire joue aussi, et la sortie des épreuves peut lui être montrée.
+ */
 function rienQueSesMots(reponse: unknown, divin: string, siens: ReadonlySet<number>, ou: string) {
   const texte = JSON.stringify(reponse, (cle, valeur) => (cle === 'enigme' ? undefined : valeur))
-  for (const mot of motsQuIlNaPas(divin, siens)) {
-    assert.ok(!new RegExp(`(^|[^\\p{L}])${mot}([^\\p{L}]|$)`, 'iu').test(texte), `${ou} : « ${mot} », un mot qu’il n’a pas gagné`)
+  for (const { place, texte: mot } of motsQuIlNaPas(divin, siens)) {
+    assert.ok(!new RegExp(`(^|[^\\p{L}])${mot}([^\\p{L}]|$)`, 'iu').test(texte), `${ou} : le mot caché n° ${place}, qu’il n’a pas gagné`)
   }
 }
 
@@ -253,9 +256,10 @@ test('le mot gagné : d’abord un que personne n’a ; une énigme vue ne revie
     assert.equal((await leSphinx(banc, lea)).phrase.parTous, 1)
   }))
 
-test('une phrase reconstituée par tous se montre entière à chacun, et le Divin du moment passe au suivant', () =>
+test('une phrase reconstituée par tous ne s’impose à personne — chacun la lit s’il le choisit —, et le Divin du moment passe au suivant', () =>
   avecBanc(midi(26), {}, async banc => {
-    await ouvrir(banc, await connexionAnimateur(banc.url))
+    const admin = await connexionAnimateur(banc.url)
+    await ouvrir(banc, admin)
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
     const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
     joue(banc, 'lea', jours(23, 26))
@@ -278,16 +282,81 @@ test('une phrase reconstituée par tous se montre entière à chacun, et le Divi
     // Léa trouve le dernier : le seul que personne n'avait.
     const juste = (await geste(banc, lea, { geste: 'repondre', reponse: enigmeDe(avant.visite.enigme.numero).solution })).corps
     assert.deepEqual([juste.motNeuf, juste.visite.mot.index], [true, caches[0]])
-    // La phrase est reconstituée : entière à chacun — Bob compris, qui n'a pas ce mot —, et le Sphinx passe au suivant.
-    for (const cookie of [lea, bob]) {
+    // La phrase est reconstituée, et le Sphinx passe au suivant. Elle ne s'impose à personne (la décision du 24 novembre
+    // 2026) : ni Léa ni Bob ne la reçoivent entière — chacun ses mots, la forme du reste, et qu'elle se dévoile à sa demande.
+    const siensDe = new Map([
+      [lea, new Set([caches[0]])],
+      [bob, new Set(caches.slice(1))],
+    ])
+    for (const [cookie, siens] of siensDe) {
       const apres = await leSphinx(banc, cookie)
-      assert.deepEqual(apres.reconstituees, [{ divin: { key: DIVIN_DU_MOMENT, nom: avant.phrase.divin.nom }, legende: legendeDe(DIVIN_DU_MOMENT) }])
+      assert.equal(apres.reconstituees.length, 1)
+      const r = apres.reconstituees[0]
+      assert.deepEqual([r.divin.key, r.reconstituee, r.aDevoiler, 'legende' in r], [DIVIN_DU_MOMENT, true, true, false])
+      rienQueSesMots(apres, DIVIN_DU_MOMENT, siens, 'la phrase retrouvée, pas choisie')
       assert.equal(apres.phrase.divin.key, ORDRE_DU_SPHINX[1])
       assert.equal(apres.phrase.parTous, 0)
     }
-    // Sa visite garde son Divin : la phrase entière, puisque tous l'ont reconstituée.
-    assert.equal(juste.visite.phrase.reconstituee, true)
-    assert.ok(juste.visite.phrase.mots.every((m: any) => m.texte))
+    // Sa visite garde son Divin : retrouvée, et pas entière pour autant.
+    assert.deepEqual([juste.visite.phrase.reconstituee, juste.visite.phrase.aDevoiler], [true, true])
+    rienQueSesMots(juste, DIVIN_DU_MOMENT, siensDe.get(lea)!, 'le verdict')
+
+    // Une phrase pas encore retrouvée ne se lit pas ; un Divin inconnu non plus.
+    assert.equal((await ecrire(banc.url, '/api/joueur/sphinx/phrase', { divin: ORDRE_DU_SPHINX[1] }, lea)).status, 409)
+    assert.equal((await ecrire(banc.url, '/api/joueur/sphinx/phrase', { divin: 'dv:personne' }, lea)).status, 400)
+    // Léa choisit de la lire : entière, pour de bon, et sur tous ses appareils.
+    const lue = await ecrire(banc.url, '/api/joueur/sphinx/phrase', { divin: DIVIN_DU_MOMENT }, lea)
+    assert.equal(lue.status, 200)
+    const corps = (await lue.json()) as any
+    assert.ok(corps.accuse && corps.phrase.legende === legendeDe(DIVIN_DU_MOMENT), 'la phrase entière, ponctuation comprise')
+    assert.ok(corps.phrase.mots.every((m: any) => m.texte) && !corps.phrase.aDevoiler)
+    const autreAppareil = cookieDe(await ecrire(banc.url, '/api/joueur/connexion', { login: 'lea', password: 'motdepasse1' }), 'qz_joueur')
+    for (const cookie of [lea, autreAppareil]) {
+      const r = (await leSphinx(banc, cookie)).reconstituees[0]
+      assert.ok(r.legende === legendeDe(DIVIN_DU_MOMENT) && r.mots.every((m: any) => m.texte), 'entière sur chacun de ses appareils')
+    }
+    // Rien n'a changé pour Bob, ni pour les mots de tous : la ligne de son choix n'est ni une visite ni un mot.
+    rienQueSesMots(await leSphinx(banc, bob), DIVIN_DU_MOMENT, siensDe.get(bob)!, 'Bob, après le choix de Léa')
+    assert.equal((await leSphinx(banc, bob)).reconstituees[0].parTous, caches.length)
+    // Un second geste ne change rien ; la page fermée, sa porte se ferme aussi.
+    assert.equal((await ecrire(banc.url, '/api/joueur/sphinx/phrase', { divin: DIVIN_DU_MOMENT }, lea)).status, 200)
+    await ouvrir(banc, admin, 'maintenance')
+    assert.equal((await ecrire(banc.url, '/api/joueur/sphinx/phrase', { divin: DIVIN_DU_MOMENT }, bob)).status, 423)
+  }))
+
+test('qui porte le Divin, ou en a trouvé chaque mot, voit sa phrase retrouvée sans geste', () =>
+  avecBanc(midi(26), {}, async banc => {
+    await ouvrir(banc, await connexionAnimateur(banc.url))
+    const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
+    const ana = await inscrireProfil(banc.url, 'ana', 'Ana', '🐸')
+    const zoe = await inscrireProfil(banc.url, 'zoe', 'Zoé', '🐼')
+    const caches = motsDeLaLegende(legendeDe(DIVIN_DU_MOMENT)!).flatMap((m, i) => (m.cache ? [i] : []))
+    // Bob a trouvé chaque mot, à lui seul.
+    base(banc, db =>
+      caches.forEach((mot, i) =>
+        db
+          .prepare(`INSERT INTO profile_sphinx (profile_id, jour, enigme, divin, etat, essais, mot, proposee_le) VALUES (?, ?, ?, ?, 'resolue', 1, ?, 1)`)
+          .run(idDe(banc, 'bob'), jourAvant('2026-08-01', i), `x${i}`, DIVIN_DU_MOMENT, mot),
+      ),
+    )
+    // Ana porte ce Divin : elle en connaît la légende.
+    base(banc, db =>
+      db
+        .prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, ?, '#essai', '', '✨', 'Divin', 1)`)
+        .run(idDe(banc, 'ana'), DIVIN_DU_MOMENT),
+    )
+    await banc.redemarrer()
+    for (const [qui, cookie] of [
+      ['Bob, qui a tout trouvé', bob],
+      ['Ana, qui le porte', ana],
+    ] as const) {
+      const r = (await leSphinx(banc, cookie)).reconstituees[0]
+      assert.ok(r.legende === legendeDe(DIVIN_DU_MOMENT) && !r.aDevoiler, `${qui} la voit entière`)
+    }
+    // Zoé, ni l'un ni l'autre : rien de plus que la forme.
+    const deZoe = await leSphinx(banc, zoe)
+    assert.equal(deZoe.reconstituees[0].aDevoiler, true)
+    rienQueSesMots(deZoe, DIVIN_DU_MOMENT, new Set(), 'Zoé')
   }))
 
 test('les énigmes que le propriétaire a déjà vues comptent pour vues sur le profil de l’administrateur ; plus rien à lui poser, plus de visite', () => {

@@ -579,13 +579,31 @@ export interface LigneDuSphinx {
   jour: string
   enigme: string
   divin: string
-  etat: EtatDeLaVisite | 'vue'
+  /** Une visite ; ou une ligne à part — une énigme comptée pour vue, une phrase retrouvée lue (`lue`) ou annoncée (`annoncee`). */
+  etat: EtatDeLaVisite | 'vue' | 'lue' | 'annoncee'
   essais: number
   /** Ses réponses fausses, telles que le Sphinx les lit (`normaliser`) : la même, redite, ne coûte pas un second essai. */
   reponses: string[]
   /** Le mot gagné : sa place dans la légende de son Divin. */
   mot: number | null
   proposeeLe: number
+}
+
+/**
+ * Les lignes de `profile_sphinx` qui ne sont pas des visites : une énigme
+ * comptée pour vue, une phrase retrouvée lue ou annoncée. Les comptes des
+ * visites les écartent toutes (`core/sphinx.ts` lit la même liste).
+ */
+export const LIGNES_A_PART_DU_SPHINX = ['vue', 'lue', 'annoncee'] as const
+const A_PART = `(${LIGNES_A_PART_DU_SPHINX.map(e => `'${e}'`).join(', ')})`
+
+/** Un profil qui a trouvé un mot de la phrase d'un Divin : son prénom et son visage (les homonymes, invariant 17), et quand d'abord. */
+export interface TrouveurDuSphinx {
+  id: string
+  name: string
+  avatar: string
+  legendaire: string | null
+  le: number
 }
 
 /** Ce que ses missions du jour lisent de son profil, d'un lot (`lecturesDesMissions`). */
@@ -1111,6 +1129,8 @@ export interface AchatsLus {
   coffres: number
   aTous: AnnonceATous[]
   affiches: AfficheLue[]
+  /** Les Divins dont l'accueil lui a déjà annoncé la phrase retrouvée par tous (ses lignes `annoncee` de `profile_sphinx`). */
+  phrasesAnnoncees: string[]
   /** Ses soirées, quand on les a demandées (`historique`). */
   historique?: SoireeDeLHistorique[]
   /** Ce qu'il a vu de sa loge, quand on l'a demandé (`vus`) : null s'il n'y est jamais passé. */
@@ -2368,6 +2388,8 @@ export class ProfileStore {
                       WHERE a.fin > ? AND a.retiree_le IS NULL ORDER BY a.created_at DESC`,
                 args: [profileId, annonces.maintenant],
               },
+              // Les phrases retrouvées par tous dont l'accueil l'a déjà prévenu (`core/sphinx.ts`) : une fois chacune.
+              { sql: `SELECT divin FROM profile_sphinx WHERE profile_id = ? AND etat = 'annoncee'`, args: [profileId] },
             ]
           : []),
         ...(historique ? [lectureDeLHistorique(profileId)] : []),
@@ -2379,6 +2401,7 @@ export class ProfileStore {
     let suivante = 9
     const aTous = annonces ? lus[suivante++] : undefined
     const affiches = annonces ? lus[suivante++] : undefined
+    const annoncees = annonces ? lus[suivante++] : undefined
     const soirees = historique ? lus[suivante++] : undefined
     const vusLus = vus ? lus[suivante++] : undefined
     return {
@@ -2419,6 +2442,7 @@ export class ProfileStore {
           },
         ]
       }),
+      phrasesAnnoncees: (annoncees?.rows ?? []).map(r => String(r.divin)),
       ...(soirees && { historique: historiqueLu(soirees.rows) }),
       ...(vusLus && { vus: vusDeLaLigne(vusLus.rows[0]?.vus) }),
     }
@@ -2481,7 +2505,13 @@ export class ProfileStore {
       justesDuJour?: Promise<number>
       achats?: Promise<AchatsLus>
     } = {},
-  ): Promise<{ boutique: BoutiqueDuProfil; dons: { id: string; confettis: number; mot: string | null; le: number }[]; aTous: AnnonceATous[]; affiches: AfficheLue[] }> {
+  ): Promise<{
+    boutique: BoutiqueDuProfil
+    dons: { id: string; confettis: number; mot: string | null; le: number }[]
+    aTous: AnnonceATous[]
+    affiches: AfficheLue[]
+    phrasesAnnoncees: string[]
+  }> {
     const maintenant = Date.now()
     const lus = deja.achats ?? this.achatsDe(p.id, { annonces: { depuis: maintenant - ANNONCE_MS, inscritLe: p.createdAt, maintenant }, historique: !deja.soirees })
     const historique = deja.soirees ?? lus.then(a => a.historique ?? this.historiqueOf(p.id))
@@ -2524,6 +2554,7 @@ export class ProfileStore {
       dons: achats.dons,
       aTous: achats.aTous,
       affiches: this.retenirLesAffiches(p.id, achats.affiches),
+      phrasesAnnoncees: achats.phrasesAnnoncees,
     }
   }
 
@@ -2674,16 +2705,63 @@ export class ProfileStore {
     return res.rowsAffected > 0
   }
 
-  /** Les mots trouvés par tous, Divin par Divin : chaque place gagnée au moins une fois (l'index partiel `idx_profile_sphinx_mot`). */
-  async motsDuSphinx(): Promise<Map<string, Set<number>>> {
-    const res = await this.client.execute('SELECT DISTINCT divin, mot FROM profile_sphinx WHERE mot IS NOT NULL')
+  /**
+   * Les mots trouvés par tous, Divin par Divin, d'un lot (l'index partiel
+   * `idx_profile_sphinx_mot`) : chaque place gagnée au moins une fois et le
+   * premier instant où elle l'a été — le jour où une phrase est retrouvée par
+   * tous —, et ceux qui y ont trouvé un mot, du premier au dernier, leur
+   * prénom et leur visage — les crédits de l'annonce que l'accueil en fait.
+   * Un profil suspendu n'y est pas nommé.
+   */
+  async motsDuSphinx(): Promise<{ mots: Map<string, Set<number>>; premiers: Map<string, number>; trouveurs: Map<string, TrouveurDuSphinx[]> }> {
+    const [lus, qui] = await this.client.batch(
+      [
+        'SELECT divin, mot, MIN(COALESCE(close_le, proposee_le)) AS le FROM profile_sphinx WHERE mot IS NOT NULL GROUP BY divin, mot',
+        `SELECT s.divin, s.profile_id, MIN(COALESCE(s.close_le, s.proposee_le)) AS le, p.name, p.avatar, p.legendaire
+           FROM profile_sphinx s JOIN profiles p ON p.id = s.profile_id AND p.disabled_at IS NULL
+          WHERE s.mot IS NOT NULL GROUP BY s.divin, s.profile_id`,
+      ],
+      'read',
+    )
     const mots = new Map<string, Set<number>>()
-    for (const r of res.rows) {
+    const premiers = new Map<string, number>()
+    for (const r of lus.rows) {
       const divin = String(r.divin)
       if (!mots.has(divin)) mots.set(divin, new Set())
       mots.get(divin)!.add(Number(r.mot))
+      premiers.set(`${divin}|${Number(r.mot)}`, Number(r.le))
     }
-    return mots
+    const trouveurs = new Map<string, TrouveurDuSphinx[]>()
+    for (const r of qui.rows) {
+      const divin = String(r.divin)
+      if (!trouveurs.has(divin)) trouveurs.set(divin, [])
+      trouveurs.get(divin)!.push({ id: String(r.profile_id), name: String(r.name), avatar: String(r.avatar), legendaire: r.legendaire == null ? null : String(r.legendaire), le: Number(r.le) })
+    }
+    for (const t of trouveurs.values()) t.sort((a, b) => a.le - b.le || a.id.localeCompare(b.id))
+    return { mots, premiers, trouveurs }
+  }
+
+  /**
+   * Retient sur son profil, une fois, ce qu'il a fait de la phrase retrouvée
+   * d'un Divin : `lue` — il a choisi de la voir entière, pour tous ses
+   * appareils et pour de bon —, ou `annoncee` — l'accueil le lui a dit. Une
+   * ligne à part de ses visites (son jour `lue:<Divin>`, `annonce:<Divin>`),
+   * comme une énigme comptée pour vue, que ses mots, ses énigmes vues et les
+   * mots de tous ignorent. Rend ses lignes telles que la base les garde.
+   */
+  async retenirUnePhraseDuSphinx(profileId: string, divin: string, etat: 'lue' | 'annoncee', quand: number): Promise<LigneDuSphinx[]> {
+    const [, visites] = await this.client.batch(
+      [
+        {
+          sql: `INSERT INTO profile_sphinx (profile_id, jour, enigme, divin, etat, proposee_le) VALUES (?, ?, '', ?, ?, ?)
+                ON CONFLICT(profile_id, jour) DO NOTHING`,
+          args: [profileId, `${etat === 'lue' ? 'lue' : 'annonce'}:${divin}`, divin, etat, quand],
+        },
+        lectureDuSphinx(profileId),
+      ],
+      'write',
+    )
+    return lignesDuSphinxLues(visites.rows)
   }
 
   /**
@@ -2751,11 +2829,12 @@ export class ProfileStore {
   }> {
     const [parEnigme, parJour, premiers, duJour, siennes] = await this.client.batch(
       [
-        `SELECT enigme, etat, COUNT(*) AS n FROM profile_sphinx WHERE etat <> 'vue' GROUP BY enigme, etat`,
-        { sql: `SELECT jour, etat, COUNT(*) AS n FROM profile_sphinx WHERE etat <> 'vue' AND jour >= ? AND jour <= ? GROUP BY jour, etat`, args: [depuis, aujourdhui] },
+        // Les visites seules : ni une énigme comptée pour vue, ni une phrase lue ou annoncée (`LIGNES_A_PART_DU_SPHINX`).
+        `SELECT enigme, etat, COUNT(*) AS n FROM profile_sphinx WHERE etat NOT IN ${A_PART} GROUP BY enigme, etat`,
+        { sql: `SELECT jour, etat, COUNT(*) AS n FROM profile_sphinx WHERE etat NOT IN ${A_PART} AND jour >= ? AND jour <= ? GROUP BY jour, etat`, args: [depuis, aujourdhui] },
         // Par l'index partiel des mots (`idx_profile_sphinx_mot`) : seules les visites résolues s'y trouvent.
         'SELECT divin, mot, MIN(COALESCE(close_le, proposee_le)) AS le FROM profile_sphinx WHERE mot IS NOT NULL GROUP BY divin, mot',
-        { sql: `SELECT profile_id FROM profile_sphinx WHERE jour = ? AND etat <> 'vue'`, args: [aujourdhui] },
+        { sql: `SELECT profile_id FROM profile_sphinx WHERE jour = ? AND etat NOT IN ${A_PART}`, args: [aujourdhui] },
         profileId ? lectureDuSphinx(profileId) : 'SELECT 1 WHERE 0',
       ],
       'read',

@@ -56,8 +56,24 @@ export interface PhraseDuSphinx {
   siens: number
   /** Combien tous les profils en ont trouvé ensemble — un nombre, jamais lesquels. */
   parTous: number
-  /** Tous ses mots trouvés, par tous : elle se montre entière à chacun. */
+  /**
+   * Tous ses mots trouvés, par tous — retrouvée. Elle ne s'impose plus (la
+   * décision du propriétaire du 24 novembre 2026 : chacun avance à son
+   * rythme) : elle ne se montre entière qu'à qui choisit de la lire.
+   */
   reconstituee: boolean
+  /**
+   * Retrouvée par tous, et pas encore lue par lui : elle se dévoile à sa
+   * demande (`POST /api/joueur/sphinx/phrase`). Jusque-là, rien de plus que
+   * ses mots, les petits mots offerts, la forme du reste et le compte.
+   */
+  aDevoiler?: true
+  /**
+   * La phrase entière, ponctuation comprise, à qui la voit entière : il porte
+   * ce Divin, il l'a choisie une fois retrouvée, ou il en a trouvé lui-même
+   * chaque mot caché. Absente sinon.
+   */
+  legende?: string
   /** Il porte ce Divin : il en connaît la légende, elle se montre entière à lui. */
   porteur?: true
 }
@@ -103,8 +119,19 @@ export interface SphinxOuvert {
   visite: VisiteDuSphinx | null
   /** La phrase du Divin du moment ; null quand tous les Divins ont leur phrase reconstituée. */
   phrase: PhraseDuSphinx | null
-  /** Les phrases que tous ont reconstituées, entières. */
-  reconstituees: { divin: { key: string; nom: string }; legende: string }[]
+  /**
+   * Les phrases que tous ont reconstituées, telles qu'il les voit — entières
+   * seulement s'il les a choisies, s'il porte leur Divin ou s'il en a trouvé
+   * chaque mot : le texte d'une phrase qu'il n'a pas choisie n'arrive pas
+   * jusqu'à son navigateur.
+   */
+  reconstituees: PhraseDuSphinx[]
+}
+
+/** « La phrase est retrouvée : la lire » (`POST /api/joueur/sphinx/phrase`, `{ divin }`) : la phrase entière, à lui pour de bon. */
+export interface PhraseLueDuSphinx {
+  accuse: true
+  phrase: PhraseDuSphinx
 }
 
 /** Ce qu'un geste rend : son accusé, son verdict, et la visite d'après. */
