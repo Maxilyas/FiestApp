@@ -286,8 +286,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @keyframes pouls { 50% { scale: 1.35; opacity: 0.75; } }
 
 .focus { text-align: center; display: grid; justify-items: center; gap: 2px; width: 100%; }
-.focus .grand { width: min(128px, 15.5vh); margin-bottom: 4px; }
-.focus h2 { font: 600 28px/1.05 var(--f-titre); color: var(--or-clair); margin: 0; text-wrap: balance; }
+.focus .grand { width: min(128px, 13.5vh); margin-bottom: 6px; }
+.focus .moment { margin: 0 0 2px; font-size: 10px; }
+.focus h2 { font: 600 28px/1.05 var(--f-titre); color: var(--or-clair); margin: 0 0 12px; text-wrap: balance; }
 .focus .secret { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
 
 /* La phrase : un trait par lettre, les petits mots déjà là. */
@@ -313,6 +314,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @keyframes retourne { from { transform: rotateX(90deg); opacity: 0; } to { transform: rotateX(0); opacity: 1; } }
 .compte { font-size: 12px; color: var(--muted); margin: 12px 0 0; }
 .compte b { color: var(--or-clair); font-weight: 600; }
+/* Ce que tous les habitués ont trouvé ensemble : un nombre, jamais les mots. */
+.jauge { display: block; width: 168px; height: 4px; margin: 8px auto 0; border-radius: 2px; background: rgba(255, 255, 255, 0.09); overflow: hidden; }
+.jauge i { display: block; height: 100%; background: linear-gradient(90deg, var(--or), var(--or-clair)); transition: width 0.8s ease; }
 
 /* L'énigme, écrite en haut : le clavier du téléphone monte par le bas. */
 .parchemin {
@@ -495,8 +499,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
     <section class="focus" id="focus" aria-label="La phrase de Chronos">
       <div class="grand" id="focus-voile"></div>
+      <p class="sourcil moment">Le Divin du moment</p>
       <h2>Chronos</h2>
-      <p class="secret">Personne ne sait ce qui le fait descendre.</p>
       <div class="phrase" id="phrase-focus"></div>
       <p class="compte" id="compte-focus"></p>
     </section>
@@ -550,7 +554,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
       <p class="compte" id="compte-album"></p>
       <div class="conseil">
         <span class="mini" aria-hidden="true"></span>
-        <span>Les autres habitués ont reçu d'autres mots. <b>Comparez-les</b> : à plusieurs, vous lirez la phrase entière.</span>
+        <span id="conseil">Les autres habitués ont trouvé des mots que tu n'as pas. <b>Comparez-les</b> : à plusieurs, vous lirez la phrase entière.</span>
       </div>
     </div>
     <h3>Les autres Divins</h3>
@@ -632,6 +636,9 @@ const OFFERT = m => m.replace(/[’-]/g, '').length <= 3
 const A_TROUVER = PHRASE.map((m, i) => (OFFERT(m) ? -1 : i)).filter(i => i >= 0)
 const MOT_GAGNE = PHRASE.indexOf('temps')
 const QUATRE_MOTS = [PHRASE.indexOf('temps'), PHRASE.indexOf('jamais'), PHRASE.indexOf('perdre'), PHRASE.indexOf('rendez-vous')]
+// Ce que les autres habitués ont trouvé avant Léa. Le tirage donne d'abord un
+// mot que personne n'a : le sien en fait cinq.
+const TOUS_AVANT = 4
 
 // Les voiles, tels que les dessine `Divin.tsx` (verrouillé) : nuances recopiées de `THEMES`.
 const DIVINS = {
@@ -962,8 +969,12 @@ function dessinerPhrase(conteneur, trouves) {
     conteneur.append(m)
   })
 }
-function compte(el, n) {
-  el.innerHTML = `<b>${n} mot${n > 1 ? 's' : ''}</b> sur ${A_TROUVER.length}${n ? '' : ' · les petits mots sont offerts'}`
+// Le Divin du moment est le même pour tout le serveur : chacun voit ses mots,
+// et combien tous les habitués en ont trouvé ensemble — jamais lesquels.
+function compte(el, moi, tous) {
+  const s = n => (n > 1 ? 's' : '')
+  el.innerHTML = `<b>Toi : ${moi ? `${moi} mot${s(moi)}` : 'aucun mot'}</b> · Tous les habitués : ${tous} sur ${A_TROUVER.length}`
+    + `<span class="jauge" aria-hidden="true"><i style="width:${Math.round((100 * tous) / A_TROUVER.length)}%"></i></span>`
 }
 async function retournerMot(conteneur, i) {
   const mot = conteneur.querySelector(`.mot[data-i="${i}"]`)
@@ -1057,10 +1068,10 @@ async function visite() {
     await dire(jeton, 'Un Divin descend sur celui qui accomplit un exploit bien précis… mais personne ne sait lequel.')
     $('focus-voile').innerHTML = voile('chronos')
     dessinerPhrase($('phrase-focus'), [])
-    compte($('compte-focus'), 0)
+    compte($('compte-focus'), 0, TOUS_AVANT)
     montrer('focus')
-    await dire(jeton, 'Chacun cache son secret dans une phrase. Celle de *Chronos*, par exemple.')
-    await proposer(jeton, 'Moi, j’en connais quelques mots. Résous mon énigme, et je t’en souffle un.')
+    await dire(jeton, 'En ce moment, tous les habitués cherchent le secret de *Chronos*. Il est caché dans une phrase.')
+    await proposer(jeton, 'Chacun en reçoit des mots différents. Résous mon énigme, et je t’en souffle un.')
   } catch (e) { if (!(e instanceof Abandon)) throw e }
 }
 
@@ -1090,7 +1101,7 @@ $('epingle').addEventListener('click', async () => {
     await arrivee(jeton, { deja: true })
     $('focus-voile').innerHTML = voile('chronos')
     dessinerPhrase($('phrase-focus'), [])
-    compte($('compte-focus'), 0)
+    compte($('compte-focus'), 0, TOUS_AVANT)
     montrer('focus')
     await proposer(jeton, 'Te revoilà. Mon énigme t’attendait.')
   } catch (e) { if (!(e instanceof Abandon)) throw e }
@@ -1172,7 +1183,7 @@ async function victoire(jeton, e) {
   verifier(jeton)
   $('focus-voile').innerHTML = voile('chronos')
   dessinerPhrase($('phrase-focus'), [])
-  compte($('compte-focus'), 0)
+  compte($('compte-focus'), 0, TOUS_AVANT)
   montrer('focus')
   await attendre(500)
   verifier(jeton)
@@ -1191,11 +1202,12 @@ async function victoire(jeton, e) {
     requestAnimationFrame(() => { vole.style.transition = '' })
   } else vole.classList.remove('montre')
   await retournerMot($('phrase-focus'), MOT_GAGNE)
-  compte($('compte-focus'), 1)
-  await dire(jeton, 'D’autres habitués en ont reçu d’autres. Comparez vos mots : à plusieurs, vous lirez la phrase entière.')
-  await dire(jeton, 'Ta phrase t’attend dans ton album, sous le voile de Chronos. Je reviendrai.')
+  compte($('compte-focus'), 1, TOUS_AVANT + 1)
+  await dire(jeton, 'Et celui-là, *personne ne l’avait encore*.')
+  await dire(jeton, 'Les autres habitués en ont trouvé quatre. Comparez vos mots : à plusieurs, vous lirez la phrase entière.')
+  await dire(jeton, 'Ta phrase t’attend dans ton album. Quand vous l’aurez reconstituée, je vous parlerai d’un autre Divin.')
   await partir(jeton)
-  ouvrirAlbum([MOT_GAGNE], true)
+  ouvrirAlbum([MOT_GAGNE], TOUS_AVANT + 1, true)
 }
 
 async function defaite(jeton, e, issue) {
@@ -1224,10 +1236,12 @@ async function partir(jeton) {
 /* L'album                                                            */
 /* ------------------------------------------------------------------ */
 
-function ouvrirAlbum(trouves, nouveau = false) {
+function ouvrirAlbum(trouves, tous, nouveau = false) {
   $('album-voile').innerHTML = voile('chronos')
   dessinerPhrase($('phrase-album'), nouveau ? trouves.filter(i => i !== MOT_GAGNE) : trouves)
-  compte($('compte-album'), trouves.length)
+  compte($('compte-album'), trouves.length, tous)
+  const manquent = tous - trouves.length
+  $('conseil').innerHTML = `Les autres habitués ont trouvé <b>${manquent} mot${manquent > 1 ? 's' : ''}</b> que tu n'as pas. Comparez vos mots : à plusieurs, vous lirez la phrase entière.`
   $('grille').innerHTML = ['helios', 'athena', 'ariane', 'osiris', 'hecate', 'thot']
     .map(cle => `<figure>${voile(cle)}<figcaption>${DIVINS[cle].nom}</figcaption><small>aucun mot</small></figure>`).join('')
   $('album').hidden = false
@@ -1268,14 +1282,15 @@ outils.addEventListener('click', async e => {
   outils.hidden = true
   $('outils-bouton').setAttribute('aria-expanded', 'false')
   if (aller === 'debut') return visite()
-  if (aller === 'album1') { remettreAZero(); return ouvrirAlbum([MOT_GAGNE]) }
-  if (aller === 'album3') { remettreAZero(); return ouvrirAlbum(QUATRE_MOTS) }
+  if (aller === 'album1') { remettreAZero(); return ouvrirAlbum([MOT_GAGNE], TOUS_AVANT + 1) }
+  if (aller === 'album3') { remettreAZero(); return ouvrirAlbum(QUATRE_MOTS, 7) }
   if (aller === 'enigme') {
     const jeton = remettreAZero()
     try {
       await arrivee(jeton, { deja: true })
       $('focus-voile').innerHTML = voile('chronos')
       dessinerPhrase($('phrase-focus'), [])
+      compte($('compte-focus'), 0, TOUS_AVANT)
       montrer('focus')
       await enigme(jeton)
     } catch (err) { if (!(err instanceof Abandon)) throw err }

@@ -1,0 +1,935 @@
+{
+ "source": "Un million d’énigmes, charades et logogriphes, publié par Hilaire Le Gai (Pierre-Alexandre Gratet-Duplessis), Paris, Passard, 1858",
+ "statut": "domaine public ; transcription Wikisource, qualité 100 %",
+ "texte": "https://fr.wikisource.org/wiki/Un_million_d%E2%80%99%C3%A9nigmes,_charades_et_logogriphes/Charades_et_Logogriphes",
+ "fac_simile": "https://fr.wikisource.org/wiki/Page:Hilaire_Le_Gai_(Gratet-Duplessis)_Un_million_d%E2%80%99%C3%A9nigmes,_charades_et_logogriphes.djvu/",
+ "releve_le": "2026-11-24",
+ "enigmes": [
+  {
+   "numero": "370",
+   "difficulte": "facile",
+   "vers": [
+    "Quand je suis sous les pieds, je marche sur la tête."
+   ],
+   "solution": "Clou",
+   "acceptees": [
+    "clou",
+    "clous"
+   ],
+   "presque": [
+    "vis",
+    "punaise"
+   ],
+   "note": "Une seule ligne.",
+   "page": "225",
+   "djvu": "259"
+  },
+  {
+   "numero": "704",
+   "difficulte": "facile",
+   "vers": [
+    "Nous sommes deux qu’on met ensemble ;",
+    "Ce n’est pas un bonheur, ce semble ;",
+    "Car en tout temps notre union",
+    "N’opère que division,"
+   ],
+   "solution": "Ciseaux",
+   "acceptees": [
+    "ciseaux",
+    "ciseau",
+    "paire de ciseaux"
+   ],
+   "presque": [
+    "tenailles",
+    "pince"
+   ],
+   "note": "La strophe finit sur une virgule dans le livre.",
+   "page": "442",
+   "djvu": "476"
+  },
+  {
+   "numero": "32",
+   "difficulte": "facile",
+   "vers": [
+    "Je viens sans qu’on y pense,",
+    "Je meurs en ma naissance,",
+    "Et celui qui me suit",
+    "Ne vient jamais sans bruit."
+   ],
+   "solution": "Éclair",
+   "acceptees": [
+    "eclair",
+    "eclairs"
+   ],
+   "presque": [
+    "foudre",
+    "tonnerre",
+    "orage"
+   ],
+   "note": "",
+   "page": "24",
+   "djvu": "58"
+  },
+  {
+   "numero": "211",
+   "difficulte": "facile",
+   "vers": [
+    "Cinq voyelles, une consonne,",
+    "Voilà ce qui forme mon nom ;",
+    "Et je porte sur ma personne",
+    "De quoi l’écrire sans crayon."
+   ],
+   "solution": "Oiseau",
+   "acceptees": [
+    "oiseau",
+    "oiseaux"
+   ],
+   "presque": [
+    "plume",
+    "plumes"
+   ],
+   "note": "Un jeu sur les lettres : o-i-s-e-a-u.",
+   "page": "129",
+   "djvu": "163"
+  },
+  {
+   "numero": "8",
+   "difficulte": "facile",
+   "vers": [
+    "Sans consumer les cœurs nous les pouvons brûler,",
+    "Nous sommes les flambeaux et les miroirs des âmes.",
+    "Dont les vifs sentiments s’expriment par nos flammes",
+    "Et dans notre silence on nous entend parler."
+   ],
+   "solution": "Yeux",
+   "acceptees": [
+    "yeux",
+    "oeil",
+    "les yeux"
+   ],
+   "presque": [
+    "regard",
+    "larmes"
+   ],
+   "note": "Des points au milieu des phrases : coquilles de l’édition ?",
+   "page": "7",
+   "djvu": "41"
+  },
+  {
+   "numero": "154",
+   "difficulte": "facile",
+   "vers": [
+    "Avec nous en tous lieux, en tout temps on se couche.",
+    "On nous charge parfois d’or et de diamants ;",
+    "Mais quelquefois, lecteur, un seul mot qui nous touche",
+    "A pour nous plus d’appas que tous ces ornements."
+   ],
+   "solution": "Oreilles",
+   "acceptees": [
+    "oreille",
+    "oreilles"
+   ],
+   "presque": [
+    "oreiller",
+    "lobe"
+   ],
+   "note": "Vers recollé à la transcription.",
+   "page": "96",
+   "djvu": "130"
+  },
+  {
+   "numero": "302",
+   "difficulte": "facile",
+   "vers": [
+    "Sous un air de douceur extrême,",
+    "Être fourbe, hypocrite et de mauvaise foi",
+    "Détruire tes voleurs et te voler toi-même",
+    "Voilà, lecteur, tout mon emploi."
+   ],
+   "solution": "Chat",
+   "acceptees": [
+    "chat",
+    "chats",
+    "chatte"
+   ],
+   "presque": [
+    "renard",
+    "fouine"
+   ],
+   "note": "",
+   "page": "183",
+   "djvu": "217"
+  },
+  {
+   "numero": "477",
+   "difficulte": "facile",
+   "vers": [
+    "Aidé du feu l’on me produit,",
+    "Et par le feu l’on me détruit.",
+    "Le même jour voit la fleur la plus belle",
+    "Éclore et mourir :",
+    "La même nuit me voit, comme elle,",
+    "Briller et périr."
+   ],
+   "solution": "Chandelle",
+   "acceptees": [
+    "chandelle",
+    "bougie",
+    "cierge"
+   ],
+   "presque": [
+    "allumette",
+    "flamme",
+    "lampe"
+   ],
+   "note": "",
+   "page": "289",
+   "djvu": "323"
+  },
+  {
+   "numero": "413",
+   "difficulte": "facile",
+   "vers": [
+    "C’est sur la vanité que mon pouvoir se fonde ;",
+    "La beauté me chérit et me cherche en tous lieux",
+    "Si je n’existais pas, il n’est personne au monde",
+    "Qui pût voir à son gré ce qu’il aime le mieux."
+   ],
+   "solution": "Miroir",
+   "acceptees": [
+    "miroir",
+    "glace",
+    "psyche"
+   ],
+   "presque": [
+    "reflet"
+   ],
+   "note": "",
+   "page": "250",
+   "djvu": "284"
+  },
+  {
+   "numero": "140",
+   "difficulte": "facile",
+   "vers": [
+    "Aux imprimeurs je fais la loi ;",
+    "Voltaire, avec tout son génie.",
+    "N’a pu faire un livre sans moi ;",
+    "Et toi, lecteur, je te défie",
+    "D’ouvrir un seul registre où je ne m’offre à toi."
+   ],
+   "solution": "Page",
+   "acceptees": [
+    "page",
+    "pages"
+   ],
+   "presque": [
+    "encre",
+    "papier",
+    "lettre"
+   ],
+   "note": "Un point au milieu d’une phrase (« génie. »).",
+   "page": "86",
+   "djvu": "120"
+  },
+  {
+   "numero": "314",
+   "difficulte": "facile",
+   "vers": [
+    "Qui me fait seul souvent s’ennuie ;",
+    "Je suis l’emblème de la vie,",
+    "Comme elle j’ai des hauts, des bas,",
+    "Et l’on m’abrège à chaque pas."
+   ],
+   "solution": "Chemin",
+   "acceptees": [
+    "chemin",
+    "route",
+    "sentier"
+   ],
+   "presque": [
+    "voyage",
+    "marche"
+   ],
+   "note": "",
+   "page": "190",
+   "djvu": "224"
+  },
+  {
+   "numero": "286",
+   "difficulte": "facile",
+   "vers": [
+    "Votre sort, ô mortels, ressemble à mon destin",
+    "J’étais jeune au lever de la dernière aurore :",
+    "Hier je n’étais pas encore,",
+    "Et je ne serai plus demain."
+   ],
+   "solution": "Aujourd’hui",
+   "acceptees": [
+    "aujourd hui",
+    "aujourdhui"
+   ],
+   "presque": [
+    "jour",
+    "present",
+    "matin"
+   ],
+   "note": "",
+   "page": "173",
+   "djvu": "207"
+  },
+  {
+   "numero": "16",
+   "difficulte": "facile",
+   "vers": [
+    "Un bon vieux père a douze enfants.",
+    "Ces douze en ont plus de trois cents :",
+    "Ces trois cents en ont plus de mille.",
+    "Ceux-ci sont blancs, ceux-là sont noirs :",
+    "Et par de mutuels devoirs",
+    "Un repos éternel dure en cette famille."
+   ],
+   "solution": "Année",
+   "acceptees": [
+    "annee",
+    "an"
+   ],
+   "presque": [
+    "calendrier",
+    "mois"
+   ],
+   "note": "La plus célèbre : le père aux douze enfants.",
+   "page": "14",
+   "djvu": "48"
+  },
+  {
+   "numero": "435",
+   "difficulte": "facile",
+   "vers": [
+    "Lorsque, pour s’amuser, sans cesse ils s’évertuent",
+    "Ces messieurs les humains, ils disent qu’ils me tuent :",
+    "Moi, je ne me vante de rien,",
+    "Mais, ma foi, je m’en venge bien."
+   ],
+   "solution": "Temps",
+   "acceptees": [
+    "temps"
+   ],
+   "presque": [
+    "ennui",
+    "heure"
+   ],
+   "note": "Tuer le temps.",
+   "page": "263",
+   "djvu": "297"
+  },
+  {
+   "numero": "146",
+   "difficulte": "moyenne",
+   "vers": [
+    "Je suis quand mon frère n’est pas,",
+    "Autrement je ne saurais être ;",
+    "C’est en mourant qu’il me fait naître,",
+    "C’est en ressuscitant qu’il cause mon trépas."
+   ],
+   "solution": "Nuit",
+   "acceptees": [
+    "nuit"
+   ],
+   "presque": [
+    "jour",
+    "ombre",
+    "lune",
+    "soir",
+    "obscurite"
+   ],
+   "note": "",
+   "page": "90",
+   "djvu": "124"
+  },
+  {
+   "numero": "97",
+   "difficulte": "moyenne",
+   "vers": [
+    "On parle bien en vain si l’on ne m’envisage :",
+    "Mon silence est ma voix, ma forme est mon langage.",
+    "Ce qu’on m’a dit, lecteur, c’est moi qui te le dis ;",
+    "Tu dis ce que je dis, dis-moi donc qui je suis."
+   ],
+   "solution": "Écho",
+   "acceptees": [
+    "echo"
+   ],
+   "presque": [
+    "miroir",
+    "voix"
+   ],
+   "note": "Vers recollé à la transcription.",
+   "page": "61",
+   "djvu": "95"
+  },
+  {
+   "numero": "104",
+   "difficulte": "moyenne",
+   "vers": [
+    "En un seul mot j’offre une fleur, une île,",
+    "Une arme, un fruit, un royaume, une ville."
+   ],
+   "solution": "Grenade",
+   "acceptees": [
+    "grenade"
+   ],
+   "presque": [],
+   "note": "Deux vers : six sens d’un même mot.",
+   "page": "65",
+   "djvu": "99"
+  },
+  {
+   "numero": "637",
+   "difficulte": "moyenne",
+   "vers": [
+    "File-moi, je te vêts ; retourne-moi, je coule."
+   ],
+   "solution": "Lin, Nil",
+   "acceptees": [
+    "lin",
+    "nil"
+   ],
+   "presque": [
+    "fil",
+    "coton",
+    "laine"
+   ],
+   "note": "Une ligne : lin, et à l’envers, le Nil. Le livre la numérote 673 par erreur.",
+   "page": "399",
+   "djvu": "433"
+  },
+  {
+   "numero": "52",
+   "difficulte": "moyenne",
+   "vers": [
+    "Du monde je suis le tableau ;",
+    "Ma mer n’eut pourtant jamais d’eau,",
+    "Et mes champs sont infertiles ;",
+    "Je n’ai point de maison, et j’ai de grandes villes ;",
+    "Je réduis en un point mille ouvrages divers ;",
+    "Je ne suis presque rien et je suis l’Univers."
+   ],
+   "solution": "Carte géographique",
+   "acceptees": [
+    "carte",
+    "carte geographique",
+    "carte du monde",
+    "planisphere",
+    "mappemonde"
+   ],
+   "presque": [
+    "atlas",
+    "globe"
+   ],
+   "note": "",
+   "page": "35",
+   "djvu": "69"
+  },
+  {
+   "numero": "218",
+   "difficulte": "moyenne",
+   "vers": [
+    "À la candeur qui brille en moi",
+    "Je joins le plus noir caractère ;",
+    "Il n’est rien que je ne tolère,",
+    "Mais je suis méchant quand je bois."
+   ],
+   "solution": "Papier",
+   "acceptees": [
+    "papier",
+    "feuille",
+    "feuille de papier"
+   ],
+   "presque": [
+    "encre",
+    "page",
+    "buvard"
+   ],
+   "note": "Le livre imprime « je boi », pour la rime avec « moi » ; Wikisource écrit « bois ».",
+   "page": "133",
+   "djvu": "167"
+  },
+  {
+   "numero": "241",
+   "difficulte": "moyenne",
+   "vers": [
+    "Je suis pointu, carré, rond, long, petit ou gros,",
+    "À se servir de moi chaque jour ou s’apprête ;",
+    "Et soit qu’un régiment marche ou reste en repos",
+    "On me voit toujours à la tête."
+   ],
+   "solution": "Bonnet",
+   "acceptees": [
+    "bonnet",
+    "chapeau",
+    "couvre chef",
+    "coiffe",
+    "casquette"
+   ],
+   "presque": [
+    "casque",
+    "perruque"
+   ],
+   "note": "« ou s’apprête » : sans doute « on s’apprête ». Coquille à vérifier.",
+   "page": "146",
+   "djvu": "180"
+  },
+  {
+   "numero": "338",
+   "difficulte": "moyenne",
+   "vers": [
+    "J’habite dans les airs sans user de mes ailes.",
+    "Il est d’importantes nouvelles",
+    "Dont c’est à moi de décider.",
+    "Qu’on vienne me les demander,",
+    "Je rends, quoique sans voix, des réponses fidèles ;",
+    "Mais pour m’entendre il faut me regarder."
+   ],
+   "solution": "Coq du clocher",
+   "acceptees": [
+    "coq",
+    "girouette",
+    "coq du clocher"
+   ],
+   "presque": [
+    "cloche",
+    "clocher"
+   ],
+   "note": "La clé dit « Coq du clocher » : la girouette.",
+   "page": "205",
+   "djvu": "239"
+  },
+  {
+   "numero": "343",
+   "difficulte": "moyenne",
+   "vers": [
+    "Si je n’ai pas des plus brillants carrosses",
+    "Et la richesse et l’ornement,",
+    "Je n’ai pas le désagrément",
+    "De me voir conduit par des rosses.",
+    "D’un sort peu favorable éprouvant la secousse,",
+    "Mon maître cependant me soutient et me pousse ;",
+    "Avec moi l’on ne peut agir plus poliment,",
+    "Il me suit par derrière et je vais par devant."
+   ],
+   "solution": "Brouette",
+   "acceptees": [
+    "brouette"
+   ],
+   "presque": [
+    "charrette",
+    "chariot",
+    "caddie"
+   ],
+   "note": "« Rosses » : de mauvais chevaux.",
+   "page": "209",
+   "djvu": "243"
+  },
+  {
+   "numero": "397",
+   "difficulte": "moyenne",
+   "vers": [
+    "On m’a souvent pour une obole ;",
+    "J’exige des soins assidus :",
+    "Si l’on me perd, on se désole ;",
+    "Si l’on me gagne, on ne m’a plus."
+   ],
+   "solution": "Procès",
+   "acceptees": [
+    "proces"
+   ],
+   "presque": [
+    "pari",
+    "match",
+    "jeu"
+   ],
+   "note": "Wikisource a corrigé « dcsole » (imprimé) en « désole ».",
+   "page": "241",
+   "djvu": "275"
+  },
+  {
+   "numero": "445",
+   "difficulte": "moyenne",
+   "vers": [
+    "Je marche sur six pieds, je vis dans le silence,",
+    "Et je suis, en amour,",
+    "Pour qui craint les jaloux, d’une grande importance.",
+    "Plus d’un bavard me trahit chaque jour.",
+    "Je suis ; ….. mais c’est assez ; tu devines peut-être :",
+    "En ce cas, cher lecteur, pour toi je cesse d’être."
+   ],
+   "solution": "Secret",
+   "acceptees": [
+    "secret"
+   ],
+   "presque": [
+    "silence",
+    "mystere"
+   ],
+   "note": "« Six pieds » : six lettres. Le livre écrit « ….. ».",
+   "page": "269",
+   "djvu": "303"
+  },
+  {
+   "numero": "575",
+   "difficulte": "moyenne",
+   "vers": [
+    "Si vous croyez que sans argent",
+    "On ne saurait vivre content,",
+    "C’est bien le comble du délire :",
+    "Peut-on rien trouver de plus fou ?",
+    "Pour moi, quand je n’ai pas le sou,",
+    "Alors je ne fais plus que rire."
+   ],
+   "solution": "Sourire",
+   "acceptees": [
+    "sourire"
+   ],
+   "presque": [
+    "rire"
+   ],
+   "note": "Un jeu de mots : sou-rire.",
+   "page": "357",
+   "djvu": "391"
+  },
+  {
+   "numero": "344",
+   "difficulte": "moyenne",
+   "vers": [
+    "Le nom que j’ai, lecteur, avant de naître,",
+    "Quand je suis né ne me sert déjà plus.",
+    "En m’attendant tu me verras peut-être ;",
+    "Mais aujourd’hui pour me connaître,",
+    "Tes efforts seraient superflus."
+   ],
+   "solution": "Lendemain",
+   "acceptees": [
+    "lendemain",
+    "demain"
+   ],
+   "presque": [
+    "avenir",
+    "futur"
+   ],
+   "note": "",
+   "page": "209",
+   "djvu": "243"
+  },
+  {
+   "numero": "711",
+   "difficulte": "moyenne",
+   "vers": [
+    "D’un père lumineux je suis la fille obscure",
+    "Je méprise la terre et je m’élève aux cieux.",
+    "Où j’apaise souvent la colère des dieux.",
+    "Si mon père est aimé, personne ne m’endure.",
+    "Car je coûte des pleurs aux gens les plus joyeux."
+   ],
+   "solution": "Fumée",
+   "acceptees": [
+    "fumee"
+   ],
+   "presque": [
+    "cendre",
+    "vapeur",
+    "encens"
+   ],
+   "note": "Des points au milieu des phrases : coquilles de l’édition ?",
+   "page": "447",
+   "djvu": "481"
+  },
+  {
+   "numero": "28",
+   "difficulte": "moyenne",
+   "vers": [
+    "Vous sommes plusieurs sœurs à peu près du même âge,",
+    "Dans deux rangs différents, mais d’un semblable usage.",
+    "Vous avons en naissant un palais pour maison,",
+    "Qu’on pourrait mieux nommer une étroite prison :",
+    "Il faut nous y forcer, pour que quelqu’une en sorte.",
+    "Quoique cent fois le jour on nous ouvre la porte."
+   ],
+   "solution": "Dents",
+   "acceptees": [
+    "dents",
+    "dent"
+   ],
+   "presque": [
+    "bouche",
+    "machoire",
+    "langue"
+   ],
+   "note": "« Vous sommes », « Vous avons » : sans doute « Nous », que Wikisource n’a pas relevé. À corriger ensemble, ou à laisser.",
+   "page": "22",
+   "djvu": "56"
+  },
+  {
+   "numero": "253",
+   "difficulte": "moyenne",
+   "vers": [
+    "On vient me consulter pour savoir les saisons,",
+    "Et quand le soleil entre en ses douze maisons,",
+    "De la terre et du ciel j’enclos les destinées,",
+    "Et plus je suis nouveau, plus je compte d’années."
+   ],
+   "solution": "Almanach",
+   "acceptees": [
+    "almanach",
+    "calendrier"
+   ],
+   "presque": [
+    "agenda",
+    "horoscope"
+   ],
+   "note": "",
+   "page": "152",
+   "djvu": "186"
+  },
+  {
+   "numero": "349",
+   "difficulte": "difficile",
+   "vers": [
+    "Tout paraît renversé chez moi :",
+    "Le laquais précède le maître ;",
+    "Le manant passe avant le roi ;",
+    "Le simple clerc avant le prêtre ;",
+    "Le printemps vient après l’été ;",
+    "Noël avant la Trinité :",
+    "C’en est assez pour me connaître."
+   ],
+   "solution": "Dictionnaire",
+   "acceptees": [
+    "dictionnaire"
+   ],
+   "presque": [
+    "alphabet",
+    "ordre alphabetique"
+   ],
+   "note": "L’ordre alphabétique : laquais avant maître, Noël avant Trinité.",
+   "page": "213",
+   "djvu": "247"
+  },
+  {
+   "numero": "641",
+   "difficulte": "difficile",
+   "vers": [
+    "J’habite dans le feu ; je fuis la terre et l’onde ;",
+    "Je me plais dans la nuit, le trouble et les douleurs ;",
+    "On me voit dans les cieux, mais jamais dans le monde.",
+    "Ma famille est en joie, et moi je suis en pleurs.",
+    "Je me mets en fureur dans un séjour nocturne,",
+    "Et sans quitter jamais le deuil ni le tombeau,",
+    "Je parais dans Mercure, au milieu de Saturne,",
+    "Et vais dans le mois d’août couvert d’un grand chapeau."
+   ],
+   "solution": "La lettre U",
+   "acceptees": [
+    "u",
+    "la lettre u",
+    "lettre u"
+   ],
+   "presque": [
+    "lettre",
+    "voyelle"
+   ],
+   "note": "Une lettre : feU, nUit, aoÛt… Vers recollé à la transcription.",
+   "page": "402",
+   "djvu": "436"
+  },
+  {
+   "numero": "659",
+   "difficulte": "difficile",
+   "vers": [
+    "Tout sert à composer mon corps",
+    "Toujours de structure bizarre ;",
+    "Mon père fait tous ses efforts",
+    "Pour me donner un air barbare.",
+    "Avec des habits différents,",
+    "Tous les mois on me voit paraître."
+   ],
+   "solution": "Énigme",
+   "acceptees": [
+    "enigme",
+    "enigmes",
+    "devinette"
+   ],
+   "presque": [
+    "rebus",
+    "charade"
+   ],
+   "note": "Une énigme dont la réponse est « énigme » : celle du Sphinx par excellence.",
+   "page": "414",
+   "djvu": "448"
+  },
+  {
+   "numero": "578",
+   "difficulte": "difficile",
+   "vers": [
+    "J’étais un élément ; mais une autre doctrine",
+    "De cette liste m’élimine :",
+    "Ne me demande pas si c’est à tort ou non,",
+    "Cherche plutôt quel est mon nom.",
+    "Mon nom formé de trois voyelles",
+    "Qu’un nœud très-étroit lie entre elles,",
+    "Se prononce en français (observe bien ce point)",
+    "Comme celle, lecteur, qui ne s’y trouve point."
+   ],
+   "solution": "Eau",
+   "acceptees": [
+    "eau"
+   ],
+   "presque": [
+    "o",
+    "glace",
+    "element"
+   ],
+   "note": "Trois voyelles qui se prononcent « o ».",
+   "page": "360",
+   "djvu": "394"
+  },
+  {
+   "numero": "187",
+   "difficulte": "difficile",
+   "vers": [
+    "Sous les rois fainéants je gouvernai les hommes",
+    "Je fus maître au palais, et je suis dans les pommes."
+   ],
+   "solution": "Pépin",
+   "acceptees": [
+    "pepin",
+    "pepin le bref"
+   ],
+   "presque": [
+    "pomme",
+    "charlemagne",
+    "maire du palais"
+   ],
+   "note": "Histoire et jeu de mots.",
+   "page": "116",
+   "djvu": "150"
+  },
+  {
+   "numero": "423",
+   "difficulte": "difficile",
+   "vers": [
+    "Redouté des humains, désiré tour à tour,",
+    "Je porte dans leurs cœurs la crainte et l’espérance.",
+    "Pour moi l’active prévoyance",
+    "Les fait travailler nuit et jour,",
+    "Mais, tel est mon destin, j’expire avant de naître,",
+    "Et l’homme meurt sans me connaître."
+   ],
+   "solution": "Avenir",
+   "acceptees": [
+    "avenir",
+    "futur"
+   ],
+   "presque": [
+    "destin",
+    "lendemain",
+    "demain"
+   ],
+   "note": "",
+   "page": "255",
+   "djvu": "289"
+  },
+  {
+   "numero": "278",
+   "difficulte": "difficile",
+   "vers": [
+    "L’Arabie est le lieu dans lequel je suis né.",
+    "Nous sommes dix enfants : on me fît, par idée,",
+    "Le plus jeune de tous et le moins fortuné ;",
+    "Mais j’éloigne de moi cette triste pensée ;",
+    "Je suis beaucoup, je ne suis rien."
+   ],
+   "solution": "Zéro",
+   "acceptees": [
+    "zero",
+    "0"
+   ],
+   "presque": [
+    "chiffre",
+    "dix"
+   ],
+   "note": "Les chiffres arabes.",
+   "page": "168",
+   "djvu": "202"
+  },
+  {
+   "numero": "230",
+   "difficulte": "difficile",
+   "vers": [
+    "Je suis un joli corps, d’un très-léger volume,",
+    "Qui va, revient dans l’air, et sans pied porte plume."
+   ],
+   "solution": "Volant",
+   "acceptees": [
+    "volant"
+   ],
+   "presque": [
+    "badminton",
+    "plume",
+    "fleche"
+   ],
+   "note": "Le volant du badminton.",
+   "page": "139",
+   "djvu": "173"
+  },
+  {
+   "numero": "238",
+   "difficulte": "difficile",
+   "vers": [
+    "De grâce, accordez-moi, disait Lise à son père",
+    "Ce que vous n’avez pas et ne pouvez avoir.",
+    "Et que de me donner, vous avez le pouvoir…",
+    "Quel était donc l’objet de sa prière ?"
+   ],
+   "solution": "Mari",
+   "acceptees": [
+    "mari",
+    "epoux",
+    "un mari"
+   ],
+   "presque": [
+    "mariage",
+    "fiance",
+    "amour"
+   ],
+   "note": "",
+   "page": "144",
+   "djvu": "178"
+  },
+  {
+   "numero": "4",
+   "difficulte": "difficile",
+   "vers": [
+    "Plus belle que l’amour,",
+    "Je n’avais pas un jour.",
+    "Que j’épousai mon père,",
+    "Qui m’avait fait sans mère.",
+    "Au bout d’un an,",
+    "J’eus un enfant.",
+    "Admirez ma destinée.",
+    "Je mourus sans être née."
+   ],
+   "solution": "Ève",
+   "acceptees": [
+    "eve"
+   ],
+   "presque": [
+    "adam",
+    "lilith"
+   ],
+   "note": "Wikisource a corrigé « avois » (imprimé) en « avais ». Des points au milieu des phrases : la typographie du livre.",
+   "page": "4",
+   "djvu": "38"
+  }
+ ]
+}

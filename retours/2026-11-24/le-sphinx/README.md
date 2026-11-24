@@ -29,8 +29,10 @@ du 24 novembre 2026).
    toucher. Une police pixel (Pixelify Sans) ou douce (Figtree), au choix.
 4. **Les Divins expliqués** : cinq voiles tels que les dessine `Divin.tsx`
    (verrouillé), avec leur nom, « et treize autres, tout aussi secrets » ;
-   puis Chronos seul, et sa phrase cachée : un trait par lettre, les petits
-   mots (trois lettres et moins) offerts.
+   puis Chronos seul, **le Divin du moment**, et sa phrase cachée : un trait
+   par lettre, les petits mots (trois lettres et moins) offerts. Sous elle,
+   ce que Léa a trouvé et ce que tous les habitués ont trouvé ensemble — un
+   nombre et une jauge, jamais les mots.
 5. **Le choix**, dans un petit menu au curseur ▶ : « J'écoute ! » ou
    « Pas aujourd'hui » — alors le Sphinx s'épingle au bas de l'accueil, un
    « ? » à son médaillon, jusqu'à minuit.
@@ -38,9 +40,11 @@ du 24 novembre 2026).
    bas) : ses vers paraissent un à un, sa source dessous, trois essais. Une
    réponse proche (« tonnerre » pour l'éclair) ne coûte pas d'essai.
 7. **Le mot gagné** naît là où était l'énigme, vole jusqu'à sa place, et ses
-   lettres se retournent une à une. « Comparez vos mots : à plusieurs, vous
-   lirez la phrase entière. »
-8. **L'album**, où la phrase attend sous le voile du Divin.
+   lettres se retournent une à une. « Et celui-là, personne ne l'avait
+   encore. » « Comparez vos mots : à plusieurs, vous lirez la phrase
+   entière. »
+8. **L'album**, où la phrase attend sous le voile du Divin : « Les autres
+   habitués ont trouvé 4 mots que tu n'as pas. »
 
 Les outils de la maquette (le bouton « Maquette ») : aller à une étape, changer
 d'énigme, la police de la boîte, le son, moins de mouvement.
@@ -61,15 +65,47 @@ serveur (invariant 21), et la maquette ne la montre jamais entière. Les
 réactions du Sphinx (« Tu brûles… ») sont des textes de l'application, pas
 des énigmes.
 
-## Ce qui reste à décider
+## Ce qui a été décidé
 
-- La longueur des mots cachés se voit (un trait par lettre) : un indice de
-  plus, et de quoi deviner à plusieurs. La garder ?
-- Les petits mots offerts : la phrase se lit déjà en partie, et chaque énigme
-  donne un mot qui compte.
-- Le Sphinx parle-t-il toujours, ou chaque Divin parle-t-il de lui-même, sous
-  son voile ?
-- La police de la boîte : pixel ou douce.
+Le même jour, sur les recommandations (« Go ») :
+
+- **La police de la boîte : pixel.** C'est elle qui fait l'événement ; l'énigme
+  reste dans la police des titres, et le Sphinx parle en phrases courtes.
+- **Le Sphinx parle toujours.** Un seul personnage qui revient fait
+  l'événement (« le Sphinx est passé ! ») ; un Divin qui parlerait perdrait
+  son mystère. Il nomme le Divin dont il souffle un mot.
+- **La longueur des mots se voit** : à plusieurs, on devine les mots qui
+  manquent — la discussion qu'on cherche. Le premier réglage à retirer si une
+  phrase se devine trop vite.
+- **Les petits mots sont offerts** : chaque énigme rapporte un mot qui compte.
+- **Un seul Divin à la fois pour tout le serveur, le Divin du moment.** Tirés
+  chacun pour soi, deux amis auraient des morceaux de phrases différentes, et
+  rien à comparer. Chacun reçoit des mots différents, dans un ordre tiré pour
+  lui, d'abord un mot que personne n'a encore ; la page dit combien tous en
+  ont trouvé ensemble, jamais lesquels. Quand ils les ont tous trouvés, le
+  Sphinx passe au Divin suivant.
+
+## Les énigmes candidates
+
+`enigmes-candidates.json` : quarante énigmes retenues parmi les 118 de huit
+vers ou moins (14 faciles, 16 moyennes, 10 difficiles), avec leur texte tel
+que Wikisource le transcrit, la solution de la clé du livre, la page du
+fac-similé, les réponses acceptées et celles qui « brûlent » (des
+propositions, sans accents ni article), et une note quand le texte demande un
+regard. `relecture.html` les montre une par une, la réponse sous un toucher,
+avec trois verdicts et « Copier ma sélection » (publiée en artefact privé).
+
+Écartées en les lisant toutes : celles qui ont mal vieilli (l'épingle, la
+baleine, la médaille, l'esprit), les objets disparus (la crémaillère, la
+bassinoire, le soufflet, le ramoneur), les références savantes (les
+Danaïdes, Bellone, Clio), celles dont la clé manque (n° 44, 133, 534) ou se
+trompe (n° 401 : « Boulon » pour « Bouton »).
+
+Wikisource marque les coquilles qu'elle corrige (`<span class="coquille">`) :
+le texte recopié porte la correction, l'imprimé de 1858 est dans la note
+(n° 4, 218, 397 ; et le n° 637, que le livre numérote 673). Les points au
+milieu des phrases sont la typographie du livre. Une coquille que Wikisource
+n'a pas relevée se corrige ensemble ou pas du tout (n° 28 : « Vous sommes »).
 
 ## La regarder
 
