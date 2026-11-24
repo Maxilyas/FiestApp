@@ -1142,6 +1142,9 @@ function SceneDuSphinx({
       // Remise à plus tard, ou déjà présentée aujourd'hui sur ce téléphone : il va droit à son énigme.
       const presente = v.etat === 'plus-tard' || dejaPresente(v.jour)
       await arriver(moi)
+      // Le voilà sur l'accueil : il ne surgira plus pour cette visite, l'épingle la gardera jusqu'à minuit (le retour du
+      // propriétaire du 24 novembre 2026). Sans attendre ni rien dire : perdu en route, il surgira une fois de plus.
+      if (v.etat === 'proposee') void api.joueur.gesteDuSphinx('surgir').catch(() => {})
       if (presente) {
         setVue('focus')
         return proposer(moi, DIT.revoila)

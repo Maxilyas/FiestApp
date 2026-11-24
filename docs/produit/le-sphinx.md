@@ -8,6 +8,7 @@ Le souhait du propriétaire, le 24 novembre 2026 : que, parfois, quelqu'un vienn
 
 - **Un habitué** : un profil qui a joué au moins quatre des sept derniers jours (heure de Paris), tous modes confondus — quiz du jour, campagne, Cabinet, soirées qui comptent. Les nombres vivent dans [les barèmes](../reference/baremes.md).
 - **Une fois par jour au plus, une chance sur trois**, tirée pour lui et figée à sa première visite du jour : recharger l'accueil ne la retire pas, ne la redonne pas.
+- **Il ne surgit qu'une fois par visite** : arrivé sur l'accueil, il ne surgit plus pour cette énigme — rouvert l'accueil, l'appli fermée pendant qu'il parlait ou l'énigme quittée en route, il attend épinglé jusqu'à minuit, et c'est au joueur de le toucher quand il le veut. Une autre visite, un autre jour, surgit de nouveau, une fois. (Le retour du propriétaire du 24 novembre 2026, au premier jour en production : il surgissait à chaque accueil tant qu'on ne l'avait pas remis à plus tard.)
 - **Ses missions du jour le disent** : l'accueil sait, dans la même lecture, si le Sphinx passe. Seul un accueil qu'il visite télécharge la visite — sa boîte, son sable, ses images, sa police pixel.
 - **Jamais par-dessus une soirée en cours** : quand l'accueil propose de « Revenir chez … », on est là pour retourner jouer — le Sphinx s'épingle seulement, sans rien dire, et attend qu'on le touche.
 

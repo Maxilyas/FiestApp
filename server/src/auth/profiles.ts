@@ -588,6 +588,11 @@ export interface LigneDuSphinx {
   /** Le mot gagné : sa place dans la légende de son Divin. */
   mot: number | null
   proposeeLe: number
+  /**
+   * Le premier instant où le Sphinx lui a parlé : son arrivée sur l'accueil (`surgir`) ou son énigme écoutée — dès
+   * lors, il ne surgit plus, il s'épingle (`Sphinx.decider`). Null, il n'est jamais arrivé jusqu'à lui.
+   */
+  ecouteeLe: number | null
 }
 
 /**
@@ -637,7 +642,7 @@ function soireesLues(rows: readonly Row[]): { le: number; confettis: number; com
 /** Ses visites du Sphinx, toutes (une par jour au plus, et les énigmes comptées pour vues) : ses mots et ses énigmes vues s'en dérivent. */
 function lectureDuSphinx(profileId: string): InStatement {
   return {
-    sql: 'SELECT jour, enigme, divin, etat, essais, reponses, mot, proposee_le FROM profile_sphinx WHERE profile_id = ? ORDER BY jour',
+    sql: 'SELECT jour, enigme, divin, etat, essais, reponses, mot, proposee_le, ecoutee_le FROM profile_sphinx WHERE profile_id = ? ORDER BY jour',
     args: [profileId],
   }
 }
@@ -660,6 +665,7 @@ function lignesDuSphinxLues(rows: readonly Row[]): LigneDuSphinx[] {
       reponses,
       mot: r.mot === null || r.mot === undefined ? null : Number(r.mot),
       proposeeLe: Number(r.proposee_le ?? 0),
+      ecouteeLe: r.ecoutee_le === null || r.ecoutee_le === undefined ? null : Number(r.ecoutee_le),
     }
   })
 }
@@ -1842,6 +1848,11 @@ export class ProfileStore {
         // énigmes vues et le compte de tous s'en dérivent : rien d'écrit à
         // côté, pas même le Divin du moment. Une énigme comptée pour vue sans
         // visite y a sa ligne, son jour `vue:<numéro>` (`etat` = `vue`).
+        // `ecoutee_le` : le premier instant où le Sphinx lui a parlé — son
+        // arrivée sur l'accueil (`surgir`), son énigme écoutée ou répondue ;
+        // posé, il ne surgit plus, il s'épingle (`Sphinx.decider`, le
+        // 24 novembre 2026). La colonne existait sans lecteur : la reprendre
+        // évite une colonne de plus, et la lecture de son schéma à chaque réveil.
         `CREATE TABLE IF NOT EXISTS profile_sphinx (
            profile_id  TEXT NOT NULL,
            jour        TEXT NOT NULL,

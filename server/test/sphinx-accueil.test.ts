@@ -204,6 +204,40 @@ test('seul un habitué est visité, une fois par jour, la même après un rechar
     assert.equal((await lire(banc, '', '/api/joueur/sphinx')).status, 401)
   }))
 
+// Le retour du propriétaire, le 24 novembre 2026, au premier jour en
+// production : « Est-ce que à chaque fois le sphinx interpelle quand on ouvre
+// l'appli ? Il devrait interpeller qu'une seule fois puis c'est à l'utilisateur
+// d'ouvrir l'énigme quand il le souhaite. » Une visite proposée surgissait à
+// chaque accueil tant qu'on ne l'avait pas remise à plus tard : l'appli fermée
+// pendant sa présentation, ou l'énigme ouverte puis quittée, il revenait.
+test('le Sphinx ne surgit qu’une fois : arrivé sur l’accueil, ou son énigme écoutée, il s’épingle jusqu’à minuit', () =>
+  avecBanc(midi(26), {}, async banc => {
+    await ouvrir(banc, await connexionAnimateur(banc.url))
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐯')
+    joue(banc, 'lea', jours(23, 26))
+    joue(banc, 'tom', jours(23, 26))
+
+    // Tirée, la visite attend : l'accueil relu avant qu'il n'arrive — une page fermée trop tôt — la fait encore surgir.
+    assert.equal((await missions(banc, lea)).sphinx, 'attend')
+    assert.equal((await missions(banc, lea)).sphinx, 'attend')
+    // Il arrive : rien ne change à la visite, et plus jamais il ne surgit ce jour-là — même après un redémarrage.
+    const arrive = await geste(banc, lea, { geste: 'surgir' })
+    assert.deepEqual([arrive.status, arrive.corps.accuse, arrive.corps.visite.etat, arrive.corps.visite.essaisRestants], [200, true, 'proposee', 3])
+    assert.equal((await missions(banc, lea)).sphinx, 'epingle')
+    await banc.redemarrer()
+    assert.equal((await missions(banc, lea)).sphinx, 'epingle')
+    // L'épingle rouvre la même visite, et l'énigme s'écoute comme avant.
+    assert.equal((await leSphinx(banc, lea)).visite.etat, 'proposee')
+    assert.equal((await geste(banc, lea, { geste: 'ecouter' })).status, 200)
+    assert.equal((await missions(banc, lea)).sphinx, 'epingle')
+
+    // Tom écoute l'énigme sans que son arrivée se soit dite (une page d'avant), puis ferme l'appli : épinglé aussi.
+    assert.equal((await missions(banc, tom)).sphinx, 'attend')
+    assert.equal((await geste(banc, tom, { geste: 'ecouter' })).corps.visite.etat, 'proposee')
+    assert.equal((await missions(banc, tom)).sphinx, 'epingle')
+  }))
+
 test('le mot gagné : d’abord un que personne n’a ; une énigme vue ne revient jamais ; un profil supprimé emporte ses lignes', () =>
   avecBanc(midi(20), {}, async (banc, horloge) => {
     const admin = await connexionAnimateur(banc.url)

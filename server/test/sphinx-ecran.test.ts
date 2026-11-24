@@ -247,6 +247,14 @@ test('l’énigme se remet à plus tard d’un toucher, ses essais gardés, et l
   assert.doesNotMatch(source, /[Rr]eviens demain/)
 })
 
+// Il ne surgit qu'une fois par visite (le retour du propriétaire du 24 novembre 2026) : la page dit son arrivée au
+// serveur, qui l'épingle ensuite (`sphinx-accueil.test.ts`). Dite avant qu'il soit là, une page fermée pendant son
+// attente l'aurait épinglé sans qu'il ait jamais parlé.
+test('la visite dit son arrivée au serveur, une fois le Sphinx à l’écran', () => {
+  const source = lire('client/src/components/Sphinx.tsx')
+  assert.match(source, /await arriver\(moi\)\s*\n(?:\s*\/\/.*\n)*\s*if \(v\.etat === 'proposee'\) void api\.joueur\.gesteDuSphinx\('surgir'\)\.catch\(\(\) => \{\}\)/)
+})
+
 // ── L'épingle, dans l'accueil ─────────────────────────────────────────────
 
 test('l’épingle se pose près d’« Entre amis », hors de son nom, et rouvre la visite', async () => {

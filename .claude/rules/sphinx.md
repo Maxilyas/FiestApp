@@ -133,6 +133,18 @@ chacun la lit s'il le choisit, et l'accueil l'annonce une fois (plus bas).
   et les missions —, sans quoi il défilait de 7 px en 360 × 640. Une ligne de
   plus à l'accueil se relance avec `rendu-sphinx.ts` (`tom`, `sofia`), qui
   mesure l'épingle sur les boutons, sous la niche et l'accueil qui défile.
+- **Il ne surgit qu'une fois par visite** (le retour du propriétaire du
+  24 novembre 2026 : « il devrait interpeller qu'une seule fois, puis c'est à
+  l'utilisateur d'ouvrir l'énigme quand il le souhaite ») : la page dit son
+  arrivée au serveur une fois le Sphinx à l'écran (`surgir`, après `arriver`
+  — dite avant, une page fermée pendant son attente l'aurait épinglé sans
+  qu'il ait parlé), qui pose `ecoutee_le` ; écoutée ou répondue, de même. Dès
+  lors, `decider` dit `epingle` pour une visite pas encore close, plus
+  jamais `attend`. Avant, il surgissait à chaque accueil tant qu'on ne
+  l'avait pas remise à plus tard. `ecoutee_le` existait sans lecteur : le
+  reprendre a évité une colonne, et la lecture de son schéma à chaque réveil
+  (`ajouterColonne`). Une ligne de visite lue passe par `lignesDuSphinxLues`,
+  qui le porte (`ecouteeLe`).
 - **Une visite qui attend ne surgit pas sur « Revenir chez … »**
   (`ceQueMontreLeSphinx`) : elle s'épingle, sans rien écrire au serveur. Une
   visite remise à plus tard, ou déjà présentée ce jour-là sur ce téléphone,
