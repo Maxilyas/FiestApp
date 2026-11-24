@@ -238,6 +238,88 @@ test('le Sphinx ne surgit qu’une fois : arrivé sur l’accueil, ou son énigm
     assert.equal((await missions(banc, tom)).sphinx, 'epingle')
   }))
 
+// Le premier retour de la production, le 24 novembre 2026 : « Je vois nulle
+// part où rentrer le mot des autres. » Sur la phrase inventée de la maquette
+// (`phraseInventeeDuSphinx`) : ses mots s'écrivent ici sans rien dévoiler.
+const INVENTEE = 'Il descend sur qui défie le temps sans jamais perdre l’heure de son rendez-vous.'
+const placeDe = (texte: string) => motsDeLaLegende(INVENTEE).findIndex(m => m.texte === texte)
+
+/** Des mots trouvés par un profil, des visites résolues les jours d'avant — comme les rendus les écrivent. */
+function aTrouve(banc: Banc, login: string, textes: readonly string[]) {
+  const id = idDe(banc, login)
+  base(banc, db => {
+    textes.forEach((texte, k) =>
+      db
+        .prepare(`INSERT INTO profile_sphinx (profile_id, jour, enigme, divin, etat, essais, reponses, mot, proposee_le, close_le) VALUES (?, ?, ?, ?, 'resolue', 1, '[]', ?, 1, 2)`)
+        .run(id, septembre(1 + k), `essai-${k}`, DIVIN_DU_MOMENT, placeDe(texte)),
+    )
+  })
+}
+
+test('un mot qu’on t’a dit s’inscrit sur ton trait : juste et déjà trouvé, il se retourne ; cinq erreurs par jour ; et à qui demander', () =>
+  avecBanc(midi(26), { phraseInventeeDuSphinx: INVENTEE }, async (banc, horloge) => {
+    const admin = await connexionAnimateur(banc.url)
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐯')
+    await inscrireProfil(banc.url, 'zoe', 'Zoé', '🐼')
+    const inscrire = (cookie: string, corps: unknown) =>
+      ecrire(banc.url, '/api/joueur/sphinx/inscrire', corps, cookie).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
+    const descend = { divin: DIVIN_DU_MOMENT, place: placeDe('descend'), mot: 'DESCEND' }
+    // Sa page fermée, sa porte aussi.
+    assert.equal((await inscrire(tom, descend)).status, 423)
+    await ouvrir(banc, admin)
+
+    // Léa a trouvé deux mots, Zoé un ; les mots de tous se relisent au démarrage.
+    aTrouve(banc, 'lea', ['descend', 'temps'])
+    aTrouve(banc, 'zoe', ['défie'])
+    await banc.redemarrer()
+
+    // Tom n'en a aucun : il voit qui en a, et combien — jamais lesquels, ni lui-même.
+    const avant = (await leSphinx(banc, tom)).phrase
+    assert.deepEqual(
+      avant.quiADesMots.map((q: any) => [q.nom, q.mots]),
+      [
+        ['Léa', 2],
+        ['Zoé', 1],
+      ],
+    )
+    for (const cache of ['descend', 'temps', 'défie']) assert.ok(!JSON.stringify(avant).includes(cache), `${cache} ne part pas vers Tom`)
+
+    // Un mot juste que personne n'a trouvé : la même réponse qu'un faux, et une erreur de moins.
+    const personne = await inscrire(tom, { divin: DIVIN_DU_MOMENT, place: placeDe('jamais'), mot: 'jamais' })
+    assert.deepEqual([personne.status, personne.corps.juste, personne.corps.erreursRestantes], [200, false, 4])
+    assert.equal(personne.corps.phrase.mots[placeDe('jamais')].texte, undefined)
+    // Celui que Léa lui a dit, tapé comme il vient : il se retourne, en argent, et ne coûte rien.
+    const juste = await inscrire(tom, descend)
+    assert.deepEqual([juste.status, juste.corps.juste, juste.corps.erreursRestantes], [200, true, 4])
+    assert.deepEqual(juste.corps.phrase.mots[placeDe('descend')], { forme: '_______', texte: 'descend', appris: true })
+    assert.deepEqual([juste.corps.phrase.siens, juste.corps.phrase.appris], [0, 1])
+    // Il le garde, sur tous ses appareils, après un redémarrage ; il ne s'inscrit pas deux fois.
+    await banc.redemarrer()
+    assert.equal((await leSphinx(banc, tom)).phrase.mots[placeDe('descend')].appris, true)
+    assert.equal((await inscrire(tom, descend)).status, 409)
+    // Un petit mot offert ne s'inscrit pas, un Divin inconnu non plus.
+    assert.equal((await inscrire(tom, { divin: DIVIN_DU_MOMENT, place: placeDe('sur'), mot: 'sur' })).status, 400)
+    assert.equal((await inscrire(tom, { divin: 'dv:inconnu', place: 1, mot: 'x' })).status, 400)
+    // Appris n'est pas trouvé : il ne rejoint pas ceux à qui demander, et Léa ne voit que Zoé.
+    assert.deepEqual(
+      (await leSphinx(banc, lea)).phrase.quiADesMots.map((q: any) => q.nom),
+      ['Zoé'],
+    )
+
+    // Cinq erreurs par jour : au-delà, il demande, il ne devine plus — même juste.
+    for (const restantes of [3, 2, 1, 0]) {
+      assert.equal((await inscrire(tom, { divin: DIVIN_DU_MOMENT, place: placeDe('temps'), mot: 'tempête' })).corps.erreursRestantes, restantes)
+    }
+    const plusRien = await inscrire(tom, { divin: DIVIN_DU_MOMENT, place: placeDe('temps'), mot: 'temps' })
+    assert.equal(plusRien.status, 429)
+    assert.match(plusRien.corps.error, /demande/)
+    // Le lendemain, ses erreurs sont neuves.
+    horloge.t += 24 * 3_600_000
+    const lendemain = await inscrire(tom, { divin: DIVIN_DU_MOMENT, place: placeDe('temps'), mot: 'Temps' })
+    assert.deepEqual([lendemain.corps.juste, lendemain.corps.erreursRestantes, lendemain.corps.phrase.appris], [true, 5, 2])
+  }))
+
 test('le mot gagné : d’abord un que personne n’a ; une énigme vue ne revient jamais ; un profil supprimé emporte ses lignes', () =>
   avecBanc(midi(20), {}, async (banc, horloge) => {
     const admin = await connexionAnimateur(banc.url)

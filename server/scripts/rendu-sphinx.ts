@@ -7,7 +7,8 @@
 // puis « Plus tard » et l'épingle sur l'accueil, la visite rouverte de
 // l'épingle, « Plus tard » l'énigme ouverte et sa reprise, ses essais gardés,
 // puis la langue au chat, trois essais perdus, l'épingle seule quand
-// une soirée attend, l'album d'un non-habitué, une phrase reconstituée par
+// une soirée attend, l'album d'un non-habitué — et les mots des autres
+// qu'il y inscrit, un faux puis un juste —, une phrase reconstituée par
 // tous, moins de mouvement, l'Ivoire et le texte agrandi à 130 %.
 //
 //   npm run build -w client
@@ -609,6 +610,53 @@ try {
     await ctx.close()
   }
   if (veut('nina')) await lAlbum('nina', profils.nina, PETIT, 'Osiris')
+
+  // ── Nina inscrit les mots des autres (le premier retour de la production, le 24 novembre 2026 : « Je vois nulle part
+  // où rentrer le mot des autres ») : qui en a, un trait touché, un faux, puis celui que Figurant 1 lui a dit ──
+  if (veut('inscrire')) {
+    // Une copie : la phrase reconstituée, plus bas, relit `caches` entier.
+    const aDire = [...caches]
+    for (const ecran of [PETIT, MOYEN]) {
+      const { ctx, page } = await telephone({ cookie: profils.nina, ecran })
+      await page.goto(`${banc.url}/profil#collection-avatars-divin`)
+      await page.waitForSelector('.album-divins', { timeout: 30000 })
+      await page.waitForTimeout(800)
+      await page.locator('.album-case[aria-label^="Osiris"]').first().tap()
+      await page.waitForSelector('.phrase-qui', { timeout: 20000 })
+      await page.locator('.phrase-divin').scrollIntoViewIfNeeded()
+      await page.waitForTimeout(600)
+      await photo(page, 'inscrire', 'qui-a-des-mots', ecran)
+      // Chaque trait se touche sur 44 px de haut, sans grandir, et sa cible ne déborde pas sur une autre.
+      const mal = (await page.evaluate(() => {
+        const d = (globalThis as any).document
+        return [...d.querySelectorAll('.phrase-a-inscrire')].flatMap((b: any) => {
+          const r = b.getBoundingClientRect()
+          const x = r.left + r.width / 2
+          return [r.top + r.height / 2 - 21, r.top + r.height / 2 + 21].flatMap(y => (d.elementFromPoint(x, y)?.closest('.phrase-a-inscrire') === b ? [] : [`trait ${b.dataset.i} à ${Math.round(y - r.top)} px`]))
+        })
+      })) as string[]
+      for (const m of mal) ratees.push(`inscrire ${ecran.join('×')} : cible courte, ${m}`)
+      // Le second mot caché, que Figurant 1 a trouvé : faux d'abord, puis juste.
+      const place = aDire[1]
+      await page.locator(`.phrase-a-inscrire[data-i="${place}"]`).tap()
+      await page.waitForSelector('#phrase-inscrire-mot', { timeout: 10000 })
+      await page.locator('.phrase-inscrire').scrollIntoViewIfNeeded()
+      await page.waitForTimeout(300)
+      await photo(page, 'inscrire', 'le-champ', ecran)
+      await page.locator('#phrase-inscrire-mot').fill('tempête')
+      await page.locator('.phrase-inscrire button[type="submit"]').tap()
+      await page.waitForFunction(() => ((globalThis as any).document.querySelector('.phrase-inscrire-dit')?.textContent ?? '').includes('pas ce mot'), null, { timeout: 10000 })
+      await photo(page, 'inscrire', 'un-faux', ecran)
+      await page.locator('#phrase-inscrire-mot').fill(motsDeLaLegende(INVENTEE)[place].texte.toUpperCase())
+      await page.locator('.phrase-inscrire button[type="submit"]').tap()
+      await page.waitForSelector(`.phrase-appris[data-i="${place}"]`, { timeout: 10000 })
+      await page.waitForTimeout(1500)
+      await photo(page, 'inscrire', 'appris', ecran)
+      await ctx.close()
+      // Le même mot ne s'inscrit qu'une fois : au second téléphone, il est déjà là ; on recommence sur le suivant.
+      aDire.splice(1, 2)
+    }
+  }
 
   // ── Une phrase reconstituée par tous : entière sous son voile, et le Sphinx passe au Divin suivant ──
   // Elle ne s'impose plus (la décision du 24 novembre 2026) : Marc trouve le dernier mot, et le Sphinx lui propose de la

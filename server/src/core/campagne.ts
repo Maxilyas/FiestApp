@@ -5039,6 +5039,11 @@ export class CampagneStore {
   // qui revient s'ils jouent de nouveau ensemble. Un masqué n'y paraît
   // jamais, et ses défis ne parviennent à personne.
 
+  /** Ses amis, par leur identifiant : le Sphinx les met en tête de ceux à qui demander des mots (`core/sphinx.ts`). */
+  amisDe(profileId: string): Promise<string[]> {
+    return this.idsDesAmis(profileId)
+  }
+
   /** Ses amis, les plus récents d'abord : leur identifiant, et quand il les a ajoutés ou joué avec eux pour la dernière fois. */
   private async idsDesAmis(profileId: string): Promise<string[]> {
     const [ensemble, retires] = await this.client.batch(lectureDesAmis(profileId), 'read')

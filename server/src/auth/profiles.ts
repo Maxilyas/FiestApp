@@ -580,8 +580,11 @@ export interface LigneDuSphinx {
   jour: string
   enigme: string
   divin: string
-  /** Une visite ; ou une ligne à part — une énigme comptée pour vue, une phrase retrouvée lue (`lue`) ou annoncée (`annoncee`). */
-  etat: EtatDeLaVisite | 'vue' | 'lue' | 'annoncee'
+  /**
+   * Une visite ; ou une ligne à part — une énigme comptée pour vue, une phrase retrouvée lue (`lue`) ou annoncée
+   * (`annoncee`), un mot appris (`appris`), les erreurs d'inscription d'un jour (`inscrits`).
+   */
+  etat: EtatDeLaVisite | (typeof LIGNES_A_PART_DU_SPHINX)[number]
   essais: number
   /** Ses réponses fausses, telles que le Sphinx les lit (`normaliser`) : la même, redite, ne coûte pas un second essai. */
   reponses: string[]
@@ -597,19 +600,26 @@ export interface LigneDuSphinx {
 
 /**
  * Les lignes de `profile_sphinx` qui ne sont pas des visites : une énigme
- * comptée pour vue, une phrase retrouvée lue ou annoncée. Les comptes des
- * visites les écartent toutes (`core/sphinx.ts` lit la même liste).
+ * comptée pour vue, une phrase retrouvée lue ou annoncée, un mot appris d'un
+ * autre (`appris`, son jour `appris:<Divin>:<place>`, sans `mot` : appris
+ * n'est pas trouvé), les erreurs d'inscription d'un jour (`inscrits`, son
+ * jour `inscrits:<jour>`, leur nombre dans `essais`). Les comptes des visites
+ * les écartent toutes (`core/sphinx.ts` lit la même liste).
  */
-export const LIGNES_A_PART_DU_SPHINX = ['vue', 'lue', 'annoncee'] as const
+export const LIGNES_A_PART_DU_SPHINX = ['vue', 'lue', 'annoncee', 'appris', 'inscrits'] as const
 const A_PART = `(${LIGNES_A_PART_DU_SPHINX.map(e => `'${e}'`).join(', ')})`
 
-/** Un profil qui a trouvé un mot de la phrase d'un Divin : son prénom et son visage (les homonymes, invariant 17), et quand d'abord. */
+/**
+ * Un profil qui a trouvé un mot de la phrase d'un Divin : son prénom et son visage (les homonymes, invariant 17), quand
+ * d'abord, et combien de ses mots — à qui les demander (`quiADesMotsPour`), jamais lesquels.
+ */
 export interface TrouveurDuSphinx {
   id: string
   name: string
   avatar: string
   legendaire: string | null
   le: number
+  mots: number
 }
 
 /** Ce que ses missions du jour lisent de son profil, d'un lot (`lecturesDesMissions`). */
@@ -2729,7 +2739,7 @@ export class ProfileStore {
     const [lus, qui] = await this.client.batch(
       [
         'SELECT divin, mot, MIN(COALESCE(close_le, proposee_le)) AS le FROM profile_sphinx WHERE mot IS NOT NULL GROUP BY divin, mot',
-        `SELECT s.divin, s.profile_id, MIN(COALESCE(s.close_le, s.proposee_le)) AS le, p.name, p.avatar, p.legendaire
+        `SELECT s.divin, s.profile_id, MIN(COALESCE(s.close_le, s.proposee_le)) AS le, COUNT(DISTINCT s.mot) AS n, p.name, p.avatar, p.legendaire
            FROM profile_sphinx s JOIN profiles p ON p.id = s.profile_id AND p.disabled_at IS NULL
           WHERE s.mot IS NOT NULL GROUP BY s.divin, s.profile_id`,
       ],
@@ -2747,7 +2757,14 @@ export class ProfileStore {
     for (const r of qui.rows) {
       const divin = String(r.divin)
       if (!trouveurs.has(divin)) trouveurs.set(divin, [])
-      trouveurs.get(divin)!.push({ id: String(r.profile_id), name: String(r.name), avatar: String(r.avatar), legendaire: r.legendaire == null ? null : String(r.legendaire), le: Number(r.le) })
+      trouveurs.get(divin)!.push({
+        id: String(r.profile_id),
+        name: String(r.name),
+        avatar: String(r.avatar),
+        legendaire: r.legendaire == null ? null : String(r.legendaire),
+        le: Number(r.le),
+        mots: Number(r.n ?? 0),
+      })
     }
     for (const t of trouveurs.values()) t.sort((a, b) => a.le - b.le || a.id.localeCompare(b.id))
     return { mots, premiers, trouveurs }
@@ -2774,6 +2791,33 @@ export class ProfileStore {
       'write',
     )
     return lignesDuSphinxLues(visites.rows)
+  }
+
+  /**
+   * Un mot inscrit sur un trait de sa phrase (`Sphinx.inscrire`) : juste, une
+   * ligne `appris` (son jour `appris:<Divin>:<place>`, une fois) ; faux, une
+   * erreur de plus à sa ligne du jour (`inscrits`, son nombre dans `essais`),
+   * jamais au-delà du plafond — deux serveurs, deux erreurs croisées, n'en
+   * comptent pas une de trop. D'un lot, avec ses lignes telles que la base les
+   * garde.
+   */
+  async inscrireUnMotDuSphinx(
+    profileId: string,
+    m: { divin: string; place: number; juste: boolean; jourDesErreurs: string; erreursMax: number; quand: number },
+  ): Promise<LigneDuSphinx[]> {
+    const ecriture = m.juste
+      ? {
+          sql: `INSERT INTO profile_sphinx (profile_id, jour, enigme, divin, etat, proposee_le) VALUES (?, ?, '', ?, 'appris', ?)
+                ON CONFLICT(profile_id, jour) DO NOTHING`,
+          args: [profileId, `appris:${m.divin}:${m.place}`, m.divin, m.quand],
+        }
+      : {
+          sql: `INSERT INTO profile_sphinx (profile_id, jour, enigme, divin, etat, essais, proposee_le) VALUES (?, ?, '', '', 'inscrits', 1, ?)
+                ON CONFLICT(profile_id, jour) DO UPDATE SET essais = essais + 1 WHERE essais < ?`,
+          args: [profileId, m.jourDesErreurs, m.quand, m.erreursMax],
+        }
+    const [, lignes] = await this.client.batch([ecriture, lectureDuSphinx(profileId)], 'write')
+    return lignesDuSphinxLues(lignes.rows)
   }
 
   /**
