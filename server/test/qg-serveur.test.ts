@@ -830,7 +830,7 @@ test('un démarrage ne se juge pas arrêté net tant qu’il donne signe de vie 
 test('les alertes du serveur : un arrêt net du jour, les erreurs depuis l’heure d’avant, Turso sur assez d’allers-retours, la mémoire', () => {
   const cetteHeure = debutDeLHeure(maintenant)
   const recentes = [
-    ligne(cetteHeure - H, 'g', { erreurs: { 'POST /api/x': 2 }, base: { n: 40, p50: 300, p95: 1400, max: 2000 } }),
+    ligne(cetteHeure - H, 'g', { erreurs: { 'POST /api/x': 2 }, base: { n: 140, p50: 300, p95: 1400, max: 2000 } }),
     // L'heure en cours n'a que cinq allers-retours : Turso se juge sur celle d'avant.
     ligne(cetteHeure, 'g', { erreurs: { 'POST /api/x': 1, 'socket host:launch': 1 }, base: { n: 5, p50: 50, p95: 80, max: 90 } }),
     // Plus vieille que l'heure d'avant : elle ne compte plus.
@@ -858,6 +858,24 @@ test('les alertes du serveur : un arrêt net du jour, les erreurs depuis l’heu
     memoireMo: null,
     quota: null,
   })
+  // Une heure qui commence ne se juge pas sur ses vingt premiers allers-retours, où le 95ᵉ centile est le deuxième
+  // plus lent : du 16 au 23 novembre 2026, vingt incidents « Turso lent » pour quatre heures entières au-delà de la
+  // seconde. Sur moins de cent, celle d'avant, au calme, fait foi ; à cent, l'heure en cours se juge.
+  const auCalme = (n: number, p95: number) => [
+    ligne(cetteHeure - H, 'g', { base: { n: 600, p50: 43, p95: 290, max: 1800 } }),
+    ligne(cetteHeure, 'g', { base: { n, p50: 60, p95, max: 3000 } }),
+  ]
+  assert.equal(alertesDuServeur({ recentes: auCalme(40, 2700), demarrages: [], memoireMo: null, maintenant, courant: 'g' }).tursoLent, null)
+  assert.deepEqual(alertesDuServeur({ recentes: auCalme(100, 2700), demarrages: [], memoireMo: null, maintenant, courant: 'g' }).tursoLent, {
+    p95: 2700,
+    depuis: cetteHeure,
+  })
+  // Une heure presque vide — 61 allers-retours, la moitié à rouvrir leur connexion — ne se juge pas davantage.
+  assert.equal(
+    alertesDuServeur({ recentes: [ligne(cetteHeure - H, 'g', { base: { n: 61, p50: 270, p95: 1758, max: 2400 } })], demarrages: [], memoireMo: null, maintenant, courant: 'g' })
+      .tursoLent,
+    null,
+  )
 
   // Dans « À traiter » : après le miroir, chacune à la gravité de sa règle — l'arrêt net critique, les erreurs et la
   // mémoire sérieuses, Turso lent et la réserve à surveiller —, la plus grave d'abord ; et chacune mène où l'on agit :

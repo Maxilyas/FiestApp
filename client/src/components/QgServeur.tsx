@@ -1800,9 +1800,10 @@ function FeuilleDUnMessage({ message: m, page, onFermer }: { message: RouteDeLaP
 /**
  * Chaque version de la semaine face à celle d'avant (`versionsDuServeur`) :
  * ce qu'un joueur a attendu sous elle, ses erreurs pour mille requêtes, son
- * processeur, sa mémoire — et les routes qu'elle a ralenties d'un tiers et
- * plus, signalées d'elles-mêmes : une mise en ligne qui ralentit le Cabinet se
- * voit avant que les joueurs ne s'en plaignent.
+ * processeur, sa mémoire — et les routes qu'elle a ralenties d'un tiers et de
+ * 200 ms au moins, hors de l'heure de chaque démarrage, signalées d'elles-mêmes :
+ * une mise en ligne qui ralentit le Cabinet se voit avant que les joueurs ne
+ * s'en plaignent.
  */
 function LesVersions({ page }: { page: PageDuServeur }) {
   if (page.versions.length === 0) {
@@ -1878,7 +1879,7 @@ function LesVersions({ page }: { page: PageDuServeur }) {
                 ))}
               </ul>
             ) : (
-              avant && <p className="muted small">Aucune route ralentie d’un tiers face à la version {avant.version}.</p>
+              avant && <p className="muted small">Aucune route ralentie d’un tiers et de 200 ms face à la version {avant.version}.</p>
             )}
           </section>
         )

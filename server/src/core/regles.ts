@@ -3,6 +3,7 @@ import { commencer } from './gels'
 import {
   CALME_POUR_CLORE_MS,
   CLES_DES_REGLES,
+  DEMARRAGE_A_FROID_MS,
   JOURS_DES_INCIDENTS,
   MOT_D_UN_INCIDENT_MAX,
   REGLE,
@@ -463,6 +464,8 @@ export function lecteurDesAlertes(d: {
   memoireMo: () => number | null
   version: string | null
   maintenant?: () => number
+  /** Quand ce serveur a démarré : ses dix premières minutes ne se jugent pas au ressenti (`DEMARRAGE_A_FROID_MS`). */
+  demarreLe?: number
   /** La dernière sauvegarde notée (`qg_sauvegardes`) ; null, jamais une. */
   sauvegarde?: () => Promise<number | null>
   /** Les heures éveillées de ce service ce mois-ci (`heuresDeLHebergeur`). */
@@ -484,12 +487,21 @@ export function lecteurDesAlertes(d: {
     const [a, reserve] = await Promise.all([d.alertes(memoireMo), reserveGardee(maintenant)])
     const { points, enCours } = d.direct.lire()
     const tous = [...points, enCours]
-    const dixMinutes = tous.slice(-60)
+    // Le ressenti laisse de côté les dix premières minutes du démarrage : un réveil y fait attendre chaque nuit.
+    const aFroidJusqua = d.demarreLe === undefined ? -Infinity : d.demarreLe + DEMARRAGE_A_FROID_MS
+    const dixMinutes = tous.slice(-60).filter(p => p.a >= aFroidJusqua)
     const unQuart = tous.slice(-90)
     const uneMinute = tous.slice(-6)
     const appels = dixMinutes.reduce((n, p) => n + (p.routes?.n ?? 0), 0)
     // Le 95ᵉ centile de dix minutes : celui de chaque pas, pondéré par ses appels — comme celui d'une semaine (`cumulsDesRoutes`).
-    const ressenti = appels > 0 ? { p95: Math.round(dixMinutes.reduce((s, p) => s + (p.routes ? p.routes.p95 * p.routes.n : 0), 0) / appels), appels } : null
+    const ressenti =
+      appels > 0
+        ? {
+            p95: Math.round(dixMinutes.reduce((s, p) => s + (p.routes ? p.routes.p95 * p.routes.n : 0), 0) / appels),
+            appels,
+            moments: dixMinutes.flatMap(p => (p.routes && p.routes.n > 0 ? [p.routes.p95] : [])),
+          }
+        : null
     const gel = Math.max(0, ...uneMinute.map(p => p.boucleMaxMs ?? 0))
     // Le soir se juge de 22 h à minuit, sur 19 h - 22 h, si le serveur l'a écouté tout du long.
     const minutes = minutesDeParis(maintenant)

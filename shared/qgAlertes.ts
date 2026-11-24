@@ -191,7 +191,7 @@ export const REGLES_DU_QG: readonly RegleDuQg[] = [
   {
     cle: 'ressenti',
     nom: 'Ressenti dégradé',
-    quoi: 'ce qu’un joueur attend — le 95ᵉ centile des routes d’API —, sur vingt appels au moins',
+    quoi: 'ce qu’un joueur attend — le 95ᵉ centile des routes d’API —, sur vingt appels au moins, lent à trois reprises, hors des dix minutes d’un démarrage',
     seuil: { defaut: 800, min: 200, max: 5000, pas: 50, unite: 'ms' },
     sur: 'dix minutes',
     gravite: 'veille',
@@ -202,7 +202,7 @@ export const REGLES_DU_QG: readonly RegleDuQg[] = [
   {
     cle: 'turso-lent',
     nom: 'Turso lent',
-    quoi: 'le 95ᵉ centile d’un aller-retour vers la base, sur vingt au moins',
+    quoi: 'le 95ᵉ centile d’un aller-retour vers la base, sur cent au moins',
     seuil: { defaut: TURSO_LENT_MS, min: 200, max: 5000, pas: 50, unite: 'ms' },
     sur: 'l’heure',
     gravite: 'veille',
@@ -249,7 +249,7 @@ export const REGLES_DU_QG: readonly RegleDuQg[] = [
   {
     cle: 'version',
     nom: 'Version qui ralentit',
-    quoi: 'une route ralentie d’un tiers ou plus face à la version d’avant, sur vingt appels de chaque côté',
+    quoi: 'une route ralentie d’un tiers et de 200 ms au moins face à la version d’avant, sur vingt appels de chaque côté, hors de l’heure de chaque démarrage',
     seuil: null,
     sur: 'depuis la mise en ligne',
     gravite: 'veille',
@@ -429,8 +429,11 @@ export interface ReleveDesAlertes {
   memoireMo: number | null
   /** Le quota du mois au rythme de la semaine, en part des 500 millions, jugé sur un jour au moins. */
   quotaPart: number | null
-  /** Ce qu'un joueur attend sur dix minutes : le 95ᵉ centile pondéré, et combien d'appels. */
-  ressenti: { p95: number; appels: number } | null
+  /**
+   * Ce qu'un joueur attend sur dix minutes, hors des dix premières d'un démarrage (`DEMARRAGE_A_FROID_MS`) : le 95ᵉ
+   * centile pondéré, combien d'appels, et le 95ᵉ centile de chaque pas de dix secondes qui en a eu (`moments`).
+   */
+  ressenti: { p95: number; appels: number; moments: readonly number[] } | null
   /** Le quart d'heure : les requêtes et celles en erreur serveur. */
   requetes: { n: number; enErreur: number } | null
   /** Le pire gel de la boucle sur la minute. */
@@ -456,6 +459,21 @@ export interface ReleveDesAlertes {
 
 /** Les appels et les requêtes en deçà desquels une part ou un centile ne se juge pas. */
 export const APPELS_POUR_LE_RESSENTI = 20
+/**
+ * Le ressenti ne se dit dégradé que lent à trois reprises — trois pas de dix secondes au-delà du seuil — dans ses dix
+ * minutes. Son centile pondère celui de chaque pas par ses appels : sur vingt appels, une seule réponse de dix
+ * secondes ou un gel qui bloque trois requêtes suffisaient à l'ouvrir — trente-trois incidents du 16 au 24 novembre
+ * 2026, de 815 ms à 8,5 s ; un moment seul, « Gel long » et « Ce qui gèle » le disent déjà. Une lenteur qui dure,
+ * elle, touche les pas l'un après l'autre.
+ */
+export const MOMENTS_LENTS_POUR_LE_RESSENTI = 3
+/**
+ * Les dix premières minutes d'un démarrage ne se jugent pas au ressenti : le premier accueil d'un réveil y attend
+ * près de trente secondes, chaque nuit et sous toutes les versions — neuf des trente-trois incidents de la même
+ * semaine. Un coût connu, qui se lit à la page du serveur (ses réveils) et au bilan de la production ; sonné chaque
+ * nuit, il apprenait à ne plus lire les alertes.
+ */
+export const DEMARRAGE_A_FROID_MS = 10 * 60_000
 export const REQUETES_POUR_LE_TAUX = 50
 export const ENVOIS_POUR_LE_RAPPEL = 5
 
@@ -488,7 +506,10 @@ export function reglesOuvertes(r: ReleveDesAlertes, reglages: ReglagesDuQg, defa
   }
   if (r.memoireMo !== null && passe('memoire', r.memoireMo)) ouvertes.set('memoire', `${formatNumber(r.memoireMo)} Mo`)
   if (r.ressenti && r.ressenti.appels >= APPELS_POUR_LE_RESSENTI && passe('ressenti', r.ressenti.p95)) {
-    ouvertes.set('ressenti', `${ms(r.ressenti.p95)} au 95ᵉ centile, sur ${formatNumber(r.ressenti.appels)} appels`)
+    const lents = r.ressenti.moments.filter(p95 => passe('ressenti', p95)).length
+    if (lents >= MOMENTS_LENTS_POUR_LE_RESSENTI) {
+      ouvertes.set('ressenti', `${ms(r.ressenti.p95)} au 95ᵉ centile, sur ${formatNumber(r.ressenti.appels)} appels, lent à ${formatNumber(lents)} reprises`)
+    }
   }
   if (r.turso && passe('turso-lent', r.turso.p95)) ouvertes.set('turso-lent', `${ms(r.turso.p95)} au 95ᵉ centile`)
   // « La boucle » ne parlait qu'à un ingénieur (la revue d'ergonomie du 4 novembre 2026) : c'est le serveur qui ne répond plus.

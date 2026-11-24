@@ -62,7 +62,7 @@ const calme = (maintenant = 1_700_000_000_000): ReleveDesAlertes => ({
   turso: null,
   memoireMo: 200,
   quotaPart: null,
-  ressenti: { p95: 120, appels: 400 },
+  ressenti: { p95: 120, appels: 400, moments: [110, 120, 130] },
   requetes: { n: 900, enErreur: 0 },
   gelMs: 300,
   miroir: { enEchecDepuis: null, espacesEnRetard: 0 },
@@ -124,7 +124,7 @@ test('chaque règle s’ouvre sur ce qu’elle guette, à son seuil, et pas sous
     turso: { p95: 1400 },
     memoireMo: 470,
     quotaPart: 62,
-    ressenti: { p95: 950, appels: 300 },
+    ressenti: { p95: 950, appels: 300, moments: [700, 950, 1100, 1300] },
     requetes: { n: 400, enErreur: 12 },
     gelMs: 3500,
     miroir: { enEchecDepuis: null, espacesEnRetard: 2 },
@@ -139,16 +139,34 @@ test('chaque règle s’ouvre sur ce qu’elle guette, à son seuil, et pas sous
   assert.deepEqual([...ouvertes.keys()].sort(), [...CLES_DES_REGLES].sort(), 'les seize')
   assert.equal(ouvertes.get('taux-d-erreur'), '3 % des requêtes en erreur (12 sur 400)')
   assert.equal(ouvertes.get('version'), 'POST /api/cabinet/traversee/:id/geste : 300 ms → 520 ms')
+  assert.equal(ouvertes.get('ressenti'), '950 ms au 95ᵉ centile, sur 300 appels, lent à 3 reprises')
   assert.match(ouvertes.get('sauvegarde') ?? '', /^aucune sauvegarde notée/, 'jamais sauvegardée : ouverte, et la cause le dit')
   assert.equal(ouvertes.get('hebergeur'), '640 h ce mois-ci à ce rythme, déjà 120 — sur 750 pour les deux services')
   // Réglées plus haut, elles se taisent.
   const reglees = reglesOuvertes(tout, { ressenti: { seuil: 1000 }, 'gel-long': { seuil: 4000 }, reserve: { seuil: 3 }, 'taux-d-erreur': { seuil: 5 } })
   for (const cle of ['ressenti', 'gel-long', 'reserve', 'taux-d-erreur'] as const) assert.ok(!reglees.has(cle), cle)
   // Trop peu pour juger : dix-neuf appels, quarante-neuf requêtes, quatre envois.
-  const peu = reglesOuvertes({ ...calme(), ressenti: { p95: 4000, appels: 19 }, requetes: { n: 49, enErreur: 49 }, rappel: { envoyes: 0, echecs: 4 } }, {})
+  const peu = reglesOuvertes(
+    { ...calme(), ressenti: { p95: 4000, appels: 19, moments: [4000, 4000, 4000] }, requetes: { n: 49, enErreur: 49 }, rappel: { envoyes: 0, echecs: 4 } },
+    {},
+  )
   assert.deepEqual([...peu.keys()], [])
   // Un soir où l'on a joué, rien ; un soir que le serveur n'a pas écouté en entier (null), rien non plus.
   assert.ok(!reglesOuvertes({ ...calme(), soir: { joue: 3 } }, {}).has('silence'))
+})
+
+test('le ressenti ne se dit dégradé que lent à trois reprises : une réponse de dix secondes parmi vingt n’est pas une lenteur', () => {
+  // Cinquante-cinq appels, dont un seul qui attend Turso dix secondes : le centile pondéré de dix minutes passe la
+  // seconde, et l'incident s'ouvrait. Un seul pas de dix secondes était lent.
+  const seul = { ...calme(), ressenti: { p95: 1700, appels: 55, moments: [90, 10_000, 120, 80, 110] } }
+  assert.equal(reglesOuvertes(seul, {}).has('ressenti'), false)
+  // Deux pas lents, toujours pas ; le troisième l'ouvre.
+  const deux = { ...calme(), ressenti: { p95: 1300, appels: 60, moments: [900, 2400, 120, 80] } }
+  assert.equal(reglesOuvertes(deux, {}).has('ressenti'), false)
+  const trois = { ...calme(), ressenti: { p95: 1300, appels: 60, moments: [900, 2400, 1000, 80] } }
+  assert.equal(reglesOuvertes(trois, {}).get('ressenti'), '1,3 s au 95ᵉ centile, sur 60 appels, lent à 3 reprises')
+  // Trois pas lents sous un centile pondéré au calme ne l'ouvrent pas non plus : c'est lui qui se juge d'abord.
+  assert.equal(reglesOuvertes({ ...calme(), ressenti: { p95: 600, appels: 400, moments: [900, 900, 900, 100] } }, {}).has('ressenti'), false)
 })
 
 test('la sauvegarde ancienne et les heures de l’hébergeur s’ouvrent à leur seuil — celui d’office dépend du serveur', () => {
@@ -368,7 +386,7 @@ test('un incident naît à la première minute, survit à un redémarrage, et se
   const prevenus: MessageDuQg[] = []
   let regles = await desRegles(dir, etat, prevenus)
   // Le taux d'erreur s'ouvre — il sonne au téléphone d'office ; le ressenti aussi — lui non.
-  etat.releve = { ...calme(), requetes: { n: 200, enErreur: 10 }, ressenti: { p95: 1200, appels: 80 } }
+  etat.releve = { ...calme(), requetes: { n: 200, enErreur: 10 }, ressenti: { p95: 1200, appels: 80, moments: [1200, 1400, 900, 1100] } }
   await regles.tour()
   assert.deepEqual(prevenus.map(m => sansInsecables(m.titre)), ['Alerte : Taux d’erreur'])
   assert.deepEqual(regles.aTraiter().map(a => a.cle).sort(), ['ressenti', 'taux-d-erreur'])
@@ -444,6 +462,7 @@ test('ce que les règles lisent : le ressenti et le taux sur le direct, le soir 
   })
   const r = await lire()
   assert.equal(r.ressenti?.appels, 40)
+  assert.equal(r.ressenti?.moments.length, 1, 'les quarante dans le même pas de dix secondes')
   assert.deepEqual(r.requetes, { n: 60, enErreur: 3 })
   assert.deepEqual(r.soir, { joue: 0 }, 'écouté depuis 18 h, personne n’a joué : le silence se juge')
   assert.deepEqual(r.ralenties.map(x => x.route), ['GET /api/jour'])
@@ -466,6 +485,49 @@ test('ce que les règles lisent : le ressenti et le taux sur le direct, le soir 
     maintenant: () => soir,
   })
   assert.equal((await lireTard()).soir, null)
+})
+
+test('ce que les règles lisent : le ressenti laisse de côté les dix premières minutes du démarrage, et dit chaque pas de dix secondes', async () => {
+  const demarreLe = Date.UTC(2026, 10, 22, 0, 35)
+  let t = demarreLe
+  const direct = new DirectDuServeur(() => t)
+  // Le réveil de la nuit : le premier accueil attend vingt-huit secondes, les pages d'à côté plusieurs.
+  t = demarreLe + 2 * MINUTE
+  for (const ms of [28_900, 3_100, 2_700, 2_200]) direct.route('GET /api/joueur/moi', ms, 200)
+  t += 20_000
+  for (let i = 0; i < 10; i++) direct.route('GET /api/joueur/missions', 1_800, 200)
+  t += 20_000
+  for (let i = 0; i < 10; i++) direct.route('GET /api/campagne', 1_500, 200)
+  t = demarreLe + 9 * MINUTE + 50_000
+  const lecteur = (avecSonDemarrage: boolean) =>
+    lecteurDesAlertes({
+      alertes: async memoireMo => ({ pannes: [], arretNet: null, erreurs: null, tursoLent: null, memoireMo, quota: null }),
+      versions: async () => [],
+      direct,
+      miroir: () => null,
+      reserve: async () => null,
+      rappel: () => null,
+      memoireMo: () => 300,
+      version: null,
+      maintenant: () => t,
+      ...(avecSonDemarrage && { demarreLe }),
+    })
+  // Sans son démarrage, le réveil s'y lisait : trois pas lents, l'incident de chaque nuit.
+  const sansLui = await lecteur(false)()
+  assert.deepEqual([sansLui.ressenti?.appels, sansLui.ressenti?.moments.length], [24, 3])
+  assert.ok(reglesOuvertes(sansLui, {}).has('ressenti'))
+  // Neuf minutes après le démarrage, rien ne se juge encore.
+  assert.equal((await lecteur(true)()).ressenti, null)
+  // Puis, le serveur chaud, des pages ordinaires dans trois pas différents ; à quatorze minutes, seules elles se
+  // jugent : vingt-quatre appels, trois pas, au calme.
+  for (const minute of [11, 12, 13]) {
+    t = demarreLe + minute * MINUTE
+    for (let i = 0; i < 8; i++) direct.route('GET /api/jour', 120, 200)
+  }
+  t = demarreLe + 14 * MINUTE
+  const chaud = await lecteur(true)()
+  assert.deepEqual([chaud.ressenti?.appels, chaud.ressenti?.moments], [24, [120, 120, 120]])
+  assert.equal(reglesOuvertes(chaud, {}).has('ressenti'), false)
 })
 
 test('au banc : la page des alertes, un seuil réglé au journal, refusé en clair hors de ses bornes, et « À traiter » qui le sait', async () => {
@@ -521,8 +583,11 @@ test('une seule comparaison et une seule gravité : la règle, à son seuil rég
   assert.equal(rappelEnEchec({ envoyes: 3, echecs: 1 }, {}), false, 'quatre envois ne se jugent pas')
   assert.equal(rappelEnEchec({ envoyes: 78, echecs: 12 }, {}), true)
   // Et les règles s'ouvrent à la même comparaison : 850 ms sous un seuil réglé à 900 se taisent, 950 se disent.
-  assert.equal(reglesOuvertes({ ...calme(), ressenti: { p95: 850, appels: 400 } }, { ressenti: { seuil: 900 } }).has('ressenti'), false)
-  assert.equal(reglesOuvertes({ ...calme(), ressenti: { p95: 950, appels: 400 } }, { ressenti: { seuil: 900 } }).has('ressenti'), true)
+  const lents = [950, 950, 950]
+  assert.equal(reglesOuvertes({ ...calme(), ressenti: { p95: 850, appels: 400, moments: lents } }, { ressenti: { seuil: 900 } }).has('ressenti'), false)
+  assert.equal(reglesOuvertes({ ...calme(), ressenti: { p95: 950, appels: 400, moments: lents } }, { ressenti: { seuil: 900 } }).has('ressenti'), true)
+  // Ses reprises se comptent au même seuil réglé : trois pas à 950 ms, lents à 900, ne le sont plus à 1000.
+  assert.equal(reglesOuvertes({ ...calme(), ressenti: { p95: 1100, appels: 400, moments: [...lents, 2000] } }, { ressenti: { seuil: 1000 } }).has('ressenti'), false)
   // Une règle mène où l'on agit : un gel long à « Ce qui gèle », la réserve à « Réserves et base ».
   assert.deepEqual([REGLE['gel-long'].page, REGLE['gel-long'].onglet], ['serveur', 'gels'])
   assert.equal(REGLE.reserve.page, 'reserves')

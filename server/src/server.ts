@@ -642,6 +642,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
         }
       },
       version: opts.version ?? null,
+      demarreLe: debutDuDemarrage,
       // Une fois l'heure : la dernière sauvegarde, une ligne ; les heures de l'hébergeur, les démarrages gardés et le mois de la mémoire.
       sauvegarde: () => sante.derniereSauvegarde(),
       hebergeur: () =>
