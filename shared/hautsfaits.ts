@@ -549,7 +549,8 @@ export const HAUTS_FAITS_DES_SENTIERS: HautFaitDeSoiree[] = [
  * abat son dernier gardien, et payés dans la ligne des paliers chaque fois, selon leur rareté
  * (`XP_DES_EXPLOITS_DU_CABINET`). Ce qui les juge vit dans `shared/cabinet/exploits.ts`, leurs seuils au barème du
  * Cabinet (`JEUX_DU_TOUCHE_A_TOUT`, `OR_DE_CRESUS`) — leurs règles les écrivent en toutes lettres,
- * `cabinet-trophees.test.ts` les compare. Aucun ne demande une carte : les défis de tes cartes le font déjà. Deux
+ * `cabinet-trophees.test.ts` les compare. Aucun ne nomme une carte, les défis de tes cartes le font déjà — mais
+ * L'Implacable ne tombe qu'avec Quitte ou double ++ (son entrée, plus bas). Deux
  * idées du même jour sont devenues des pistes, trop faciles à regagner : l'épreuve parfaite — une par traversée au
  * joueur moyen du calibrage — et trois traversées gagnées d'affilée, que le fort enchaîne (Le Perfectionniste,
  * L'Invaincu).
@@ -578,7 +579,10 @@ export const HAUTS_FAITS_DU_CABINET: HautFaitDeSoiree[] = [
     xp: 200,
   },
   {
-    // Une traversée sur cinquante au fort du calibrage ; le Coup de grâce aide, comme pour L'Exécuteur.
+    // Une traversée sur cinquante au fort du calibrage. Il ne tombe qu'avec Quitte ou double ++ en main, que le marchand
+    // seul vend : le gardien de l'acte III a 20 points de vie, un assaut sans mise en retire 9 au plus, deux mises
+    // triplées 21. Le Coup de grâce aide (16 points de vie au plus bas), il ne suffit jamais — gardé tel quel, le choix du
+    // propriétaire le 24 novembre 2026 : un exploit légendaire peut demander cette carte.
     key: 'hf:implacable',
     famille: 'soiree',
     origine: 'cabinet',
