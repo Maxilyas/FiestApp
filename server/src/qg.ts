@@ -105,6 +105,61 @@ export interface QgDeps {
    * Sans elle, tout l'historique s'arrête aux trente jours.
    */
   memoire?: Pick<MemoireDuQg, 'toutAvant' | 'revision'>
+  /** Combien de temps la vue d'ensemble se garde (`VUE_GARDEE_MS` d'office ; le banc, rien : ses épreuves écrivent entre deux lectures). */
+  vueGardeeMs?: number
+  /** La vue d'ensemble gardée, qu'un geste du QG fait oublier (`api.ts`) ; sans elle, chaque lecture la recompte. */
+  vueGardee?: Pick<VueGardee, 'lire'>
+}
+
+/**
+ * La vue d'ensemble se garde une minute. Elle coûtait une seconde à chaque
+ * lecture en production — la moitié des 89 lectures du 15 au 23 novembre 2026
+ * au-delà, la pire à 7,6 s, 2,7 % du temps du serveur, et une part d'un gel de
+ * 910 ms le 20 — : relue à chaque retour au poste de commande, par chaque
+ * onglet ouvert, elle recomptait trente jours de séries pour montrer la même
+ * chose qu'une minute plus tôt. La page la redemande toutes les cinq minutes :
+ * gardée une minute, elle n'en est jamais plus vieille pour elle, et le
+ * direct, qui dit l'instant, passe par son flux.
+ */
+export const VUE_GARDEE_MS = 60_000
+
+/**
+ * Une lecture de la vue d'ensemble, gardée `gardeeMs` et partagée par qui la
+ * demande pendant qu'elle se fait — deux onglets, le téléphone et l'ordinateur
+ * ne la recomptent pas deux fois ; ratée, elle ne se garde pas. Un geste du QG
+ * l'oublie, à son arrivée et à sa fin (`oublierApresUnGeste`) : la vue relue
+ * après un tri d'erreur ou une question retirée dit ce qui attend encore. Ce
+ * que les joueurs font pendant la minute, elle l'apprend à la suivante.
+ * Passée sa minute, elle s'oublie d'elle-même : elle ne reste pas en mémoire
+ * QG fermé.
+ */
+export class VueGardee {
+  private garde: { a: number; lue: Promise<VueDEnsemble> } | null = null
+
+  constructor(
+    private readonly gardeeMs: number,
+    private readonly maintenant: () => number,
+  ) {}
+
+  oublier(): void {
+    this.garde = null
+  }
+
+  lire(faire: () => Promise<VueDEnsemble>): Promise<VueDEnsemble> {
+    const maintenant = this.maintenant()
+    if (this.garde && maintenant >= this.garde.a && maintenant - this.garde.a < this.gardeeMs) return this.garde.lue
+    const garde = { a: maintenant, lue: faire() }
+    if (this.gardeeMs <= 0) return garde.lue
+    this.garde = garde
+    garde.lue.catch(() => {
+      if (this.garde === garde) this.garde = null
+    })
+    // Une minuterie qui ne retient pas le processus : le serveur qui s'arrête ne l'attend pas.
+    setTimeout(() => {
+      if (this.garde === garde) this.garde = null
+    }, this.gardeeMs).unref()
+    return garde.lue
+  }
 }
 
 /** Une soirée pas encore close, telle que la base locale la garde. */
@@ -679,7 +734,7 @@ export function mountQg(app: Express, deps: QgDeps) {
   app.get(
     '/api/admin/qg',
     wrap(async (_req, res) => {
-      res.json(await vueDEnsemble())
+      res.json(await (deps.vueGardee ? deps.vueGardee.lire(vueDEnsemble) : vueDEnsemble()))
     }),
   )
   app.get(
