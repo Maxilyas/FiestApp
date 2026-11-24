@@ -18,7 +18,7 @@ import { RappelStore } from '../src/core/rappels'
 import { LePointDuMatin } from '../src/core/pointDuMatin'
 import type { ProfileStore } from '../src/auth/profiles'
 import type { JourStore } from '../src/core/jour'
-import { connexionAnimateur, demarrer, inscrireProfil } from './banc'
+import { connexionAnimateur, demarrer, ecrire, inscrireProfil } from './banc'
 import { bancDuCabinet, jouer, lire, ok, poster, type Reponse } from './cabinet-banc'
 import type { PageDeLaTraversee, VueDeLaPartie } from '../../shared/cabinet/vues'
 
@@ -98,6 +98,31 @@ test('une traversée nomme ses étapes lourdes : les tas, le tirage d’une épr
     assert.ok(!choix.noms.some(n => n.startsWith('cabinet · ')), `choisir ses cartes n'est aucune étape lourde (${choix.noms.join(', ')})`)
   } finally {
     await b.banc.close()
+  }
+})
+
+test('le départ d’une série nomme ses étapes : les questions jouables, ce qu’il a vu, le tirage, la série laissée', async () => {
+  // Neuf gels sous la seule route `POST /api/campagne/serie` en huit jours, jusqu'à 2,9 s, que le banc ne reproduisait
+  // pas (le 24 novembre 2026) : le relevé dira laquelle de ses étapes gèle.
+  const banc = await demarrer()
+  const etapes = ['campagne · questions jouables', 'campagne · ce qu’il a vu', 'campagne · tirage d’une série']
+  const laissee = 'campagne · série laissée récompensée'
+  try {
+    const cookie = await inscrireProfil(banc.url, 'serieuse', 'Sérieuse')
+    const partir = async () => {
+      const r = await ecrire(banc.url, '/api/campagne/serie', { categories: [] }, cookie)
+      assert.equal(r.status, 200, await r.clone().text())
+      return r.json()
+    }
+    const premier = await pendantLe(partir)
+    for (const nom of etapes) assert.ok(premier.noms.includes(nom), `${nom} (${premier.noms.join(', ')})`)
+    assert.ok(!premier.noms.includes(laissee), 'rien de laissé : rien ne se récompense sous ce nom')
+    // Laissée en route, la première se récompense au départ de la suivante, sous son nom.
+    const second = await pendantLe(partir)
+    assert.ok(second.noms.includes(laissee), `la série laissée (${second.noms.join(', ')})`)
+    for (const nom of [...etapes, laissee]) assert.ok(tu(nom), `${nom} se tait avec le départ`)
+  } finally {
+    await banc.close()
   }
 })
 

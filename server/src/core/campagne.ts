@@ -16,7 +16,7 @@ import { enTranches, laisserPasserLaSalle, rendreLaMain } from './tourniquet'
 import { LECTURES_GARDEES_MS, LecturesGardees, type LectureDansUnLot } from './lecturesGardees'
 import { preparationDe } from './preparees'
 import { QUESTIONS_D_UNE_TRANCHE, dUneTraite, type CalculEnTranches } from '../../../shared/tranches'
-import { enFond, sousLeNom, suivre } from './gels'
+import { enFond, pendant, sousLeNom, suivre } from './gels'
 import {
   CARTES_DU_SECOND_ESSAI,
   DECLENCHEURS_DES_TRANCHES,
@@ -2895,7 +2895,16 @@ export class CampagneStore {
     return this.avecVerrou(profileId, async () => {
       const suivi = sujet === undefined ? undefined : sujetParCle(sujet)
       if (sujet !== undefined && !suivi) throw new Error('Ce sujet n’existe plus : choisis-en un autre')
-      const [toutes, mesure, vues, laissee] = await Promise.all([this.jouables(suivi ? undefined : categories), this.mesures(), this.vuesPar(profileId), this.serieEnCours(profileId)])
+      // Ses étapes se nomment pour la sonde des gels (`core/gels.ts`) : du 16 au 24 novembre 2026, la production a gelé
+      // neuf fois sous cette seule route, jusqu'à 2,9 s, sur le premier départ après dix à trente minutes de calme — et le
+      // banc, même bridé au dixième de cœur et laissé au calme, ne gelait pas (`retours/2026-11-24/`) : le relevé dira
+      // laquelle.
+      const [toutes, mesure, vues, laissee] = await Promise.all([
+        pendant('campagne · questions jouables', this.jouables(suivi ? undefined : categories)),
+        this.mesures(),
+        pendant('campagne · ce qu’il a vu', this.vuesPar(profileId)),
+        this.serieEnCours(profileId),
+      ])
       const jouables = suivi ? this.duSujet(toutes, suivi.cle) : toutes
       if (jouables.length < QUESTIONS_POUR_JOUER) {
         throw new Error(
@@ -2907,7 +2916,8 @@ export class CampagneStore {
         )
       }
       const maintenant = this.maintenant()
-      const questions = (await this.tirage(jouables, mesure)).tirer(vues, maintenant).map(x => versQuestionDeSerie(x.question, x.niveau))
+      const preparation = await pendant('campagne · tirage d’une série', this.tirage(jouables, mesure))
+      const questions = sousLeNom('campagne · tirage d’une série', () => preparation.tirer(vues, maintenant).map(x => versQuestionDeSerie(x.question, x.niveau)))
       const serie: Serie = {
         id: randomUUID(),
         profileId,
@@ -2943,7 +2953,7 @@ export class CampagneStore {
       // joué fait tomber ses hauts faits — trente bonnes réponses avant de
       // poser le téléphone font la Grande Série. Rien ne s'annonce : la
       // nouvelle commence, et la collection les garde.
-      if (laissee) await this.recompenserLaSerie(profileId, { ...laissee, finieLe: maintenant })
+      if (laissee) await pendant('campagne · série laissée récompensée', this.recompenserLaSerie(profileId, { ...laissee, finieLe: maintenant }))
       return vueDeSerie(serie)
     })
   }
