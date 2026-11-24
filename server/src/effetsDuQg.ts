@@ -9,7 +9,7 @@ import type { ProfileStore } from './auth/profiles'
 import type { AudienceDuQg } from './joueursDuQg'
 import { jourAvant, jourDe } from '../../shared/jour'
 import { minuitDe } from '../../shared/qg'
-import { JOURS_DE_LA_MEMOIRE, SEGMENTS, type ChiffresDUnJour, type Presence, type ProfilDeLAudience, type SegmentDuQg } from '../../shared/qgJoueurs'
+import { JOURS_DES_EFFETS, SEGMENTS, type ChiffresDUnJour, type Presence, type ProfilDeLAudience, type SegmentDuQg } from '../../shared/qgJoueurs'
 import { ANNONCES_MONTREES } from '../../shared/annonces'
 import { AFFICHES_MONTREES, estUnePageALAffiche } from '../../shared/affiches'
 import {
@@ -85,9 +85,9 @@ export class EffetsDuQg {
 
   // ── La mémoire, lue une fois par jour ──────────────────────────────────────
 
-  /** Un an de jours de la mémoire (`qg_jours`) : les achats d'une affiche de la boutique, l'avant / après d'un repère. */
+  /** Un an de jours de la mémoire (`qg_jours`, `JOURS_DES_EFFETS`) : les achats d'une affiche de la boutique, l'avant / après d'un repère. */
   private lesJours = duJour(async aujourdhui => {
-    const lus = await this.deps.memoire.joursDepuis(jourAvant(aujourdhui, JOURS_DE_LA_MEMOIRE))
+    const lus = await this.deps.memoire.joursDepuis(jourAvant(aujourdhui, JOURS_DES_EFFETS))
     return { jours: lus.jours as ReadonlyMap<string, ChiffresDUnJour>, depuis: lus.premier }
   })
 
@@ -96,8 +96,8 @@ export class EffetsDuQg {
 
   /**
    * Les feuilles de présence des jours finis qu'il faut : de la plus ancienne annonce ou affiche, moins trente-sept
-   * jours — la semaine d'avant et les trente jours que lit la règle d'un segment —, jusqu'à hier ; un an au plus, ce
-   * que la mémoire garde.
+   * jours — la semaine d'avant et les trente jours que lit la règle d'un segment —, jusqu'à hier ; un an au plus
+   * (`JOURS_DES_EFFETS`) : la mémoire en garde davantage, une annonce plus vieille n'a plus d'effet à dire.
    */
   private lesFeuilles = duJour(async aujourdhui => {
     // Par l'index de leur date, une ligne chacune ; une table vide rend NULL — pas l'an 1970.
@@ -107,7 +107,7 @@ export class EffetsDuQg {
     // quatorze jours d'avant d'une affiche y tiennent.
     const recul = JOURS_DE_L_EFFET_D_UNE_ANNONCE + 1 + 30
     const debut = [jourAvant(jourDe(plusVieux), recul), jourAvant(aujourdhui, recul)].sort()[0]
-    const plusAncien = jourAvant(aujourdhui, JOURS_DE_LA_MEMOIRE)
+    const plusAncien = jourAvant(aujourdhui, JOURS_DES_EFFETS)
     const parJour = new Map<string, Presence[]>()
     for (const p of await this.deps.memoire.presencesEntre(debut < plusAncien ? plusAncien : debut, aujourdhui)) {
       let du = parJour.get(p.jour)
@@ -167,8 +167,8 @@ export class EffetsDuQg {
       this.lesDestinataires(m.aujourdhui),
     ])
     const annonces = (JSON.parse(String(lues.rows[0]?.lignes ?? '[]')) as [string, number, string | null][])
-      // Plus vieille que la mémoire, une annonce n'a plus rien à comparer.
-      .filter(([, le]) => le >= m.maintenant - JOURS_DE_LA_MEMOIRE * JOUR_MS)
+      // Plus vieille que ce que l'effet relit de la mémoire, une annonce n'a plus rien à comparer.
+      .filter(([, le]) => le >= m.maintenant - JOURS_DES_EFFETS * JOUR_MS)
       .map(([id, le, segment]) => {
         const lu = (SEGMENTS as readonly unknown[]).includes(segment) ? (segment as SegmentDuQg) : null
         return { id: String(id), le: Number(le), segment: lu, destinataires: lu ? (destinataires.get(String(id)) ?? []) : null }
@@ -188,7 +188,7 @@ export class EffetsDuQg {
       this.lesVisites(m.aujourdhui),
     ])
     const affiches = (JSON.parse(String(lues.rows[0]?.lignes ?? '[]')) as [string, string, number][]).flatMap(([id, page, le]) =>
-      estUnePageALAffiche(page) && le >= m.maintenant - JOURS_DE_LA_MEMOIRE * JOUR_MS ? [{ id: String(id), page, le: Number(le), visites: visites.get(String(id)) ?? [] }] : [],
+      estUnePageALAffiche(page) && le >= m.maintenant - JOURS_DES_EFFETS * JOUR_MS ? [{ id: String(id), page, le: Number(le), visites: visites.get(String(id)) ?? [] }] : [],
     )
     const effets = await enTranches(effetsDesAffiches(affiches, m))
     return { maintenant: m.maintenant, aujourdhui: m.aujourdhui, effets }

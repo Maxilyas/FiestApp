@@ -1506,6 +1506,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
       regles,
       telephonesDuQg: async () => (await alertes.telephones()).length,
       point: pointDuMatin,
+      // Tout l'historique du poste de commande : les jours d'avant les trente, que la mémoire a figés.
+      memoire: memoireDuQg,
     },
     gestes,
     maintenance,

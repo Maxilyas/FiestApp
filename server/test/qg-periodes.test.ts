@@ -5,8 +5,24 @@
 // dérivations pures, l'horloge à la main.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { MODES_DU_QG, minuitsDeParis, participationsParJour, participationsParSeau, JOURS_DU_QG, type PartieDesParticipations } from '../../shared/qg'
-import { PAS_DE_LA_PERIODE, activiteDeLaPeriode, cadreDeLaPeriode, ecartALaPeriodeDAvant, totauxEntre } from '../../shared/qgPeriodes'
+import { MODES_DU_QG, minuitsDeParis, participationsParJour, participationsParSeau, JOURS_DU_QG, type ModeDuQg, type PartieDesParticipations } from '../../shared/qg'
+import {
+  PAS_DE_LA_PERIODE,
+  PAS_D_UNE_SEMAINE,
+  PAS_D_UN_MOIS,
+  activiteDeLHistorique,
+  activiteDeLaPeriode,
+  cadreDeLaPeriode,
+  ecartALaPeriodeDAvant,
+  historiqueDeLaMemoire,
+  joursDesJournaux,
+  pasEnMots,
+  seauxDeLHistorique,
+  totauxEntre,
+  type JourDeLHistorique,
+} from '../../shared/qgPeriodes'
+import { BIT_DU_MODE, joursDeLaMemoire, minuitDuJour, type ChiffresDUnJour } from '../../shared/qgJoueurs'
+import { dUneTraite } from '../../shared/tranches'
 import { minutesDeParis } from '../../shared/jour'
 
 const MIN = 60_000
@@ -108,6 +124,136 @@ test('une période compte chaque personne une fois, chaque partie, et la périod
   // Léa, Hugo, Inès, Théo, et les quatre invités sans profil de la soirée.
   assert.equal(totauxEntre(solo, soirees, faits, minuits[0], maintenant).joueurs, 8)
   for (const m of MODES_DU_QG) assert.ok(jour.totaux.modes[m] <= jour.totaux.joueurs)
+})
+
+// ── Tout l'historique (le 24 novembre 2026 : « une vue totale ») ──────────────
+
+const J = 24 * H
+const zeros = (): Record<ModeDuQg, number> => ({ soiree: 0, campagne: 0, cabinet: 0, jour: 0, duel: 0 })
+
+test('tout l’historique : un seau par jour jusqu’à soixante, puis par semaine depuis le lundi, puis par mois', () => {
+  assert.deepEqual(seauxDeLHistorique('2026-11-04', '2026-11-04'), { debuts: ['2026-11-04'], pas: J })
+  // Du 6 septembre au 4 novembre : soixante jours, un seau chacun.
+  const jours = seauxDeLHistorique('2026-09-06', '2026-11-04')
+  assert.deepEqual([jours.debuts.length, jours.debuts[0], jours.debuts.at(-1), jours.pas], [60, '2026-09-06', '2026-11-04', J])
+  // Un de plus : des semaines, depuis le lundi de la première — le samedi 5 septembre est dans celle du 31 août.
+  const semaines = seauxDeLHistorique('2026-09-05', '2026-11-04')
+  assert.deepEqual([semaines.debuts.length, semaines.debuts[0], semaines.debuts.at(-1), semaines.pas], [10, '2026-08-31', '2026-11-02', PAS_D_UNE_SEMAINE])
+  // Plus de soixante semaines : des mois du calendrier, le passage de l'année compris.
+  const mois = seauxDeLHistorique('2025-08-15', '2026-11-04')
+  assert.equal(mois.pas, PAS_D_UN_MOIS)
+  assert.equal(mois.debuts.length, 16)
+  assert.deepEqual(mois.debuts.slice(3, 6), ['2025-11-01', '2025-12-01', '2026-01-01'])
+  assert.equal(mois.debuts.at(-1), '2026-11-01')
+  // Le pas en mots suit la longueur ; les autres périodes gardent le leur.
+  assert.deepEqual([pasEnMots('tout', J).titre, pasEnMots('tout', PAS_D_UNE_SEMAINE).titre, pasEnMots('tout', PAS_D_UN_MOIS).titre], ['Jour par jour', 'Semaine par semaine', 'Mois par mois'])
+  assert.equal(pasEnMots('24h', J).titre, 'Heure par heure')
+})
+
+test('tout l’historique compte une personne une fois sur plusieurs jours, ses invités sans profil à chaque soirée', () => {
+  const maintenant = Date.UTC(2026, 10, 4, 20) // mercredi 4 novembre 2026, 21 h de Paris
+  const jour = (j: string, x: Partial<JourDeLHistorique>, profils: [string, number][] = []): JourDeLHistorique => ({
+    jour: j,
+    joueurs: 0,
+    modes: zeros(),
+    parties: zeros(),
+    nouveauxProfils: 0,
+    achats: 0,
+    ...x,
+    profils: new Map(profils),
+  })
+  const a = activiteDeLHistorique(
+    [
+      // Rien encore : l'historique commence au premier jour qui a vu quelque chose.
+      jour('2026-08-01', {}),
+      // Léa au quiz du jour deux jours de suite, la même semaine ; le second, à une soirée avec quatre invités sans profil.
+      jour('2026-08-03', { joueurs: 1, modes: { ...zeros(), jour: 1 }, parties: { ...zeros(), jour: 1 }, nouveauxProfils: 2 }, [['lea', BIT_DU_MODE.jour]]),
+      jour('2026-08-04', { joueurs: 5, modes: { ...zeros(), jour: 1, soiree: 5 }, parties: { ...zeros(), jour: 1, soiree: 5 } }, [['lea', BIT_DU_MODE.jour | BIT_DU_MODE.soiree]]),
+      // Un profil supprimé depuis : ses chiffres le comptent encore, sa feuille l'a oublié.
+      jour('2026-09-15', { joueurs: 2, modes: { ...zeros(), duel: 2 }, parties: { ...zeros(), duel: 3 }, achats: 1 }, [['hugo', BIT_DU_MODE.duel]]),
+      // Aujourd'hui, Léa de nouveau.
+      jour('2026-11-04', { joueurs: 1, modes: { ...zeros(), campagne: 1 }, parties: { ...zeros(), campagne: 2 } }, [['lea', BIT_DU_MODE.campagne]]),
+      // Demain ne compte pas.
+      jour('2026-11-05', { joueurs: 9, parties: { ...zeros(), jour: 9 } }, [['zoe', BIT_DU_MODE.jour]]),
+    ],
+    maintenant,
+  )
+  assert.deepEqual([a.periode, a.avant, a.depuis], ['tout', null, minuitDuJour('2026-08-03')])
+  // Du lundi 3 août au mercredi 4 novembre : quatre-vingt-quatorze jours, quatorze semaines.
+  assert.equal(a.pas, PAS_D_UNE_SEMAINE)
+  assert.deepEqual(
+    a.seaux.map(s => s.debut),
+    Array.from({ length: 14 }, (_, i) => minuitDuJour(new Date(Date.UTC(2026, 7, 3 + 7 * i, 12)).toISOString().slice(0, 10))),
+  )
+  // Sa première semaine : Léa une fois, et les quatre invités de la soirée.
+  assert.deepEqual(a.seaux[0], { debut: minuitDuJour('2026-08-03'), joueurs: 5, modes: { ...zeros(), jour: 1, soiree: 5 }, parties: { ...zeros(), jour: 2, soiree: 5 } })
+  // La semaine de Hugo : lui, et le profil supprimé, une personne pour son jour.
+  assert.deepEqual(a.seaux[6], { debut: minuitDuJour('2026-09-14'), joueurs: 2, modes: { ...zeros(), duel: 2 }, parties: { ...zeros(), duel: 3 } })
+  assert.equal(a.seaux.at(-1)?.joueurs, 1, 'cette semaine : Léa, pas Zoé, qui joue demain')
+  // Tout l'historique : Léa et Hugo une fois chacun, les quatre invités, le profil supprimé — sept, quand les semaines en additionnent huit.
+  assert.deepEqual(a.totaux, {
+    joueurs: 7,
+    modes: { soiree: 5, campagne: 1, cabinet: 0, jour: 1, duel: 2 },
+    parties: { soiree: 5, campagne: 2, cabinet: 0, jour: 2, duel: 3 },
+    nouveauxProfils: 2,
+    achats: 1,
+  })
+  assert.equal(
+    a.seaux.reduce((n, s) => n + s.joueurs, 0),
+    8,
+  )
+  // Rien encore nulle part : aujourd'hui seul, vide.
+  const vide = activiteDeLHistorique([], maintenant)
+  assert.deepEqual([vide.seaux.length, vide.totaux.joueurs, vide.depuis], [1, 0, minuitDuJour('2026-11-04')])
+})
+
+test('sans mémoire, tout l’historique dit ce que disent les trente jours, depuis le premier jour qui a vu quelque chose', () => {
+  const maintenant = Date.UTC(2026, 10, 3, 21, 41)
+  const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
+  const solo: PartieDesParticipations[] = [
+    { quand: minuits[10] + 9 * H, qui: 'lea', mode: 'jour' },
+    { quand: minuits[11] + 9 * H, qui: 'lea', mode: 'cabinet' },
+    { quand: maintenant - 25 * H, qui: 'hugo', mode: 'campagne' },
+    { quand: maintenant - 5 * MIN, qui: 'ines', mode: 'duel' },
+    // Avant les trente jours, ou après maintenant : hors de tout.
+    { quand: minuits[0] - H, qui: 'max', mode: 'jour' },
+    { quand: maintenant + MIN, qui: 'max', mode: 'jour' },
+  ]
+  const soirees = [{ quand: maintenant - 2 * H, joueurs: 6, profils: ['lea', 'theo'] }, { quand: minuits[11] + 20 * H, joueurs: 3 }]
+  const faits = { inscriptions: [minuits[10] + 8 * H, maintenant - 3 * H], achats: [maintenant - 30 * MIN] }
+  const trente = activiteDeLaPeriode('30j', solo, soirees, faits, minuits, maintenant)
+  const tout = activiteDeLHistorique(joursDesJournaux(solo, soirees, faits, minuits, maintenant), maintenant)
+  const { finies: _, ...sansLesFinies } = trente.totaux
+  assert.deepEqual(tout.totaux, sansLesFinies)
+  assert.equal(tout.depuis, minuits[10])
+  assert.deepEqual(tout.seaux, trente.seaux.slice(10), 'jour par jour, les mêmes seaux depuis le premier')
+})
+
+test('un jour de la mémoire se lit comme le même jour des journaux', () => {
+  const jour = '2026-11-03'
+  const minuit = minuitDuJour(jour)
+  const fin = minuitDuJour('2026-11-04')
+  const a = (heure: number) => minuit + heure * H
+  const solo: PartieDesParticipations[] = [
+    { quand: a(9), qui: 'lea', mode: 'jour' },
+    { quand: a(21), qui: 'lea', mode: 'campagne' },
+    { quand: a(10), qui: 'bob', mode: 'duel' },
+  ]
+  const soirees = [
+    { quand: a(20), joueurs: 6, profils: ['lea', 'theo'] },
+    { quand: a(22), joueurs: 2 },
+  ]
+  const journaux = { solo, soireesDesProfils: [], soirees, inscriptions: [a(8)], achats: [a(12), a(13)] }
+  const [ecrit] = dUneTraite(joursDeLaMemoire(journaux, [minuit], fin))
+  const [deLaMemoire] = historiqueDeLaMemoire(new Map([[jour, ecrit.chiffres]]), ecrit.presences)
+  const [desJournaux] = joursDesJournaux(solo, soirees, journaux, [minuit], fin - 1)
+  assert.deepEqual(deLaMemoire, desJournaux)
+  assert.equal(deLaMemoire.joueurs, 2 + 1 + 4 + 2, 'Léa, Bob, Théo, et six invités sans profil')
+
+  // Une ligne d'avant le Cabinet, ou illisible par endroits : ce qu'elle ne dit pas compte zéro.
+  const ancienne = { ...ecrit.chiffres, modes: { soiree: 1, jour: 2 }, achats: 'beaucoup' } as unknown as ChiffresDUnJour
+  const [lue] = historiqueDeLaMemoire(new Map([[jour, ancienne]]), [])
+  assert.deepEqual([lue.modes, lue.achats, lue.profils.size], [{ soiree: 1, campagne: 0, cabinet: 0, jour: 2, duel: 0 }, 0, 0])
 })
 
 test('l’écart à la période d’avant : un pourcentage dès vingt, le chiffre d’avant en dessous', () => {

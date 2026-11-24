@@ -16,7 +16,7 @@ import { REGLE, RANG_DE_LA_GRAVITE, graviteOuverte, rappelEnEchec, type AlerteAT
 // Des types seulement : `qgCampagne.ts` et `qgDuels.ts` lisent leurs jours ici, et rien ne tourne en rond à l'exécution.
 import type { CampagneDeLaVue } from './qgCampagne'
 import type { DuelsDeLaVue } from './qgDuels'
-import type { ActiviteDUnePeriode, PeriodeDuQg } from './qgPeriodes'
+import type { ActiviteDUnePeriode, PeriodeDuPoste } from './qgPeriodes'
 
 /**
  * Les cinq modes de jeu, dans l'ordre de leur pile, du bas vers le haut :
@@ -211,12 +211,14 @@ export interface VueDEnsemble {
   aujourdhui: Record<TuileDuQg, CompteDuJour>
   participations: ParticipationsDuJour[]
   /**
-   * Les quatre périodes de la barre du QG 2 — la dernière heure, 24 heures,
-   * sept jours, trente —, chacune ses seaux, ses totaux et la période d'avant
+   * Les périodes de la barre du QG 2 — la dernière heure, 24 heures, sept
+   * jours, trente —, chacune ses seaux, ses totaux et la période d'avant
    * (`shared/qgPeriodes.ts`), tirées des mêmes journaux : la page change de
-   * période sans redemander. Absent d'un serveur d'avant.
+   * période sans redemander ; et tout l'historique, ses trente derniers jours
+   * des mêmes journaux, ceux d'avant de la mémoire du QG
+   * (`activiteDeLHistorique`). Absent d'un serveur d'avant.
    */
-  periodes?: Record<PeriodeDuQg, ActiviteDUnePeriode>
+  periodes?: Record<PeriodeDuPoste, ActiviteDUnePeriode>
   /** La campagne sous-mode par sous-mode, tirée des mêmes séries : la page de la campagne ne les relit pas. */
   campagne: CampagneDeLaVue
   /** Les duels contre Automate et contre un joueur, jour par jour, des mêmes séries. */

@@ -29,6 +29,7 @@ import {
   bilanDesSoirees,
   compteDuJour,
   etatDeLaSoiree,
+  joursDesMinuits,
   lesChosesATraiter,
   minuitsDeParis,
   modeDeLaSerie,
@@ -42,7 +43,17 @@ import {
   type SorteDeGeste,
   type VueDEnsemble,
 } from '../../shared/qg'
-import { PERIODES_DU_QG, activiteDeLaPeriode, type ActiviteDUnePeriode, type PeriodeDuQg } from '../../shared/qgPeriodes'
+import {
+  PERIODES_DU_QG,
+  activiteDeLHistorique,
+  activiteDeLaPeriode,
+  historiqueDeLaMemoire,
+  joursDesJournaux,
+  type ActiviteDUnePeriode,
+  type JourDeLHistorique,
+  type PeriodeDuPoste,
+} from '../../shared/qgPeriodes'
+import type { MemoireDuQg } from './core/memoireDuQg'
 import { enTranches } from './core/tourniquet'
 import type { CalculEnTranches } from '../../shared/tranches'
 import { campagneDeLaVue } from '../../shared/qgCampagne'
@@ -88,6 +99,12 @@ export interface QgDeps {
   telephonesDuQg?: () => Promise<number>
   /** Le point du matin (`core/pointDuMatin.ts`) : « Hier, en bref » au poste de commande, son réglage sous les alertes. */
   point?: LePointDuMatin
+  /**
+   * La mémoire du QG (`core/memoireDuQg.ts`) : tout l'historique du poste de
+   * commande y lit les jours d'avant les trente — lue, jamais rattrapée d'ici.
+   * Sans elle, tout l'historique s'arrête aux trente jours.
+   */
+  memoire?: Pick<MemoireDuQg, 'toutAvant' | 'revision'>
 }
 
 /** Une soirée pas encore close, telle que la base locale la garde. */
@@ -203,6 +220,8 @@ export function* chiffresDeLaVue(
   soirees: readonly SoireeDesParticipations[],
   minuits: readonly number[],
   maintenant: number,
+  /** Les jours d'avant les trente, tels que la mémoire du QG les a figés : tout l'historique les ajoute aux trente jours. */
+  historique: readonly JourDeLHistorique[] = [],
 ): CalculEnTranches<ChiffresDeLaVue> {
   // Leur fin aussi : chaque période compte ses parties finies, l'entonnoir d'une page de mode.
   const solo: { quand: number; qui: string; mode: Exclude<ModeDuQg, 'soiree'>; fin: number | null }[] = [
@@ -229,11 +248,16 @@ export function* chiffresDeLaVue(
   const deLaCampagne = campagneDeLaVue(series, minuits, maintenant)
   yield
   // Les quatre périodes de la barre du QG 2, une par tranche : chacune repasse les trente jours.
-  const periodes = {} as Record<PeriodeDuQg, ActiviteDUnePeriode>
+  const periodes = {} as Record<PeriodeDuPoste, ActiviteDUnePeriode>
   for (const periode of PERIODES_DU_QG) {
     periodes[periode] = activiteDeLaPeriode(periode, solo, soirees, activite, minuits, maintenant)
     yield
   }
+  // Tout l'historique : les trente jours repassés une fois de plus, jour par jour, puis les jours de la mémoire avec eux.
+  const trente = joursDesJournaux(solo, soirees, activite, minuits, maintenant)
+  yield
+  periodes.tout = activiteDeLHistorique([...historique, ...trente], maintenant)
+  yield
   return {
     aujourdhui: { profilsActifs, partiesDuJour, seriesDeCampagne, duels: duelsDuJour, nouveauxProfils, achats },
     participations,
@@ -307,8 +331,9 @@ const ESPACE_SUPPRIME: SoireeDuQg['salon'] = { nom: 'Un espace supprimé', avata
  * `/qg/direct` se lit en mémoire et dans la base locale, sans un aller-retour
  * vers Turso pour les soirées : la page le redemande toutes les dix secondes.
  * `/qg` lit la base permanente — trente jours de parties, de séries, de
- * soirées — : la page le redemande toutes les cinq minutes, et il ne relit
- * des jours finis que les soirées (`lesTrenteJours`). `/soirees`, le bilan
+ * soirées, et pour tout l'historique la mémoire du QG d'avant eux — : la page
+ * le redemande toutes les cinq minutes, et il ne relit des jours finis que les
+ * soirées (`lesTrenteJours`, `lHistorique`). `/soirees`, le bilan
  * des soirées, se lit à l'ouverture de leur page.
  *
  * Des soirées des autres, rien que des chiffres : le salon, où elle en est,
@@ -448,12 +473,39 @@ export function mountQg(app: Express, deps: QgDeps) {
     }
   }
 
+  // Tout l'historique : les jours d'avant les trente, tels que la mémoire du QG les a figés — ils ne bougent plus.
+  // Lus une fois par jour, au premier poste de commande, et gardés jusqu'au minuit suivant ou jusqu'à ce que ce
+  // processus réécrive la mémoire (`revision` : le point du matin, une version neuve qui la refait) — quelques centaines
+  // de lignes par an, en deux textes JSON. Une lecture partagée par qui la demande pendant qu'elle se fait ; échouée,
+  // elle ne se garde pas. Le poste de commande ne rattrape jamais la mémoire (règle `qg.md`) : il lit ce qu'elle sait,
+  // et elle sait chaque jour fini dès le point du matin — trente jours avant qu'on la lise ici.
+  let historique: { cle: string; promesse: Promise<JourDeLHistorique[]> } | null = null
+  const lHistorique = (avant: string): Promise<JourDeLHistorique[]> => {
+    const memoire = deps.memoire
+    if (!memoire) return Promise.resolve([])
+    const cle = `${avant}|${memoire.revision}`
+    if (historique?.cle !== cle) {
+      const promesse = memoire.toutAvant(avant).then(lu => historiqueDeLaMemoire(lu.jours, lu.presences))
+      const lecture = { cle, promesse }
+      historique = lecture
+      promesse.catch(() => {
+        if (historique === lecture) historique = null
+      })
+    }
+    return historique!.promesse
+  }
+
   const vueDEnsemble = async (): Promise<VueDEnsemble> => {
     const maintenant = deps.maintenant()
     const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
     const depuis = minuits[0]
-    const [journaux, soirees, aTraiter] = await Promise.all([lesTrenteJours(minuits), lesSoireesDepuis(deps, depuis), aTraiterDuQg()])
-    const chiffres = await enTranches(chiffresDeLaVue(journaux, soirees, minuits, maintenant))
+    const [journaux, soirees, aTraiter, avantLesTrente] = await Promise.all([
+      lesTrenteJours(minuits),
+      lesSoireesDepuis(deps, depuis),
+      aTraiterDuQg(),
+      lHistorique(joursDesMinuits(minuits)[0]),
+    ])
+    const chiffres = await enTranches(chiffresDeLaVue(journaux, soirees, minuits, maintenant, avantLesTrente))
     return { maintenant, jour: jourDe(maintenant), ...chiffres, aTraiter }
   }
 

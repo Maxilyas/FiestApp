@@ -3,6 +3,25 @@ import { minuitDe } from '../../../shared/qg'
 import { lireLeServeurDUnJour, type ChiffresDUnJour, type JourDeLaMemoire, type Presence } from '../../../shared/qgJoueurs'
 import type { ServeurDUnJour } from '../../../shared/santeDuServeur'
 
+/** Les feuilles de présence d'un texte JSON (`json_group_array`) : le client de Turso décode chaque ligne une à une. */
+function presencesLues(texte: unknown): Presence[] {
+  const lignes = JSON.parse(String(texte ?? '[]')) as [string, string, number, number][]
+  return lignes.map(([jour, qui, modes, premiere]) => ({ jour: String(jour), qui: String(qui), modes: Number(modes), premiere: Number(premiere) }))
+}
+
+/** Les chiffres des jours d'un texte JSON ; une ligne illisible manque — le jour se lit comme inconnu, la page part quand même. */
+function joursLus(texte: unknown): Map<string, ChiffresDUnJour> {
+  const jours = new Map<string, ChiffresDUnJour>()
+  for (const [jour, chiffres] of JSON.parse(String(texte ?? '[]')) as [string, string][]) {
+    try {
+      jours.set(String(jour), JSON.parse(String(chiffres)) as ChiffresDUnJour)
+    } catch {
+      // Illisible : il manque.
+    }
+  }
+  return jours
+}
+
 /**
  * La mémoire du QG dans la base permanente (le lot 6 du QG 2, le 4 novembre
  * 2026, `shared/qgJoueurs.ts`) : la feuille de présence (`qg_presences`, une
@@ -12,9 +31,12 @@ import type { ServeurDUnJour } from '../../../shared/santeDuServeur'
  * s'y refait d'elles — elles ne sont que leur reflet, gardé pour ne pas les
  * relire.
  *
- * Bornées : un an de jours (`JOURS_DE_LA_MEMOIRE`), une centaine de lignes de
- * présence par jour en production ; chaque écriture efface ce qui a passé
- * l'an.
+ * Gardées depuis toujours (le 24 novembre 2026 : « une vue totale », au poste
+ * de commande — `activiteDeLHistorique`) : une ligne de chiffres par jour,
+ * moins d'un kilo-octet, et une à quelques dizaines de lignes de présence —
+ * 66 jours et 720 présences en production ce jour-là. Elles s'effaçaient au
+ * bout d'un an ; les journaux, eux, se gardent, et une version neuve refait
+ * tout depuis leur premier jour.
  */
 export class MemoireDuQg {
   private client: Client
@@ -26,6 +48,14 @@ export class MemoireDuQg {
    * — une ligne sans maître, que la suppression devait emporter.
    */
   private oublies = new Set<string>()
+  /**
+   * Combien de fois ce processus l'a écrite ou effacée : ce qu'on en garde
+   * ailleurs — tout l'historique du poste de commande — se relit quand elle a
+   * changé, sans attendre minuit. Une version neuve l'efface puis la refait :
+   * lue entre les deux, elle aurait gardé un historique à moitié vide jusqu'au
+   * lendemain.
+   */
+  revision = 0
 
   constructor(url: string, authToken?: string) {
     this.client = clientDistant(url, authToken)
@@ -101,27 +131,33 @@ export class MemoireDuQg {
       sql: `SELECT json_group_array(json_array(jour, profile_id, modes, premiere)) AS lignes FROM qg_presences WHERE jour >= ? AND jour < ?`,
       args: [de, a],
     })
-    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, string, number, number][]
-    return lignes.map(([jour, qui, modes, premiere]) => ({ jour: String(jour), qui: String(qui), modes: Number(modes), premiere: Number(premiere) }))
+    return presencesLues(res.rows[0]?.lignes)
   }
 
-  /** Les chiffres des jours depuis `de`, et le premier jour que la mémoire sait : d'un aller-retour. */
+  /** Les chiffres des jours depuis `de` — tous, depuis `''` —, et le premier jour que la mémoire sait : d'un aller-retour. */
   async joursDepuis(de: string): Promise<{ jours: Map<string, ChiffresDUnJour>; premier: string | null }> {
     const [lus, premier] = await this.client.batch(
       [{ sql: 'SELECT json_group_array(json_array(jour, chiffres)) AS lignes FROM qg_jours WHERE jour >= ?', args: [de] }, 'SELECT MIN(jour) AS jour FROM qg_jours'],
       'read',
     )
-    const lignes = JSON.parse(String(lus.rows[0]?.lignes ?? '[]')) as [string, string][]
-    const jours = new Map<string, ChiffresDUnJour>()
-    for (const [jour, chiffres] of lignes) {
-      try {
-        jours.set(String(jour), JSON.parse(String(chiffres)) as ChiffresDUnJour)
-      } catch {
-        // Une ligne illisible manque : le jour se lit comme inconnu, la page part quand même.
-      }
-    }
     const p = premier.rows[0]?.jour
-    return { jours, premier: p === null || p === undefined ? null : String(p) }
+    return { jours: joursLus(lus.rows[0]?.lignes), premier: p === null || p === undefined ? null : String(p) }
+  }
+
+  /**
+   * Tout ce que la mémoire sait des jours d'avant `jour` — leurs chiffres et
+   * leurs feuilles de présence —, d'un aller-retour, un texte JSON chacun, par
+   * leur clé : tout l'historique du poste de commande, lu une fois par jour.
+   */
+  async toutAvant(jour: string): Promise<{ jours: Map<string, ChiffresDUnJour>; presences: Presence[] }> {
+    const [chiffres, feuilles] = await this.client.batch(
+      [
+        { sql: 'SELECT json_group_array(json_array(jour, chiffres)) AS lignes FROM qg_jours WHERE jour < ?', args: [jour] },
+        { sql: 'SELECT json_group_array(json_array(jour, profile_id, modes, premiere)) AS lignes FROM qg_presences WHERE jour < ?', args: [jour] },
+      ],
+      'read',
+    )
+    return { jours: joursLus(chiffres.rows[0]?.lignes), presences: presencesLues(feuilles.rows[0]?.lignes) }
   }
 
   /**
@@ -165,10 +201,10 @@ export class MemoireDuQg {
   /**
    * Écrit des jours finis, d'un seul lot : la feuille de chacun remplacée
    * entière, ses chiffres aussi — deux serveurs d'une mise en ligne qui
-   * rattrapent le même jour écrivent la même chose, l'un après l'autre. Et ce
-   * qui a passé l'an s'efface avec (`avant`).
+   * rattrapent le même jour écrivent la même chose, l'un après l'autre. Rien
+   * d'autre ne s'efface : la mémoire se garde depuis toujours.
    */
-  async ecrire(jours: readonly JourDeLaMemoire[], avant: string): Promise<void> {
+  async ecrire(jours: readonly JourDeLaMemoire[]): Promise<void> {
     if (jours.length === 0) return
     const presences = jours.flatMap(j => j.presences.map(p => [p.jour, p.qui, p.modes, p.premiere]))
     await this.client.batch(
@@ -183,17 +219,17 @@ export class MemoireDuQg {
           sql: `INSERT OR REPLACE INTO qg_jours (jour, chiffres, ecrit_le) SELECT json_extract(value, '$[0]'), json_extract(value, '$[1]'), ? FROM json_each(?)`,
           args: [Date.now(), JSON.stringify(jours.map(j => [j.jour, JSON.stringify(j.chiffres)]))],
         },
-        { sql: 'DELETE FROM qg_presences WHERE jour < ?', args: [avant] },
-        { sql: 'DELETE FROM qg_jours WHERE jour < ?', args: [avant] },
       ],
       'write',
     )
+    this.revision++
     if (this.oublies.size > 0) await this.effacerLesOublies()
   }
 
   /** Tout effacer : une version des dérivations qui change refait les deux mémoires des journaux. */
   async effacer(): Promise<void> {
     await this.client.batch(['DELETE FROM qg_presences', 'DELETE FROM qg_jours'], 'write')
+    this.revision++
   }
 
   /**
