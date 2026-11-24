@@ -109,6 +109,8 @@ export interface QgDeps {
   vueGardeeMs?: number
   /** La vue d'ensemble gardée, qu'un geste du QG fait oublier (`api.ts`) ; sans elle, chaque lecture la recompte. */
   vueGardee?: Pick<VueGardee, 'lire'>
+  /** Une question de soirée attend-elle ses réponses ? La vue gardée sert alors au-delà de sa minute (`VueGardee`). */
+  salleEnJeu?: () => boolean
 }
 
 /**
@@ -124,14 +126,30 @@ export interface QgDeps {
 export const VUE_GARDEE_MS = 60_000
 
 /**
+ * Pendant qu'une question de soirée attend ses réponses, la vue gardée sert
+ * au-delà de sa minute, jusqu'à tant (le 24 novembre 2026) : la recompter
+ * coûte au dixième de cœur 0,6 à 1 s de processeur rationné — la production
+ * relevait des gels de 0,5 à 0,8 s sous la seule vue d'ensemble —, et un gel
+ * plus long que la marge d'une question fait recevoir « Trop tard » à une
+ * réponse partie à temps (règle `exploitation.md`). L'administrateur qui anime
+ * sa soirée garde le poste ouvert : il le relit toutes les cinq minutes. Il
+ * lit l'instant par le direct, qui ne coûte rien ; la vue se recompte à la
+ * révélation, ou au premier geste du QG.
+ */
+export const VUE_GARDEE_PENDANT_UNE_QUESTION_MS = 10 * 60_000
+
+/**
  * Une lecture de la vue d'ensemble, gardée `gardeeMs` et partagée par qui la
  * demande pendant qu'elle se fait — deux onglets, le téléphone et l'ordinateur
  * ne la recomptent pas deux fois ; ratée, elle ne se garde pas. Un geste du QG
  * l'oublie, à son arrivée et à sa fin (`oublierApresUnGeste`) : la vue relue
  * après un tri d'erreur ou une question retirée dit ce qui attend encore. Ce
- * que les joueurs font pendant la minute, elle l'apprend à la suivante.
- * Passée sa minute, elle s'oublie d'elle-même : elle ne reste pas en mémoire
- * QG fermé.
+ * que les joueurs font pendant la minute, elle l'apprend à la suivante — ou
+ * après la question de soirée qui se joue (`salleEnJeu`,
+ * `VUE_GARDEE_PENDANT_UNE_QUESTION_MS`). Elle n'attend jamais la salle : elle
+ * sert ce qu'elle a, ou se recompte, sans retenir la requête — retenue, la
+ * route serait de chaque gel de la question. Passée sa durée, elle s'oublie
+ * d'elle-même : elle ne reste pas en mémoire QG fermé.
  */
 export class VueGardee {
   private garde: { a: number; lue: Promise<VueDEnsemble> } | null = null
@@ -139,6 +157,8 @@ export class VueGardee {
   constructor(
     private readonly gardeeMs: number,
     private readonly maintenant: () => number,
+    /** Une question de soirée attend-elle ses réponses, dans un espace ou un autre ? */
+    private readonly salleEnJeu: () => boolean = () => false,
   ) {}
 
   oublier(): void {
@@ -147,17 +167,22 @@ export class VueGardee {
 
   lire(faire: () => Promise<VueDEnsemble>): Promise<VueDEnsemble> {
     const maintenant = this.maintenant()
-    if (this.garde && maintenant >= this.garde.a && maintenant - this.garde.a < this.gardeeMs) return this.garde.lue
+    const age = this.garde ? maintenant - this.garde.a : -1
+    if (this.garde && age >= 0 && (age < this.gardeeMs || (age < VUE_GARDEE_PENDANT_UNE_QUESTION_MS && this.salleEnJeu()))) return this.garde.lue
     const garde = { a: maintenant, lue: faire() }
     if (this.gardeeMs <= 0) return garde.lue
     this.garde = garde
     garde.lue.catch(() => {
       if (this.garde === garde) this.garde = null
     })
-    // Une minuterie qui ne retient pas le processus : le serveur qui s'arrête ne l'attend pas.
-    setTimeout(() => {
-      if (this.garde === garde) this.garde = null
-    }, this.gardeeMs).unref()
+    // Une minuterie qui ne retient pas le processus : le serveur qui s'arrête ne l'attend pas. Gardée le temps d'une
+    // question de plus au besoin ; passé sa minute, elle ne sert qu'à elle.
+    setTimeout(
+      () => {
+        if (this.garde === garde) this.garde = null
+      },
+      Math.max(this.gardeeMs, VUE_GARDEE_PENDANT_UNE_QUESTION_MS),
+    ).unref()
     return garde.lue
   }
 }

@@ -20,7 +20,7 @@ import type { ProfilDAdministration } from '../../shared/profil'
 import type { VueDEnsemble } from '../../shared/qg'
 import type { PageDeLEconomie } from '../../shared/qgEconomie'
 import { jourDe } from '../../shared/jour'
-import { VUE_GARDEE_MS } from '../src/qg'
+import { VUE_GARDEE_MS, VUE_GARDEE_PENDANT_UNE_QUESTION_MS, VueGardee } from '../src/qg'
 
 // ── Le compteur ───────────────────────────────────────────────────────────
 
@@ -209,6 +209,51 @@ test('la vue d’ensemble se garde une minute, partagée par les onglets, et un 
   } finally {
     await gardee.close()
   }
+})
+
+// Recomptée, la vue d'ensemble prend au dixième de cœur 0,6 à 1 s de
+// processeur rationné — la production relevait des gels de 0,5 à 0,8 s sous
+// elle seule, du 16 au 23 novembre 2026 —, et un gel plus long que la marge
+// d'une question fait recevoir « Trop tard » à une réponse partie à temps.
+// L'administrateur qui anime garde le poste ouvert : pendant une question de
+// soirée, la vue gardée sert au-delà de sa minute.
+test('pendant une question de soirée, la vue gardée sert au-delà de sa minute — dix au plus —, sans jamais retenir la requête', async () => {
+  const horloge = { t: 1_000 }
+  let enJeu = false
+  let calculs = 0
+  const garde = new VueGardee(VUE_GARDEE_MS, () => horloge.t, () => enJeu)
+  const lire = async () => (await garde.lire(async () => ({ maintenant: ++calculs }) as unknown as VueDEnsemble)).maintenant
+  assert.equal(await lire(), 1)
+
+  // Sa minute passée, une question se joue : elle sert telle quelle.
+  horloge.t += VUE_GARDEE_MS + 1
+  enJeu = true
+  assert.equal(await lire(), 1, 'une question se joue : la vue gardée sert')
+  horloge.t = 1_000 + VUE_GARDEE_PENDANT_UNE_QUESTION_MS - 1
+  assert.equal(await lire(), 1)
+  // Dix minutes au plus : une question laissée ouverte ne la fige pas pour la soirée.
+  horloge.t = 1_000 + VUE_GARDEE_PENDANT_UNE_QUESTION_MS
+  assert.equal(await lire(), 2, 'dix minutes au plus')
+
+  // La révélation passée, sa minute reprend.
+  enJeu = false
+  horloge.t += VUE_GARDEE_MS
+  assert.equal(await lire(), 3)
+  // Un geste du QG l'oublie, même pendant une question.
+  enJeu = true
+  garde.oublier()
+  assert.equal(await lire(), 4, 'oubliée par un geste')
+
+  // Rien de gardé pendant une question : elle se compte tout de suite — la requête n'attend jamais la salle.
+  const neuve = new VueGardee(VUE_GARDEE_MS, () => horloge.t, () => true)
+  const avant = Date.now()
+  assert.equal((await neuve.lire(async () => ({ maintenant: 9 }) as unknown as VueDEnsemble)).maintenant, 9)
+  assert.ok(Date.now() - avant < 200, 'servie sans attendre la révélation')
+  // Le banc, qui ne garde rien, ne garde rien non plus pendant une question.
+  const banc0 = new VueGardee(0, () => horloge.t, () => true)
+  let n = 0
+  for (let i = 0; i < 2; i++) await banc0.lire(async () => ({ maintenant: ++n }) as unknown as VueDEnsemble)
+  assert.equal(n, 2)
 })
 
 // La page de l'économie comptait les bonnes réponses de la campagne heure par

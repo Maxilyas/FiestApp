@@ -112,7 +112,7 @@ interface ApiDeps {
   /** Le jeton de la routine qui remplit la réserve du quiz du jour ; null, la porte n'existe pas. */
   jetonDeLaReserve: string | null
   /** Ce que le QG lit de plus que les autres routes : la soirée de chaque espace, le miroir, la charge — et de quoi clore une soirée laissée en plan. */
-  qg: Pick<QgDeps, 'db' | 'registry' | 'io' | 'backup' | 'charge' | 'sante' | 'env' | 'version' | 'clore' | 'flux' | 'regles' | 'telephonesDuQg' | 'point' | 'memoire' | 'vueGardeeMs'>
+  qg: Pick<QgDeps, 'db' | 'registry' | 'io' | 'backup' | 'charge' | 'sante' | 'env' | 'version' | 'clore' | 'flux' | 'regles' | 'telephonesDuQg' | 'point' | 'memoire' | 'vueGardeeMs' | 'salleEnJeu'>
   /** Le journal des gestes de l'administrateur : chaque route de `/api/admin` qui change quelque chose s'y note. */
   gestes: JournalDesGestes
   /** Le bandeau rouge et les pages en maintenance : le QG les pose, et une page fermée ferme ses portes. */
@@ -153,7 +153,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // d'ensemble aussi : tout geste de l'administrateur les fait oublier — avant
   // toute route, lui aussi.
   const contenu = new ContenuDuQg({ jour: deps.jour, campagne: deps.campagne, maintenant: deps.maintenant, reserveAutomatique: deps.jetonDeLaReserve !== null })
-  const vueGardee = new VueGardee(deps.qg.vueGardeeMs ?? VUE_GARDEE_MS, deps.maintenant)
+  const vueGardee = new VueGardee(deps.qg.vueGardeeMs ?? VUE_GARDEE_MS, deps.maintenant, deps.qg.salleEnJeu)
   app.use('/api/admin', oublierApresUnGeste(contenu, vueGardee))
   // Devant les routes des joueurs : une page en maintenance, ou bientôt
   // disponible, ferme celles qui y commencent une partie, un départ, un achat

@@ -1515,6 +1515,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
       // Tout l'historique du poste de commande : les jours d'avant les trente, que la mémoire a figés.
       memoire: memoireDuQg,
       ...(opts.vueDuQgGardeeMs !== undefined && { vueGardeeMs: opts.vueDuQgGardeeMs }),
+      // Pendant une question de soirée, la vue d'ensemble ne se recompte pas : elle sert celle qu'elle garde.
+      salleEnJeu: () => campagne.salleEnJeu?.() ?? false,
     },
     gestes,
     maintenance,
