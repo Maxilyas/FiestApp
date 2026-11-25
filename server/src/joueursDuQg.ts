@@ -7,7 +7,8 @@ import type { ProfileStore } from './auth/profiles'
 import type { JourStore } from './core/jour'
 import type { CampagneStore } from './core/campagne'
 import { jourAvant, jourDe } from '../../shared/jour'
-import { minuitDe, modeDeLaSerie, type SoireeDesParticipations } from '../../shared/qg'
+import { minuitDe, type SoireeDesParticipations } from '../../shared/qg'
+import { partiesDesModes } from '../../shared/qgModes'
 import { confettisParJour, type MouvementsDeConfettis } from '../../shared/qgEconomie'
 import {
   COHORTES_MONTREES,
@@ -67,6 +68,14 @@ export interface AudienceDeps {
 /** Ce que le rattrapage lit d'un coup : un mois de journaux, comme la vue d'ensemble — jamais un an d'un bloc. */
 const JOURS_D_UNE_PLAGE = 30
 
+/**
+ * Les lignes d'expérience que le rattrapage lit après sa plage : une soirée de
+ * son dernier jour, commencée à 23 h 50, se crédite après minuit — sa réussite
+ * se compte avec elle (la mémoire v3, `joursDeLaMemoire`). Une journée suffit :
+ * une ligne naît au verdict du premier quiz.
+ */
+const MARGE_DES_SOIREES_MS = 24 * 3_600_000
+
 /** Les jours de `de` à `a`, compris, le plus ancien d'abord. */
 function joursDe(de: string, a: string): string[] {
   const jours: string[] = []
@@ -94,19 +103,22 @@ function joursDe(de: string, a: string): string[] {
  * nomment (`nomsPourLeQg`).
  */
 export function audienceDuQg(deps: AudienceDeps) {
-  /** Les journaux d'une plage ; `jouees`, les questions jouées des soirées, que seul le rattrapage demande. */
+  /**
+   * Les journaux d'une plage ; `jouees`, les questions jouées des soirées, que
+   * seul le rattrapage demande — et avec elles les lignes d'expérience d'un
+   * peu après la plage (`MARGE_DES_SOIREES_MS`) : rien d'autre ne les lit,
+   * chaque jour ne compte que ses faits.
+   */
   const lirePlage = async (debut: number, fin: number, { jouees = false } = {}): Promise<JournauxDeLaMemoire> => {
     const [parties, series, activite, soirees] = await Promise.all([
       deps.jour.partiesEntre(debut, fin),
       deps.campagne.seriesEntre(debut, fin),
-      deps.profiles.activiteEntre(debut, fin),
+      deps.profiles.activiteEntre(debut, jouees ? fin + MARGE_DES_SOIREES_MS : fin),
       deps.soireesEntre(debut, fin, { jouees }),
     ])
     return {
-      solo: [
-        ...parties.map(p => ({ qui: p.qui, quand: p.quand, mode: 'jour' as const, questions: p.questions })),
-        ...series.map(s => ({ qui: s.qui, quand: s.quand, mode: modeDeLaSerie(s.mode), questions: s.questions })),
-      ],
+      // Leur fin et leur réussite aussi, à la règle des modes côte à côte : la mémoire v3 les garde jour par jour.
+      solo: partiesDesModes(parties, series),
       soireesDesProfils: activite.soirees,
       soirees,
       inscriptions: activite.inscriptions,

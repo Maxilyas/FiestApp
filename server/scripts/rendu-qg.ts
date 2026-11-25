@@ -1523,8 +1523,17 @@ try {
     await photographier('90-modes-cote-a-cote', 1366, 768, { adresse: '/admin#activite' })
     await photographier('90b-modes-cote-a-cote-reussite', 1366, 768, { adresse: '/admin#activite', pleine: false, geste: page => page.click('.qg-cote-table .qg-tri:has-text("Réussite")') })
     await photographier('91-modes-cote-a-cote-trente-jours', 1366, 768, { adresse: '/admin#activite', geste: page => page.click('.qg-periodes button:has-text("30 j")') })
+    // Tout l'historique (le 25 novembre 2026) : la mémoire pas encore écrite, il s'arrête aux trente jours — la même table.
+    await photographier('91b-modes-cote-a-cote-tout', 1366, 768, { adresse: '/admin#activite', geste: page => page.click('.qg-periodes button:has-text("Tout")') })
     await photographier('92-modes-cote-a-cote-1920', 1920, 1080, { adresse: '/admin#activite' })
     await photographier('93-modes-cote-a-cote-telephone', 360, 640, { adresse: '/admin#activite' })
+    await photographier('93b-modes-cote-a-cote-telephone-tout', 360, 640, {
+      adresse: '/admin#activite',
+      geste: async page => {
+        await page.click('.qg-periode-courte')
+        await page.click('.qg-periodes-feuille button:has-text("Tout l")')
+      },
+    })
     await photographier('94-modes-soirees', 1366, 768, { adresse: '/admin#soirees', geste: avecLeFlux(page => page.click('.qg-periodes button:has-text("7 j")')) })
     await photographier('95-modes-soirees-telephone', 360, 640, { adresse: '/admin#soirees', geste: avecLeFlux() })
     await photographier('96-modes-jour', 1366, 768, { adresse: '/admin#jour', geste: avecLeFlux() })

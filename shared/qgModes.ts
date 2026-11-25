@@ -15,8 +15,20 @@
 // pas, une estimation n'est jamais juste —, un quiz de soirée ne date pas sa
 // fin, et un invité sans profil ne se suit pas d'un soir à l'autre.
 
-import { MODES_DU_QG, jourDeLInstant, participationsParSeau, type ModeDuQg, type SoireeDesParticipations, type SoireeRangeeDuQg } from './qg'
-import { PERIODES_DU_QG, cadreDeLaPeriode, type PeriodeDuQg, type TotauxDUnePeriode } from './qgPeriodes'
+import {
+  MODES_DU_QG,
+  jourDeLInstant,
+  joursDesMinuits,
+  minuitDe,
+  minuitsDeParis,
+  modeDeLaSerie,
+  participationsParSeau,
+  type ModeDuQg,
+  type SoireeDesParticipations,
+  type SoireeRangeeDuQg,
+} from './qg'
+import { PERIODES_DU_QG, cadreDeLaPeriode, joueursDeLHistorique, joursDesJournaux, type JourDeLHistorique, type PeriodeDuQg, type TotauxDUnePeriode } from './qgPeriodes'
+import { BIT_DU_MODE, minuitDuJour, type ChiffresDUnJour } from './qgJoueurs'
 import { SEUILS } from './profil'
 import type { PartieSeule, SoireeDUnProfil, SoireeJouee } from './qgActivite'
 import type { PartDesBonnes } from './qgDuJour'
@@ -81,6 +93,33 @@ export const seJoueEnQcm = (mode: string | null) => (mode !== null && Object.has
 /** Les modes dont la réussite se compte : le Cabinet n'a pas de QCM (plus haut). */
 export const QCM_DU_MODE: Record<ModeDuQg, boolean> = { soiree: true, campagne: true, cabinet: false, jour: true, duel: true }
 
+/**
+ * Les parties jouées seul telles que les modes côte à côte les lisent, des
+ * lignes des journaux : au quiz du jour, ses questions à choix qui comptent —
+ * les posées, sans les annulées pour tous (`comptees`) ; en série, ses
+ * questions jouées, là où elle se joue en QCM. Une seule règle pour la page
+ * (`pageDeLActivite`) et pour la mémoire du QG, qui en garde chaque jour fini
+ * (`joueursDuQg.ts`) : tout l'historique les additionne.
+ */
+export function partiesDesModes(
+  parties: readonly { qui: string; quand: number; questions: number; fin: number | null; justes: number; comptees: number }[],
+  series: readonly { qui: string; quand: number; mode: string | null; questions: number; fin: number | null; justes: number }[],
+): PartieDesModes[] {
+  return [
+    ...parties.map(p => ({ qui: p.qui, quand: p.quand, mode: 'jour' as const, questions: p.questions, fin: p.fin, justes: p.justes, qcm: p.comptees })),
+    ...series.map(s => ({
+      qui: s.qui,
+      quand: s.quand,
+      mode: modeDeLaSerie(s.mode),
+      questions: s.questions,
+      fin: s.fin,
+      justes: s.justes,
+      // Le Cabinet et l'expédition d'avant lui ne posent pas que des QCM : leur réussite ne se compte pas.
+      qcm: seJoueEnQcm(s.mode) ? s.questions : null,
+    })),
+  ]
+}
+
 // ── Côte à côte ───────────────────────────────────────────────────────────
 
 /** Une ligne de « Côte à côte » : un mode, sur une période. */
@@ -115,6 +154,29 @@ export interface ModesCoteACote {
   periodes: Record<PeriodeDuQg, LigneDesModes[]>
   /** Le retour à J+7, mode par mode, et sur combien de jours il se lit : ceux des trente qui ont leurs sept jours derrière eux. */
   retour: { jours: number; modes: Record<ModeDuQg, RetourDUnMode> }
+  /** Tout l'historique (`modesSurTout`) ; absent d'un serveur d'avant le 25 novembre 2026. */
+  tout?: ModesSurTout
+}
+
+/**
+ * Les modes côte à côte sur tout l'historique (le 25 novembre 2026, le
+ * propriétaire : « je ne vois que les 30 derniers jours pour tous les jeux
+ * […] que l'on ait l'intégralité ») : les mêmes lignes, et le retour à J+7 sur
+ * tous les jours qui ont leurs sept jours derrière eux.
+ */
+export interface ModesSurTout {
+  lignes: LigneDesModes[]
+  retour: ModesCoteACote['retour']
+  /** Le premier jour où quelqu'un a joué — le poste de commande compte aussi les jours d'une inscription ou d'un achat seuls. */
+  depuis: number
+  /**
+   * Les jours de la mémoire qui ne disent encore ni la réussite, ni les
+   * durées, ni les quiz de leurs soirées — des lignes d'avant la mémoire v3,
+   * que son passage suivant refait : leurs parties du jour, de campagne, du
+   * Cabinet et des duels, leurs questions et leurs joueurs comptent ; le reste
+   * attend.
+   */
+  sansDetail: number
 }
 
 /** La médiane : une partie laissée trois jours ne tire pas à elle la durée des autres, comme une salle de quatre-vingts celle des soirées. Null sans valeur. */
@@ -144,12 +206,47 @@ export function lignesDesModes(
   debut: number,
   fin: number,
 ): LigneDesModes[] {
-  const dans = (quand: number) => quand >= debut && quand <= fin
   const [tout] = participationsParSeau(parties, soirees, [debut], fin)
-  const acc = Object.fromEntries(MODES_DU_QG.map(m => [m, { parties: 0, questions: 0, justes: 0, sur: 0, durees: [] as number[] }])) as Record<
-    ModeDuQg,
-    { parties: number; questions: number; justes: number; sur: number; durees: number[] }
-  >
+  return lignesDeLAmas(amasDesModes(parties, soirees, deProfils, debut, fin), mode => tout?.modes[mode] ?? 0)
+}
+
+/** Ce qu'un mode amasse sur une fenêtre, avant sa ligne : des sommes, et ses durées une à une — une médiane ne s'additionne pas. */
+interface AmasDUnMode {
+  parties: number
+  questions: number
+  justes: number
+  sur: number
+  /** En millisecondes, dans l'ordre où elles viennent : la ligne les trie. */
+  durees: number[]
+}
+
+const amasVide = () => Object.fromEntries(MODES_DU_QG.map((m): [ModeDuQg, AmasDUnMode] => [m, { parties: 0, questions: 0, justes: 0, sur: 0, durees: [] }])) as Record<ModeDuQg, AmasDUnMode>
+
+/** Les lignes de ce que chaque mode a amassé, ses joueurs comptés à part — ils ne s'additionnent pas. */
+function lignesDeLAmas(acc: Record<ModeDuQg, AmasDUnMode>, joueurs: (mode: ModeDuQg) => number): LigneDesModes[] {
+  return MODES_DU_QG.map(mode => {
+    const a = acc[mode]
+    return {
+      mode,
+      joueurs: joueurs(mode),
+      parties: a.parties,
+      questions: a.questions,
+      reussite: QCM_DU_MODE[mode] ? { justes: a.justes, sur: a.sur } : null,
+      duree: mode === 'soiree' ? null : { medianeMs: mediane(a.durees), finies: a.durees.length },
+    }
+  })
+}
+
+/** Ce que les cinq modes amassent sur une fenêtre, ses bornes comprises (`lignesDesModes`). */
+function amasDesModes(
+  parties: readonly PartieDesModes[],
+  soirees: readonly SoireeDesModes[],
+  deProfils: readonly SoireeDUnProfil[],
+  debut: number,
+  fin: number,
+): Record<ModeDuQg, AmasDUnMode> {
+  const dans = (quand: number) => quand >= debut && quand <= fin
+  const acc = amasVide()
   for (const p of parties) {
     if (!dans(p.quand)) continue
     const a = acc[p.mode]
@@ -173,17 +270,7 @@ export function lignesDesModes(
     acc.soiree.justes += s.justes ?? 0
     acc.soiree.sur += s.qcm ?? 0
   }
-  return MODES_DU_QG.map(mode => {
-    const a = acc[mode]
-    return {
-      mode,
-      joueurs: tout?.modes[mode] ?? 0,
-      parties: a.parties,
-      questions: a.questions,
-      reussite: QCM_DU_MODE[mode] ? { justes: a.justes, sur: a.sur } : null,
-      duree: mode === 'soiree' ? null : { medianeMs: mediane(a.durees), finies: a.durees.length },
-    }
-  })
+  return acc
 }
 
 /** Les jours qu'un joueur a pour revenir : J+1 à J+7. */
@@ -237,11 +324,105 @@ export function retourAJ7(
   return { jours: Math.max(0, dernier + 1), modes }
 }
 
+/** Les jours d'avant les trente, tels que la mémoire du QG les a figés : ses feuilles de présence et ses chiffres (`lHistorique`, `server/src/qg.ts`). */
+export interface HistoriqueDesModes {
+  jours: readonly JourDeLHistorique[]
+  chiffres: ReadonlyMap<string, ChiffresDUnJour>
+}
+
+/** Un nombre qu'une ligne de la mémoire garde : un compte ; illisible ou négatif, zéro — la page part quand même. */
+const compte = (n: unknown) => (typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : 0)
+
+/**
+ * Ce qu'un jour de la mémoire ajoute aux modes côte à côte : ses parties et ses
+ * questions, et depuis la mémoire v3 sa réussite, ses durées — à la seconde —
+ * et les quiz de ses soirées. Faux pour une ligne d'avant : ce qu'elle ne sait
+ * pas ne se compte nulle part, et la page le dit (`sansDetail`).
+ */
+function amasserLeJour(acc: Record<ModeDuQg, AmasDUnMode>, c: ChiffresDUnJour): boolean {
+  const detail = c.reussite !== undefined && c.durees !== undefined
+  for (const m of MODES_DU_QG) {
+    const a = acc[m]
+    // En soirée, la mémoire compte pour parties chaque invité qui a joué ; les modes côte à côte, ses quiz.
+    if (m !== 'soiree') a.parties += compte(c.parties?.[m])
+    a.questions += compte(c.questions?.[m])
+    if (!detail) continue
+    a.justes += compte(c.reussite?.[m]?.justes)
+    a.sur += compte(c.reussite?.[m]?.sur)
+    const durees = c.durees?.[m]
+    if (Array.isArray(durees)) for (const s of durees) if (typeof s === 'number' && Number.isFinite(s) && s >= 0) a.durees.push(s * 1000)
+  }
+  if (detail && Array.isArray(c.soirees)) for (const s of c.soirees) acc.soiree.parties += compte(s.quiz)
+  return detail
+}
+
+/**
+ * Les modes côte à côte sur tout l'historique : les trente derniers jours des
+ * journaux, comme la période « 30 j » (`amasDesModes`), et chaque jour d'avant
+ * tel que la mémoire du QG l'a figé (`amasserLeJour`) — rien ne se relit des
+ * journaux au-delà des trente jours. Les joueurs à la règle de tout
+ * l'historique au poste de commande, une personne une fois
+ * (`joueursDeLHistorique`) ; la médiane d'une partie sur toutes les durées,
+ * une à une ; le retour à J+7 à la règle des trente jours (`retourAJ7`), sur
+ * tous les jours depuis le premier — ceux d'avant par leur feuille de
+ * présence. Une partie commencée un jour et finie après que la mémoire l'a
+ * écrit manque à sa médiane : la médiane y résiste.
+ */
+export function* modesSurTout(
+  parties: readonly PartieDesModes[],
+  soirees: readonly SoireeDesModes[],
+  deProfils: readonly SoireeDUnProfil[],
+  historique: HistoriqueDesModes,
+  minuits: readonly number[],
+  maintenant: number,
+): CalculEnTranches<ModesSurTout> {
+  const premierDesTrente = joursDesMinuits(minuits)[0]
+  const avant = historique.jours.filter(j => j.jour < premierDesTrente)
+  const trente = joursDesJournaux(parties, soirees, { inscriptions: [], achats: [] }, minuits, maintenant)
+  yield
+  const jours = [...avant, ...trente]
+  const { modes: joueurs } = joueursDeLHistorique(jours)
+  yield
+  const acc = amasDesModes(parties, soirees, deProfils, minuits[0], maintenant)
+  let sansDetail = 0
+  for (const [jour, c] of historique.chiffres) if (jour < premierDesTrente && !amasserLeJour(acc, c)) sansDetail++
+  const lignes = lignesDeLAmas(acc, mode => joueurs[mode])
+  yield
+  const premier = jours
+    .filter(j => j.joueurs > 0 || MODES_DU_QG.some(m => j.parties[m] > 0))
+    .map(j => j.jour)
+    .sort()[0]
+  // Les minuits de tous les jours depuis le plus ancien de la mémoire : ses faits retrouvent leur jour, le 25 octobre compris.
+  const plusAncien = avant.reduce((p, j) => (j.jour < p ? j.jour : p), premierDesTrente)
+  const n = Math.round((minuitDe(maintenant) - minuitDuJour(plusAncien)) / (24 * 3_600_000)) + 1
+  const tousLesMinuits = n > minuits.length ? minuitsDeParis(maintenant, n) : minuits
+  const seules: Pick<PartieDesModes, 'qui' | 'quand' | 'mode'>[] = [...parties]
+  const enSoiree: Pick<SoireeDUnProfil, 'qui' | 'quand'>[] = [...deProfils]
+  for (const j of avant) {
+    const midi = minuitDuJour(j.jour) + 12 * 3_600_000
+    for (const [qui, masque] of j.profils) {
+      for (const m of MODES_DU_QG) {
+        if (!(masque & BIT_DU_MODE[m])) continue
+        if (m === 'soiree') enSoiree.push({ qui, quand: midi })
+        else seules.push({ qui, quand: midi, mode: m })
+      }
+    }
+  }
+  yield
+  return {
+    lignes,
+    retour: retourAJ7(seules, enSoiree, tousLesMinuits, maintenant),
+    depuis: premier !== undefined ? minuitDuJour(premier) : minuitDe(maintenant),
+    sansDetail,
+  }
+}
+
 /**
  * Les modes côte à côte (`/admin#activite`) : chaque période de la barre,
  * puis le retour à J+7 — une période par tranche, menées un tour de boucle
  * chacune (`enTranches`) : chacune repasse les trente jours, trois mille
- * séries et plus en production (règle `qg.md`).
+ * séries et plus en production (règle `qg.md`). Avec les jours de la mémoire
+ * d'avant les trente, tout l'historique en plus (`modesSurTout`).
  */
 export function* modesCoteACote(
   parties: readonly PartieDesModes[],
@@ -249,6 +430,7 @@ export function* modesCoteACote(
   deProfils: readonly SoireeDUnProfil[],
   minuits: readonly number[],
   maintenant: number,
+  historique?: HistoriqueDesModes,
 ): CalculEnTranches<ModesCoteACote> {
   const periodes = {} as Record<PeriodeDuQg, LigneDesModes[]>
   for (const periode of PERIODES_DU_QG) {
@@ -257,7 +439,9 @@ export function* modesCoteACote(
     periodes[periode] = lignesDesModes(parties, soirees, deProfils, debuts[0], maintenant)
   }
   yield
-  return { periodes, retour: retourAJ7(parties, deProfils, minuits, maintenant) }
+  const retour = retourAJ7(parties, deProfils, minuits, maintenant)
+  if (!historique) return { periodes, retour }
+  return { periodes, retour, tout: yield* modesSurTout(parties, soirees, deProfils, historique, minuits, maintenant) }
 }
 
 // ── Les tuiles d'un mode ──────────────────────────────────────────────────

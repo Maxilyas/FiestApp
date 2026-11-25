@@ -269,18 +269,21 @@ function lireLesGroupes(): Record<string, boolean> {
  * Les pages qui lisent la période de la barre, celles qu'elles offrent, et si
  * elles comparent à la période d'avant. Le serveur ne garde que huit jours :
  * trente jours n'y sont pas, et la période retenue au-delà s'y lit en semaine.
- * Tout l'historique est au poste de commande seul — la mémoire du QG ne garde
- * ni l'entonnoir ni la réussite d'un mode — : ailleurs, il se lit en trente
- * jours.
+ * Tout l'historique est au poste de commande et aux modes côte à côte — la
+ * mémoire du QG garde leurs chiffres jour par jour, la réussite et les durées
+ * comprises depuis le 25 novembre 2026 —, pas à la page d'un mode, dont
+ * l'entonnoir et la période d'avant se tirent des journaux : il s'y lit en
+ * trente jours.
  */
 const PERIODES_DES_PAGES: Partial<Record<Ecran | 'poste', { periodes: readonly PeriodeDuPoste[]; comparer: boolean }>> = {
   poste: { periodes: PERIODES_DU_POSTE, comparer: true },
   serveur: { periodes: ['1h', '24h', '7j'], comparer: false },
   base: { periodes: ['1h', '24h', '7j'], comparer: false },
   telephones: { periodes: ['1h', '24h', '7j'], comparer: false },
-  // Les modes (le QG 2, lot 5) : côte à côte, une table — rien à poser en filet ; chaque page de mode, son gabarit et sa
-  // courbe — le Cabinet aussi, sa courbe seule : ses tuiles restent les siennes, sur trente jours.
-  activite: { periodes: PERIODES_DU_QG, comparer: false },
+  // Les modes (le QG 2, lot 5) : côte à côte, une table — rien à poser en filet —, et tout l'historique (le
+  // 25 novembre 2026 : « que l'on ait l'intégralité ») ; chaque page de mode, son gabarit et sa courbe — le Cabinet
+  // aussi, sa courbe seule : ses tuiles restent les siennes, sur trente jours.
+  activite: { periodes: PERIODES_DU_POSTE, comparer: false },
   soirees: { periodes: PERIODES_DU_QG, comparer: true },
   jour: { periodes: PERIODES_DU_QG, comparer: true },
   campagne: { periodes: PERIODES_DU_QG, comparer: true },
@@ -567,8 +570,9 @@ export function AdminApp() {
   const lecture = PERIODES_DES_PAGES[ecran ?? 'poste']
   const lisLaPeriode = !!lecture
   const periodeDeLaPage = lecture && !lecture.periodes.includes(periode) ? lecture.periodes[lecture.periodes.length - 1] : periode
-  // Ce que lisent les pages hors du poste de commande : leurs périodes s'arrêtent à trente jours, tout l'historique
-  // n'en est jamais une (`PERIODES_DES_PAGES`) — la ligne d'au-dessus l'y a déjà ramené ; ceci le dit au typage.
+  // Ce que lisent les pages hors du poste de commande et des modes côte à côte : leurs périodes s'arrêtent à trente
+  // jours, tout l'historique n'en est jamais une (`PERIODES_DES_PAGES`) — la ligne d'au-dessus l'y a déjà ramené ; ceci
+  // le dit au typage.
   const periodeDesJournaux: PeriodeDuQg = periodeDeLaPage === 'tout' ? '30j' : periodeDeLaPage
   // Tout l'historique n'a pas de période d'avant : « Comparer » s'efface.
   const comparable = !!lecture?.comparer && periodeDeLaPage !== 'tout'
@@ -802,7 +806,7 @@ export function AdminApp() {
         {ecran === 'affiches' && <QgAffiches maintenance={maintenance} />}
         {ecran === 'grand-prix' && <QgGrandPrix />}
         {/* Les modes côte à côte, et le gabarit de chaque page de mode : la période de la barre, la vue d'ensemble déjà lue. */}
-        {ecran === 'activite' && <QgActivite periode={periodeDesJournaux} />}
+        {ecran === 'activite' && <QgActivite periode={periodeDeLaPage} />}
         {/* Le direct de la page des soirées est celui du QG, relu toutes les dix secondes ; relu aussitôt après un geste. */}
         {ecran === 'soirees' && <QgSoirees direct={direct} apresUnGeste={relireLeDirect} vue={vue} periode={periodeDesJournaux} comparer={comparer} />}
         {ecran === 'profils' && <AdminProfils />}

@@ -9,7 +9,9 @@ import { supprimerLeProfil } from './AdminProfils'
 import { espacesFines } from '../format'
 import { formatNumber } from '../../../shared/typographie'
 import { MODES_DU_QG, NOM_DU_MODE, dureeEcrite, type ModeDuQg } from '../../../shared/qg'
-import { PERIODE_EN_TOUTES_LETTRES, type PeriodeDuQg } from '../../../shared/qgPeriodes'
+import { PERIODE_EN_TOUTES_LETTRES, type PeriodeDuPoste } from '../../../shared/qgPeriodes'
+import { jourDe } from '../../../shared/jour'
+import { jourDAvant } from './QgVueDEnsemble'
 import { enPourcents } from '../../../shared/qgDuJour'
 import { JOURS_DU_RETOUR, type LigneDesModes, type ModesCoteACote } from '../../../shared/qgModes'
 import {
@@ -43,6 +45,8 @@ const OU_L_ON_JOUE: Record<ModeDuQg, string> = { soiree: 'en soirée', campagne:
 /** Les joueurs qu'une vue montre d'abord ; « Et N de plus » montre le reste, jusqu'à cinquante. */
 const JOUEURS_D_ABORD = 10
 
+const HEURE = 3_600_000
+
 /**
  * Les modes côte à côte au QG (`/admin#activite`, l'adresse que des favoris
  * gardent — l'activité du 17 octobre 2026, refaite au QG 2, lot 5 : « Les
@@ -52,9 +56,10 @@ const JOUEURS_D_ABORD = 10
  * partie, le retour à J+7 —, triables à l'ordinateur, en cartes au
  * téléphone ; puis ce que l'activité avait déjà, sur trente jours : jour par
  * jour, et qui joue à quoi. La page se lit à son ouverture ; la période se
- * change sans la relire, le serveur les envoie toutes les quatre.
+ * change sans la relire, le serveur les envoie toutes les quatre — et tout
+ * l'historique (le 25 novembre 2026), de la mémoire du QG.
  */
-export function QgActivite({ periode = '24h' }: { periode?: PeriodeDuQg }) {
+export function QgActivite({ periode = '24h' }: { periode?: PeriodeDuPoste }) {
   const [page, setPage] = useState<PageDeLActivite | null>(null)
   const [error, setError] = useState('')
   const [relire, setRelire] = useState(0)
@@ -68,7 +73,7 @@ export function QgActivite({ periode = '24h' }: { periode?: PeriodeDuQg }) {
 }
 
 /** La page lue : les modes côte à côte sur la période, puis les trente jours, jour par jour, et les joueurs. */
-export function ActiviteAuQg({ page, periode = '30j', apresUnGeste }: { page: PageDeLActivite; periode?: PeriodeDuQg; apresUnGeste?: () => void }) {
+export function ActiviteAuQg({ page, periode = '30j', apresUnGeste }: { page: PageDeLActivite; periode?: PeriodeDuPoste; apresUnGeste?: () => void }) {
   return (
     <>
       <p className="muted small">
@@ -76,10 +81,12 @@ export function ActiviteAuQg({ page, periode = '30j', apresUnGeste }: { page: Pa
         jour ou de campagne, une épreuve d’une traversée du Cabinet, un duel. Le poste de commande compte les joueurs ; cette page, ce qu’ils jouent et
         comment.
       </p>
-      {page.modes ? (
-        <LesModesCoteACote modes={page.modes} periode={periode} />
-      ) : (
+      {!page.modes ? (
         <p className="serif-note">Le serveur ne dit pas encore la réussite ni la durée des modes : il le dira à sa prochaine mise en ligne.</p>
+      ) : periode === 'tout' && !page.modes.tout ? (
+        <p className="serif-note">Le serveur ne dit pas encore tout l’historique des modes : il le dira à sa prochaine mise en ligne.</p>
+      ) : (
+        <LesModesCoteACote modes={page.modes} periode={periode} maintenant={page.maintenant} />
       )}
       <JourParJour page={page} />
       <QuiJoueAQuoi page={page} apresUnGeste={apresUnGeste} />
@@ -158,18 +165,22 @@ function retourEcrit(r: { revenus: number; sur: number }): ReactNode {
  * dans les questions jouées, puis une ligne par mode. À l'ordinateur, une
  * table triable sur chaque colonne (les pièces de celle des routes du
  * serveur) ; au téléphone, une carte par mode. Dessous, ce qui ne se compte
- * pas, et pourquoi.
+ * pas, et pourquoi. Sur tout l'historique, ses lignes et son retour à J+7 à
+ * lui (`ModesSurTout`), depuis son premier jour joué.
  */
-function LesModesCoteACote({ modes, periode }: { modes: ModesCoteACote; periode: PeriodeDuQg }) {
+function LesModesCoteACote({ modes, periode, maintenant }: { modes: ModesCoteACote; periode: PeriodeDuPoste; maintenant: number }) {
   const [tri, setTri] = useState<{ cle: CleDuTri; sens: 'monte' | 'descend' }>({ cle: 'mode', sens: 'monte' })
-  const lignes = modes.periodes[periode]
+  const tout = periode === 'tout' ? modes.tout : undefined
+  // Sans tout l'historique — un serveur d'avant, que la page dit plus haut —, la plus longue des périodes.
+  const lignes = tout ? tout.lignes : modes.periodes[periode === 'tout' ? '30j' : periode]
+  const retour = tout ? tout.retour : modes.retour
   const triees = useMemo(
     () =>
       [...lignes].sort((a, b) => {
-        const c = valeurDuTri(a, tri.cle, modes.retour) - valeurDuTri(b, tri.cle, modes.retour)
+        const c = valeurDuTri(a, tri.cle, retour) - valeurDuTri(b, tri.cle, retour)
         return tri.sens === 'monte' ? c : -c
       }),
-    [lignes, tri, modes.retour],
+    [lignes, tri, retour],
   )
   const trier = (cle: CleDuTri) => setTri(t => (t.cle === cle ? { cle, sens: t.sens === 'monte' ? 'descend' : 'monte' } : { cle, sens: cle === 'mode' ? 'monte' : 'descend' }))
   const total = lignes.reduce((n, l) => n + l.questions, 0)
@@ -180,7 +191,10 @@ function LesModesCoteACote({ modes, periode }: { modes: ModesCoteACote; periode:
         <div>
           <span className="qg-etiquette">Mode par mode</span>
           <h2 id="modes-cote">Sur {PERIODE_EN_TOUTES_LETTRES[periode]}</h2>
-          <span className="muted small">{questions(total)} jouées, tous modes confondus</span>
+          <span className="muted small">
+            {questions(total)} jouées, tous modes confondus
+            {tout && `, depuis le ${jourDAvant(jourDe(tout.depuis + 12 * HEURE), maintenant)}`}
+          </span>
         </div>
       </div>
       {total > 0 && (
@@ -236,7 +250,7 @@ function LesModesCoteACote({ modes, periode }: { modes: ModesCoteACote; periode:
                 <td className="qg-nombre">{formatNumber(l.questions)}</td>
                 <td className="qg-nombre">{reussiteEcrite(l)}</td>
                 <td className="qg-nombre">{dureeDeLaLigne(l)}</td>
-                <td className="qg-nombre">{retourEcrit(modes.retour.modes[l.mode])}</td>
+                <td className="qg-nombre">{retourEcrit(retour.modes[l.mode])}</td>
               </tr>
             ))}
           </tbody>
@@ -273,7 +287,7 @@ function LesModesCoteACote({ modes, periode }: { modes: ModesCoteACote; periode:
               </div>
               <div>
                 <dt>Revenus à J+7</dt>
-                <dd className="num">{retourEcrit(modes.retour.modes[l.mode])}</dd>
+                <dd className="num">{retourEcrit(retour.modes[l.mode])}</dd>
               </div>
             </dl>
           </li>
@@ -290,9 +304,19 @@ function LesModesCoteACote({ modes, periode }: { modes: ModesCoteACote; periode:
       </p>
       <p className="muted small">
         <b>Revenus à J+{JOURS_DU_RETOUR}</b> : des joueurs d’un jour, la part qui y rejoue dans les {JOURS_DU_RETOUR} jours suivants, sur les{' '}
-        {pluriel(modes.retour.jours, 'jour')} de ces trente qui ont leurs sept jours derrière eux, quelle que soit la période — des profils seulement : un invité
-        sans profil ne se suit pas d’un soir à l’autre.
+        {tout
+          ? `${pluriel(retour.jours, 'jour')} de tout l’historique qui ont leurs sept jours derrière eux`
+          : `${pluriel(retour.jours, 'jour')} de ces trente qui ont leurs sept jours derrière eux, quelle que soit la période`}{' '}
+        — des profils seulement : un invité sans profil ne se suit pas d’un soir à l’autre.
       </p>
+      {tout && tout.sansDetail > 0 && (
+        <p className="muted small">
+          {tout.sansDetail > 1
+            ? `${formatNumber(tout.sansDetail)} jours d’avant les trente ne disent pas encore leur réussite, la durée de leurs parties ni les quiz de leurs soirées`
+            : 'Un jour d’avant les trente ne dit pas encore sa réussite, la durée de ses parties ni les quiz de ses soirées'}{' '}
+          : la mémoire du QG {tout.sansDetail > 1 ? 'les refait' : 'le refait'} à son prochain passage, au point du matin.
+        </p>
+      )}
     </section>
   )
 }

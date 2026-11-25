@@ -44,10 +44,12 @@ export type PeriodeDuQg = (typeof PERIODES_DU_QG)[number]
 
 /**
  * Les périodes du poste de commande : les mêmes, et tout l'historique, que
- * seule la mémoire du QG sait au-delà des trente jours. Les pages des modes
- * s'arrêtent à trente : leur entonnoir et leur réussite se tirent des journaux,
- * que la mémoire ne garde pas partie par partie — la période retenue s'y lit
- * à sa plus longue (`periodeDeLaPage`, `AdminApp.tsx`).
+ * seule la mémoire du QG sait au-delà des trente jours — les modes côte à côte
+ * aussi, depuis que la mémoire garde la réussite et les durées de chaque jour
+ * (la mémoire v3, le 25 novembre 2026, `modesSurTout`). Les pages d'un mode
+ * s'arrêtent à trente : leur entonnoir et leur période d'avant se tirent des
+ * journaux, que la mémoire ne garde pas partie par partie — la période retenue
+ * s'y lit à sa plus longue (`periodeDeLaPage`, `AdminApp.tsx`).
  */
 export const PERIODES_DU_POSTE = [...PERIODES_DU_QG, 'tout'] as const
 export type PeriodeDuPoste = (typeof PERIODES_DU_POSTE)[number]
@@ -408,6 +410,17 @@ function lireLAmas(a: Amas): Pick<SeauDeParticipations, 'joueurs' | 'modes' | 'p
   const modes = { ...a.anonymesDuMode }
   for (const masque of a.profils.values()) for (const m of MODES_DU_QG) if (masque & BIT_DU_MODE[m]) modes[m]++
   return { joueurs: a.profils.size + a.anonymes, modes, parties: a.parties }
+}
+
+/**
+ * Les personnes de jours de l'historique, ensemble — un profil une fois, un
+ * invité sans profil une fois par soirée : la règle de tout l'historique, que
+ * les modes côte à côte lisent pour leurs joueurs (`modesSurTout`).
+ */
+export function joueursDeLHistorique(jours: readonly JourDeLHistorique[]): Pick<SeauDeParticipations, 'joueurs' | 'modes' | 'parties'> {
+  const tout = amasVide()
+  for (const j of jours) amasser(tout, j)
+  return lireLAmas(tout)
 }
 
 const aVuQuelqueChose = (j: JourDeLHistorique) => j.joueurs > 0 || j.nouveauxProfils > 0 || j.achats > 0 || MODES_DU_QG.some(m => j.parties[m] > 0)

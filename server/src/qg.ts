@@ -59,7 +59,7 @@ import type { CalculEnTranches } from '../../shared/tranches'
 import { campagneDeLaVue } from '../../shared/qgCampagne'
 import { duelsDeLaVue } from '../../shared/qgDuels'
 import { activiteDesJoueurs, activiteParJour, joueursAMontrer, totauxDeLActivite, type PageDeLActivite, type SoireeDUnProfil } from '../../shared/qgActivite'
-import { modesCoteACote, seJoueEnQcm, type PartieDesModes } from '../../shared/qgModes'
+import { modesCoteACote, partiesDesModes, type HistoriqueDesModes } from '../../shared/qgModes'
 import { economieDuQg } from './economie'
 import { jourDe } from '../../shared/jour'
 import { JOURS_DES_RELUS, RELUS_MONTRES, type PageDesSignalements } from '../../shared/qgSignalements'
@@ -558,14 +558,15 @@ export function mountQg(app: Express, deps: QgDeps) {
   // processus réécrive la mémoire (`revision` : le point du matin, une version neuve qui la refait) — quelques centaines
   // de lignes par an, en deux textes JSON. Une lecture partagée par qui la demande pendant qu'elle se fait ; échouée,
   // elle ne se garde pas. Le poste de commande ne rattrape jamais la mémoire (règle `qg.md`) : il lit ce qu'elle sait,
-  // et elle sait chaque jour fini dès le point du matin — trente jours avant qu'on la lise ici.
-  let historique: { cle: string; promesse: Promise<JourDeLHistorique[]> } | null = null
-  const lHistorique = (avant: string): Promise<JourDeLHistorique[]> => {
+  // et elle sait chaque jour fini dès le point du matin — trente jours avant qu'on la lise ici. Les modes côte à côte
+  // lisent la même, ses chiffres tels quels en plus (`chiffres` : leur réussite, leurs durées — la mémoire v3).
+  let historique: { cle: string; promesse: Promise<HistoriqueDesModes> } | null = null
+  const lHistorique = (avant: string): Promise<HistoriqueDesModes> => {
     const memoire = deps.memoire
-    if (!memoire) return Promise.resolve([])
+    if (!memoire) return Promise.resolve({ jours: [], chiffres: new Map() })
     const cle = `${avant}|${memoire.revision}`
     if (historique?.cle !== cle) {
-      const promesse = memoire.toutAvant(avant).then(lu => historiqueDeLaMemoire(lu.jours, lu.presences))
+      const promesse = memoire.toutAvant(avant).then(lu => ({ jours: historiqueDeLaMemoire(lu.jours, lu.presences), chiffres: lu.jours }))
       const lecture = { cle, promesse }
       historique = lecture
       promesse.catch(() => {
@@ -585,7 +586,7 @@ export function mountQg(app: Express, deps: QgDeps) {
       aTraiterDuQg(),
       lHistorique(joursDesMinuits(minuits)[0]),
     ])
-    const chiffres = await enTranches(chiffresDeLaVue(journaux, soirees, minuits, maintenant, avantLesTrente))
+    const chiffres = await enTranches(chiffresDeLaVue(journaux, soirees, minuits, maintenant, avantLesTrente.jours))
     return { maintenant, jour: jourDe(maintenant), ...chiffres, aTraiter }
   }
 
@@ -638,31 +639,25 @@ export function mountQg(app: Express, deps: QgDeps) {
    *
    * Et, depuis le QG 2 (lot 5), les modes côte à côte sur chaque période de
    * la barre — la réussite, la durée d'une partie — et leur retour à J+7, des
-   * mêmes journaux : leur fin et leurs bonnes réponses viennent avec eux.
+   * mêmes journaux : leur fin et leurs bonnes réponses viennent avec eux. Puis
+   * sur tout l'historique (le 25 novembre 2026) : les jours d'avant les trente,
+   * de la mémoire du QG — la lecture de tout l'historique du poste de commande,
+   * gardée jusqu'à minuit et partagée avec lui.
    */
   const pageDeLActivite = async (): Promise<PageDeLActivite> => {
     const maintenant = deps.maintenant()
     const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
-    const [{ parties, series, activite }, soirees] = await Promise.all([lesTrenteJours(minuits), lesSoireesDepuis(deps, minuits[0], { jouees: true })])
-    const seules: PartieDesModes[] = [
-      // Au quiz du jour, ses questions à choix qui comptent : les posées, sans les annulées pour tous.
-      ...parties.map(p => ({ qui: p.qui, quand: p.quand, mode: 'jour' as const, questions: p.questions, fin: p.fin, justes: p.justes, qcm: p.comptees })),
-      ...series.map(s => ({
-        qui: s.qui,
-        quand: s.quand,
-        mode: modeDeLaSerie(s.mode),
-        questions: s.questions,
-        fin: s.fin,
-        justes: s.justes,
-        // Le Cabinet et l'expédition d'avant lui ne posent pas que des QCM : leur réussite ne se compte pas.
-        qcm: seJoueEnQcm(s.mode) ? s.questions : null,
-      })),
-    ]
+    const [{ parties, series, activite }, soirees, avantLesTrente] = await Promise.all([
+      lesTrenteJours(minuits),
+      lesSoireesDepuis(deps, minuits[0], { jouees: true }),
+      lHistorique(joursDesMinuits(minuits)[0]),
+    ])
+    const seules = partiesDesModes(parties, series)
     const classes = activiteDesJoueurs(seules, activite.soirees, minuits, maintenant)
     const montres = joueursAMontrer(classes)
     const [profilsMontres, modes] = await Promise.all([
       deps.profiles.pourLAdministrateurDe(montres.map(a => a.qui)),
-      enTranches(modesCoteACote(seules, soirees, activite.soirees, minuits, maintenant)),
+      enTranches(modesCoteACote(seules, soirees, activite.soirees, minuits, maintenant, avantLesTrente)),
     ])
     const profils = new Map(profilsMontres.map(p => [p.id, p]))
     return {

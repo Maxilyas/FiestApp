@@ -4714,16 +4714,32 @@ export class JourStore {
    * (`server/src/joueursDuQg.ts`) : elle écrit chaque jour fini une fois, et
    * rattrape d'un coup ceux qui manquent, un mois de journaux à la fois. Par
    * leurs jours, que l'index connaît, puis à l'instant près ; en un seul texte
-   * JSON, comme `partiesDepuis`.
+   * JSON, comme `partiesDepuis`. Et, depuis la mémoire v3 (les modes côte à
+   * côte sur tout l'historique), ce que `partiesDepuis` en dit de plus — sa fin,
+   * ses bonnes réponses, ses questions qui comptent, les annulées ôtées par le
+   * même lot : trois colonnes des mêmes lignes, et les tirages des jours qui ont
+   * une annulée.
    */
-  async partiesEntre(debut: number, fin: number): Promise<{ qui: string; quand: number; questions: number }[]> {
-    const res = await this.client.execute({
-      sql: `SELECT json_group_array(json_array(profile_id, commencee_le, question)) AS lignes
-            FROM jour_parties WHERE jour >= ? AND jour <= ? AND commencee_le >= ? AND commencee_le < ?`,
-      args: [jourDe(debut), jourDe(fin - 1), debut, fin],
+  async partiesEntre(debut: number, fin: number): Promise<{ qui: string; quand: number; questions: number; fin: number | null; justes: number; comptees: number }[]> {
+    const [res, annuleesLues] = await this.client.batch(
+      [
+        {
+          sql: `SELECT json_group_array(json_array(profile_id, commencee_le, question, finie_le, justes, jour)) AS lignes
+                FROM jour_parties WHERE jour >= ? AND jour <= ? AND commencee_le >= ? AND commencee_le < ?`,
+          args: [jourDe(debut), jourDe(fin - 1), debut, fin],
+        },
+        { sql: "SELECT jour, annulees FROM jour_tirages WHERE jour >= ? AND jour <= ? AND annulees <> '[]'", args: [jourDe(debut), jourDe(fin - 1)] },
+      ],
+      'read',
+    )
+    const annulees = new Map(annuleesLues.rows.map(r => [String(r.jour), lireNombres(r.annulees)]))
+    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number, number, number | null, number, string][]
+    return lignes.map(([qui, quand, questions, fin, justes, jour]) => {
+      const posees = Number(questions)
+      // La règle de `partiesDepuis` : une annulée parmi les questions qu'il a vues ne compte plus pour personne.
+      const otees = (annulees.get(String(jour)) ?? []).filter(i => i < posees).length
+      return { qui: String(qui), quand: Number(quand), questions: posees, fin: fin === null ? null : Number(fin), justes: Number(justes), comptees: posees - otees }
     })
-    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number, number][]
-    return lignes.map(([qui, quand, questions]) => ({ qui: String(qui), quand: Number(quand), questions: Number(questions) }))
   }
 
   // ── Le suivi du QG ──────────────────────────────────────────────────────
