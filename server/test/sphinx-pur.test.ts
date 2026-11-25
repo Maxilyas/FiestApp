@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url'
 import {
   CHANCE_D_UNE_VISITE,
   ENIGMES_DEJA_VUES_DU_PROPRIETAIRE,
+  MOTS_NEUFS_PAR_JOUR,
   ORDRE_DU_SPHINX,
   VISITES_FACILES,
   appliquerLeGeste,
@@ -300,6 +301,21 @@ test('le mot soufflé : d’abord un que personne n’a encore, sinon un qu’il
   assert.deepEqual([...pris].sort((a, b) => a - b), [3, 4, 8], 'tous trouvés par d’autres : un des siens qui manque, n’importe lequel')
   assert.equal(choisirLeMot(caches, new Set(caches), new Set(caches), hasardDe('c')), null, 'il les a tous')
   assert.equal(choisirLeMot(caches, new Set(), new Set(), hasardDe('d')), choisirLeMot(caches, new Set(), new Set(), hasardDe('d')), 'la même graine, le même mot')
+})
+
+// Le choix du propriétaire du 25 novembre 2026, « un mot neuf par jour » : à quinze habitués, la première phrase tombait
+// en trois jours. Le mot neuf du jour parti, le Sphinx souffle un mot que d'autres ont déjà trouvé et qu'il n'a pas.
+test('le mot neuf du jour parti, un mot déjà trouvé qu’il n’a pas ; s’il les a tous, un neuf quand même', () => {
+  const caches = [0, 1, 3, 4, 8]
+  const pris = new Set<number>()
+  for (let g = 0; g < 200; g++) pris.add(choisirLeMot(caches, new Set([0]), new Set([0, 1, 3]), hasardDe(`e${g}`), { neufPermis: false })!)
+  assert.deepEqual([...pris].sort((a, b) => a - b), [1, 3], 'trouvés par d’autres, qu’il n’a pas — jamais 4 ni 8')
+  // Il a tous ceux qu'on a trouvés : le plus assidu ne repart pas les mains vides, un neuf quand même.
+  assert.equal(choisirLeMot(caches, new Set([0, 1, 3]), new Set([0, 1, 3]), hasardDe('f'), { neufPermis: false }) !== null, true)
+  assert.ok([4, 8].includes(choisirLeMot(caches, new Set([0, 1, 3]), new Set([0, 1, 3]), hasardDe('f'), { neufPermis: false })!))
+  // Permis, rien ne change : d'abord un que personne n'a.
+  assert.equal(choisirLeMot(caches, new Set([0]), new Set([0, 1, 3, 4]), hasardDe('g'), { neufPermis: true }), 8)
+  assert.equal(MOTS_NEUFS_PAR_JOUR, 1)
 })
 
 test('le Divin du moment : le premier de l’ordre dont tous n’ont pas trouvé chaque mot caché ; reconstituée, sa phrase passe au suivant', () => {

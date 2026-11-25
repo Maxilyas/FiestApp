@@ -76,7 +76,14 @@ chacun la lit s'il le choisit, et l'accueil l'annonce une fois (plus bas).
 - **Le mot se tire au verdict, jamais avant** (`choisirLeMot`, sa graine
   `profil|jour|mot`) : d'abord un que personne n'a ; deux joueurs qui
   résolvent ensemble le dernier inconnu reçoivent l'un ce mot, l'autre un mot
-  déjà trouvé.
+  déjà trouvé. **Un seul mot neuf par jour, à tout le serveur**
+  (`MOTS_NEUFS_PAR_JOUR`, le choix du propriétaire du 25 novembre 2026) :
+  compté sur le premier instant de chaque mot, en mémoire (`premiers`,
+  `motsNeufsDuJour`) — parti, `neufPermis: false`, un mot déjà trouvé qu'il
+  n'a pas, et s'il les a tous, un neuf quand même ; le verdict le dit
+  (`neufDuJourParti`), la visite aussi (`DIT.neufParti`). Rien ne s'écrit à
+  côté : deux serveurs d'une mise en ligne, ou deux joueurs au même instant,
+  peuvent en souffler un de plus ce jour-là.
 - **Le banc fixe le tirage** (`tirageDuSphinx`, `QuizServerOptions`) et peut
   poser sa réserve (`enigmesDuSphinx`) ; sa page démarre « bientôt » sur
   chaque base neuve : une épreuve l'ouvre (`PUT

@@ -192,6 +192,8 @@ export interface VerdictDuSphinx {
   dejaDite?: true
   /** Le mot gagné n'était encore à personne. */
   motNeuf?: boolean
+  /** Le mot neuf du jour était déjà parti (un par jour, à tout le serveur) : il a reçu un mot que d'autres avaient trouvé. */
+  neufDuJourParti?: true
   visite: VisiteDuSphinx
   phrase: PhraseDuSphinx | null
 }

@@ -728,6 +728,15 @@ Le détail : [les récompenses](../produit/les-recompenses.md).
 
 *Fichiers : `server/src/core/sphinx.ts`, `server/src/sphinx.ts`, `server/src/auth/profiles.ts`, `server/src/core/campagne.ts`, `shared/sphinx.ts`, `client/src/components/PhraseDuDivin.tsx`, `client/src/components/AlbumDesAvatars.tsx`, `client/src/components/Sphinx.tsx`, `server/test/sphinx-accueil.test.ts`, `server/test/sphinx-pur.test.ts`, `server/test/sphinx-ecran.test.ts`*
 
+### Un mot neuf par jour, à tout le serveur
+**Contexte** : le 25 novembre 2026, au deuxième jour du Sphinx en production, le propriétaire — une quinzaine de joueurs actifs : « Je veux que ça soit quelque chose qui prenne du temps et pas que ça soit dévoilé rapidement ». Au rythme du plan, chaque habitué résolvant une énigme tous les trois jours environ, six fois sur dix, et chaque énigme résolue soufflant d'abord un mot que personne n'avait, quinze habitués trouvaient trois mots neufs par jour : une phrase de neuf mots en trois jours, les dix-huit en moins de deux mois — et plus vite à chaque joueur de plus.
+
+**Décision** : **un seul mot neuf par jour, à tout le serveur** (`MOTS_NEUFS_PAR_JOUR`). Le premier qui résout son énigme reçoit le mot neuf du jour ; les suivants, un mot que d'autres ont déjà trouvé et qu'ils n'ont pas — le Sphinx le leur dit —, et celui qui les a déjà tous, un neuf quand même. Proposé avec « un tous les deux jours » ; un par jour retenu. Ni moins de visites ni d'énigmes plus dures : ce qu'on joue reste le même, seul le dévoilement ralentit.
+
+**Conséquence** : une phrase prend autant de jours qu'elle a de mots cachés — neuf en moyenne, cinq mois et demi pour les dix-huit —, quel que soit le nombre d'habitués. Les mots neufs, rares, s'échangent : les mots inscrits (la décision précédente) y gagnent. Le compte vit en mémoire, sur le premier instant de chaque mot : deux serveurs d'une mise en ligne peuvent en souffler un de plus ce jour-là.
+
+*Fichiers : `server/src/core/sphinx.ts`, `shared/sphinx.ts`, `client/src/components/Sphinx.tsx`, `server/test/sphinx-pur.test.ts`, `server/test/sphinx-accueil.test.ts`, `server/test/sphinx-ecran.test.ts`*
+
 ### Les trophées se rangent par mode, et se disent avec les mêmes mots
 **Contexte** : « très confus, les trophées que les gens gagnent » — dix lignes les rangeaient selon la logique du code (« Paliers des soirées », « Paliers de toujours »…), un même exploit tombait sous deux noms (Le Laurier et le palier du Champion du jour, aux mêmes seuils), et chaque fin de partie montrait ses gains à sa façon.
 
