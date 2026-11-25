@@ -40,8 +40,14 @@ import { RANG_DES_TROIS } from './missions'
  * 2 (le 4 novembre 2026, la revue d'expert P1.3) : les soirées et leurs salons,
  * les invités avec et sans profil, les naissances et leur lendemain, les
  * missions, les questions jouées de chaque mode, les confettis, le serveur.
+ *
+ * 3 (le 25 novembre 2026, les modes côte à côte sur tout l'historique — le
+ * propriétaire : « je ne vois que les 30 derniers jours pour tous les jeux […]
+ * que l'on ait l'intégralité ») : la réussite de chaque mode aux QCM qui
+ * comptent, les durées des parties finies, une à une, et les quiz de chaque
+ * soirée.
  */
-export const VERSION_DE_LA_MEMOIRE = 2
+export const VERSION_DE_LA_MEMOIRE = 3
 
 /**
  * Ce que l'effet des annonces et des affiches relit de la mémoire, au plus :
@@ -115,21 +121,28 @@ export function presencesDuJour(jour: string, minuit: number, faits: Iterable<Fa
  * bornée des deux côtés.
  */
 export interface JournauxDeLaMemoire {
-  /** Chaque partie jouée seul — du jour, de campagne, du Cabinet, un duel —, datée à son début, et ses questions jouées quand elle les dit. */
-  solo: readonly (PartieDesParticipations & { questions?: number })[]
+  /**
+   * Chaque partie jouée seul — du jour, de campagne, du Cabinet, un duel —,
+   * datée à son début, et ses questions jouées quand elle les dit ; au
+   * rattrapage, sa fin et ses bonnes réponses aux QCM qui comptent, sur combien
+   * (`partiesDesModes`, `shared/qgModes.ts` : la règle des modes côte à côte).
+   */
+  solo: readonly (PartieDesParticipations & { questions?: number; justes?: number; qcm?: number | null })[]
   /**
    * Chaque soirée créditée à un profil, à l'heure de son premier crédit
    * (`profile_xp`) : une fiche d'avant le 14 octobre 2026 ne dit pas ses
-   * profils, sa ligne d'expérience si.
+   * profils, sa ligne d'expérience si. Au rattrapage, ce qu'il y a répondu aux
+   * QCM et sa soirée (`SoireeDUnProfil`) — la réussite des soirées se compte
+   * avec elles.
    */
-  soireesDesProfils: readonly { qui: string; quand: number }[]
+  soireesDesProfils: readonly { qui: string; quand: number; qcm?: number; justes?: number; soiree?: string }[]
   /**
    * Chaque soirée, datée à sa première question : ses invités qui ont joué, et
-   * leurs profils quand sa fiche les dit ; son salon (`spaceId`) et ses
-   * questions jouées (`jouees`, une par invité et par question posée), que le
-   * rattrapage lit — jamais la page à chaque ouverture.
+   * leurs profils quand sa fiche les dit ; son salon (`spaceId`), son nom
+   * (`id`), ses quiz et ses questions jouées (`jouees`, une par invité et par
+   * question posée), que le rattrapage lit — jamais la page à chaque ouverture.
    */
-  soirees: readonly (SoireeDesParticipations & { spaceId?: string; jouees?: number })[]
+  soirees: readonly (SoireeDesParticipations & { spaceId?: string; id?: string; quiz?: number; jouees?: number })[]
   inscriptions: readonly number[]
   achats: readonly number[]
 }
@@ -168,6 +181,14 @@ export interface SoireeDUnJour {
   espace: string
   invites: number
   profils: number | null
+  /** Ses quiz joués — les parties des soirées aux modes côte à côte (la mémoire v3) ; absent d'une ligne d'avant. */
+  quiz?: number
+}
+
+/** Des bonnes réponses aux QCM qui comptent, sur combien : la réussite d'un mode un jour (la mémoire v3). */
+export interface ReussiteDUnJour {
+  justes: number
+  sur: number
 }
 
 /** Les chiffres d'un jour fini, figés dans `qg_jours`. */
@@ -207,6 +228,22 @@ export interface ChiffresDUnJour {
   confettis?: ConfettisDUnJour
   /** Le serveur ce jour-là ; null, ses démarrages n'étaient plus gardés quand le jour s'est écrit. */
   serveur?: ServeurDUnJour | null
+  // La version 3 (le 25 novembre 2026 : les modes côte à côte sur tout l'historique) — absents d'une ligne d'avant.
+  /**
+   * La réussite de chaque mode qui pose des QCM (`QCM_DU_MODE`), comptée comme
+   * les modes côte à côte la comptent : au quiz du jour ses questions qui
+   * comptent, en campagne et en duel ses questions jouées, en soirée les QCM
+   * auxquels les profils de ses soirées ont répondu — comptés avec leur soirée,
+   * pas au jour de leur crédit.
+   */
+  reussite?: Partial<Record<ModeDuQg, ReussiteDUnJour>>
+  /**
+   * Les durées des parties finies de chaque mode, une à une, en secondes et
+   * triées : une médiane ne s'additionne pas d'un jour à l'autre, tout
+   * l'historique la refait de toutes. Un quiz de soirée ne date pas sa fin ; un
+   * mode sans partie finie n'y est pas.
+   */
+  durees?: Partial<Record<ModeDuQg, number[]>>
 }
 
 /**
@@ -411,6 +448,21 @@ export function* joursDeLaMemoire(
     for (const m of plus.missions) missions[indice(m.quand)]?.push(m)
   }
   const couverts = plus ? couvertsDepuis(plus.serveur.demarrages, plus.serveur.maintenant) : Infinity
+  // La réussite d'une soirée se compte avec elle, comme aux modes côte à côte (`lignesDesModes`) : chaque ligne
+  // d'expérience rejoint le jour de sa soirée, pas celui de son crédit — une soirée de 23 h 50 se crédite après minuit.
+  // Le rattrapage lit donc les lignes d'un peu après la plage (`MARGE_DES_SOIREES_MS`, `joueursDuQg.ts`) ; une ligne
+  // qui ne dit pas sa soirée se date à son crédit.
+  const reponsesDesSoirees = vide<{ qcm: number; justes: number }>()
+  if (plus) {
+    const jourDeLaSoiree = new Map<string, number>()
+    soirees.forEach((du, i) => {
+      for (const s of du) if (s.spaceId !== undefined && s.id !== undefined) jourDeLaSoiree.set(`${s.spaceId}|${s.id}`, i)
+    })
+    for (const s of journaux.soireesDesProfils) {
+      const i = s.soiree !== undefined ? jourDeLaSoiree.get(s.soiree) : indice(s.quand)
+      if (i !== undefined) reponsesDesSoirees[i]?.push({ qcm: s.qcm ?? 0, justes: s.justes ?? 0 })
+    }
+  }
   yield
   const feuilles = new Map<string, readonly string[]>(avant)
   const rendus: JourDeLaMemoire[] = []
@@ -458,12 +510,37 @@ export function* joursDeLaMemoire(
       const questions = Object.fromEntries(MODES_DU_QG.map(m => [m, 0])) as Record<ModeDuQg, number>
       for (const p of solo[i]) questions[p.mode] += p.questions ?? 0
       for (const s of soirees[i]) questions.soiree += s.jouees ?? 0
-      chiffres.soirees = soirees[i].map(s => ({ espace: s.spaceId ?? '', invites: s.joueurs, profils: s.profils ? new Set(s.profils).size : null }))
+      chiffres.soirees = soirees[i].map(s => ({
+        espace: s.spaceId ?? '',
+        invites: s.joueurs,
+        profils: s.profils ? new Set(s.profils).size : null,
+        ...(s.quiz !== undefined && { quiz: s.quiz }),
+      }))
       chiffres.nouveauxSalons = [...salons].sort()
       chiffres.naissances = parOrigine
       chiffres.lendemain = presences.filter(p => nesLaVeilleDuJour.has(p.qui)).length
       chiffres.missions = { faites: faites.length, profils: new Set(faites.map(m => m.qui)).size, toutes: missions[i].length - faites.length }
       chiffres.questions = questions
+      // Les modes côte à côte (la mémoire v3) : la réussite aux seuls QCM qui comptent — une partie qui n'en pose pas, le
+      // Cabinet, dit `qcm: null` —, et chaque durée finie à la seconde, pour une médiane de tout l'historique.
+      const enSoiree: ReussiteDUnJour = { justes: 0, sur: 0 }
+      const reussite: Partial<Record<ModeDuQg, ReussiteDUnJour>> = { soiree: enSoiree }
+      const durees: Partial<Record<ModeDuQg, number[]>> = {}
+      for (const p of solo[i]) {
+        if (p.qcm !== undefined && p.qcm !== null) {
+          const r = (reussite[p.mode] ??= { justes: 0, sur: 0 })
+          r.justes += p.justes ?? 0
+          r.sur += p.qcm
+        }
+        if (p.fin !== undefined && p.fin !== null && p.fin >= p.quand) (durees[p.mode] ??= []).push(Math.round((p.fin - p.quand) / 1000))
+      }
+      for (const r of reponsesDesSoirees[i]) {
+        enSoiree.justes += r.justes
+        enSoiree.sur += r.qcm
+      }
+      for (const d of Object.values(durees)) d.sort((x, y) => x - y)
+      chiffres.reussite = reussite
+      chiffres.durees = durees
       if (plus.confettis[i]) chiffres.confettis = plus.confettis[i]
       // Le serveur d'un jour : ce que la mémoire en savait d'abord — ses démarrages, purgés au huitième jour, ne se
       // refont pas —, sinon ses démarrages s'ils le couvrent tout entier, sinon rien : null, jamais zéro.

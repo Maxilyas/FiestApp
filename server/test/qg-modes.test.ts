@@ -11,10 +11,13 @@ import { randomUUID } from 'node:crypto'
 import React from 'react'
 import Database from 'better-sqlite3'
 import { connexionAnimateur, demarrer, inscrireProfil, type Banc } from './banc'
-import { jourDe } from '../../shared/jour'
+import { VERSION_BAREME } from '../src/auth/profiles'
+import { jourAvant, jourDe } from '../../shared/jour'
 import { gainVide, releveVide } from '../../shared/profil'
 import { JOURS_DU_QG, MODES_DU_QG, jourDeLInstant, minuitsDeParis, type VueDEnsemble } from '../../shared/qg'
-import { activiteDeLaPeriode, totauxEntre } from '../../shared/qgPeriodes'
+import { activiteDeLaPeriode, historiqueDeLaMemoire, totauxEntre } from '../../shared/qgPeriodes'
+import { confettisParJour, sansMouvement } from '../../shared/qgEconomie'
+import { joursDeLaMemoire, minuitDuJour, type CeQueLaMemoireLitDePlus, type ChiffresDUnJour, type PageDesJoueurs } from '../../shared/qgJoueurs'
 import {
   JOURS_DU_RETOUR,
   entonnoirDesDuels,
@@ -24,6 +27,7 @@ import {
   marchesDeLEntonnoir,
   mediane,
   modesCoteACote,
+  modesSurTout,
   partiesParJoueur,
   retourAJ7,
   seJoueEnQcm,
@@ -191,6 +195,92 @@ test('côte à côte, en tranches : chaque période de la barre, la même qu’�
   assert.deepEqual(parties1('7j'), { soiree: 3, campagne: 1, cabinet: 0, jour: 1, duel: 1 })
   assert.deepEqual(parties1('30j'), { soiree: 3, campagne: 1, cabinet: 1, jour: 1, duel: 1 })
   assert.deepEqual(p['1h'].find(l => l.mode === 'jour')?.duree, { medianeMs: 5 * MINUTE, finies: 1 })
+})
+
+// ── Tout l'historique (le 25 novembre 2026 : « que l'on ait l'intégralité ») ──
+
+/** Ce que le rattrapage lit en plus d'une plage, rien que le nécessaire : les modes côte à côte n'en lisent rien. */
+const plusDUnePlage = (minuitsDeLaPlage: readonly number[], fin: number): CeQueLaMemoireLitDePlus => ({
+  naissances: [],
+  premieresSoirees: new Map(),
+  missions: [],
+  confettis: confettisParJour(sansMouvement(), minuitsDeLaPlage, fin),
+  serveur: { demarrages: [], maintenant, courant: '' },
+  heritage: new Map(),
+})
+
+test('tout l’historique : un jour de la mémoire se compte comme le même jour des journaux — réussite, durées, quiz de soirée, et sa soirée créditée après minuit', () => {
+  // Il y a quarante-cinq jours, puis quarante-deux : une plage de quatre jours, écrite comme le rattrapage l'écrit.
+  const aujourdhui = jourDe(maintenant)
+  const plage = [45, 44, 43, 42].map(n => minuitDuJour(jourAvant(aujourdhui, n)))
+  const finDeLaPlage = minuitDuJour(jourAvant(aujourdhui, 41))
+  const d = plage[0]
+  const e = plage[3]
+  const parties: PartieDesModes[] = [
+    partie({ qui: 'lea', quand: d + 9 * H, mode: 'jour', questions: 10, justes: 6, qcm: 9, fin: d + 9 * H + 4 * MINUTE }),
+    partie({ qui: 'tom', quand: d + 10 * H, mode: 'campagne', questions: 14, justes: 11, qcm: 14, fin: d + 10 * H + 6 * MINUTE }),
+    partie({ qui: 'tom', quand: d + 11 * H, mode: 'campagne', questions: 3, justes: 1, qcm: 3, fin: null }),
+    partie({ qui: 'ana', quand: d + 12 * H, mode: 'cabinet', questions: 6, justes: 4, qcm: null, fin: d + 12 * H + 3 * MINUTE }),
+    partie({ qui: 'lea', quand: e + 9 * H, mode: 'jour', questions: 10, justes: 8, qcm: 10, fin: e + 9 * H + 8 * MINUTE }),
+  ]
+  // Le dernier soir de la plage, à 23 h 30 : Tom s'y crédite après minuit, hors de la plage — sa réussite rejoint sa soirée.
+  const soirees: SoireeDesModes[] = [{ spaceId: 'chez-nadia', id: 'soiree-a', quand: e + 23.5 * H, quiz: 2, joueurs: 3, jouees: 60, profils: ['tom'] }]
+  const deProfils: SoireeDUnProfil[] = [{ qui: 'tom', quand: finDeLaPlage + 20 * MINUTE, quiz: 2, questions: 20, qcm: 16, justes: 12, soiree: 'chez-nadia|soiree-a' }]
+  const journaux = { solo: parties, soireesDesProfils: deProfils, soirees, inscriptions: [], achats: [] }
+  const ecrits = dUneTraite(joursDeLaMemoire(journaux, plage, finDeLaPlage, new Map(), plusDUnePlage(plage, finDeLaPlage)))
+  const [duJourD, , , duJourE] = ecrits.map(j => j.chiffres)
+  assert.deepEqual(duJourD.reussite, { soiree: { justes: 0, sur: 0 }, jour: { justes: 6, sur: 9 }, campagne: { justes: 12, sur: 17 } }, 'le Cabinet ne pose pas de QCM')
+  assert.deepEqual(duJourD.durees, { jour: [240], campagne: [360], cabinet: [180] }, 'chaque partie finie, à la seconde ; celle laissée en route n’en a pas')
+  assert.deepEqual(duJourE.reussite?.soiree, { justes: 12, sur: 16 }, 'la ligne créditée après minuit compte avec sa soirée')
+  assert.deepEqual(duJourE.soirees, [{ espace: 'chez-nadia', invites: 3, profils: 1, quiz: 2 }])
+
+  const chiffres = new Map(ecrits.map(j => [j.jour, j.chiffres]))
+  const historique = { jours: historiqueDeLaMemoire(chiffres, ecrits.flatMap(j => j.presences)), chiffres }
+  // Rien dans les trente jours : tout l'historique, c'est la plage — les mêmes lignes que les journaux mêmes en auraient tirées.
+  const seulement = dUneTraite(modesSurTout([], [], [], historique, minuits, maintenant))
+  assert.deepEqual(seulement.lignes, lignesDesModes(parties, soirees, deProfils, d, finDeLaPlage - 1))
+  assert.deepEqual([seulement.depuis, seulement.sansDetail], [d, 0])
+
+  // Puis aujourd'hui, au quiz du jour : Léa une fois de plus, deux minutes — et un jour d'avant la mémoire v3, qui ne dit
+  // que ses parties : elles comptent, sa réussite et ses durées attendent.
+  const ilYA40 = jourAvant(aujourdhui, 40)
+  const [dAvant] = dUneTraite(
+    joursDeLaMemoire(
+      { solo: [partie({ qui: 'zoe', quand: minuitDuJour(ilYA40) + 9 * H, mode: 'jour', justes: 9, qcm: 10, fin: minuitDuJour(ilYA40) + 9 * H + MINUTE })], soireesDesProfils: [], soirees: [], inscriptions: [], achats: [] },
+      [minuitDuJour(ilYA40)],
+      minuitDuJour(jourAvant(aujourdhui, 39)),
+    ),
+  )
+  assert.ok(!('reussite' in dAvant.chiffres) && !('durees' in dAvant.chiffres))
+  const avecLui = new Map([...chiffres, [dAvant.jour, dAvant.chiffres]])
+  const tout = { jours: historiqueDeLaMemoire(avecLui, [...ecrits, dAvant].flatMap(j => j.presences)), chiffres: avecLui }
+  const tantot = maintenant - 2 * H
+  const aujourdhuiLea = [partie({ qui: 'lea', quand: tantot, mode: 'jour', questions: 10, justes: 5, qcm: 10, fin: tantot + 2 * MINUTE })]
+  const calcul = dUneTraite(modesCoteACote(aujourdhuiLea, [], [], minuits, maintenant, tout))
+  assert.ok(calcul.tout)
+  const de = Object.fromEntries(calcul.tout.lignes.map(l => [l.mode, l]))
+  assert.deepEqual(de.jour, {
+    mode: 'jour',
+    // Léa une fois sur trois jours, Zoé une fois ; le jour de Zoé ne dit ni ses questions, ni sa réussite, ni sa durée.
+    joueurs: 2,
+    parties: 4,
+    questions: 30,
+    reussite: { justes: 6 + 8 + 5, sur: 9 + 10 + 10 },
+    // Quatre, huit et deux minutes : la médiane de toutes, pas la moyenne des médianes.
+    duree: { medianeMs: 4 * MINUTE, finies: 3 },
+  })
+  assert.deepEqual([de.soiree.parties, de.soiree.joueurs, de.soiree.reussite], [2, 3, { justes: 12, sur: 16 }], 'ses quiz pour parties, ses invités pour joueurs')
+  assert.deepEqual([de.cabinet.reussite, de.cabinet.duree], [null, { medianeMs: 3 * MINUTE, finies: 1 }])
+  assert.deepEqual([calcul.tout.depuis, calcul.tout.sansDetail], [d, 1])
+  // Les périodes de la barre ne bougent pas : elles restent aux trente jours des journaux.
+  assert.deepEqual(calcul.periodes, dUneTraite(modesCoteACote(aujourdhuiLea, [], [], minuits, maintenant)).periodes)
+
+  // Le retour à J+7 sur tous les jours : Léa, il y a quarante-cinq jours, revient trois jours après ; il y a quarante-deux
+  // jours, rien dans les sept qui suivent. Les trente jours seuls n'en savent rien.
+  assert.deepEqual(calcul.tout.retour.modes.jour, { revenus: 1, sur: 3 }, 'Léa deux jours, Zoé un')
+  assert.deepEqual(calcul.tout.retour.modes.campagne, { revenus: 0, sur: 1 })
+  assert.equal(calcul.tout.retour.jours, 46 - 2 - JOURS_DU_RETOUR + 1, 'de quarante-cinq jours avant jusqu’à la veille moins sept')
+  assert.deepEqual(calcul.retour.modes.jour, { revenus: 0, sur: 0 })
 })
 
 test('l’entonnoir : la part du départ de chaque marche, ce qui se perd en route — et ce qu’on lit déjà pour chaque mode', () => {
@@ -365,6 +455,94 @@ test('un vrai serveur : les modes côte à côte lus des mêmes lignes que la vu
     const jour24 = vue.periodes?.['24h'].totaux
     assert.deepEqual([jour24?.parties.jour, jour24?.finies?.jour], [2, 1], 'Léa a fini, Tom joue encore')
     assert.deepEqual([jour24?.parties.cabinet, jour24?.finies?.cabinet], [1, 1])
+  } finally {
+    await banc.close()
+  }
+})
+
+test('un vrai serveur : tout l’historique des modes, de la mémoire du QG — écrite par son rattrapage, sa soirée créditée après minuit comprise — et une ligne d’avant dite', async () => {
+  // Mercredi 4 novembre 2026, 21 h à Paris.
+  const MAINTENANT = Date.UTC(2026, 10, 4, 20)
+  const AUJOURDHUI = jourDe(MAINTENANT)
+  const il_y_a = (n: number) => jourAvant(AUJOURDHUI, n)
+  const a = (jour: string, heure: number) => minuitDuJour(jour) + heure * H
+  const banc = await demarrer({ horlogeDuJour: () => MAINTENANT })
+  try {
+    const admin = await connexionAnimateur(banc.url)
+    await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    await inscrireProfil(banc.url, 'tom', 'Tom', '🦉')
+    const idDe = (login: string) => base(banc, db => (db.prepare('SELECT id FROM profiles WHERE login = ?').get(login) as { id: string }).id)
+    const [lea, tom] = [idDe('lea'), idDe('tom')]
+    base(banc, db => {
+      const partieDuJour = db.prepare('INSERT INTO jour_parties (profile_id, jour, commencee_le, question, justes, finie_le) VALUES (?, ?, ?, 10, ?, ?)')
+      // Il y a soixante-quinze jours — le premier jour des journaux —, sa quatrième question annulée pour tous ; il y a
+      // soixante-douze jours ; et aujourd'hui.
+      partieDuJour.run(lea, il_y_a(75), a(il_y_a(75), 9), 6, a(il_y_a(75), 9) + 4 * MINUTE)
+      db.prepare(`INSERT INTO jour_tirages (jour, questions, annulees, tire_le) VALUES (?, '[]', '[3]', ?)`).run(il_y_a(75), a(il_y_a(75), 0))
+      partieDuJour.run(lea, il_y_a(72), a(il_y_a(72), 9), 8, a(il_y_a(72), 9) + 8 * MINUTE)
+      partieDuJour.run(lea, AUJOURDHUI, a(AUJOURDHUI, 18), 5, a(AUJOURDHUI, 18) + 2 * MINUTE)
+      const serie = db.prepare('INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)')
+      serie.run(randomUUID(), tom, '[]', 16, 12, a(il_y_a(46), 10), a(il_y_a(46), 10) + 8 * MINUTE, 'sentier')
+      serie.run(randomUUID(), tom, '[]', 6, 4, a(il_y_a(46), 11), a(il_y_a(46), 11) + 3 * MINUTE, 'cabinet')
+      // Le dernier soir de la première plage du rattrapage, à 23 h 30 : Tom s'y crédite après minuit.
+      const invites = [
+        { id: 'i1', name: 'Inès', avatar: '🐱', teamId: null, points: 30, joue: true },
+        { id: 'i2', name: 'Hugo', avatar: '🐶', teamId: null, points: 20, joue: true },
+        { id: 'i3', name: 'Tom', avatar: '🦉', teamId: null, points: 10, joue: true, profileId: tom },
+      ]
+      const fiche = { v: 3, invites, profils: true, equipes: [], prix: [], quiz: 2, questions: 20, jouees: 60 }
+      db.prepare(`INSERT INTO soirees (space_id, id, title, held_at, archived_at, summary, data) VALUES ('un-espace', 'soiree-tard', 'L’anniversaire de Léa', ?, ?, ?, '{}')`).run(
+        a(il_y_a(46), 23.5),
+        a(il_y_a(45), 1),
+        JSON.stringify(fiche),
+      )
+      // Au barème du jour : le redémarrage plus bas ne relit pas sa soirée, dont l'archive n'est qu'une fiche.
+      db.prepare(`INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, 'soiree-tard', 'un-espace', 40, ?, ?)`).run(
+        tom,
+        JSON.stringify({ v: VERSION_BAREME, gain: gainVide(), releve: { ...releveVide(), questions: 20, reponses: 18, qcm: 16, justes: 12, quizJoues: 2 } }),
+        a(il_y_a(45), 1 / 3),
+      )
+    })
+    const lesModes = async () => {
+      const page = (await lire<PageDeLActivite>(banc, admin, '/api/admin/activite')).corps
+      assert.ok(page.modes?.tout)
+      return page.modes
+    }
+
+    // La mémoire pas encore écrite : la page ne la rattrape pas — tout l'historique s'arrête aux trente jours.
+    const sansMemoire = await lesModes()
+    assert.deepEqual(sansMemoire.tout?.lignes, sansMemoire.periodes['30j'])
+    assert.deepEqual([sansMemoire.tout?.depuis, sansMemoire.tout?.sansDetail], [minuitDuJour(AUJOURDHUI), 0])
+
+    // La page des joueurs l'écrit, la version 3 : la réussite et les durées de chaque jour, les quiz de ses soirées.
+    assert.equal((await lire<PageDesJoueurs>(banc, admin, '/api/admin/joueurs')).status, 200)
+    const jours = base(banc, db => new Map((db.prepare('SELECT jour, chiffres FROM qg_jours').all() as { jour: string; chiffres: string }[]).map(r => [r.jour, JSON.parse(r.chiffres) as ChiffresDUnJour])))
+    assert.deepEqual([jours.get(il_y_a(75))?.reussite?.jour, jours.get(il_y_a(75))?.durees], [{ justes: 6, sur: 9 }, { jour: [240] }], 'la question annulée ôtée, la durée à la seconde')
+    const soir = jours.get(il_y_a(46))
+    assert.deepEqual(soir?.soirees, [{ espace: 'un-espace', invites: 3, profils: 1, quiz: 2 }])
+    assert.deepEqual([soir?.reussite?.soiree, soir?.reussite?.campagne, soir?.durees], [{ justes: 12, sur: 16 }, { justes: 12, sur: 16 }, { campagne: [480], cabinet: [180] }])
+    assert.deepEqual(jours.get(il_y_a(45))?.reussite?.soiree, { justes: 0, sur: 0 }, 'sa ligne d’expérience compte avec sa soirée, pas au jour de son crédit')
+
+    // La page relit la mémoire, puisqu'elle a changé : tout l'historique, mode par mode.
+    const modes = await lesModes()
+    const de = Object.fromEntries(modes.tout!.lignes.map(l => [l.mode, l]))
+    assert.deepEqual(de.jour, { mode: 'jour', joueurs: 1, parties: 3, questions: 30, reussite: { justes: 19, sur: 29 }, duree: { medianeMs: 4 * MINUTE, finies: 3 } })
+    assert.deepEqual([de.campagne.parties, de.campagne.reussite, de.campagne.duree], [1, { justes: 12, sur: 16 }, { medianeMs: 8 * MINUTE, finies: 1 }])
+    assert.deepEqual([de.cabinet.parties, de.cabinet.reussite, de.cabinet.duree], [1, null, { medianeMs: 3 * MINUTE, finies: 1 }])
+    assert.deepEqual([de.soiree.parties, de.soiree.joueurs, de.soiree.questions, de.soiree.reussite], [2, 3, 60, { justes: 12, sur: 16 }])
+    assert.deepEqual(modes.tout!.retour.modes.jour, { revenus: 1, sur: 2 }, 'Léa revient trois jours après, il y a soixante-quinze jours')
+    assert.deepEqual([modes.tout!.depuis, modes.tout!.sansDetail], [minuitDuJour(il_y_a(75)), 0])
+    assert.deepEqual(modes.periodes, sansMemoire.periodes, 'les périodes de la barre restent aux trente jours')
+    const texte = JSON.stringify(modes)
+    for (const absent of ['Inès', 'Hugo', 'anniversaire', 'un-espace', 'soiree-tard', 'Léa', 'Tom']) assert.ok(!texte.includes(absent), `« ${absent} » dans les modes`)
+
+    // Une ligne d'avant la version 3 : ses parties comptent, sa réussite et sa durée attendent — et la page le dit.
+    base(banc, db => db.prepare(`UPDATE qg_jours SET chiffres = json_remove(chiffres, '$.reussite', '$.durees') WHERE jour = ?`).run(il_y_a(75)))
+    await banc.redemarrer()
+    const dAvant = await lesModes()
+    const jourDAvant = dAvant.tout!.lignes.find(l => l.mode === 'jour')
+    assert.deepEqual([jourDAvant?.parties, jourDAvant?.reussite, jourDAvant?.duree], [3, { justes: 13, sur: 20 }, { medianeMs: 5 * MINUTE, finies: 2 }])
+    assert.equal(dAvant.tout!.sansDetail, 1)
   } finally {
     await banc.close()
   }

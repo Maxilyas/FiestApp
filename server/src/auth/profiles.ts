@@ -5549,10 +5549,16 @@ export class ProfileStore {
   /**
    * Ce que la mémoire du QG lit d'une plage de jours (`joueursDuQg.ts`), d'un
    * lot : les inscriptions, les achats et les soirées créditées entre deux
-   * instants — qui, quand. Chacune en un seul texte JSON : un mois rattrapé en
-   * compte des milliers, que le client de Turso décoderait ligne à ligne.
+   * instants — qui, quand, et depuis la mémoire v3 ce que chaque soirée dit
+   * aux modes côte à côte : ses QCM répondus, ses justes et sa clé
+   * (`soireeDuQg`, les mêmes colonnes que `COLONNES_D_UNE_SOIREE_DU_QG`).
+   * Chacune en un seul texte JSON : un mois rattrapé en compte des milliers,
+   * que le client de Turso décoderait ligne à ligne.
    */
-  async activiteEntre(debut: number, fin: number): Promise<{ inscriptions: number[]; achats: number[]; soirees: { qui: string; quand: number }[] }> {
+  async activiteEntre(
+    debut: number,
+    fin: number,
+  ): Promise<{ inscriptions: number[]; achats: number[]; soirees: Pick<SoireeDUnProfil, 'qui' | 'quand' | 'qcm' | 'justes' | 'soiree'>[] }> {
     const [inscrits, achats, soirees] = await this.client.batch(
       [
         { sql: 'SELECT json_group_array(created_at) AS lignes FROM profiles WHERE created_at >= ? AND created_at < ?', args: [debut, fin] },
@@ -5565,7 +5571,10 @@ export class ProfileStore {
           args: [debut, fin],
         },
         {
-          sql: `SELECT json_group_array(json_array(profile_id, created_at)) AS lignes FROM profile_xp WHERE created_at >= ? AND created_at < ? AND ${HORS_LIGNES_A_PART}`,
+          sql: `SELECT json_group_array(json_array(profile_id, created_at, space_id, soiree_id,
+                  CASE WHEN json_valid(detail) THEN json_extract(detail, '$.releve.qcm') END,
+                  CASE WHEN json_valid(detail) THEN json_extract(detail, '$.releve.justes') END)) AS lignes
+                FROM profile_xp WHERE created_at >= ? AND created_at < ? AND ${HORS_LIGNES_A_PART}`,
           args: [debut, fin],
         },
       ],
@@ -5575,7 +5584,14 @@ export class ProfileStore {
     return {
       inscriptions: lire<number>(inscrits).map(Number),
       achats: lire<number>(achats).map(Number),
-      soirees: lire<[string, number]>(soirees).map(([qui, quand]) => ({ qui: String(qui), quand: Number(quand) })),
+      soirees: lire<[string, number, string, string, number | null, number | null]>(soirees).map(([qui, quand, espace, soiree, qcm, justes]) => ({
+        qui: String(qui),
+        quand: Number(quand),
+        qcm: Number(qcm ?? 0),
+        justes: Number(justes ?? 0),
+        // La clé de `soireeDuQg` : son espace, et le nom figé de la soirée.
+        soiree: `${String(espace)}|${String(soiree)}`,
+      })),
     }
   }
 

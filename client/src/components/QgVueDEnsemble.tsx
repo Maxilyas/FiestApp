@@ -228,8 +228,8 @@ const REGLE_DU_COMPTE: Record<CompteDuGraphe, (periode: PeriodeDuPoste, pas: num
 
 const HEURE = 3_600_000
 
-/** « 12 juillet », et l'année quand ce n'est pas celle de maintenant : tout l'historique passe un jour l'an. */
-function jourDAvant(jour: string, maintenant: number): string {
+/** « 12 juillet », et l'année quand ce n'est pas celle de maintenant : tout l'historique passe un jour l'an — ici et aux modes côte à côte. */
+export function jourDAvant(jour: string, maintenant: number): string {
   return `${jourEnToutesLettres(jour, true)}${jour.slice(0, 4) === jourDe(maintenant).slice(0, 4) ? '' : ` ${jour.slice(0, 4)}`}`
 }
 

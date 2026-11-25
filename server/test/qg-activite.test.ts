@@ -27,6 +27,7 @@ import {
   type SoireeJouee,
 } from '../../shared/qgActivite'
 import { modesCoteACote, type PartieDesModes } from '../../shared/qgModes'
+import { minuitDuJour } from '../../shared/qgJoueurs'
 import { dUneTraite } from '../../shared/tranches'
 
 const H = 3_600_000
@@ -271,6 +272,52 @@ test('la page de l’activité — les modes côte à côte — se lit d’un co
     assert.ok(html.includes(attendu), `« ${attendu} » dans la page`)
   }
   for (const absent of ['NaN', 'undefined', 'null']) assert.ok(!html.includes(absent), `pas de « ${absent} »`)
+})
+
+test('les modes côte à côte sur tout l’historique : depuis quand, le retour sur tous ses jours, les jours que la mémoire refait — et un serveur d’avant dit', async () => {
+  Object.assign(globalThis, { React, window: { location: { pathname: '/admin', search: '', hash: '#activite', origin: 'http://banc' } } })
+  const { ActiviteAuQg } = await import(new URL('../../client/src/components/QgActivite.tsx', import.meta.url).href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const modes = dUneTraite(modesCoteACote([], SOIREES, [], minuits, maintenant))
+  const page: PageDeLActivite = {
+    maintenant,
+    parJour: activiteParJour([], SOIREES, minuits, maintenant),
+    totaux: totauxDeLActivite([], SOIREES, minuits, maintenant),
+    joueurs: [],
+    profilsActifs: 0,
+    modes: {
+      ...modes,
+      tout: {
+        lignes: modes.periodes['30j'].map(l => (l.mode === 'soiree' ? { ...l, parties: 41, questions: 4321 } : l)),
+        retour: { jours: 380, modes: { ...modes.retour.modes, soiree: { revenus: 3, sur: 12 } } },
+        depuis: minuitDuJour('2025-09-21'),
+        sansDetail: 3,
+      },
+    },
+  }
+  const rendu = (p: PageDeLActivite, periode: string) => sansInsecables(renderToStaticMarkup(React.createElement(ActiviteAuQg, { page: p, periode })).replace(/<!-- -->/g, ''))
+  const html = rendu(page, 'tout')
+  for (const attendu of [
+    'Sur tout l’historique',
+    // L'année, quand ce n'est pas celle de maintenant.
+    '4321 questions jouées, tous modes confondus, depuis le 21 septembre 2025',
+    '<dt>Quiz</dt><dd class="num">41</dd>',
+    'sur les 380 jours de tout l’historique qui ont leurs sept jours derrière eux',
+    '3 retours sur 12 journées de jeu',
+    '3 jours d’avant les trente ne disent pas encore leur réussite, la durée de leurs parties ni les quiz de leurs soirées',
+  ]) {
+    assert.ok(html.includes(attendu), `« ${attendu} » dans la page`)
+  }
+  for (const absent of ['NaN', 'undefined', 'null', 'de ces trente qui ont leurs sept jours']) assert.ok(!html.includes(absent), `pas de « ${absent} »`)
+  // Un jour seul, au singulier ; la mémoire à jour, rien à dire.
+  assert.ok(rendu({ ...page, modes: { ...page.modes!, tout: { ...page.modes!.tout!, sansDetail: 1 } } }, 'tout').includes('Un jour d’avant les trente ne dit pas encore sa réussite'))
+  assert.ok(!rendu({ ...page, modes: { ...page.modes!, tout: { ...page.modes!.tout!, sansDetail: 0 } } }, 'tout').includes('ne disent pas encore'))
+  // Les trente jours gardent leurs mots.
+  assert.ok(rendu(page, '30j').includes('de ces trente qui ont leurs sept jours derrière eux, quelle que soit la période'))
+  // Un serveur d'avant ne dit pas tout l'historique : la page le dit, plutôt que de montrer trente jours sous le nom de tout.
+  const dAvant = rendu({ ...page, modes: modes }, 'tout')
+  assert.ok(dAvant.includes('Le serveur ne dit pas encore tout l’historique des modes'))
+  assert.ok(!dAvant.includes('Sur tout l’historique'))
 })
 
 test('la fiche d’un joueur dit ses trente jours : ses questions, ses jours, chaque mode, le plus joué d’abord', async () => {

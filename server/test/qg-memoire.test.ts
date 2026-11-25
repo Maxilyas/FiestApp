@@ -177,7 +177,7 @@ test('les jours d’une plage, la mémoire v2 : soirées et salons, naissances e
 
   // Sans ce que le rattrapage lit en plus, un jour ne dit que l'audience.
   const [seul] = dUneTraite(joursDeLaMemoire(journaux, minuits, fin)).map(j => j.chiffres)
-  for (const champ of ['soirees', 'nouveauxSalons', 'naissances', 'lendemain', 'missions', 'questions', 'confettis', 'serveur']) assert.ok(!(champ in seul), champ)
+  for (const champ of ['soirees', 'nouveauxSalons', 'naissances', 'lendemain', 'missions', 'questions', 'confettis', 'serveur', 'reussite', 'durees']) assert.ok(!(champ in seul), champ)
 })
 
 test('une ligne d’avant se lit sans ce qu’elle ne savait pas : absent, jamais zéro', () => {
@@ -278,8 +278,9 @@ test('au banc : chaque jour fini s’écrit avec sa mémoire v2, sans un salon d
       assert.deepEqual(
         [...(hier.soirees ?? [])].sort((x, y) => (x.espace < y.espace ? -1 : 1)),
         [
-          { espace: 'autre-espace', invites: 2, profils: null },
-          { espace: 'un-espace', invites: 3, profils: 1 },
+          // Et leurs quiz, depuis la mémoire v3 : les parties des soirées aux modes côte à côte.
+          { espace: 'autre-espace', invites: 2, profils: null, quiz: 1 },
+          { espace: 'un-espace', invites: 3, profils: 1, quiz: 1 },
         ],
       )
       assert.deepEqual(hier.nouveauxSalons, ['un-espace'])

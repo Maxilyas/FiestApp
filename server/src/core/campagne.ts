@@ -7912,16 +7912,25 @@ export class CampagneStore {
    * leurs questions jouées, comptées comme l'activité les compte
    * (`QUESTIONS_JOUEES_D_UNE_SERIE`) —, pour la mémoire du QG
    * (`server/src/joueursDuQg.ts`), qui écrit chaque jour fini une fois : par
-   * l'index de leur date, en un seul texte JSON comme `seriesDepuis`.
+   * l'index de leur date, en un seul texte JSON comme `seriesDepuis` — et
+   * comme elle, depuis la mémoire v3, sa fin et ses bonnes réponses : deux
+   * colonnes des mêmes lignes.
    */
-  async seriesEntre(debut: number, fin: number): Promise<{ qui: string; quand: number; mode: string | null; questions: number }[]> {
+  async seriesEntre(debut: number, fin: number): Promise<{ qui: string; quand: number; mode: string | null; questions: number; fin: number | null; justes: number }[]> {
     const res = await this.client.execute({
-      sql: `SELECT json_group_array(json_array(profile_id, commencee_le, mode, ${QUESTIONS_JOUEES_D_UNE_SERIE})) AS lignes
+      sql: `SELECT json_group_array(json_array(profile_id, commencee_le, mode, ${QUESTIONS_JOUEES_D_UNE_SERIE}, finie_le, justes)) AS lignes
             FROM campagne_series WHERE commencee_le >= ? AND commencee_le < ?`,
       args: [debut, fin],
     })
-    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number, string | null, number][]
-    return lignes.map(([qui, quand, mode, questions]) => ({ qui: String(qui), quand: Number(quand), mode: mode === null ? null : String(mode), questions: Number(questions) }))
+    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number, string | null, number, number | null, number][]
+    return lignes.map(([qui, quand, mode, questions, fin, justes]) => ({
+      qui: String(qui),
+      quand: Number(quand),
+      mode: mode === null ? null : String(mode),
+      questions: Number(questions),
+      fin: fin === null ? null : Number(fin),
+      justes: Number(justes),
+    }))
   }
 
   /** Ce que le QG compte des signalements à relire : les questions, et les joueurs qui les signalent. */
