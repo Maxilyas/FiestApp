@@ -411,17 +411,38 @@ export function quiADesMotsPour(
 }
 
 /**
- * Le mot qu'une énigme résolue lui souffle : parmi les mots cachés qu'il n'a
- * pas, d'abord un que personne n'a encore, sinon un autre, au hasard de sa
- * graine. Tiré au verdict, pas avant : deux joueurs qui résolvent ensemble le
- * dernier mot inconnu de tous reçoivent l'un ce mot, l'autre un mot déjà
- * trouvé — personne ne repart les mains vides. Il les a tous : null.
+ * Combien de mots neufs — que personne n'avait — le Sphinx souffle chaque jour,
+ * à tout le serveur (le choix du propriétaire du 25 novembre 2026 : « un mot
+ * neuf par jour ») : à quinze habitués, la première phrase tombait en trois
+ * jours ; ainsi, une phrase de neuf mots en prend neuf, quel que soit le
+ * nombre de joueurs. Les autres énigmes résolues du jour soufflent un mot que
+ * d'autres ont déjà trouvé : personne ne repart les mains vides, et les mots
+ * neufs, rares, s'échangent (les mots inscrits).
  */
-export function choisirLeMot(caches: readonly number[], siens: ReadonlySet<number>, deTous: ReadonlySet<number>, hasard: () => number): number | null {
+export const MOTS_NEUFS_PAR_JOUR = 1
+
+/**
+ * Le mot qu'une énigme résolue lui souffle : parmi les mots cachés qu'il n'a
+ * pas, d'abord un que personne n'a encore — si le mot neuf du jour n'est pas
+ * déjà parti (`neufPermis`) —, sinon un autre, au hasard de sa graine. Le mot
+ * neuf du jour parti, un que d'autres ont trouvé ; et s'il les a déjà tous, un
+ * neuf quand même : le plus assidu ne repart pas les mains vides. Tiré au
+ * verdict, pas avant : deux joueurs qui résolvent ensemble le dernier mot
+ * inconnu de tous reçoivent l'un ce mot, l'autre un mot déjà trouvé. Il les a
+ * tous : null.
+ */
+export function choisirLeMot(
+  caches: readonly number[],
+  siens: ReadonlySet<number>,
+  deTous: ReadonlySet<number>,
+  hasard: () => number,
+  { neufPermis = true }: { neufPermis?: boolean } = {},
+): number | null {
   const possibles = caches.filter(i => !siens.has(i))
   if (possibles.length === 0) return null
   const neufs = possibles.filter(i => !deTous.has(i))
-  const parmi = neufs.length > 0 ? neufs : possibles
+  const dejaTrouves = possibles.filter(i => deTous.has(i))
+  const parmi = neufPermis ? (neufs.length > 0 ? neufs : possibles) : dejaTrouves.length > 0 ? dejaTrouves : neufs
   return parmi[Math.floor(hasard() * parmi.length)]
 }
 
@@ -699,6 +720,19 @@ export class Sphinx {
     return this.mots ?? new Map()
   }
 
+  /**
+   * Combien de mots neufs le Sphinx a soufflés aujourd'hui, à tout le serveur :
+   * le premier instant de chaque mot trouvé, en mémoire (`premiers`, relu au
+   * démarrage, tenu à chaque mot gagné). Deux serveurs d'une mise en ligne
+   * peuvent en souffler un de plus le temps qu'elle dure, comme deux joueurs
+   * qui résolvent au même instant : un jour à deux mots neufs, rien de pire.
+   */
+  private motsNeufsDuJour(aujourdhui: string): number {
+    let n = 0
+    for (const le of this.premiers.values()) if (jourDe(le) === aujourdhui) n++
+    return n
+  }
+
   /** Un profil supprimé emporte ses visites (`ProfileStore.supprimer`) : les mots de tous se relisent. */
   oublier(): void {
     this.tour++
@@ -862,12 +896,16 @@ export class Sphinx {
       if ('refus' in issue) return { refus: issue.statut, error: issue.refus }
       let mot: number | null = null
       let motNeuf: boolean | undefined
+      let neufDuJourParti = false
       if (issue.apres.etat === 'resolue') {
         const deTous = this.motsDeTous().get(ligne.divin) ?? new Set<number>()
         const legende = this.legende(ligne.divin)
+        // Un mot neuf par jour, à tout le serveur (`MOTS_NEUFS_PAR_JOUR`) : parti, il reçoit un mot que d'autres ont trouvé.
+        const neufPermis = this.motsNeufsDuJour(aujourdhui) < MOTS_NEUFS_PAR_JOUR
         // Jamais un mot qu'il a déjà appris d'un autre : le Sphinx lui en souffle un qu'il ne connaît pas.
-        mot = legende ? choisirLeMot(cachesDe(legende), cequIlSait(lignes, ligne.divin), deTous, hasardDe(`${profileId}|${ligne.jour}|mot`)) : null
+        mot = legende ? choisirLeMot(cachesDe(legende), cequIlSait(lignes, ligne.divin), deTous, hasardDe(`${profileId}|${ligne.jour}|mot`), { neufPermis }) : null
         motNeuf = mot !== null && !deTous.has(mot)
+        neufDuJourParti = !neufPermis && mot !== null && !motNeuf
       }
       const close = (VISITE_CLOSE as readonly string[]).includes(issue.apres.etat)
       const ecrit = await this.deps.profiles.ecrireUnGesteDuSphinx(profileId, ligne.jour, ligne, {
@@ -900,6 +938,7 @@ export class Sphinx {
         ...(issue.verdict && { verdict: issue.verdict }),
         ...(issue.dejaDite && { dejaDite: true as const }),
         ...(motNeuf !== undefined && { motNeuf }),
+        ...(neufDuJourParti && { neufDuJourParti: true as const }),
         visite: visite!,
         phrase,
       }

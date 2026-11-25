@@ -679,6 +679,9 @@ try {
     const manquent = caches.filter(i => !trouves.has(i))
     if (manquent.length < 2) throw new Error(`la phrase inventée n’a plus que ${manquent.length} mot(s) à trouver : Marc ne peut pas trouver le dernier`)
     motsDeTous('figurant2', manquent.slice(1))
+    // Le lendemain : un seul mot neuf par jour à tout le serveur (`MOTS_NEUFS_PAR_JOUR`), et Léa a eu celui d'aujourd'hui —
+    // Marc n'aurait reçu qu'un mot déjà trouvé, et la phrase ne se serait pas reconstituée sous ses yeux.
+    horloge.t += 24 * 3_600_000
     // Marc, venu pour l'occasion : sa première visite, quoi que les autres cas aient joué aujourd'hui.
     const marc = await inscrireProfil(banc.url, 'marc2', 'Marc', '🐶')
     habitue('marc2')

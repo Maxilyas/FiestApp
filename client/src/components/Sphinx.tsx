@@ -79,6 +79,8 @@ const DIT = {
   voici: (nom: string) => `Voici un mot de la phrase ${deLui(nom)}.`,
   neuf: 'Et celui-là, *personne ne l’avait encore*.',
   dejaTrouve: 'Celui-là, d’autres habitués l’avaient déjà. Il est à toi maintenant.',
+  // Un mot neuf par jour, à tout le serveur (le choix du propriétaire du 25 novembre 2026) : il le dit, sans reproche.
+  neufParti: 'Je ne souffle qu’un mot neuf par jour, et celui d’aujourd’hui est parti. Celui-là, d’autres l’avaient : il est à toi.',
   autres: (n: number) =>
     n > 0
       ? // « Comparez vos mots » ne disait pas où les mettre (le premier retour de la production, le 24 novembre 2026).
@@ -1011,7 +1013,7 @@ function SceneDuSphinx({
       await dire(moi, DIT.entiere(nom))
       await dire(moi, DIT.entiereAlbum)
     } else {
-      if (mot) await dire(moi, neuf ? DIT.neuf : DIT.dejaTrouve)
+      if (mot) await dire(moi, neuf ? DIT.neuf : v.neufDuJourParti ? DIT.neufParti : DIT.dejaTrouve)
       await dire(moi, DIT.autres(Math.max(0, apres.parTous - apres.siens)))
       await dire(moi, DIT.album)
     }

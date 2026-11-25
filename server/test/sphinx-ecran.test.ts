@@ -351,6 +351,13 @@ test('dans l’album, un trait se touche pour y inscrire un mot, un mot appris s
   assert.match(lire('client/src/components/Sphinx.tsx'), /dans ton album, tu inscriras leurs mots sur ta phrase/)
 })
 
+// Un mot neuf par jour, à tout le serveur (le choix du propriétaire du 25 novembre 2026) : parti, le Sphinx le dit.
+test('le mot neuf du jour parti, le Sphinx le dit au joueur qui reçoit un mot déjà trouvé', () => {
+  const source = lire('client/src/components/Sphinx.tsx')
+  assert.match(source, /neufParti: 'Je ne souffle qu’un mot neuf par jour/)
+  assert.match(source, /dire\(moi, neuf \? DIT\.neuf : v\.neufDuJourParti \? DIT\.neufParti : DIT\.dejaTrouve\)/)
+})
+
 // ── Une phrase retrouvée par tous : un choix, jamais imposée ──────────────
 
 test('une phrase retrouvée se dévoile à la demande : l’album la propose, la visite la propose, l’accueil l’annonce sans un mot', async () => {

@@ -350,14 +350,15 @@ test('le mot gagné : d’abord un que personne n’a ; une énigme vue ne revie
     }
     assert.equal(new Set(vues).size, vues.length, `une énigme vue ne revient jamais : ${vues.join(', ')}`)
 
-    // Dédé résout la sienne le même jour : un mot que Cléo n'a pas encore trouvé.
+    // Dédé résout la sienne le même jour : un seul mot neuf par jour pour tout le serveur (le choix du propriétaire du
+    // 25 novembre 2026), et Cléo a eu celui du jour. Dédé repart avec un des siens, et le Sphinx dit pourquoi.
     const deDede = (await leSphinx(banc, dede)).visite
     const sonMot = (await geste(banc, dede, { geste: 'repondre', reponse: enigmeDe(deDede.enigme.numero).solution })).corps
-    assert.equal(sonMot.motNeuf, true)
-    assert.ok(!sesMots.has(sonMot.visite.mot.index))
-    // Léa voit combien ils en ont trouvé ensemble, jamais lesquels.
+    assert.deepEqual([sonMot.verdict, sonMot.motNeuf, sonMot.neufDuJourParti], ['juste', false, true])
+    assert.ok(sesMots.has(sonMot.visite.mot.index), 'un mot déjà trouvé, qu’il n’avait pas')
+    // Léa voit combien ils en ont trouvé ensemble, jamais lesquels : rien de neuf aujourd'hui.
     const deLea = await leSphinx(banc, lea)
-    assert.equal(deLea.phrase.parTous, sesMots.size + 1)
+    assert.equal(deLea.phrase.parTous, sesMots.size)
     assert.equal(deLea.phrase.siens, 0)
     rienQueSesMots(deLea, DIVIN_DU_MOMENT, new Set(), 'Léa')
     // Le chat clôt la sienne sans rien lui donner.
@@ -365,11 +366,18 @@ test('le mot gagné : d’abord un que personne n’a ; une énigme vue ne revie
     assert.deepEqual([chat.verdict, chat.visite.etat, chat.visite.mot], ['abandon', 'abandonnee', undefined])
     assert.ok(chat.visite.enigme.solution)
 
-    // Cléo supprimée : ses lignes partent avec elle, et ses mots du compte de tous.
+    // Le lendemain, le premier qui résout reçoit le mot neuf du jour.
+    horloge.t = midi(28)
+    const demain = (await leSphinx(banc, dede)).visite
+    const neuf = (await geste(banc, dede, { geste: 'repondre', reponse: enigmeDe(demain.enigme.numero).solution })).corps
+    assert.deepEqual([neuf.verdict, neuf.motNeuf, neuf.neufDuJourParti], ['juste', true, undefined])
+    assert.ok(!sesMots.has(neuf.visite.mot.index))
+
+    // Cléo supprimée : ses lignes partent avec elle, et ses mots du compte de tous — restent les deux de Dédé.
     const idDeCleo = idDe(banc, 'cleo')
     assert.equal((await ecrire(banc.url, `/api/admin/profils/${idDeCleo}`, undefined, admin, 'DELETE')).status, 200)
     assert.equal(base(banc, db => (db.prepare('SELECT COUNT(*) AS n FROM profile_sphinx WHERE profile_id = ?').get(idDeCleo) as { n: number }).n), 0)
-    assert.equal((await leSphinx(banc, lea)).phrase.parTous, 1)
+    assert.equal((await leSphinx(banc, lea)).phrase.parTous, 2)
   }))
 
 test('une phrase reconstituée par tous ne s’impose à personne — chacun la lit s’il le choisit —, et le Divin du moment passe au suivant', () =>
