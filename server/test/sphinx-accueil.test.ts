@@ -173,7 +173,7 @@ test('seul un habitué est visité, une fois par jour, la même après un rechar
     assert.equal((await leSphinx(banc, lea)).visite.enigme.numero, v.enigme.numero)
     assert.equal(base(banc, db => (db.prepare('SELECT COUNT(*) AS n FROM profile_sphinx WHERE profile_id = ?').get(idDe(banc, 'lea')) as { n: number }).n), 1)
 
-    // Plus tard : épinglé jusqu'à minuit.
+    // Plus tard : épinglé jusqu'à sa fin.
     assert.equal((await geste(banc, lea, { geste: 'plus-tard' })).corps.visite.etat, 'plus-tard')
     assert.equal((await missions(banc, lea)).sphinx, 'epingle')
 
@@ -210,7 +210,7 @@ test('seul un habitué est visité, une fois par jour, la même après un rechar
 // d'ouvrir l'énigme quand il le souhaite. » Une visite proposée surgissait à
 // chaque accueil tant qu'on ne l'avait pas remise à plus tard : l'appli fermée
 // pendant sa présentation, ou l'énigme ouverte puis quittée, il revenait.
-test('le Sphinx ne surgit qu’une fois : arrivé sur l’accueil, ou son énigme écoutée, il s’épingle jusqu’à minuit', () =>
+test('le Sphinx ne surgit qu’une fois : arrivé sur l’accueil, ou son énigme écoutée, il s’épingle jusqu’à sa fin', () =>
   avecBanc(midi(26), {}, async banc => {
     await ouvrir(banc, await connexionAnimateur(banc.url))
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
@@ -236,6 +236,162 @@ test('le Sphinx ne surgit qu’une fois : arrivé sur l’accueil, ou son énigm
     assert.equal((await missions(banc, tom)).sphinx, 'attend')
     assert.equal((await geste(banc, tom, { geste: 'ecouter' })).corps.visite.etat, 'proposee')
     assert.equal((await missions(banc, tom)).sphinx, 'epingle')
+  }))
+
+// Le choix du propriétaire, le 25 novembre 2026 : « peut-être qu'il s'en fout
+// […] garder l'énigme pas uniquement la journée mais jusqu'à la résolution ».
+// Elle mourait à minuit : ignorée, elle comptait pour vue et ne revenait
+// jamais, et le Sphinx en reposait une autre trois jours plus tard.
+const visitesDe = (banc: Banc, login: string) =>
+  base(banc, db => (db.prepare('SELECT COUNT(*) AS n FROM profile_sphinx WHERE profile_id = ?').get(idDe(banc, login)) as { n: number }).n)
+/** Une réponse que le Sphinx ne prend ni pour juste ni pour brûlante. */
+const RATEE = 'zzzz'
+
+test('une énigme reste jusqu’à sa fin : épinglée les jours suivants, ses essais gardés, sans autre visite ; finie, il ne repasse pas le même jour', () =>
+  avecBanc(midi(22), {}, async (banc, horloge) => {
+    await ouvrir(banc, await connexionAnimateur(banc.url))
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    joue(banc, 'lea', jours(16, 28))
+    assert.equal((await missions(banc, lea)).sphinx, 'attend')
+    const posee = (await leSphinx(banc, lea)).visite
+    assert.equal((await geste(banc, lea, { geste: 'surgir' })).status, 200)
+    // Le lendemain, puis deux jours après : la même, épinglée — et pas une de plus.
+    for (const jour of [23, 25]) {
+      horloge.t = midi(jour)
+      assert.equal((await missions(banc, lea)).sphinx, 'epingle', `le ${jour}`)
+      const v = (await leSphinx(banc, lea)).visite
+      assert.deepEqual([v.enigme.numero, v.jour, v.etat, v.essaisRestants], [posee.enigme.numero, septembre(22), 'proposee', 3], `le ${jour}`)
+    }
+    assert.equal(visitesDe(banc, 'lea'), 1)
+    // Essayée, puis remise à plus tard : ses essais la suivent d'un jour à l'autre, et d'un redémarrage.
+    assert.equal((await geste(banc, lea, { geste: 'repondre', reponse: RATEE })).corps.visite.essaisRestants, 2)
+    assert.equal((await geste(banc, lea, { geste: 'plus-tard' })).corps.visite.etat, 'plus-tard')
+    await banc.redemarrer()
+    horloge.t = midi(26)
+    assert.equal((await missions(banc, lea)).sphinx, 'epingle')
+    const juste = await geste(banc, lea, { geste: 'repondre', reponse: enigmeDe(posee.enigme.numero).acceptees[0] })
+    assert.deepEqual([juste.status, juste.corps.verdict, juste.corps.visite.jour, juste.corps.visite.essaisRestants], [200, 'juste', septembre(22), 1])
+    assert.ok(juste.corps.visite.mot, 'résolue un autre jour, elle souffle son mot')
+    // Finie aujourd'hui : il ne repasse pas ce jour-là, et sa page la montre close.
+    assert.ok(!('sphinx' in (await missions(banc, lea))))
+    assert.equal((await leSphinx(banc, lea)).visite.etat, 'resolue')
+    assert.equal((await geste(banc, lea, { geste: 'repondre', reponse: RATEE })).status, 409)
+    assert.equal(visitesDe(banc, 'lea'), 1)
+    // Le lendemain, une autre — et elle surgit : il a joué celle d'avant.
+    horloge.t = midi(27)
+    assert.equal((await missions(banc, lea)).sphinx, 'attend')
+    const suivante = (await leSphinx(banc, lea)).visite
+    assert.deepEqual([suivante.jour, suivante.etat], [septembre(27), 'proposee'])
+    assert.notEqual(suivante.enigme.numero, posee.enigme.numero)
+  }))
+
+test('une visite d’avant, restée ouverte sous la règle de minuit, attend encore si c’est sa dernière ; suivie d’une autre, elle ne revient pas', () =>
+  avecBanc(midi(26), {}, async banc => {
+    await ouvrir(banc, await connexionAnimateur(banc.url))
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐯')
+    joue(banc, 'lea', jours(20, 26))
+    joue(banc, 'tom', jours(20, 26))
+    const [facile, autre, troisieme] = enigmesDuSphinx().filter(e => e.difficulte === 'facile')
+    const poser = (login: string, jour: string, enigme: string, etat: string, ecoutee: number | null) =>
+      base(banc, db =>
+        db
+          .prepare(`INSERT INTO profile_sphinx (profile_id, jour, enigme, divin, etat, proposee_le, ecoutee_le) VALUES (?, ?, ?, ?, ?, 1, ?)`)
+          .run(idDe(banc, login), jour, enigme, DIVIN_DU_MOMENT, etat, ecoutee),
+      )
+    // Léa avait laissé la sienne d'avant-hier sans répondre, déjà écoutée : elle l'attend, épinglée.
+    poser('lea', septembre(24), facile.numero, 'plus-tard', 1)
+    // Tom en avait laissé une, puis abandonné la suivante : la première ne revient pas.
+    poser('tom', septembre(21), autre.numero, 'proposee', null)
+    poser('tom', septembre(23), troisieme.numero, 'abandonnee', 1)
+    await banc.redemarrer()
+    assert.equal((await missions(banc, lea)).sphinx, 'epingle')
+    assert.equal((await leSphinx(banc, lea)).visite.enigme.numero, facile.numero)
+    // Tom : une visite neuve, épinglée sans surgir — il avait donné sa langue au chat sans un essai.
+    assert.equal((await missions(banc, tom)).sphinx, 'epingle')
+    const deTom = (await leSphinx(banc, tom)).visite
+    assert.deepEqual([deTom.jour, deTom.etat], [septembre(26), 'proposee'])
+    assert.ok(![autre.numero, troisieme.numero].includes(deTom.enigme.numero), 'une énigme qu’il n’a jamais vue')
+  }))
+
+test('la suivante ne surgit que s’il a joué celle d’avant : sa langue au chat sans un essai, elle s’épingle en silence', () =>
+  avecBanc(midi(22), {}, async (banc, horloge) => {
+    await ouvrir(banc, await connexionAnimateur(banc.url))
+    const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐯')
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    joue(banc, 'tom', jours(16, 28))
+    joue(banc, 'lea', jours(16, 28))
+    // Sa toute première surgit toujours. Tom n'en veut pas : il donne sa langue au chat sans rien essayer.
+    assert.equal((await missions(banc, tom)).sphinx, 'attend')
+    assert.equal((await geste(banc, tom, { geste: 'chat' })).corps.visite.etat, 'abandonnee')
+    // Léa essaie une fois, puis abandonne.
+    assert.equal((await missions(banc, lea)).sphinx, 'attend')
+    assert.equal((await geste(banc, lea, { geste: 'repondre', reponse: RATEE })).corps.verdict, 'faux')
+    assert.equal((await geste(banc, lea, { geste: 'chat' })).corps.visite.etat, 'abandonnee')
+
+    horloge.t = midi(23)
+    // Chez Tom, la suivante attend épinglée, sans surgir — relue, et après un redémarrage : rien ne l'écrit, tout se lit.
+    assert.equal((await missions(banc, tom)).sphinx, 'epingle')
+    assert.equal((await missions(banc, tom)).sphinx, 'epingle')
+    await banc.redemarrer()
+    assert.equal((await missions(banc, tom)).sphinx, 'epingle')
+    const deTom = (await leSphinx(banc, tom)).visite
+    assert.deepEqual([deTom.jour, deTom.etat, deTom.essaisRestants], [septembre(23), 'proposee', 3])
+    // Chez Léa, elle surgit.
+    assert.equal((await missions(banc, lea)).sphinx, 'attend')
+    // Tom l'ouvre de lui-même, par l'épingle, et la résout : la suivante surgira chez lui aussi.
+    assert.equal((await geste(banc, tom, { geste: 'ecouter' })).status, 200)
+    assert.equal((await geste(banc, tom, { geste: 'repondre', reponse: enigmeDe(deTom.enigme.numero).acceptees[0] })).corps.verdict, 'juste')
+    horloge.t = midi(24)
+    assert.equal((await missions(banc, tom)).sphinx, 'attend')
+  }))
+
+test('une énigme qui a attendu souffle un mot du Divin du moment à sa fin, pas de celui dont tous ont retrouvé la phrase entre-temps', () =>
+  avecBanc(midi(26), {}, async (banc, horloge) => {
+    await ouvrir(banc, await connexionAnimateur(banc.url))
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const ana = await inscrireProfil(banc.url, 'ana', 'Ana', '🐸')
+    await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
+    joue(banc, 'lea', jours(20, 28))
+    joue(banc, 'ana', jours(20, 28))
+    // Bob a trouvé tous les mots cachés du Divin du moment, sauf un, en autant de visites d'avant.
+    const caches = motsDeLaLegende(legendeDe(DIVIN_DU_MOMENT)!).flatMap((m, i) => (m.cache ? [i] : []))
+    base(banc, db =>
+      caches.slice(1).forEach((mot, i) =>
+        db
+          .prepare(`INSERT INTO profile_sphinx (profile_id, jour, enigme, divin, etat, essais, mot, proposee_le) VALUES (?, ?, ?, ?, 'resolue', 1, ?, 1)`)
+          .run(idDe(banc, 'bob'), jourAvant('2026-08-01', i), `x${i}`, DIVIN_DU_MOMENT, mot),
+      ),
+    )
+    await banc.redemarrer()
+    // Léa reçoit sa visite et la remet à plus tard.
+    assert.equal((await missions(banc, lea)).sphinx, 'attend')
+    const deLea = (await leSphinx(banc, lea)).visite
+    assert.equal(deLea.divin.key, DIVIN_DU_MOMENT)
+    assert.equal((await geste(banc, lea, { geste: 'plus-tard' })).status, 200)
+    // Ana résout la sienne : le dernier mot, la phrase reconstituée — le Divin du moment passe au suivant.
+    const deAna = (await leSphinx(banc, ana)).visite
+    const dAna = (await geste(banc, ana, { geste: 'repondre', reponse: enigmeDe(deAna.enigme.numero).acceptees[0] })).corps
+    assert.deepEqual([dAna.verdict, dAna.visite.mot.index], ['juste', caches[0]])
+    const SUIVANT = ORDRE_DU_SPHINX[1]
+    assert.equal((await leSphinx(banc, lea)).phrase.divin.key, SUIVANT)
+
+    // Le lendemain, Léa retrouve son énigme : elle vise le Divin du moment, et sa fin en souffle un mot.
+    horloge.t = midi(27)
+    const attend = (await leSphinx(banc, lea)).visite
+    assert.deepEqual([attend.enigme.numero, attend.jour, attend.divin.key, attend.phrase.divin.key], [deLea.enigme.numero, septembre(26), SUIVANT, SUIVANT])
+    rienQueSesMots(attend, SUIVANT, new Set(), 'Léa, son énigme qui attend')
+    const sonMot = (await geste(banc, lea, { geste: 'repondre', reponse: enigmeDe(deLea.enigme.numero).acceptees[0] })).corps
+    assert.deepEqual([sonMot.verdict, sonMot.motNeuf, sonMot.visite.divin.key], ['juste', true, SUIVANT])
+    const duSuivant = motsDeLaLegende(legendeDe(SUIVANT)!)
+    assert.ok(duSuivant[sonMot.visite.mot.index]?.cache, 'un mot caché de la phrase du Divin du moment')
+    assert.ok(sonMot.visite.mot.texte === duSuivant[sonMot.visite.mot.index].texte, 'son texte, à sa place')
+    rienQueSesMots(sonMot, SUIVANT, new Set([sonMot.visite.mot.index]), 'Léa, son mot')
+    // Rangé sous ce Divin : sa phrase le compte, et tous avec elle — après un redémarrage aussi.
+    await banc.redemarrer()
+    const relue = await leSphinx(banc, lea)
+    assert.deepEqual([relue.phrase.divin.key, relue.phrase.siens, relue.phrase.parTous], [SUIVANT, 1, 1])
+    assert.equal(relue.visite.divin.key, SUIVANT)
   }))
 
 // Le premier retour de la production, le 24 novembre 2026 : « Je vois nulle

@@ -596,6 +596,12 @@ export interface LigneDuSphinx {
    * lors, il ne surgit plus, il s'épingle (`Sphinx.decider`). Null, il n'est jamais arrivé jusqu'à lui.
    */
   ecouteeLe: number | null
+  /**
+   * L'instant où elle s'est close. Une énigme attend sa fin, de jour en jour (le choix du propriétaire du 25 novembre
+   * 2026) : finie aujourd'hui, même posée avant, c'est encore la visite du jour, et aucune autre ne vient ce jour-là
+   * (`visiteEnCours`).
+   */
+  closeLe: number | null
 }
 
 /**
@@ -652,7 +658,7 @@ function soireesLues(rows: readonly Row[]): { le: number; confettis: number; com
 /** Ses visites du Sphinx, toutes (une par jour au plus, et les énigmes comptées pour vues) : ses mots et ses énigmes vues s'en dérivent. */
 function lectureDuSphinx(profileId: string): InStatement {
   return {
-    sql: 'SELECT jour, enigme, divin, etat, essais, reponses, mot, proposee_le, ecoutee_le FROM profile_sphinx WHERE profile_id = ? ORDER BY jour',
+    sql: 'SELECT jour, enigme, divin, etat, essais, reponses, mot, proposee_le, ecoutee_le, close_le FROM profile_sphinx WHERE profile_id = ? ORDER BY jour',
     args: [profileId],
   }
 }
@@ -676,6 +682,7 @@ function lignesDuSphinxLues(rows: readonly Row[]): LigneDuSphinx[] {
       mot: r.mot === null || r.mot === undefined ? null : Number(r.mot),
       proposeeLe: Number(r.proposee_le ?? 0),
       ecouteeLe: r.ecoutee_le === null || r.ecoutee_le === undefined ? null : Number(r.ecoutee_le),
+      closeLe: r.close_le === null || r.close_le === undefined ? null : Number(r.close_le),
     }
   })
 }
@@ -2710,19 +2717,33 @@ export class ProfileStore {
   /**
    * Écrit ce qu'un geste a fait de la visite d'un jour, si elle est encore
    * telle qu'il l'a lue (son état et ses essais) : deux gestes croisés — deux
-   * serveurs — n'en font jamais un troisième. Rend vrai s'il a écrit.
+   * serveurs — n'en font jamais un troisième. Rend vrai s'il a écrit. Le mot
+   * gagné se range sous le Divin dont il vient (`divin`) : une énigme qui a
+   * attendu le tire du Divin du moment de sa fin, pas de celui de sa pose.
    */
   async ecrireUnGesteDuSphinx(
     profileId: string,
     jour: string,
     avant: { etat: string; essais: number },
-    apres: { etat: string; essais: number; reponses: readonly string[]; mot: number | null; ecouteeLe: number | null; closeLe: number | null },
+    apres: { etat: string; essais: number; reponses: readonly string[]; mot: number | null; divin?: string | null; ecouteeLe: number | null; closeLe: number | null },
   ): Promise<boolean> {
     const res = await this.client.execute({
-      sql: `UPDATE profile_sphinx SET etat = ?, essais = ?, reponses = ?, mot = COALESCE(?, mot),
+      sql: `UPDATE profile_sphinx SET etat = ?, essais = ?, reponses = ?, mot = COALESCE(?, mot), divin = COALESCE(?, divin),
                    ecoutee_le = COALESCE(ecoutee_le, ?), close_le = COALESCE(close_le, ?)
             WHERE profile_id = ? AND jour = ? AND etat = ? AND essais = ?`,
-      args: [apres.etat, apres.essais, JSON.stringify(apres.reponses), apres.mot, apres.ecouteeLe, apres.closeLe, profileId, jour, avant.etat, avant.essais],
+      args: [
+        apres.etat,
+        apres.essais,
+        JSON.stringify(apres.reponses),
+        apres.mot,
+        apres.divin ?? null,
+        apres.ecouteeLe,
+        apres.closeLe,
+        profileId,
+        jour,
+        avant.etat,
+        avant.essais,
+      ],
     })
     return res.rowsAffected > 0
   }

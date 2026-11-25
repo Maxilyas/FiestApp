@@ -187,13 +187,13 @@ test('« Voir la réponse » la rend, la range pour vue sur le profil de l’adm
     const autre = neuves.find(e => e.numero !== sienne)!.numero
     let page = await laPage(banc, admin2)
     assert.equal(page.profil, true)
-    assert.equal(page.enigmes.find(e => e.numero === sienne)?.aToi, 'aujourdhui')
+    assert.equal(page.enigmes.find(e => e.numero === sienne)?.aToi, 'en-cours')
     assert.equal(page.enigmes.find(e => e.numero === autre)?.aToi, null)
     assert.equal(page.enigmes.find(e => e.numero === '32')?.aToi, 'vue', 'une des huit qu’il connaissait')
     rienDeSecret(page, reserve, 'la page')
     const refus = await voirLaReponse(banc, admin2, sienne)
     assert.equal(refus.status, 409)
-    assert.deepEqual(refus.corps, { error: 'Le Sphinx te la pose aujourd’hui : réponds-lui, ou donne ta langue au chat, avant de lire sa réponse ici.' })
+    assert.deepEqual(refus.corps, { error: 'Le Sphinx te la pose en ce moment : réponds-lui, ou donne ta langue au chat, avant de lire sa réponse ici.' })
 
     // L'autre : sa réponse, et elle rejoint ses énigmes vues.
     const lue = await voirLaReponse(banc, admin2, autre)
@@ -250,9 +250,15 @@ test('« Voir la réponse » la rend, la range pour vue sur le profil de l’adm
     )
     for (const x of [enigmeDe(autre), enigmeDe('32')]) assert.ok(!phrases.some(p => p.includes(x.solution)), `le journal cite la solution de l’énigme n° ${x.numero}`)
 
-    // Sa visite close, le lendemain : plus rien à lui poser — l'autre est vue, la réponse lue ici.
-    assert.equal((await faire(banc, proprio, '/api/joueur/sphinx', { geste: 'chat' })).corps.visite.etat, 'abandonnee')
+    // Le lendemain, elle l'attend encore — une énigme reste jusqu'à sa fin (le choix du propriétaire du 25 novembre
+    // 2026) — : sa réponse ne se lit toujours pas ici.
     horloge.t = midi(27)
+    page = await laPage(banc, admin2)
+    assert.equal(page.enigmes.find(x => x.numero === sienne)?.aToi, 'en-cours')
+    assert.equal((await voirLaReponse(banc, admin2, sienne)).status, 409)
+    // Close, et le jour d'après : plus rien à lui poser — l'autre est vue, la réponse lue ici.
+    assert.equal((await faire(banc, proprio, '/api/joueur/sphinx', { geste: 'chat' })).corps.visite.etat, 'abandonnee')
+    horloge.t = midi(28)
     assert.equal((await lire(banc, proprio, '/api/joueur/sphinx')).corps.visite, null)
     assert.ok(!('sphinx' in (await lire(banc, proprio, '/api/joueur/missions')).corps))
   })

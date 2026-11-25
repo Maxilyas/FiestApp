@@ -737,6 +737,15 @@ Le détail : [les récompenses](../produit/les-recompenses.md).
 
 *Fichiers : `server/src/core/sphinx.ts`, `shared/sphinx.ts`, `client/src/components/Sphinx.tsx`, `server/test/sphinx-pur.test.ts`, `server/test/sphinx-accueil.test.ts`, `server/test/sphinx-ecran.test.ts`*
 
+### Une énigme attend sa fin, et ne surgit que chez qui a joué la précédente
+**Contexte** : le même jour, le propriétaire : « si quelqu'un ne veut pas répondre à une énigme, peut-être qu'il n'a pas envie que tous les trois jours en moyenne ça interrompe son passage régulier […] Peut-être qu'il s'en fout de ça. Peut-être alors garder l'énigme pas uniquement la journée mais jusqu'à la résolution ? » Une énigme mourait à minuit : ignorée, elle comptait pour vue sans avoir été jouée — une de moins sur les quatre-vingt-six —, et le Sphinx surgissait de nouveau une ou deux fois par semaine chez qui n'en voulait pas.
+
+**Décision** : **une énigme à la fois, qui attend sa fin**, de jour en jour, ses essais avec elle — résolue, perdue, ou la langue au chat (`visiteEnCours` : sa dernière visite, tant qu'elle n'est pas close, ou finie aujourd'hui) ; une neuve ne se tire qu'ensuite, à la même chance d'un jour sur trois. **La suivante ne surgit que s'il a joué celle d'avant** — une réponse au moins (`laSuivanteSurgit`) — : sinon elle s'épingle sans l'interpeller, relu à chaque lecture, rien d'écrit. La règle ajoutée à la proposition du propriétaire : sans elle, la langue au chat aurait servi à se débarrasser de l'énigme, et la suivante aurait resurgi trois jours plus tard. Et le mot d'une énigme qui a attendu vient du Divin du moment de sa fin (`divinVise`), rangé sous lui : la phrase de sa pose a pu être retrouvée entre-temps. Pas de réglage « Ne plus me proposer d'énigmes » : la règle le fait sans une option de plus.
+
+**Conséquence** : qui n'en veut pas n'est interpellé qu'une fois, puis ne garde que l'épingle ; qui joue garde la surprise à chaque énigme, et peut réfléchir des jours, ou demander à un ami. Le rythme des phrases ne change pas : il tient au mot neuf du jour (la décision précédente), pas au nombre d'énigmes. Une visite d'avant restée ouverte sous la règle de minuit revient si c'est sa dernière, jamais si une autre l'a suivie. Le Sphinx ne promet plus d'heure (« Je reste là jusqu'à minuit » est devenu « touche-moi quand tu voudras l'entendre »), et le QG dit « la tienne, en cours ».
+
+*Fichiers : `server/src/core/sphinx.ts`, `server/src/auth/profiles.ts`, `shared/sphinx.ts`, `shared/qgSphinx.ts`, `client/src/components/{Sphinx,QgSphinx}.tsx`, `server/test/sphinx-pur.test.ts`, `server/test/sphinx-accueil.test.ts`, `server/test/qg-sphinx.test.ts`, `server/test/sphinx-ecran.test.ts`*
+
 ### Les trophées se rangent par mode, et se disent avec les mêmes mots
 **Contexte** : « très confus, les trophées que les gens gagnent » — dix lignes les rangeaient selon la logique du code (« Paliers des soirées », « Paliers de toujours »…), un même exploit tombait sous deux noms (Le Laurier et le palier du Champion du jour, aux mêmes seuils), et chaque fin de partie montrait ses gains à sa façon.
 
