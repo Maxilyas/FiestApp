@@ -21,6 +21,7 @@ import {
   estUnNombre,
   jugerLaReponse,
   joursJoues,
+  laSuivanteSurgit,
   motsDeLaLegende,
   motsEgaux,
   normaliser,
@@ -28,8 +29,10 @@ import {
   phrasesReconstituees,
   quiADesMotsPour,
   tirageDeLaVisite,
+  visiteEnCours,
   type Enigme,
 } from '../src/core/sphinx'
+import type { LigneDuSphinx } from '../src/auth/profiles'
 import { legendeDe } from '../src/core/divins'
 import { DIVINS } from '../../shared/divins'
 import { AUCUNE_ACTIVITE, type ActiviteDuJour } from '../../shared/missions'
@@ -386,4 +389,54 @@ test('surgir ne change rien à la visite : ni son état, ni ses essais, ni ses r
     assert.deepEqual(appliquerLeGeste(avant, 'surgir', undefined, e), { apres: avant })
   }
   assert.ok('refus' in appliquerLeGeste({ etat: 'resolue', essais: 1, reponses: [] }, 'surgir', undefined, e), 'close : rien à surgir')
+})
+
+// ── L'énigme qui attend ───────────────────────────────────────────────────
+
+// Le choix du propriétaire du 25 novembre 2026 : « garder l'énigme pas
+// uniquement la journée mais jusqu'à la résolution », et ne pas interpeller
+// tous les trois jours qui « s'en fout ». Elle mourait à minuit ; elle attend
+// maintenant sa fin, et la suivante ne surgit que s'il a joué celle d'avant.
+const midiDu = (jour: number) => Date.UTC(2026, 8, jour, 10, 0)
+const uneVisite = (jour: string, etat: LigneDuSphinx['etat'], plus: Partial<LigneDuSphinx> = {}): LigneDuSphinx => ({
+  jour,
+  enigme: `e-${jour}`,
+  divin: ORDRE_DU_SPHINX[0],
+  etat,
+  essais: 0,
+  reponses: [],
+  mot: null,
+  proposeeLe: 1,
+  ecouteeLe: null,
+  closeLe: null,
+  ...plus,
+})
+
+test('la visite en cours : sa dernière tant qu’elle n’est pas close, de quelque jour qu’elle date, ou finie aujourd’hui', () => {
+  const aujourdhui = '2026-09-26'
+  const finie = uneVisite('2026-09-20', 'resolue', { essais: 1, closeLe: midiDu(20) })
+  // Posée il y a trois jours, remise à plus tard : elle attend encore.
+  assert.equal(visiteEnCours([finie, uneVisite('2026-09-23', 'plus-tard')], aujourdhui)?.jour, '2026-09-23')
+  assert.equal(visiteEnCours([finie, uneVisite('2026-09-23', 'proposee', { essais: 2 })], aujourdhui)?.essais, 2, 'ses essais la suivent')
+  // Finie aujourd'hui, même posée avant : c'est la sienne du jour, et aucune autre ne vient ce jour-là.
+  const finieAujourdhui = uneVisite('2026-09-23', 'resolue', { essais: 1, closeLe: midiDu(26) })
+  assert.equal(visiteEnCours([finie, finieAujourdhui], aujourdhui), finieAujourdhui)
+  // Finie un autre jour : plus rien en cours.
+  assert.equal(visiteEnCours([finie, uneVisite('2026-09-23', 'perdue', { essais: 3, closeLe: midiDu(24) })], aujourdhui), undefined)
+  // Une visite d'avant, restée ouverte sous la règle de minuit et qu'une autre a suivie, ne revient pas : seule la
+  // dernière peut attendre.
+  assert.equal(visiteEnCours([uneVisite('2026-09-20', 'proposee'), uneVisite('2026-09-22', 'abandonnee', { closeLe: midiDu(22) })], aujourdhui), undefined)
+  // Les lignes à part ne sont pas des visites, même rangées après elles.
+  assert.equal(visiteEnCours([finie, uneVisite('vue:32', 'vue'), uneVisite('appris:dv:x:3', 'appris'), uneVisite('inscrits:2026-09-26', 'inscrits')], aujourdhui), undefined)
+  assert.equal(visiteEnCours([], aujourdhui), undefined)
+})
+
+test('la suivante ne surgit que s’il a joué celle d’avant — une réponse au moins — ; sa toute première surgit toujours', () => {
+  assert.equal(laSuivanteSurgit(undefined), true, 'sa première visite')
+  assert.equal(laSuivanteSurgit(uneVisite('2026-09-20', 'abandonnee')), false, 'la langue au chat, sans un essai')
+  assert.equal(laSuivanteSurgit(uneVisite('2026-09-20', 'abandonnee', { essais: 1 })), true, 'un essai, puis le chat')
+  assert.equal(laSuivanteSurgit(uneVisite('2026-09-20', 'resolue', { essais: 1 })), true)
+  assert.equal(laSuivanteSurgit(uneVisite('2026-09-20', 'perdue', { essais: 3 })), true)
+  // Une visite d'avant laissée sans une réponse jusqu'à minuit, sous la règle d'avant : il ne l'a pas jouée.
+  assert.equal(laSuivanteSurgit(uneVisite('2026-09-20', 'proposee')), false)
 })

@@ -309,7 +309,7 @@ function EnigmeParEnigme({ page, ouvrir }: { page: PageDuSphinxAuQg; ouvrir: (e:
                   <button type="button" className="qg-jouee" aria-haspopup="dialog" onClick={() => ouvrir(e)}>
                     <span className="qg-jouee-texte">
                       {`n° ${e.numero}`}
-                      {e.aToi && <span className="etiquette qg-sphinx-a-toi">{e.aToi === 'aujourdhui' ? 'la tienne aujourd’hui' : 'vue'}</span>}
+                      {e.aToi && <span className="etiquette qg-sphinx-a-toi">{e.aToi === 'en-cours' ? 'la tienne, en cours' : 'vue'}</span>}
                     </span>
                     <span className="qg-jouee-sous">{`${nomDeLaSorte(e)} · ${NOM_DE_LA_DIFFICULTE[e.difficulte].toLowerCase()} · ${formatNumber(e.resolues)} résolue${e.resolues > 1 ? 's' : ''}, ${formatNumber(e.perdues)} perdue${e.perdues > 1 ? 's' : ''}, ${formatNumber(e.chat)} au chat`}</span>
                   </button>
@@ -404,8 +404,8 @@ function FeuilleDeLEnigme({ e, profil, onFermer, apresUnGeste }: { e: EnigmeAuQg
           {reponse.presque.length > 0 && <span className="muted small">{espacesFines(`Brûlent, sans coûter d’essai : ${reponse.presque.join(', ')}`)}</span>}
           <span className="muted small">{reponse.deja ? 'Tu l’avais déjà vue.' : 'Elle est rangée parmi tes énigmes vues : le Sphinx ne te la posera pas.'}</span>
         </div>
-      ) : e.aToi === 'aujourdhui' ? (
-        <p className="muted small">{espacesFines('Le Sphinx te la pose aujourd’hui : réponds-lui sur ton accueil, ou donne ta langue au chat, avant de lire sa réponse ici.')}</p>
+      ) : e.aToi === 'en-cours' ? (
+        <p className="muted small">{espacesFines('Le Sphinx te la pose en ce moment : réponds-lui sur ton accueil, ou donne ta langue au chat, avant de lire sa réponse ici.')}</p>
       ) : !profil ? (
         <p className="muted small">{espacesFines('Ton compte n’a pas de profil où ranger cette énigme : connecte-toi à ton profil pour lire sa réponse.')}</p>
       ) : (

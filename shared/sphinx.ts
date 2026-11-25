@@ -18,8 +18,9 @@ export const ESSAIS_DU_SPHINX = 3
 
 /**
  * Ce que devient une visite : proposée, remise à plus tard (le Sphinx
- * épinglé au bas de l'accueil jusqu'à minuit), puis close — résolue, perdue
- * au troisième essai, ou abandonnée (« Je donne ma langue au chat »).
+ * épinglé sur l'accueil), puis close — résolue, perdue au troisième essai, ou
+ * abandonnée (« Je donne ma langue au chat »). Elle attend sa fin de jour en
+ * jour (le choix du propriétaire du 25 novembre 2026) : une seule à la fois.
  */
 export type EtatDeLaVisite = 'proposee' | 'plus-tard' | 'resolue' | 'perdue' | 'abandonnee'
 export const VISITE_CLOSE: readonly EtatDeLaVisite[] = ['resolue', 'perdue', 'abandonnee']
@@ -35,7 +36,8 @@ export type GesteDuSphinx = (typeof GESTES_DU_SPHINX)[number]
 
 /**
  * Ce que l'accueil lit dans ses missions (`MissionsDuJour.sphinx`) : une visite attend son arrivée — elle surgit —,
- * ou elle est épinglée : il l'a remise à plus tard, ou le Sphinx lui a déjà parlé (`ecoutee_le`).
+ * ou elle est épinglée : il l'a remise à plus tard, le Sphinx lui a déjà parlé (`ecoutee_le`), ou il n'a pas joué
+ * celle d'avant — elle s'épingle sans l'interpeller.
  */
 export type SphinxDesMissions = 'attend' | 'epingle'
 

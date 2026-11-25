@@ -236,8 +236,10 @@ test('l’énigme se remet à plus tard d’un toucher, ses essais gardés, et l
   // Les deux sorties, côte à côte sous la réponse : remettre à plus tard d'abord, abandonner ensuite.
   assert.match(html, /<div class="sx-issues"><button type="button" class="sx-plus-tard">Plus tard<\/button><button type="button" class="sx-chat">Je donne ma langue au chat<\/button><\/div>/)
   const source = lire('client/src/components/Sphinx.tsx')
-  // Le menu dit ce que fait le Sphinx : il reste, épinglé, jusqu'à minuit.
+  // Le menu dit ce que fait le Sphinx : il reste, épinglé, jusqu'à la fin de son énigme — elle ne meurt plus à minuit
+  // (le choix du propriétaire du 25 novembre 2026), et aucune de ses répliques ne le promet.
   assert.doesNotMatch(source, /Pas aujourd’hui/)
+  assert.ok(!/minuit/.test(source), 'ni une réplique, ni un commentaire : son énigme attend sa fin')
   assert.match(source, /demander\(moi, texte, \[\s*\['oui', 'J’écoute !'\],\s*\['non', 'Plus tard'\],?\s*\]\)/)
   // Le geste part au serveur, qui garde ses essais et ses réponses (`sphinx-pur.test.ts`) ; puis le Sphinx s'épingle.
   assert.match(source, /envoyer\(moi, 'plus-tard'\)[\s\S]*?issue\.current\?\.\(\{ quoi: 'plus-tard', verdict: v \}\)/)

@@ -338,7 +338,7 @@ export function AccueilJouer({
   /** Les pages à l'affiche où il n'est pas encore allé (`ceQueMontreLAccueil`) : « Nouveau » sur leur bouton. */
   nouvelles?: readonly PageALAffiche[]
   /**
-   * Le Sphinx remis à plus tard, épinglé jusqu'à minuit (`EpingleDuSphinx`, venu à la demande) : à droite du nom
+   * Le Sphinx remis à plus tard, épinglé jusqu'à la fin de son énigme (`EpingleDuSphinx`, venu à la demande) : à droite du nom
    * d'« Entre amis », entre deux cartes — sur aucun bouton, loin de la niche du compagnon.
    */
   epingle?: ReactNode

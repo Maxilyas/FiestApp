@@ -68,10 +68,13 @@ export function retenirLeSon(allume: boolean, stockage: Stockage | undefined = l
   }
 }
 
-/** Le jour où sa présentation s'est jouée en entier sur ce téléphone : rouverte le même jour, la visite va droit au but. */
+/**
+ * La visite dont la présentation s'est jouée en entier sur ce téléphone, par son jour — une visite par jour au plus, il
+ * la nomme : rouverte, même un autre jour (une énigme attend sa fin), elle va droit au but.
+ */
 const CLE_DE_LA_PRESENTATION = 'quizz.sphinx.presente'
 
-/** Sa présentation s'est-elle déjà jouée ce jour-là, ici ? */
+/** La présentation de cette visite — son jour — s'est-elle déjà jouée ici ? */
 export function dejaPresente(jour: string, stockage: Stockage | undefined = leStockage()): boolean {
   try {
     return stockage?.getItem(CLE_DE_LA_PRESENTATION) === jour
@@ -84,7 +87,7 @@ export function retenirLaPresentation(jour: string, stockage: Stockage | undefin
   try {
     stockage?.setItem(CLE_DE_LA_PRESENTATION, jour)
   } catch {
-    // Sans stockage, la présentation se rejouerait à la prochaine visite du jour : rien d'autre ne se perd.
+    // Sans stockage, la présentation se rejouerait à sa prochaine ouverture : rien d'autre ne se perd.
   }
 }
 

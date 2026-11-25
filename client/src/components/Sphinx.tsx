@@ -67,8 +67,9 @@ const DIT = {
   moment: (nom: string) => `En ce moment, tous les habitués cherchent le secret ${deLui(nom)}. Il est caché dans une phrase.`,
   proposer: 'Chacun en reçoit des mots différents. Résous mon énigme, et je t’en souffle un.',
   revoila: 'Te revoilà. Mon énigme t’attendait.',
-  plusTard: 'Comme tu voudras. Je reste là jusqu’à minuit.',
-  plusTardEnigme: 'Prends ton temps. Mon énigme t’attend jusqu’à minuit, et tes essais aussi.',
+  // Une énigme attend sa fin, de jour en jour (le choix du propriétaire du 25 novembre 2026) : il ne promet plus d'heure.
+  plusTard: 'Comme tu voudras. Je reste là : touche-moi quand tu voudras l’entendre.',
+  plusTardEnigme: 'Prends ton temps. Mon énigme t’attendra, et tes essais aussi.',
   ecoute: 'Celle-ci a été écrite en *1858*. Écoute bien…',
   quiSuisJe: (sorte: EnigmeDuSphinx['sorte'], essais: number) =>
     `${sorte === 'charade' ? 'Quel est mon tout ?' : 'Qui suis-je ?'} Écris ta réponse en haut. ${essais >= 3 ? 'Tu as trois essais.' : essais === 2 ? 'Il te reste deux essais.' : 'Il te reste un seul essai.'}`,
@@ -447,7 +448,7 @@ const DECOUPE = IMAGES['lg:sphinx']?.perso
 
 /**
  * Le Sphinx épinglé, remis à plus tard : son médaillon et un « ? », près
- * d'« Entre amis » jusqu'à minuit. Le toucher rouvre la visite.
+ * d'« Entre amis », tant que son énigme n'est pas finie. Le toucher rouvre la visite.
  */
 export function EpingleDuSphinx({ onOuvrir }: { onOuvrir: () => void }) {
   return (
@@ -592,7 +593,7 @@ function peindre(toile: HTMLCanvasElement, image: HTMLImageElement | null, pas: 
 /** Une visite abandonnée en route — la page démontée, Échap : le scénario s'arrête là, sans rien dire. */
 class Abandon extends Error {}
 
-/** Ce que la visite rend à l'accueil en partant : épinglé jusqu'à minuit, close pour aujourd'hui, ou rien à montrer. */
+/** Ce que la visite rend à l'accueil en partant : épinglé jusqu'à la fin de son énigme, close pour aujourd'hui, ou rien à montrer. */
 export type IssueDeLaVisite = 'epingle' | 'close' | 'rien'
 
 type Vue = 'rien' | 'vitrine' | 'focus' | 'enigme'
@@ -869,7 +870,7 @@ function SceneDuSphinx({
 
   /**
    * Le menu du Sphinx : écouter son énigme, ou la remettre à plus tard. Un geste qui n'aboutit pas redemande.
-   * « Plus tard », et plus « Pas aujourd'hui » (la maquette) : il ne part pas, il reste épinglé jusqu'à minuit.
+   * « Plus tard », et plus « Pas aujourd'hui » (la maquette) : il ne part pas, il reste épinglé jusqu'à la fin de son énigme.
    */
   const proposer = async (moi: number, texte: string): Promise<void> => {
     const r = await demander(moi, texte, [
@@ -923,7 +924,7 @@ function SceneDuSphinx({
     return defaite(moi, fin)
   }
 
-  /** Remise à plus tard depuis l'énigme : elle garde ses essais et ses réponses, et le Sphinx s'épingle jusqu'à minuit. */
+  /** Remise à plus tard depuis l'énigme : elle garde ses essais et ses réponses, et le Sphinx s'épingle jusqu'à sa fin. */
   const remettre = async (moi: number) => {
     setScene(s => ({ ...s, enigme: false }))
     setVue('focus')
@@ -1142,10 +1143,11 @@ function SceneDuSphinx({
       const v = donnees.visite
       await chargee
       verifier(moi)
-      // Remise à plus tard, ou déjà présentée aujourd'hui sur ce téléphone : il va droit à son énigme.
+      // Remise à plus tard, ou déjà présentée sur ce téléphone — retenue par le jour de la visite, qui la nomme : il va
+      // droit à son énigme.
       const presente = v.etat === 'plus-tard' || dejaPresente(v.jour)
       await arriver(moi)
-      // Le voilà sur l'accueil : il ne surgira plus pour cette visite, l'épingle la gardera jusqu'à minuit (le retour du
+      // Le voilà sur l'accueil : il ne surgira plus pour cette visite, l'épingle la gardera jusqu'à sa fin (le retour du
       // propriétaire du 24 novembre 2026). Sans attendre ni rien dire : perdu en route, il surgira une fois de plus.
       if (v.etat === 'proposee') void api.joueur.gesteDuSphinx('surgir').catch(() => {})
       if (presente) {

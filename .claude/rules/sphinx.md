@@ -163,9 +163,31 @@ chacun la lit s'il le choisit, et l'accueil l'annonce une fois (plus bas).
   et ses réponses gardés (`appliquerLeGeste`) ; une issue touchée pendant
   les vers les arrête (`issue.current` rendu à null). Le menu dit « Plus
   tard », plus « Pas aujourd'hui » (la maquette) : le Sphinx reste épinglé
-  jusqu'à minuit, ce n'est pas un refus. Et la fin d'une énigme perdue ou
+  jusqu'à sa fin, ce n'est pas un refus. Et la fin d'une énigme perdue ou
   abandonnée ne promet pas le lendemain (`autreJour`) : une visite ne vient
   qu'un jour sur trois.
+- **Une énigme attend sa fin, une seule à la fois** (le choix du propriétaire
+  du 25 novembre 2026 : « garder l'énigme pas uniquement la journée mais
+  jusqu'à la résolution » ; la décision « Une énigme attend sa fin, et ne
+  surgit que chez qui a joué la précédente ») : la visite en cours est sa
+  dernière, tant qu'elle n'est pas close, ou finie aujourd'hui
+  (`visiteEnCours`, que `decider`, `vue`, `geste`, `auQg` et `reponseAuQg`
+  lisent — jamais « la ligne du jour » : la clé `jour` est celui de sa pose).
+  Finie, aucune autre ne vient avant demain (`close_le`, lu dans
+  `LigneDuSphinx.closeLe`). Une neuve ne se tire que la dernière close : une
+  visite d'avant, restée ouverte sous la règle de minuit et qu'une autre a
+  suivie, ne revient donc jamais. **La suivante ne surgit que s'il a joué
+  celle d'avant** (`laSuivanteSurgit`, ses `essais` : une réponse qui brûle ne
+  s'écrit pas, elle ne compte pas) — sinon `epingle`, relu à chaque lecture,
+  rien d'écrit : sans elle, la langue au chat servait à se débarrasser de
+  l'énigme, et la suivante resurgissait trois jours plus tard. **Le mot d'une
+  énigme qui a attendu vient du Divin du moment de sa fin** (`divinVise`, que
+  la visite montre déjà), rangé sous lui (`ecrireUnGesteDuSphinx` réécrit
+  `divin`, sans quoi ses mots, ceux de tous et les crédits le liraient sous
+  la phrase de sa pose, retrouvée entre-temps). Le Sphinx ne promet plus
+  d'heure : `sphinx-ecran.test.ts` cherche « minuit » dans `Sphinx.tsx`.
+  La présentation retenue sur le téléphone se nomme par le jour de la visite
+  (`dejaPresente(v.jour)`) : rouverte un autre jour, elle va droit au but.
 - **La solution se dit entre guillemets** (`laSolution`) : la clé du livre
   s'écrit sans article, avec une majuscule, et nue dans la phrase du Sphinx
   elle se lisait de travers. Une charade y ajoute son découpage.
@@ -195,7 +217,8 @@ chacun la lit s'il le choisit, et l'accueil l'annonce une fois (plus bas).
   un refus se compare mot pour mot. **La réponse n'arrive que par son geste,
   qui la range d'abord** pour vue sur le profil que tient le compte
   d'administration (`accounts.profile_id`) : sans lui, rien où la ranger, 409 ;
-  celle que le Sphinx lui pose aujourd'hui, pas encore close, 409 aussi — il
+  celle que le Sphinx lui pose en ce moment (`visiteEnCours`, de quelque jour
+  qu'elle date ; « la tienne, en cours », `aToi` `en-cours`), 409 aussi — il
   y répondrait en la sachant. Le journal la nomme par son numéro, jamais par
   sa réponse.
 - **Une phrase retrouvée par tous ne s'impose plus** (la décision du

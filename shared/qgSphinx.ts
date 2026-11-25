@@ -49,10 +49,10 @@ export interface EnigmeAuQg {
   /**
    * Ce que le profil de l'administrateur en sait : `vue` — une visite, ou
    * comptée pour vue (les huit qu'il connaissait, une réponse lue ici) —,
-   * `aujourdhui` — le Sphinx la lui pose aujourd'hui, sa réponse attend —, ou
-   * null : il ne l'a jamais vue.
+   * `en-cours` — le Sphinx la lui pose en ce moment, de quelque jour qu'elle
+   * date : sa réponse attend —, ou null : il ne l'a jamais vue.
    */
-  aToi: 'vue' | 'aujourdhui' | null
+  aToi: 'vue' | 'en-cours' | null
 }
 
 /** La page du Sphinx au QG (`GET /api/admin/sphinx`). */

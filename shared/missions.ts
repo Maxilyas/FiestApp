@@ -785,9 +785,10 @@ export interface MissionsDuJour {
   /** Les minutes avant minuit, à Paris : « trois nouvelles à minuit, plus que 7 h ». */
   minutesAvantMinuit: number
   /**
-   * Le Sphinx de l'accueil (`shared/sphinx.ts`) : une visite attend, ou il
-   * l'a remise à plus tard et le Sphinx reste épinglé jusqu'à minuit. Absent
-   * sinon — pas de visite, close, ou sa page fermée pour lui.
+   * Le Sphinx de l'accueil (`shared/sphinx.ts`) : une visite attend, ou elle
+   * est épinglée jusqu'à sa fin — remise à plus tard, déjà présentée, ou
+   * venue sans surgir. Absent sinon — pas de visite, close, ou sa page fermée
+   * pour lui.
    */
   sphinx?: SphinxDesMissions
 }

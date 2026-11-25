@@ -465,7 +465,7 @@ try {
     await page.waitForTimeout(800)
     await photo(page, 'tom', 'l-epingle', PETIT, { surAccueil: true })
     await ctx.close()
-    // L'épingle reste jusqu'à minuit : rouverte sur un autre téléphone, au grand écran, puis touchée.
+    // L'épingle reste jusqu'à la fin de son énigme : rouverte sur un autre téléphone, au grand écran, puis touchée.
     const autre = await telephone({ cookie: profils.tom, ecran: MOYEN })
     await accueil(autre.page)
     await autre.page.waitForSelector('.sx-epingle', { timeout: 20000 })

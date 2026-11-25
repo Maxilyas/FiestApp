@@ -50,7 +50,10 @@ import {
 
 // ── Les barèmes ─────────────────────────────────────────────────────────────
 
-/** Une visite par jour au plus, une chance sur trois, tirée de la graine du profil et du jour. */
+/**
+ * Une chance sur trois, chaque jour où aucune énigme ne l'attend — une seule à la fois, qui attend sa fin (le choix du
+ * propriétaire du 25 novembre 2026) —, tirée de la graine du profil et du jour.
+ */
 export const CHANCE_D_UNE_VISITE = 1 / 3
 /**
  * Les mots de trois lettres ou moins sont offerts : chaque énigme rapporte un
@@ -595,8 +598,38 @@ function minuitDuJour(jour: string): number {
  */
 type Visite = LigneDuSphinx & { etat: EtatDeLaVisite }
 const estUneVisite = (l: LigneDuSphinx): l is Visite => !(LIGNES_A_PART_DU_SPHINX as readonly string[]).includes(l.etat)
-/** La visite d'un jour, s'il y en a une. */
-const visiteDuJour = (lignes: readonly LigneDuSphinx[], jour: string): Visite | undefined => lignes.filter(estUneVisite).find(l => l.jour === jour)
+const estClose = (v: Visite) => (VISITE_CLOSE as readonly string[]).includes(v.etat)
+
+/** Ses visites, de la plus ancienne à la dernière — par leur jour, que la base range déjà, sans les lignes à part. */
+const sesVisites = (lignes: readonly LigneDuSphinx[]): Visite[] => lignes.filter(estUneVisite).sort((a, b) => (a.jour < b.jour ? -1 : a.jour > b.jour ? 1 : 0))
+
+/**
+ * La visite qu'il a devant lui : sa dernière tant qu'elle n'est pas close, de
+ * quelque jour qu'elle date, ou finie aujourd'hui. Une énigme attend sa fin
+ * (le choix du propriétaire du 25 novembre 2026 : « garder l'énigme pas
+ * uniquement la journée mais jusqu'à la résolution ») : elle mourait à minuit,
+ * comptée pour vue sans avoir été jouée, et le Sphinx en reposait une autre
+ * trois jours plus tard à qui n'en voulait pas. Finie aujourd'hui, c'est encore
+ * la sienne du jour : aucune autre ne vient avant demain. Une visite d'avant,
+ * restée ouverte sous la règle de minuit et qu'une autre a suivie, ne revient
+ * pas : seule la dernière peut attendre — il n'en vient une neuve qu'une fois
+ * la dernière close.
+ */
+export function visiteEnCours(lignes: readonly LigneDuSphinx[], aujourdhui: string): Visite | undefined {
+  const derniere = sesVisites(lignes).at(-1)
+  if (!derniere || !estClose(derniere)) return derniere
+  return derniere.jour === aujourdhui || (derniere.closeLe !== null && jourDe(derniere.closeLe) === aujourdhui) ? derniere : undefined
+}
+
+/**
+ * La visite qui suit celle-ci surgit-elle ? Seulement s'il a joué celle d'avant
+ * — une réponse au moins, juste ou fausse — ; sa toute première, toujours. Qui
+ * donne sa langue au chat sans rien essayer, ou laisse l'énigme sans y toucher,
+ * n'en veut pas : la suivante s'épingle sans l'interpeller, et c'est à lui de
+ * l'ouvrir (le choix du propriétaire du 25 novembre 2026 : « il s'en fout de
+ * ça »). Une réponse qui brûle ne s'écrit pas : elle ne compte pas.
+ */
+export const laSuivanteSurgit = (precedente: Pick<LigneDuSphinx, 'essais'> | undefined): boolean => !precedente || precedente.essais > 0
 
 /** Les Divins dont il a choisi de lire la phrase retrouvée : pour de bon, sur tous ses appareils. */
 const sesPhrasesLues = (lignes: readonly LigneDuSphinx[]) => new Set(lignes.flatMap(l => (l.etat === 'lue' ? [l.divin] : [])))
@@ -744,21 +777,25 @@ export class Sphinx {
 
   /**
    * Ce que la lecture des missions — ou celle de sa visite — décide, sur ses
-   * visites et ses jours (les mots de tous déjà lus, `pret`). Une visite déjà
-   * posée aujourd'hui dit ce qu'elle est ; sinon, il en faut une, tirée ce
-   * jour : un habitué, sa chance, un Divin du moment qu'il ne porte pas et
-   * dont un mot lui manque, une énigme qu'il n'a pas vue.
+   * visites et ses jours (les mots de tous déjà lus, `pret`). Une visite en
+   * cours dit ce qu'elle est, de quelque jour qu'elle date (`visiteEnCours`) ;
+   * sinon, il en faut une, tirée ce jour : un habitué, sa chance, un Divin du
+   * moment qu'il ne porte pas et dont un mot lui manque, une énigme qu'il n'a
+   * pas vue. Elle surgit s'il a joué celle d'avant, sinon elle s'épingle
+   * (`laSuivanteSurgit`) — rien ne l'écrit : chaque lecture le relit.
    */
   decider(profileId: string, aujourdhui: string, activites: ReadonlyMap<string, ActiviteDuJour>, lignes: readonly LigneDuSphinx[]): DecisionDuSphinx {
     const habitue = this.noterLHabitue(profileId, aujourdhui, activites)
-    const deJour = lignes.find(l => l.jour === aujourdhui)
+    const visites = sesVisites(lignes)
+    const enCours = visiteEnCours(visites, aujourdhui)
     // Il ne surgit qu'une fois (le retour du propriétaire du 24 novembre 2026 : « il devrait interpeller qu'une seule
     // fois, puis c'est à l'utilisateur d'ouvrir l'énigme quand il le souhaite ») : arrivé sur l'accueil ou son énigme
     // écoutée — `ecoutee_le` posé —, une visite pas encore close s'épingle. Il surgissait à chaque accueil tant qu'on
     // ne l'avait pas remise à plus tard : l'appli fermée pendant sa présentation, ou l'énigme quittée, il revenait.
-    if (deJour) {
-      if (deJour.etat === 'proposee' && deJour.ecouteeLe === null) return { champ: 'attend' }
-      return deJour.etat === 'proposee' || deJour.etat === 'plus-tard' ? { champ: 'epingle' } : {}
+    if (enCours) {
+      if (estClose(enCours)) return {}
+      const surgit = enCours.etat === 'proposee' && enCours.ecouteeLe === null && laSuivanteSurgit(visites[visites.indexOf(enCours) - 1])
+      return { champ: surgit ? 'attend' : 'epingle' }
     }
     if (!habitue) return {}
     if ((this.deps.tirage ?? tirageDeLaVisite)(`${profileId}|${aujourdhui}`) >= CHANCE_D_UNE_VISITE) return {}
@@ -768,10 +805,27 @@ export class Sphinx {
     // Ce qu'il en sait, trouvé ou appris : plus rien à lui souffler, pas de visite.
     const siens = cequIlSait(lignes, moment)
     if (cachesDe(this.legende(moment)!).every(i => siens.has(i))) return {}
-    const visitesAvant = lignes.filter(estUneVisite).length
-    const enigme = choisirLEnigme(this.enigmes, new Set(lignes.map(l => l.enigme)), visitesAvant, hasardDe(`${profileId}|${aujourdhui}|enigme`))
+    const enigme = choisirLEnigme(this.enigmes, new Set(lignes.map(l => l.enigme)), visites.length, hasardDe(`${profileId}|${aujourdhui}|enigme`))
     if (!enigme) return {}
-    return { champ: 'attend', aPoser: { jour: aujourdhui, enigme: enigme.numero, divin: moment, quand: this.deps.maintenant() } }
+    return {
+      champ: laSuivanteSurgit(visites.at(-1)) ? 'attend' : 'epingle',
+      aPoser: { jour: aujourdhui, enigme: enigme.numero, divin: moment, quand: this.deps.maintenant() },
+    }
+  }
+
+  /**
+   * Le Divin dont une visite soufflera le mot : close, celui qu'elle a soufflé ;
+   * ouverte, le Divin du moment, s'il lui en reste un mot à apprendre — une
+   * énigme qui a attendu ne souffle pas un mot d'une phrase que tous ont
+   * retrouvée entre-temps (le choix du propriétaire du 25 novembre 2026) ;
+   * sinon celui de sa pose. La page le montre comme elle le soufflera.
+   */
+  private divinVise(ligne: Visite, lignes: readonly LigneDuSphinx[], porte: ReadonlySet<string>): string {
+    if (estClose(ligne)) return ligne.divin
+    const moment = divinDuMoment(this.motsDeTous(), undefined, this.legende)
+    if (!moment || moment === ligne.divin || porte.has(moment)) return ligne.divin
+    const siens = cequIlSait(lignes, moment)
+    return cachesDe(this.legende(moment)!).some(i => !siens.has(i)) ? moment : ligne.divin
   }
 
   /** Pose la visite tirée, une fois ; rend ses visites telles que la base les garde. */
@@ -822,7 +876,7 @@ export class Sphinx {
     const mots = this.motsDeTous()
     const porte = new Set(this.deps.profiles.divinsOf(profileId))
     const moment = divinDuMoment(mots, undefined, this.legende)
-    const ligne = visiteDuJour(lignes, aujourdhui)
+    const ligne = visiteEnCours(lignes, aujourdhui)
     const avecQui = (phrase: PhraseDuSphinx | null): PhraseDuSphinx | null => {
       if (!phrase || !amis) return phrase
       const { liste, autres } = quiADesMotsPour(this.trouveurs.get(phrase.divin.key) ?? [], profileId, amis, this.deps.masque ?? (() => false))
@@ -848,12 +902,12 @@ export class Sphinx {
     })
   }
 
-  /** Une visite telle que la page la reçoit : la solution seulement une fois close. */
+  /** Une visite telle que la page la reçoit : la solution seulement une fois close, la phrase du Divin qu'elle vise. */
   private visiteDe(ligne: Visite, lignes: readonly LigneDuSphinx[], porte: ReadonlySet<string>): VisiteDuSphinx | null {
     const e = this.enigme(ligne.enigme)
-    const phrase = this.phraseDe(ligne.divin, lignes, porte)
+    const phrase = this.phraseDe(this.divinVise(ligne, lignes, porte), lignes, porte)
     if (!e || !phrase) return null
-    const close = (VISITE_CLOSE as readonly string[]).includes(ligne.etat)
+    const close = estClose(ligne)
     const enigme: EnigmeDuSphinx = {
       numero: e.numero,
       sorte: e.sorte,
@@ -874,9 +928,11 @@ export class Sphinx {
   }
 
   /**
-   * `POST /api/joueur/sphinx` : un geste sur la visite du jour, et son
-   * verdict. Une écriture à la fois par profil ; la visite n'est écrite que
-   * si elle est encore telle qu'il l'a lue. Le mot se tire au verdict.
+   * `POST /api/joueur/sphinx` : un geste sur la visite en cours, de quelque
+   * jour qu'elle date, et son verdict. Une écriture à la fois par profil ; la
+   * visite n'est écrite que si elle est encore telle qu'il l'a lue. Le mot se
+   * tire au verdict, du Divin qu'elle vise à cet instant (`divinVise`), et se
+   * range sous lui.
    */
   geste(profileId: string, brut: unknown): Promise<VerdictDuSphinx | RefusDuSphinx> {
     const corps = (brut ?? {}) as { geste?: unknown; reponse?: unknown }
@@ -889,48 +945,55 @@ export class Sphinx {
       const maintenant = this.deps.maintenant()
       const aujourdhui = jourDe(maintenant)
       const [lignes] = await Promise.all([this.deps.profiles.visitesDuSphinx(profileId), this.pret()])
-      const ligne = visiteDuJour(lignes, aujourdhui)
+      const ligne = visiteEnCours(lignes, aujourdhui)
       const e = ligne ? this.enigme(ligne.enigme) : undefined
-      if (!ligne || !e) return { refus: 404, error: 'Le Sphinx n’est pas passé aujourd’hui : reviens demain.' }
+      if (!ligne || !e) return { refus: 404, error: 'Le Sphinx n’a pas d’énigme pour toi en ce moment : il passera un autre jour.' }
       const issue = appliquerLeGeste(ligne, geste, reponse, e)
       if ('refus' in issue) return { refus: issue.statut, error: issue.refus }
       let mot: number | null = null
       let motNeuf: boolean | undefined
       let neufDuJourParti = false
+      // Le Divin du mot : celui du moment, pour une énigme qui a attendu — sa phrase a pu être retrouvée entre-temps.
+      const divin = issue.apres.etat === 'resolue' ? this.divinVise(ligne, lignes, new Set(this.deps.profiles.divinsOf(profileId))) : ligne.divin
       if (issue.apres.etat === 'resolue') {
-        const deTous = this.motsDeTous().get(ligne.divin) ?? new Set<number>()
-        const legende = this.legende(ligne.divin)
+        const deTous = this.motsDeTous().get(divin) ?? new Set<number>()
+        const legende = this.legende(divin)
         // Un mot neuf par jour, à tout le serveur (`MOTS_NEUFS_PAR_JOUR`) : parti, il reçoit un mot que d'autres ont trouvé.
         const neufPermis = this.motsNeufsDuJour(aujourdhui) < MOTS_NEUFS_PAR_JOUR
         // Jamais un mot qu'il a déjà appris d'un autre : le Sphinx lui en souffle un qu'il ne connaît pas.
-        mot = legende ? choisirLeMot(cachesDe(legende), cequIlSait(lignes, ligne.divin), deTous, hasardDe(`${profileId}|${ligne.jour}|mot`), { neufPermis }) : null
+        mot = legende ? choisirLeMot(cachesDe(legende), cequIlSait(lignes, divin), deTous, hasardDe(`${profileId}|${ligne.jour}|mot`), { neufPermis }) : null
         motNeuf = mot !== null && !deTous.has(mot)
         neufDuJourParti = !neufPermis && mot !== null && !motNeuf
       }
-      const close = (VISITE_CLOSE as readonly string[]).includes(issue.apres.etat)
+      const close = estClose({ ...ligne, etat: issue.apres.etat })
+      const closeLe = close ? maintenant : null
       const ecrit = await this.deps.profiles.ecrireUnGesteDuSphinx(profileId, ligne.jour, ligne, {
         ...issue.apres,
         mot,
+        // Rangé sous le Divin dont il vient : ses mots, ceux de tous et les crédits le lisent là.
+        divin: mot !== null ? divin : null,
         ecouteeLe: geste === 'surgir' || geste === 'ecouter' || geste === 'repondre' ? maintenant : null,
-        closeLe: close ? maintenant : null,
+        closeLe,
       })
       if (!ecrit) return { refus: 409, error: 'Le Sphinx a déjà entendu ce geste : recharge la page.' }
       if (mot !== null && this.mots) {
-        if (!this.mots.has(ligne.divin)) this.mots.set(ligne.divin, new Set())
-        this.mots.get(ligne.divin)!.add(mot)
-        const cle = `${ligne.divin}|${mot}`
+        if (!this.mots.has(divin)) this.mots.set(divin, new Set())
+        this.mots.get(divin)!.add(mot)
+        const cle = `${divin}|${mot}`
         if (!this.premiers.has(cle)) this.premiers.set(cle, maintenant)
         // Son premier mot de ce Divin : il rejoint ceux que l'annonce de la phrase retrouvée remerciera, et ceux à qui
         // demander. Un mot de plus : un de plus à son compte (un mot qu'il n'avait pas, `choisirLeMot`).
-        const deCeDivin = this.trouveurs.get(ligne.divin) ?? []
+        const deCeDivin = this.trouveurs.get(divin) ?? []
         const lui = deCeDivin.find(t => t.id === profileId)
         if (lui) lui.mots++
         else {
           const p = await this.deps.profiles.byId(profileId).catch(() => null)
-          if (p) this.trouveurs.set(ligne.divin, [...deCeDivin, { id: p.id, name: p.name, avatar: p.avatar, legendaire: p.legendaire ?? null, le: maintenant, mots: 1 }])
+          if (p) this.trouveurs.set(divin, [...deCeDivin, { id: p.id, name: p.name, avatar: p.avatar, legendaire: p.legendaire ?? null, le: maintenant, mots: 1 }])
         }
       }
-      const apres = lignes.map(l => (l === ligne ? { ...l, ...issue.apres, mot: mot ?? l.mot } : l))
+      const apres = lignes.map(l =>
+        l === ligne ? { ...l, ...issue.apres, mot: mot ?? l.mot, divin: mot !== null ? divin : l.divin, closeLe: l.closeLe ?? closeLe } : l,
+      )
       const { visite, phrase } = this.vue(profileId, aujourdhui, apres)
       return {
         accuse: true,
@@ -1109,13 +1172,15 @@ export class Sphinx {
       if (!parEnigme.has(l.enigme)) parEnigme.set(l.enigme, new Map())
       parEnigme.get(l.enigme)!.set(l.etat, l.n)
     }
-    const siennes = new Map<string, 'vue' | 'aujourdhui'>()
+    const siennes = new Map<string, 'vue' | 'en-cours'>()
+    // Celle qui l'attend, de quelque jour qu'elle date : une énigme attend sa fin.
+    const enCours = visiteEnCours(lu.siennes, aujourdhui)
     for (const l of lu.siennes) {
       // Une phrase lue ou annoncée n'est pas une énigme ; une énigme comptée pour vue, si.
       if (l.etat === 'lue' || l.etat === 'annoncee') continue
-      const enAttente = l.jour === aujourdhui && (l.etat === 'proposee' || l.etat === 'plus-tard')
-      if (enAttente || !siennes.has(l.enigme)) siennes.set(l.enigme, enAttente ? 'aujourdhui' : 'vue')
+      if (!siennes.has(l.enigme)) siennes.set(l.enigme, 'vue')
     }
+    if (enCours && !estClose(enCours)) siennes.set(enCours.enigme, 'en-cours')
     const habitues = new Set([...(this.habitues.jour === aujourdhui ? this.habitues.ids : []), ...lu.visitesDuJour])
     return {
       maintenant,
@@ -1151,9 +1216,9 @@ export class Sphinx {
    * « Voir la réponse », au QG : la réponse d'une énigme, rangée d'abord parmi
    * celles que le profil de l'administrateur a vues — le Sphinx ne la lui
    * proposera jamais (`choisirLEnigme`). Sans profil, rien où la ranger : elle
-   * ne part pas. Celle que le Sphinx lui pose aujourd'hui, pas encore close,
-   * ne se lit pas ici — il y répondrait en la sachant. Une écriture à la fois
-   * par profil, comme ses gestes.
+   * ne part pas. Celle que le Sphinx lui pose en ce moment, de quelque jour
+   * qu'elle date, ne se lit pas ici — il y répondrait en la sachant. Une
+   * écriture à la fois par profil, comme ses gestes.
    */
   reponseAuQg(numero: string, profileId: string | null): Promise<ReponseDuSphinxAuQg | RefusDuSphinx> {
     const e = this.enigme(numero)
@@ -1161,9 +1226,11 @@ export class Sphinx {
     if (!profileId) {
       return Promise.resolve({ refus: 409, error: 'Ton compte n’a pas de profil où ranger cette énigme : connecte-toi à ton profil, puis reviens.' })
     }
-    const laPose = (lignes: readonly LigneDuSphinx[]) =>
-      lignes.some(l => l.enigme === numero && l.jour === jourDe(this.deps.maintenant()) && (l.etat === 'proposee' || l.etat === 'plus-tard'))
-    const refus: RefusDuSphinx = { refus: 409, error: 'Le Sphinx te la pose aujourd’hui : réponds-lui, ou donne ta langue au chat, avant de lire sa réponse ici.' }
+    const laPose = (lignes: readonly LigneDuSphinx[]) => {
+      const enCours = visiteEnCours(lignes, jourDe(this.deps.maintenant()))
+      return enCours !== undefined && !estClose(enCours) && enCours.enigme === numero
+    }
+    const refus: RefusDuSphinx = { refus: 409, error: 'Le Sphinx te la pose en ce moment : réponds-lui, ou donne ta langue au chat, avant de lire sa réponse ici.' }
     return this.unALaFois(profileId, async () => {
       const avant = await this.deps.profiles.visitesDuSphinx(profileId)
       if (laPose(avant)) return refus
