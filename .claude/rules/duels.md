@@ -253,6 +253,21 @@ jour a sa notification (règle `rappel-et-installation.md`).
   celui des trophées), et « en ligue des maîtres » tout en haut. Une bordure
   sertie est un trophée de la collection : une règle de crans qui change
   monte `VERSION_DU_RELEVE` (règle `profil.md`).
+- **Le motif d'une bordure se choisit, la ligue se gagne** (le 26 novembre
+  2026, `shared/motifs.ts`, règle `medaillons.md` pour son dessin). Seul le
+  choix s'écrit (`profiles.motif`, NULL : accordé à l'avatar porté) ; ce
+  qu'il tient se relit — ses bordures serties (le brin de leur ligue,
+  les Perles à l'Olivier serti), la ligue des maîtres atteinte (les
+  Flammes), ses victoires contre Automate (`ReleveDesDuels.victoiresAuDe`,
+  au dé — `coteAdverse` absente —, cinquante pour les Rouages,
+  `VICTOIRES_POUR_LES_ROUAGES`), ses achats (`profile_motifs`), ses coffres
+  (`motif:<clé>`), ses légendaires de fête (`motifsTenus`). `bordurePortee`
+  prend le choix en troisième argument et le pose sur la bordure portée
+  (`BordureDeLigue.motif`) — chaque porte qui la lit le passe : la salle
+  (`bordureDe`), les classements (`core/campagne.ts`), la carte, la loge,
+  l'album du style. Un motif ne change ni les crans ni `VERSION_DU_RELEVE` :
+  il se vérifie quand on le prend (`update`), puis se croit — ce qui
+  l'ouvre ne fait que monter.
 - **Contre quelqu'un, seules les cotes d'en face sont figées.** Chacun bouge
   contre les cotes de l'autre au lancement — sa cote qu'on voit contre la
   sienne (`DuelJoue.coteAdverse`), sa cachée contre sa cachée

@@ -680,8 +680,8 @@ const serpentins: Motif = {
     const ruban = poser(RUBAN, PIED, a, gauche, 36)
     const vers = versMidi(gauche)
     return (
-      `<path d="${ruban}" fill="none" stroke="${c.email ? 'url(#m)' : c.met.bord}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>` +
-      `<path d="${ruban}" fill="none" stroke="${c.email ? 'url(#e)' : c.clair}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>` +
+      `<path d="${ruban}" fill="none" stroke="${c.email ? 'url(#m)' : c.met.bord}" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>` +
+      `<path d="${ruban}" fill="none" stroke="${c.email ? 'url(#e)' : c.clair}" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>` +
       piece(poser(CONFETTI, 74.5, a + vers * 4, gauche, 20 + i * 23), 'url(#p)', `stroke="${c.met.bord}" stroke-width=".35"`) +
       piece(poser(CONFETTI, 66.8, a + vers * 13, gauche, 70 + i * 31), c.email ? 'url(#f)' : 'url(#m)', `stroke="${c.met.bord}" stroke-width=".35"`)
     )
@@ -695,7 +695,8 @@ const CROCHET: Commande[] = [['M', 3.5, 17.5], ['C', 4.2, 14.2, 8.4, 13.6, 7.6, 
 const notes: Motif = {
   cran: (c, a, gauche, i) => {
     const penche = i % 4 < 2 ? 14 : -6
-    return [TETE, HAMPE, CROCHET].map(p => piece(poser(p, FIL[1] + 0.6, a, gauche, penche), c.remplir, c.filet)).join('')
+    // Un cran plus grandes que dessinées : à la taille d'une ligne de classement, la croche se perdait.
+    return [TETE, HAMPE, CROCHET].map(p => piece(poser(grandir(p, 1.25), FIL[1] + 0.6, a, gauche, penche), c.remplir, c.filet)).join('')
   },
 }
 
@@ -811,16 +812,21 @@ const papillons: Motif = {
 }
 
 // Les Lanternes (le coffre) : une lanterne de papier par victoire, au bout de son fil, qui luit.
-const CORPS_DE_LANTERNE: Commande[] = [['M', -4.2, 6.2], ['C', -4.2, 1.6, 4.2, 1.6, 4.2, 6.2], ['C', 4.2, 10.8, -4.2, 10.8, -4.2, 6.2], ['Z']]
-const COTES_DE_LANTERNE: Commande[] = [['M', -1.6, 2.8], ['C', -2.8, 4.8, -2.8, 7.6, -1.6, 9.6], ['M', 1.6, 2.8], ['C', 2.8, 4.8, 2.8, 7.6, 1.6, 9.6], ['M', 0, 2.6], ['L', 0, 9.8]]
-const CHAPEAUX: Commande[] = [['M', -2.2, 1.3], ['L', 2.2, 1.3], ['L', 2.2, 2.6], ['L', -2.2, 2.6], ['Z'], ['M', -1.8, 9.8], ['L', 1.8, 9.8], ['L', 1.8, 11], ['L', -1.8, 11], ['Z']]
+const LANTERNE = 1.35
+const CORPS_DE_LANTERNE_DESSINE: Commande[] = [['M', -4.2, 6.2], ['C', -4.2, 1.6, 4.2, 1.6, 4.2, 6.2], ['C', 4.2, 10.8, -4.2, 10.8, -4.2, 6.2], ['Z']]
+const COTES_DE_LANTERNE_DESSINEES: Commande[] = [['M', -1.6, 2.8], ['C', -2.8, 4.8, -2.8, 7.6, -1.6, 9.6], ['M', 1.6, 2.8], ['C', 2.8, 4.8, 2.8, 7.6, 1.6, 9.6], ['M', 0, 2.6], ['L', 0, 9.8]]
+const CHAPEAUX_DESSINES: Commande[] = [['M', -2.2, 1.3], ['L', 2.2, 1.3], ['L', 2.2, 2.6], ['L', -2.2, 2.6], ['Z'], ['M', -1.8, 9.8], ['L', 1.8, 9.8], ['L', 1.8, 11], ['L', -1.8, 11], ['Z']]
+// Grandies d'un tiers : dessinées à la taille d'une perle, elles n'étaient qu'un point qui luit.
+const CORPS_DE_LANTERNE = grandir(CORPS_DE_LANTERNE_DESSINE, LANTERNE)
+const COTES_DE_LANTERNE = grandir(COTES_DE_LANTERNE_DESSINEES, LANTERNE)
+const CHAPEAUX = grandir(CHAPEAUX_DESSINES, LANTERNE)
 const lanternes: Motif = {
   cran: (c, a, gauche, i) => {
     const r = FIL[1] + 0.2
     const penche = i % 2 ? 8 : -6
-    const [x, y] = xy(r + 6.2, a)
+    const [x, y] = xy(r + 6.2 * LANTERNE, a)
     return (
-      `<circle cx="${f(x)}" cy="${f(y)}" r="6.4" fill="#ffb347" opacity=".45" filter="url(#b)"/>` +
+      `<circle cx="${f(x)}" cy="${f(y)}" r="${f(6.4 * LANTERNE)}" fill="#ffb347" opacity=".45" filter="url(#b)"/>` +
       `<path d="${poser([['M', 0, 0], ['L', 0, 1.3]], r, a, gauche, penche)}" stroke="${c.met.bord}" stroke-width=".6"/>` +
       piece(poser(CORPS_DE_LANTERNE, r, a, gauche, penche), 'url(#l)', `stroke="${c.met.bord}" stroke-width=".45"`) +
       `<path d="${poser(COTES_DE_LANTERNE, r, a, gauche, penche)}" fill="none" stroke="#8a2a06" stroke-width=".45" opacity=".6"/>` +

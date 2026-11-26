@@ -67,6 +67,7 @@ Le lundi, le coffre de la semaine passée attend sur l'accueil — la ligne des 
 Puis un objet de cette rareté qu'il n'a pas :
 
 - **le trésor**, qui ne se trouve nulle part ailleurs — six fonds de carte peints (rares : la Voie lactée, le Jardin des lanternes ; épiques : les Abysses, la Bibliothèque enchantée ; légendaires : le Dragon d'or, la Cité céleste) et six gerbes (peu communes : les flocons, les cœurs ; rares : les papillons, les étoiles filantes ; épique : les diamants ; légendaire : le trésor) ; il pèse double dans sa rareté, et ne se vend pas : la boutique ne le montre pas, « Ma collection » dit d'où il vient — les douze fonds des savoirs, qui se vendent, n'entrent pas au coffre ;
+- **un motif de bordure du trésor** (depuis le 26 novembre 2026), ce qui pousse à chaque victoire autour de ton avatar — peu commun : les Flocons ; rares : les Papillons, les Lanternes ; épiques : les Joyaux, les Comètes ; légendaire : la Couronne royale —, qui ne se vend pas, tiré après les fonds et les gerbes ;
 - **un thème de la boutique**, offert — jamais un thème qui se gagne, ni un thème de saison hors de sa saison ;
 - **un compagnon** de la boutique, sa première forme, au légendaire seulement — il vaut le prix d'un thème légendaire ; la luciole aussi, depuis qu'elle est en boutique (le 31 octobre 2026) — jamais avant, quand elle se gagnait au bout d'une expédition ;
 - **des confettis** à la rareté commune — 60, 90, 120 ou 150 selon le coffre —, autant de chances que tous ses thèmes ensemble : la rareté commune n'est pas qu'un lot de consolation.

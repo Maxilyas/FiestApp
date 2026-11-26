@@ -15,6 +15,28 @@ Ce dossier est une maquette : rien de `client/` ne bouge. Chaque motif est
 dessiné (`dessins.ts`) et posé par `planche.ts` sur les vrais avatars de
 l'application, sous sa vraie feuille de style.
 
+## Le choix
+
+Le même jour, devant la planche : « Fait selon tes recommandations. Penses tu
+que les motifs couvrent bien différents styles ? Ça ne me dérange pas d'avoir
+plus de motifs dans la boutique. Je suis preneur de plusieurs motifs dans le
+coffre de la semaine aussi. »
+
+Mis en place au commit suivant (`shared/motifs.ts`, `shared/motifAccorde.ts`,
+les motifs de `client/src/components/dessinDesBordures.ts`) : « Accordée »
+d'office, le légendaire prêtant son motif (1 a) ; les trois offerts ; les
+brins prêtés par chaque bordure sertie ; les Perles, les Rouages et les
+Flammes aux duels ; un rayon « Bordures » à 400 — les six de la planche et
+six styles de plus (les Serpentins, les Notes, les Pixels, la Grecque, les
+Épines, les Nuages) ; les Cœurs et le Houx à 250, à leur fête ; et six motifs
+du coffre de la semaine (les Flocons, les Papillons, les Lanternes, les
+Joyaux, les Comètes, la Couronne royale). Pas les pierres de l'avatar (7) :
+seules, elles se voyaient peu.
+
+Les dessins de ce dossier restent ceux de la maquette ; ceux de
+l'application ont grandi depuis (les écailles couchées, les plumes plus
+longues, les lanternes, les notes, les serpentins).
+
 ## L'idée qui tient tout le reste
 
 **La ligue se gagne, le motif se choisit.** Une bordure dit trois choses de
