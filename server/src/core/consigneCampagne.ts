@@ -293,6 +293,7 @@ LES RÈGLES DE PARTAGE — elles disent à quelle catégorie appartient un savoi
 - La plongée : la plongée sous-marine et l'apnée — le matériel, la physique et la physiologie du plongeur, ses pionniers, ses champions, un site ou une épave pour qui y plonge — → Sport (plongee) ; la faune marine → Nature (aquatique) ; un sous-marin ou un bathyscaphe → Histoire ou Sciences ; le plongeon de tremplin ou de haut vol → Sport (olympisme).
 - C'est le savoir demandé qui décide : « Quel acteur joue Indiana Jones ? » est du cinéma, pas une célébrité.
 - Les étiquettes ne répètent jamais ce qu'un autre champ dit déjà : ni le pays, ni l'époque, ni la catégorie.
+- Une question d'un univers (une étiquette de la famille « Les univers ») nomme son univers dans l'intitulé — « Dans Stargate SG-1, … », « Dans Kaamelott, … », « Dans Harry Potter, … » — ou l'une de ses œuvres que tout le monde y rattache (« Dans « Le Roi lion » (1994), … ») : elle se joue aussi dans une série de toutes les catégories, où rien d'autre ne dit de quoi elle parle. Pour une série télévisée, son nom, jamais le seul titre d'un épisode ; pour Kaamelott, son nom même quand Arthur ou Perceval sont nommés, la légende ayant les mêmes. Sinon le dépôt la refuse.
 
 ${commentTravailler(travail)}
 

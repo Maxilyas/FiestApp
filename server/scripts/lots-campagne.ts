@@ -167,8 +167,8 @@ export interface Decision {
  */
 const CHAMP_CORRIGEABLE: Readonly<Record<string, string>> = { anecdote: 'anecdote', explication: 'explication', difficulte: 'difficulte', texte: 'texte', intitule: 'texte' }
 
-/** Les champs d'une correction, sous leur nom dans l'entrée ; une difficulté écrite « 2 » se lit 2. */
-function champsCorriges(champs: Readonly<Record<string, unknown>>): Record<string, unknown> {
+/** Les champs d'une correction, sous leur nom dans l'entrée ; une difficulté écrite « 2 » se lit 2. Les corrections de la base les lisent aussi (`base-campagne.ts corriger`). */
+export function champsCorriges(champs: Readonly<Record<string, unknown>>): Record<string, unknown> {
   const lus: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(champs)) {
     const champ = CHAMP_CORRIGEABLE[sansAccent(k)]

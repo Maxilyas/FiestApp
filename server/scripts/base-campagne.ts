@@ -12,6 +12,8 @@
 //   npx tsx scripts/base-campagne.ts appliquer <decisions.json>                 ce que la relecture a décidé : retirer, corriger une phrase ou une difficulté
 //   npx tsx scripts/base-campagne.ts retirer <id> …                              retire des questions de la base, par identifiant
 //   npx tsx scripts/base-campagne.ts reclasser <reclassements.json>             change la catégorie, le sous-thème ou les étiquettes de questions de la base, sous leur identifiant
+//   npx tsx scripts/base-campagne.ts univers                                    les questions d'un univers qui ne le nomment pas, en fiche, à récrire
+//   npx tsx scripts/base-campagne.ts corriger <corrections.json>                corrige l'intitulé, l'anecdote, l'explication ou la difficulté de questions de la base, sous leur identifiant
 //   npx tsx scripts/base-campagne.ts inventaire <thème>                          l'inventaire d'un thème, famille par famille, à relire (core/inventaires.ts)
 //   npx tsx scripts/base-campagne.ts couverture <thème> [<lot.json> …]           les sujets de son inventaire qu'aucune question n'aborde encore, ou une seule
 //
@@ -37,7 +39,8 @@ import { CATEGORIES } from '../../shared/categories'
 import { AGES, SOUS_THEMES } from '../../shared/etiquettes'
 import { sansAccent } from '../../shared/homonymes'
 import { SUJETS, sujetParCle, sujetsDe } from '../../shared/sujets'
-import { DOSSIER_DES_LOTS, FICHIER_DE_LOT, TriDesEntrees, appliquerLesDecisions, ecrireLot, ficheDUneEntree, lireLot, type Decision } from './lots-campagne'
+import { motifSansSonUnivers, universSansSonNom } from '../src/core/universNommes'
+import { DOSSIER_DES_LOTS, FICHIER_DE_LOT, TriDesEntrees, appliquerLesDecisions, champsCorriges, ecrireLot, ficheDUneEntree, lireLot, type Decision } from './lots-campagne'
 
 /** Une ligne du fichier : la forme de `entreeDeLaBase`, celle des dépôts de la routine aussi. */
 const enLigne = (q: QuestionDeLaBase) => JSON.stringify(entreeDeLaBase(q))
@@ -321,6 +324,75 @@ function racines() {
   console.log(`\n${soufflees.length} question(s) à relire.`)
 }
 
+/**
+ * Les questions de la base qui portent l'étiquette d'un univers sans le
+ * nommer (`core/universNommes.ts`), en fiche de relecture, l'univers sous
+ * chacune : de quoi en faire récrire l'intitulé, puis `corriger`.
+ * `univers-nommes.test.ts` n'en tolère aucune dans la base livrée.
+ */
+function univers() {
+  const sans = lireLaBase().questions.flatMap(q => {
+    const u = universSansSonNom(q)
+    return u ? [{ q, u }] : []
+  })
+  for (const { q, u } of sans) console.log(`${ficheDUneEntree(q.id, entreeDeLaBase(q))}\n  Univers : ${u}`)
+  console.log(`\n${sans.length} question(s) qui ne nomment pas leur univers.`)
+}
+
+/**
+ * Corrige des questions de la base sous leur identifiant — ce que
+ * « Corriger » fait au QG dans Turso (`CampagneStore.corriger`), ici dans les
+ * fichiers du dépôt : `[{ "id", "texte"?, "anecdote"?, "explication"?,
+ * "difficulte"? }]`, sous les noms que `appliquer` lit. Jamais une réponse :
+ * une autre bonne réponse est une autre question (`retirer`, puis `ranger`,
+ * règle `campagne-base.md`). Chaque correction repasse par le juge de la base,
+ * nomme son univers (`core/universNommes.ts`) et ne prend l'intitulé d'aucune
+ * autre question, de la base ou d'un quiz livré : un seul refus, et rien ne
+ * s'écrit. Elle ne repasse pas par l'index des faits — un intitulé récrit
+ * peut poser le fait d'une autre — : suis-la d'un `voisines`.
+ */
+function corriger(fichier: string) {
+  const { questions: base, refusees } = lireLaBase()
+  if (refusees.length > 0) throw new Error(`La base a ${refusees.length} entrée(s) défectueuse(s) : corrige-les avant de corriger.`)
+  const demandes = JSON.parse(readFileSync(fichier, 'utf8')) as Record<string, unknown>[]
+  const parId = new Map(base.map(q => [q.id, q]))
+  const corrigees = new Map<string, QuestionDeLaBase>()
+  const refus: string[] = []
+  for (const d of demandes) {
+    const id = String(d.id ?? '')
+    const q = corrigees.get(id) ?? parId.get(id)
+    if (!q) {
+      refus.push(`${id} : absente de la base`)
+      continue
+    }
+    const champs = champsCorriges(d)
+    if (Object.keys(champs).length === 0) {
+      refus.push(`${id} : aucun champ corrigeable (texte, anecdote, explication, difficulte)`)
+      continue
+    }
+    const lu = lireQuestionDeLaBase({ ...entreeDeLaBase(q), ...champs })
+    const univers = 'question' in lu ? universSansSonNom(lu.question) : null
+    if ('refus' in lu) refus.push(`${id} « ${q.texte.slice(0, 80)} » — ${lu.refus}`)
+    else if (univers) refus.push(`${id} « ${lu.question.texte.slice(0, 80)} » — ${motifSansSonUnivers(univers)}`)
+    else corrigees.set(id, lu.question)
+  }
+  // Un intitulé neuf n'est celui d'aucune autre question : ni de la base — corrigée ou non —, ni d'un quiz livré.
+  const apres = base.map(q => corrigees.get(q.id) ?? q)
+  const livres = empreintesDesLivres()
+  for (const q of corrigees.values()) {
+    if (q.empreinte === parId.get(q.id)!.empreinte) continue
+    const autre = apres.find(x => x.id !== q.id && x.empreinte === q.empreinte)
+    if (autre) refus.push(`${q.id} « ${q.texte.slice(0, 80)} » — déjà l'intitulé de ${autre.id}`)
+    else if (livres.has(q.empreinte)) refus.push(`${q.id} « ${q.texte.slice(0, 80)} » — déjà dans un quiz livré`)
+  }
+  if (refus.length > 0) {
+    for (const r of refus) console.log(`✗ ${r}`)
+    throw new Error(`${refus.length} correction(s) refusée(s) : rien n'est écrit.`)
+  }
+  ecrireLaBase(new Map(CATEGORIES.map(c => [c, apres.filter(q => q.meta.categorie === c)])))
+  console.log(`${corrigees.size} question(s) corrigée(s), sous leur identifiant. La base en compte ${base.length}. Suis-les d'un « voisines ».`)
+}
+
 /** Un reclassement : la question, par son identifiant, et ce qui change — l'étiquette à poser s'ajoute à celles qu'elle a (`ajouter`). */
 interface Reclassement {
   id: string
@@ -458,6 +530,11 @@ if (commande === 'verifier') {
   lierLesFaces()
 } else if (commande === 'fiche') {
   fiche(args)
+} else if (commande === 'univers') {
+  univers()
+} else if (commande === 'corriger') {
+  if (args.length !== 1) throw new Error('corriger <corrections.json>')
+  corriger(args[0])
 } else if (commande === 'appliquer') {
   if (args.length !== 1) throw new Error('appliquer <decisions.json>')
   appliquer(args[0])

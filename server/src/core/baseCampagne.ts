@@ -10,6 +10,7 @@ import { sansAccent } from '../../../shared/homonymes'
 import { MAX_REPONSE } from '../../../shared/campagne'
 import { empreinteDe } from './jour'
 import { retenirLesSoeurs, soeursDesLiees } from './faces'
+import { motifSansSonUnivers, universSansSonNom } from './universNommes'
 import { retenirLaPreparation, type PreparationDUneQuestion } from './preparees'
 import { QUESTIONS_PAR_TRANCHE, enTranches, rendreLaMain } from './tourniquet'
 import { QUESTIONS_D_UNE_TRANCHE, dUneTraite, type CalculEnTranches } from '../../../shared/tranches'
@@ -261,6 +262,14 @@ export function lireQuestionDeLaBase(brut: unknown, { sansId = false } = {}): { 
   if (aRelire.length > 0) return { refus: `à relire : ${aRelire.join(', ')}` }
   const ecartee = meta.etiquettes.find(e => ETIQUETTES_ECARTEES.includes(e))
   if (ecartee) return { refus: `étiquette écartée de la campagne : ${ecartee}` }
+  // Une question neuve d'un univers le nomme (`core/universNommes.ts`) : un
+  // lot, un dépôt de la routine — et, à part, une correction au QG. Pas à la
+  // lecture : un dépôt d'avant qui ne le nomme pas sortirait du jeu sans que
+  // personne l'ait décidé. La base livrée le tient par son test.
+  if (sansId) {
+    const univers = universSansSonNom({ texte, reponses, bonne, meta })
+    if (univers) return { refus: motifSansSonUnivers(univers) }
+  }
   // Les leurres : les mauvaises réponses de la question y sont toutes, à
   // l'identique, et la bonne jamais — ils serviront à doser une question.
   const mauvaises = reponses.filter((_, i) => i !== bonne)

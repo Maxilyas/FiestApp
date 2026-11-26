@@ -57,7 +57,10 @@ un neuf — est dans la règle `campagne-base.md`. Les commandes se lancent depu
    dossier des lots : `appliquer` y lit ses références.
 7. **Appliquer** : `npx tsx scripts/base-campagne.ts appliquer
    ../.lots-campagne/<nom>.decisions.json` retire, ou corrige une phrase ou une
-   difficulté — jamais une réponse.
+   difficulté — jamais une réponse. Une question de la base elle-même se
+   corrige sous son identifiant par `corriger <corrections.json>` (`[{ "id",
+   "texte"? … }]`), suivi d'un `voisines` ; `univers` liste celles d'un
+   univers qui ne le nomment pas, que `verifier` refuserait à une neuve.
 8. **Ranger** : `verifier` une dernière fois, puis `npx tsx
    scripts/base-campagne.ts ranger ../.lots-campagne/<nom>-*.json`. Chaque
    question y reçoit son identifiant, et le rangement écarte ce que la base ou
