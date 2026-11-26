@@ -414,20 +414,25 @@ test('dans la grille des avatars, seul bouge ce que la carte montre — et celui
   }
 })
 
-test('les finitions se choisissent en pastilles de couleur : rien n’y bouge', async () => {
+test('les finitions se choisissent dans leur calque, chacune portée par son avatar : seule bouge celle que la carte montre', async () => {
   // Sous un légendaire porté, chaque aperçu redessinait son médaillon et son
-  // cercle, sans fin (perf-client-1) ; la loge les montre en pastilles — la
-  // maquette 3 —, et l'avatar finit sur la carte, seul.
+  // cercle, sans fin (perf-client-1) : la loge les montrait en pastilles de
+  // couleur — la maquette 3. Depuis les calques du 26 novembre 2026, chacune
+  // est portée par son avatar, dans sa case — la lumière se voit mieux qu'une
+  // pastille —, et la feuille fige toutes les cases sauf la montrée et la
+  // survolée, comme dans la grille des avatars.
   const html = await rendu('components/Apparence', 'MesFinitions', { profil: HABITUE, essai: {}, essayer: () => {}, busy: false })
-  assert.match(html, /<div class="loge-finitions-rangee" role="group" aria-labelledby="loge-finitions-titre">/)
-  const boutons = [...html.matchAll(/<button[^>]*class="(finition-choix[^"]*)"/g)].map(m => m[1].split(' '))
+  assert.match(html, /<div class="loge-grille calque-grille" role="group" aria-label="Mes finitions">/)
+  const cases = [...html.matchAll(/<button[^>]*class="(loge-case calque-case[^"]*)"/g)].map(m => m[1].split(' '))
   // Auto, et celles qu'il a : les autres se disent dans sa collection (le 11 octobre 2026).
-  assert.equal(boutons.length, 1 + HABITUE.ouvertes.length, 'Auto, et celles qu’il a')
-  assert.equal(boutons.filter(b => b.includes('selected')).length, 1, 'une seule montrée')
-  // Ni avatar, ni médaillon, ni lumière : des pastilles, sans rien qui tourne.
-  assert.doesNotMatch(html, /class="(av|lg|dv|pt|lu)\b/)
-  // Et aucune règle n'anime une pastille ni ce qu'elle porte.
-  const pastilles = regles().filter(r => r.selecteurs.some(sel => /\.(teinte-|finition-teinte|finition-choix|loge-finitions)/.test(sel)))
+  assert.equal(cases.length, 1 + HABITUE.ouvertes.length, 'Auto, et celles qu’il a')
+  assert.equal(cases.filter(b => b.includes('selected')).length, 1, 'une seule montrée')
+  for (const dedans of ['.lg *', '.dv *', '.pt *', '.lu *', '.bo-reflet *', '.av::before', '.av::after']) {
+    const selecteur = `.calque-grille .calque-case:not(.selected):not(:hover) ${dedans}`
+    assert.ok(fige(selecteur), selecteur)
+  }
+  // Les pastilles de couleur qui restent — la teinte de sa finition sur le rail, les ligues —, rien ne les anime.
+  const pastilles = regles().filter(r => r.selecteurs.some(sel => /\.(teinte-|finition-teinte|finition-choix)/.test(sel)))
   assert.ok(pastilles.length >= 7, 'les règles des pastilles sont trouvées')
   for (const r of pastilles) assert.doesNotMatch(r.corps, /animation/, r.selecteurs.join(', '))
 })

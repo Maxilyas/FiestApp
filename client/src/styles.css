@@ -10020,7 +10020,6 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-a-gagner { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 44px; color: var(--accent-text); font-size: 0.9rem; font-weight: 600; text-decoration: none; }
 .loge-a-gagner .icon { width: 16px; height: 16px; }
 .loge-sous-titre { font-size: var(--t-label); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-.loge-finitions { display: flex; flex-direction: column; gap: var(--loge-serre); }
 .loge-finitions-rangee { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 0; }
 /* Huit pastilles sur une ligne en 360 — Auto et les sept finitions —, chacune
    de la largeur de son nom : Constellation est long, Or est court. Le haut
@@ -10036,10 +10035,6 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 /* Peu de pastilles — ses premiers niveaux, sa première ligue — : à gauche,
    au lieu de s'écarter d'un bord à l'autre. */
 .loge-finitions-rangee.rangee-courte { justify-content: flex-start; gap: 4px 14px; }
-/* Plus de huit — Auto et les douze finitions d'un profil au niveau 50 — : sur deux lignes en 360, alignées à gauche,
-   chacune à la largeur de son nom. Écartée d'un bord à l'autre, la seconde ligne laissait ses pastilles flotter loin les
-   unes des autres ; en grille, « Constellation » mordait sur « Abysses ». */
-.loge-finitions-rangee.rangee-longue { justify-content: flex-start; gap: 8px 6px; }
 /* Ce qui reste, compté au bout de la rangée : un cercle en pointillé, « +3 ». */
 .pastille-a-gagner { cursor: pointer; }
 .teinte-a-gagner { border: 1.5px dashed var(--edge-strong); box-shadow: none; color: var(--accent-text); font-style: normal; font-size: var(--t-label); font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
@@ -10072,26 +10067,113 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
    avatar dans la bordure, au métal de sa finition — on voit ce qu'on essaie. */
 .loge-bordures { display: flex; flex-direction: column; gap: var(--loge-serre); }
 .loge-bordures > .muted { margin: 0; }
-/* Le motif prolonge la bordure : sa rangée s'y colle, à l'écart d'un titre et de sa rangée plutôt qu'à celui de deux
-   blocs — séparées, les gemmes passaient de 6 px sous le menu chez une habituée, en 360 × 640 (`rendu-loge.ts`). */
-.loge-panneau > .loge-motifs { margin-top: calc(var(--loge-serre) - var(--loge-bloc)); }
+/* Le motif, sous la ligue, dans le calque « Bordure » : son petit titre, sa grille. */
+.loge-motifs { display: flex; flex-direction: column; gap: var(--loge-serre); }
 .bordure-apercu { position: relative; display: grid; place-items: center; width: var(--loge-pastille); height: var(--loge-pastille); border-radius: 50%; font-size: calc(var(--loge-pastille) / 2); line-height: 1; }
 .bordure-sans { display: block; width: calc(var(--loge-pastille) - 4px); height: calc(var(--loge-pastille) - 4px); box-sizing: border-box; border: 1.5px dashed var(--muted); border-radius: 50%; }
 .bordure-choix.selected .bordure-apercu { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
 .bordure-choix.porte:not(.selected) .bordure-apercu::after { content: '✓'; position: absolute; top: -5px; right: -6px; z-index: 2; display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); }
 .bordure-choix.neuve .bordure-apercu::before { content: ''; position: absolute; top: -3px; left: -3px; z-index: 2; width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
-/* La version d'un avatar éclaté, sur la carte, à côté de lui : rare (pressée) ou d'origine. */
-.loge-version { position: absolute; right: 0; bottom: 0; z-index: 2; display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 10px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--bg) 70%, transparent); color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; cursor: pointer; }
-.loge-version .icon { width: 13px; height: 13px; }
-.loge-version[aria-pressed='true'] { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
-/* Taillé : le bouton dit la version montrée, en or, et ouvre ses versions. */
-.loge-version-choix { border-color: var(--accent); color: var(--accent-text); }
-/* Ses versions, dans leur feuille : chacune dessinée, celle que la carte montre cerclée d'or. */
-.loge-versions { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 10px; }
-.loge-version-case { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px 8px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface-faint); color: var(--ink); font: inherit; cursor: pointer; }
-.loge-version-case[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--surface); }
-.loge-version-dessin { display: grid; place-items: center; width: 64px; height: 64px; font-size: 2.6rem; }
-.loge-version-nom { font-size: var(--t-label); font-weight: 600; }
+/* ── Les calques de la pièce « Avatar » (le 26 novembre 2026) ───────────
+   La maquette `retours/2026-11-26/la-piece-avatar/` : un rail sous la rangée
+   des pièces, chacun l'aperçu de ce qu'il porte, puis la grille du calque
+   ouvert — des cases comme celles des avatars, son nom dessous. La pièce
+   empilait quatre rangées de pastilles : chez une collectionneuse, ses
+   gemmes passaient 192 px sous le menu en 360 × 640. */
+.loge-calques { display: grid; grid-template-columns: repeat(var(--calques, 5), minmax(0, 1fr)); gap: 2px; padding: 3px; border: 1px solid var(--edge); border-radius: 18px; background: var(--surface-faint); }
+.loge-calque { position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; min-height: 44px; padding: 4px 0 3px; border: 0; border-radius: 15px; background: none; color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; cursor: pointer; }
+.loge-calque[aria-selected='true'] { background: var(--surface); color: var(--accent-text-hover); box-shadow: inset 0 0 0 1.5px var(--accent); }
+/* « Version » sur un avatar qui n'a pas éclaté : là, éteint — il ne disparaît pas, le rail ne saute pas sous le doigt. */
+.loge-calque.eteint { opacity: 0.45; cursor: default; }
+.loge-calque-apercu { position: relative; display: grid; place-items: center; width: 40px; height: var(--loge-calque, 30px); font-size: 0.85rem; line-height: 1; }
+.loge-calque-apercu .finition-teinte { width: 22px; height: 22px; }
+.loge-calque-apercu .bordure-sans { width: 20px; height: 20px; }
+/* À l'essai : le pointillé de la carte. */
+.loge-calque.essaye .loge-calque-apercu { outline: 1.5px dashed rgba(var(--accent-rgb), 0.85); outline-offset: 1px; border-radius: 10px; }
+.loge-calque-apercu .loge-neuf { top: -2px; right: 0; }
+/* « Auto », « Accordé » : ce que l'application choisit pour lui, une étincelle d'or. */
+.calque-auto { position: absolute; display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: var(--accent); color: var(--on-accent); }
+.calque-auto .icon { width: 10px; height: 10px; }
+.loge-calque-apercu .calque-auto { top: -2px; right: -1px; }
+.loge-calque-panneau { display: flex; flex-direction: column; gap: var(--loge-bloc); }
+/* Une case de calque : celle d'un avatar, son nom dessous. */
+.calque-case { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; height: auto; min-height: calc(var(--loge-case) + 20px); padding: 4px 2px 5px; font: inherit; text-decoration: none; }
+.calque-dessin { display: grid; place-items: center; height: calc(var(--loge-case) - 6px); line-height: 1; }
+.loge-case.calque-case .av { font-size: 1.55rem; }
+.calque-nom { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t-label); font-weight: 600; color: var(--muted); }
+.calque-case.selected .calque-nom { color: var(--accent-text-hover); }
+.calque-case .calque-auto { top: 5px; left: 6px; }
+.calque-a-gagner { border-style: dashed; color: var(--accent-text); }
+.calque-a-gagner b { font-size: 1.1rem; font-variant-numeric: lining-nums tabular-nums; }
+.calque-grille-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* Dans une grille de calque, seul bouge ce que la carte montre, et celui qu'on survole — comme dans la grille des
+   avatars : la lumière d'une finition sous chaque case, un médaillon par motif, repartaient tous ensemble. */
+.calque-grille .calque-case:not(.selected):not(:hover) .lg *,
+.calque-grille .calque-case:not(.selected):not(:hover) .dv *,
+.calque-grille .calque-case:not(.selected):not(:hover) .pt *,
+.calque-grille .calque-case:not(.selected):not(:hover) .lu *,
+.calque-grille .calque-case:not(.selected):not(:hover) .bo-reflet *,
+.calque-grille .calque-case:not(.selected):not(:hover) .av::before,
+.calque-grille .calque-case:not(.selected):not(:hover) .av::after {
+  animation: none;
+}
+/* Là où la bordure est le sujet — le rail, la grille des motifs —, ce qui sort d'un médaillon se tait : les ailes d'un
+   Phénix éclaté couvraient le haut du motif, et chaque case ressemblait à sa voisine. */
+.calque-sujet .lg-debord,
+.calque-sujet .lg-gerbe,
+.calque-sujet .dv-rayons,
+.calque-sujet .dv-etincelles { display: none; }
+
+/* ── Les tenues, en paquet de cartes (le 26 novembre 2026) ───────────────
+   Derrière la carte, la tranche des autres : deux cartes décalées de 4 et
+   8 px, dans la marge de la page ; à son coin, le cintre et un point par
+   tenue, là où « Version rare » se touchait. */
+.loge-paquet { margin-bottom: 8px; }
+.loge-paquet::before,
+.loge-paquet::after { content: ''; position: absolute; inset: 4px -4px -4px 4px; z-index: 0; border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); border-radius: var(--radius); background: color-mix(in srgb, var(--surface) 80%, var(--bg)); pointer-events: none; }
+.loge-paquet::after { inset: 8px -8px -8px 8px; z-index: -1; opacity: 0.7; }
+.loge-paquet > .loge-carte { z-index: 1; }
+/* Le bouton se touche sur 44 px, sa pilule se voit sur 30 — au coin bas droit de la rangée de l'avatar, où « Version
+   rare » se voyait. */
+.loge-tenues { position: absolute; right: 0; bottom: -7px; z-index: 2; display: flex; align-items: center; justify-content: flex-end; height: 44px; min-width: 44px; padding: 0; border: 0; background: none; color: var(--accent-text); font: inherit; cursor: pointer; }
+.loge-tenues-pilule { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 10px 0 8px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--bg) 70%, transparent); }
+.loge-tenues .icon { width: 16px; height: 16px; }
+.loge-point { display: block; width: 6px; height: 6px; border-radius: 99px; background: var(--muted); opacity: 0.6; }
+.loge-point.portee { opacity: 1; box-shadow: 0 0 0 1.5px var(--bg), 0 0 0 2.5px var(--accent); }
+.loge-point.montree { width: 14px; background: var(--accent); opacity: 1; }
+.loge-apercu-tenue { display: inline-flex; align-items: center; gap: 4px; }
+.loge-apercu-tenue .icon { width: 12px; height: 12px; }
+/* Le doigt glisse la carte : elle le suit un peu (`--glisse-x`, douze pixels au plus), et la suivante entre du côté
+   d'où elle vient. Ni l'un ni l'autre si le système demande moins de mouvement. */
+.loge-carte { touch-action: pan-y pinch-zoom; }
+.loge-carte-tenue { transform: translateX(var(--glisse-x, 0)); }
+.loge-carte-arrive-droite { animation: loge-carte-droite 0.22s ease-out; }
+.loge-carte-arrive-gauche { animation: loge-carte-gauche 0.22s ease-out; }
+@keyframes loge-carte-droite {
+  from { transform: translateX(12px); opacity: 0.4; }
+}
+@keyframes loge-carte-gauche {
+  from { transform: translateX(-12px); opacity: 0.4; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loge-carte-tenue { transform: none; }
+  .loge-carte-arrive-droite,
+  .loge-carte-arrive-gauche { animation: none; }
+}
+/* La liste du cintre : chacune une petite carte, à son fond. */
+.tenues-liste { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.tenue-rangee { display: flex; align-items: center; gap: 2px; min-height: 68px; padding-right: 4px; border: 1px solid var(--edge); border-radius: 16px; background-color: var(--surface-faint); }
+.tenue-rangee.montree { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.tenue-montrer { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 66px; padding: 0 8px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.tenue-dessin { flex: none; display: grid; place-items: center; width: 56px; height: 60px; font-size: 1.3rem; line-height: 1; }
+.tenue-nom { display: flex; flex-direction: column; min-width: 0; }
+.tenue-nom b { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tenue-nom small { font-size: var(--t-label); font-weight: 700; color: var(--accent-text); }
+.tenue-geste { flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--muted); cursor: pointer; }
+.tenue-geste .icon { width: 18px; height: 18px; }
+.tenues-pied { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tenues-pied .btn { display: inline-flex; align-items: center; gap: 6px; }
+.tenues-pied .btn .icon { width: 16px; height: 16px; }
 
 /* ── Les pièces de la loge, en vignettes (le 17 novembre 2026) ───────────
    Titre, vitrine, fond, thème et gerbe : chacune posait une carte, son titre

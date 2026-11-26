@@ -201,8 +201,8 @@ test('ce qui est nouveau : rien à la première visite, puis ce qui arrive depui
 
 test('la loge : sa carte en tête, six pièces sur une rangée — la salle d’abord, lui seul ensuite —, puis la pièce touchée', async () => {
   const contenus: Record<string, RegExp> = {
-    // L'avatar : ses finitions en pastilles (la maquette 3), puis ses avatars aux gemmes de l'album.
-    avatar: /<div class="loge-finitions">.*<div class="gemmes gemmes-loge" role="tablist" aria-label="Mes avatars, par rareté">/,
+    // L'avatar : le rail de ses calques (le 26 novembre 2026), puis — sur « Avatar », d'office — ses avatars aux gemmes de l'album.
+    avatar: /<div class="loge-calques" role="tablist" aria-label="Ce que je règle de mon avatar".*<div class="gemmes gemmes-loge" role="tablist" aria-label="Mes avatars, par rareté">/,
     // Titre et Vitrine parlent la langue des vignettes (le 17 novembre 2026) : un en-tête d'une ligne, puis leurs choix.
     titre: /<h3 class="loge-entete-titre" id="loge-titre-entete">Mes titres<span class="loge-entete-compte">/,
     // Des trophées, le mot de l'album et des fins de partie.
@@ -294,8 +294,14 @@ test('dans chaque pièce, un toucher essaie : rien ne s’enregistre avant « Po
   await toucher('MonTitre', 'components/Apparence', /^Aucun/)
   await toucher('MonFond', 'components/Apparence', /^Nuit étoilée/)
   await toucher('MonFond', 'components/Apparence', /^Velours/)
-  await toucher('MesFinitions', 'components/Apparence', /^Argent/)
-  await toucher('MesFinitions', 'components/Apparence', /^Auto$/)
+  // Une finition, dans sa grille de calque (le 26 novembre 2026) : une case par finition, touchée par son nom.
+  const toucherUneCase = async (composant: string, nom: RegExp) => {
+    const c = elements(await arbre('components/Apparence', composant, pieces)).find(e => e.type?.name === 'CaseDeCalque' && nom.test(e.props.nom))
+    assert.ok(c, `${composant} : ${nom}`)
+    c.props.onClick()
+  }
+  await toucherUneCase('MesFinitions', /^Argent$/)
+  await toucherUneCase('MesFinitions', /^Auto$/)
   // La vitrine : une médaille touchée ouvre sa fiche et n'essaie rien — on choisit par l'exploit (le propriétaire, le
   // 17 novembre 2026 : « Sinon on choisit plus par l'exploit mais juste par l'icône et c'est nul ») — ; c'est le bouton
   // d'or de sa fiche qui essaie. Une médaille, pas sa place sur la carte (« ✨🔮L’Oracle, 2ᵉ place, d’office »,
@@ -654,9 +660,10 @@ test('la barre : « Annuler » rend la tenue sans rien envoyer, « Porter » env
   const LOGE = source('components/Loge.tsx')
   assert.match(
     LOGE,
-    /const porter = async \(\): Promise<boolean> => \{\s*if \(essaiVide\(essai\)\) return true\s*if \(busy \|\| !\(await enregistrer\(essai\)\)\) return false[\s\S]*?if \(essai\.theme !== undefined \|\| essai\.camp !== undefined\) finirLEssai\(true\)\s*setEssai\(\{\}\)\s*return true\s*\}/,
+    /const porter = async \(\): Promise<boolean> => \{\s*if \(essaiVide\(essai\)\) return true\s*if \(busy \|\| !\(await enregistrer\(essai\)\)\) return false[\s\S]*?if \(essai\.theme !== undefined \|\| essai\.camp !== undefined\) finirLEssai\(true\)\s*setEssai\(\{\}\)\s*setTenueMontree\(null\)\s*return true\s*\}/,
   )
-  assert.match(LOGE, /onAnnuler=\{\(\) => setEssai\(\{\}\)\}/)
+  // « Annuler » rend la tenue d'avant — et la carte quitte la tenue gardée qu'elle montrait.
+  assert.match(LOGE, /onAnnuler=\{\(\) => \{\s*setEssai\(\{\}\)\s*setTenueMontree\(null\)\s*\}\}/)
   // La loge quittée — « ← », le retour du téléphone — rend la page à son thème.
   assert.match(LOGE, /useEffect\(\(\) => \(\) => finirLEssai\(\), \[\]\)/)
   // La page dit si l'enregistrement a pris ; passer d'une pièce à l'autre n'empile rien dans l'historique.
@@ -667,7 +674,7 @@ test('la barre : « Annuler » rend la tenue sans rien envoyer, « Porter » env
   assert.match(APP, /if \(e\.groupe === 'M’habiller'\) \{/)
   assert.match(
     APP,
-    /<pret\.PanneauLoge profil=\{profil\} piece=\{ecran as PieceDeLaLoge\} onPiece=\{changerDePiece\} busy=\{busy\} enregistrer=\{enregistrer\} erreur=\{erreur\} onVus=\{retenirLesVusDeLaLoge\} garde=\{gardeDeLaLoge\} \/>/,
+    /<pret\.PanneauLoge profil=\{profil\} piece=\{ecran as PieceDeLaLoge\} onPiece=\{changerDePiece\} busy=\{busy\} enregistrer=\{enregistrer\} erreur=\{erreur\} onVus=\{retenirLesVusDeLaLoge\} onTenues=\{retenirLesTenues\} garde=\{gardeDeLaLoge\} \/>/,
   )
   // Et le lecteur d'écran entend chaque pièce portée d'un coup.
   const { annonceDuChoix } = await import(url('components/choix.ts'))
@@ -1031,17 +1038,17 @@ function corpsDe(regles: Regles, selecteur: string): string {
 
 test('la loge tient sur un écran, ou presque : rien n’y change de place, et ce qu’un réglage dit sous sa rangée se dit en deux temps', async () => {
   const piece = { essai: {}, essayer: () => {}, busy: false }
-  // Rien n'a changé de place, rien ne s'est ajouté : sa carte, la rangée des pièces, puis — pour
-  // « Avatar » — la finition, la bordure, le sceau, l'Éclat en réserve, les gemmes, leur grille et ce qui reste à gagner.
+  // Sa carte, la rangée des pièces, puis — pour « Avatar » — le rail de ses calques (le 26 novembre 2026 : la finition,
+  // la bordure et le sceau, empilés en rangées jusque-là, y ont chacun leur calque), l'Éclat en réserve, les gemmes, leur
+  // grille et ce qui reste à gagner.
   const habituee = { ...LEA, bordures: [{ ligue: 'or' as const, crans: 7 }], bordureChoisie: 'auto' as const, scelles: ['lg:phenix'], eclatsEnReserve: 1 }
   const loge = await rendu('components/PanneauxDuProfil', 'PanneauLoge', { profil: habituee, piece: 'avatar', onPiece: () => {}, busy: false, enregistrer: async () => true })
   const ordre = [
     '<div class="loge-collante">',
     '<div class="loge-pieces">',
     '<div class="loge-panneau"',
-    '<span class="loge-sous-titre" id="loge-finitions-titre">Finition</span>',
-    '<span class="loge-sous-titre" id="loge-bordures-titre">Bordure</span>',
-    '<span class="loge-sous-titre" id="loge-sceau-titre">Sceau</span>',
+    '<div class="loge-calques" role="tablist"',
+    '<div class="loge-calque-panneau" role="tabpanel"',
     '<div class="loge-reserve"',
     '<div class="gemmes gemmes-loge"',
     '<div class="loge-grille',
@@ -1074,8 +1081,8 @@ test('la loge tient sur un écran, ou presque : rien n’y change de place, et c
   ] as const) {
     const html = await bordure([...bordures], essai)
     sansPhrase(html)
-    // La rangée, elle, reste : son petit titre et ses pastilles.
-    assert.match(html, /<span class="loge-sous-titre" id="loge-bordures-titre">Bordure<\/span>/)
+    // La rangée de ses ligues, elle, reste : son petit titre — « Ligue » dans le calque « Bordure », que son motif suit — et ses pastilles.
+    assert.match(html, /<span class="loge-sous-titre" id="loge-bordures-titre">Ligue<\/span>/)
     assert.match(html, /<div class="[^"]*loge-bordures-rangee" role="group" aria-labelledby="loge-bordures-titre">/)
   }
   // Sans duel classé, rien à régler : l'explication reste entière, son lien au bout — sans elle, la rangée serait vide.
@@ -1083,7 +1090,7 @@ test('la loge tient sur un écran, ou presque : rien n’y change de place, et c
   assert.match(sansDuel, /<p class="muted small">Ton premier duel classé ouvre la bordure de ta ligue ; chaque duel gagné dans la ligue, ou plus haut, y sertit un cran\. <a href="\/duels">Jouer un duel<\/a><\/p>/)
   assert.doesNotMatch(sansDuel, /loge-a-suite/)
 
-  // Le sceau : la rangée « Montré » / « Masqué » seule, quel que soit le légendaire montré ou le choix.
+  // Le sceau : sa grille « Montré » / « Masqué » seule, quel que soit le légendaire montré ou le choix — le calque dit son nom.
   const scellable = LEGENDAIRES.find(l => estScellable(l) && l.key !== 'lg:phenix')!
   const sansSceau = LEGENDAIRES.find(l => !estScellable(l))!
   for (const [profil, essai] of [
@@ -1096,7 +1103,7 @@ test('la loge tient sur un écran, ou presque : rien n’y change de place, et c
   ] as const) {
     const html = await sceau(profil, essai)
     sansPhrase(html)
-    assert.match(html, /<span class="loge-sous-titre" id="loge-sceau-titre">Sceau<\/span>/)
+    assert.match(html, /<div class="loge-grille calque-grille calque-grille-3" role="group" aria-label="Mon sceau">/)
     assert.match(html, /Montré/)
     assert.match(html, /Masqué/)
   }
@@ -1143,7 +1150,8 @@ test('la loge se resserre par ses mesures : des variables posées sur sa page, �
     ['.loge-avatars', 'gap: var(--loge-ecart);'],
     ['.loge-panneau', 'gap: var(--loge-bloc);'],
     ['.loge-pieces', 'gap: var(--loge-serre);'],
-    ['.loge-finitions', 'gap: var(--loge-serre);'],
+    ['.loge-motifs', 'gap: var(--loge-serre);'],
+    ['.loge-calque-panneau', 'gap: var(--loge-bloc);'],
     ['.loge-bordures', 'gap: var(--loge-serre);'],
     ['.loge-piece', 'gap: var(--loge-fin);'],
     ['.finition-choix', 'gap: var(--loge-fin);'],

@@ -6,7 +6,8 @@
 // puisse avoir tout sur le même écran ou presque » (le propriétaire, le
 // 10 novembre 2026). On vient ici changer de tenue : sa carte, la rangée des
 // six pièces et tout ce que la pièce ouverte laisse choisir avant sa grille —
-// pour « Avatar », la finition, la bordure, le sceau, les gemmes des raretés —
+// pour « Avatar », le rail de ses calques (le 26 novembre 2026 : la finition,
+// la bordure et le sceau y ont chacun le leur), les gemmes des raretés —
 // se voient sans défiler, puis le plus possible de la grille, qui défile par
 // nature quand elle est longue : c'est le « presque ». Sans rien déplacer, ni
 // ajouter, ni renommer : la place se gagne dans la feuille, à deux pas de
@@ -88,14 +89,14 @@ const TABLETTE: Ecran[] = [[768, 1024]]
  */
 const LES_PIECES: Record<PieceDeLaLoge, { avant: [nom: string, selecteur: string][]; cases: string; cible: string }> = {
   avatar: {
+    // Depuis les calques du 26 novembre 2026 : le rail, puis — sur « Avatar » — l'Éclat en réserve et les gemmes. Les
+    // grilles des autres calques ne se comptent pas ici : `calques` les photographie.
     avant: [
-      ['la finition', '.loge-panneau > .loge-finitions'],
-      ['la bordure', '.loge-panneau > .loge-bordures:not(:has(#loge-sceau-titre))'],
-      ['le sceau', '.loge-panneau > .loge-bordures:has(#loge-sceau-titre)'],
+      ['les calques', '.loge-panneau > .loge-calques'],
       ['l’Éclat en réserve', '.loge-avatars > .loge-reserve'],
       ['les gemmes', '.loge-avatars > .gemmes-loge'],
     ],
-    cases: '.loge-grille > .loge-case',
+    cases: '.loge-page-avatars .loge-grille > .loge-case',
     cible: 'un avatar',
   },
   // Les cinq autres parlent la même langue depuis le 17 novembre 2026 : un en-tête d'une ligne (`EnteteDeLaPiece`), puis
@@ -145,8 +146,9 @@ const LA_LOGE = (piece: PieceDeLaLoge) => `(() => {
   const CIBLES = {
     'le retour': '.loge-tete .jour-sortie',
     'la carte': '.loge-carte-ouvrir',
-    'la version': '.loge-version',
+    'les tenues': '.loge-tenues',
     'une pièce': '.loge-piece',
+    'un calque': '.loge-calque',
     'une pastille': '.finition-choix',
     'une gemme': '.gemmes-loge .gemme',
     [PIECE.cible]: PIECE.cases + ' button, ' + PIECE.cases + '[type=button]',
@@ -254,10 +256,11 @@ const hauteurUtile = (hauteur: number) => hauteur - (encoche ? Math.max(0, encoc
 /** La hauteur d'une cible de doigt, au moins — sa largeur se lit au rapport : une pastille a celle de son nom, depuis toujours. */
 const CIBLE = 44
 /**
- * Une cible d'avant, plus basse, que ce resserrement n'a pas touchée — « Version rare », sur la carte : elle ne descend
- * pas davantage. Un titre de la pièce « Titre » en faisait 34 jusqu'au 17 novembre 2026, ses cellules de texte 44 depuis.
+ * Une cible d'avant, plus basse, que ce resserrement n'a pas touchée — aucune depuis le 26 novembre 2026 : « Version
+ * rare », sur la carte (30 px), est devenue le calque « Version », et le cintre des tenues, à sa place, a sa cible de 44.
+ * Un titre de la pièce « Titre » en faisait 34 jusqu'au 17 novembre 2026, ses cellules de texte 44 depuis.
  */
-const D_AVANT: Record<string, number> = { 'la version': 30 }
+const D_AVANT: Record<string, number> = {}
 
 try {
   const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
@@ -398,12 +401,24 @@ try {
     await page.waitForTimeout(700)
   }
   const ATTENDUS: Record<PieceDeLaLoge, string> = {
-    avatar: '.loge-panneau .loge-page-avatars',
+    // Le rail des calques : la loge s'ouvre sur celui qui a du neuf — pas toujours « Avatar » (`surLAvatar`).
+    avatar: '.loge-panneau .loge-calques',
     titre: '.loge-panneau .loge-vignettes',
     vitrine: '.loge-panneau .loge-vignettes',
     fond: '.loge-panneau .loge-vignettes',
     theme: '.loge-panneau .loge-vignettes',
     gerbe: '.loge-panneau .loge-vignettes',
+  }
+  /**
+   * Le calque « Avatar » ouvert : la loge s'ouvre sur le premier calque qui a du neuf (`calqueDOuverture`), et une
+   * visite d'avant a pu laisser une finition ou une bordure à voir. Dit, s'il a fallu le toucher.
+   */
+  const surLAvatar = async (page: any, n: string) => {
+    const ouvert = (await page.evaluate(`document.querySelector('.loge-calque[aria-selected="true"]')?.id ?? ''`)) as string
+    if (ouvert === 'calque-avatar') return
+    console.log(`   ${n} — la loge s’est ouverte sur « ${ouvert.replace('calque-', '')} » (du neuf) : « Avatar » touché`)
+    await page.tap('#calque-avatar')
+    await attendre(page, '.loge-panneau .loge-page-avatars')
   }
   /** La photo de l'écran — et de la page entière si elle dépasse : le menu, fixe, se poserait au milieu, il s'efface. */
   const photographier = async (page: any, n: string, defile: number) => {
@@ -461,6 +476,7 @@ try {
       const { ctx, page } = await ouvrir(cas, ecran)
       await page.goto(`${banc.url}/profil#avatar`)
       await attendre(page, ATTENDUS.avatar)
+      await surLAvatar(page, `${nom}-${ecran[0]}x${ecran[1]}`)
       if (cas.page) {
         await page.tap(`#loge-gemme-${cas.page}`)
         await page.waitForSelector(`#loge-gemme-${cas.page}[aria-selected="true"]`)
@@ -473,8 +489,11 @@ try {
       const n = `${nom}-${ecran[0]}x${ecran[1]}`
       if (cas.essai) {
         // Le menu d'abord, puis la barre qui le couvre : elle ne monte pas plus haut que lui, et rien ne bouge au-dessus.
-        const avant = (await page.evaluate(`({ menu: Math.round(document.querySelector('.menu-barre').getBoundingClientRect().top), gemmes: Math.round(document.querySelector('.gemmes-loge').getBoundingClientRect().bottom) })`)) as { menu: number; gemmes: number }
-        await page.tap('.loge-finitions .finition-choix:not(.selected):not(.pastille-a-gagner)')
+        // Le calque « Finition », puis une finition touchée : la barre arrive, rien ne bouge au-dessus d'elle.
+        await page.tap('#calque-finition')
+        await page.waitForSelector('.loge-calque-panneau .calque-grille')
+        const avant = (await page.evaluate(`({ menu: Math.round(document.querySelector('.menu-barre').getBoundingClientRect().top), gemmes: Math.round(document.querySelector('.loge-calques').getBoundingClientRect().bottom) })`)) as { menu: number; gemmes: number }
+        await page.tap('.calque-grille .calque-case:not(.selected):not(.calque-a-gagner)')
         await page.waitForSelector('.loge-barre')
         await page.waitForTimeout(400)
         const m = await mesurer(page, nom, 'avatar', ecran, n)
@@ -577,6 +596,58 @@ try {
   // Ses neuf avatars communs : trois rangées de quatre — ce que la grille montre quand elle a de quoi.
   await avatar('commune', { cookie: lea, page: 'commune' }, TOUS_LES_ECRANS)
   await avatar('tout', { cookie: lea, tout: true }, TOUS_LES_ECRANS)
+
+  // Les calques de la pièce « Avatar » (le 26 novembre 2026), touchés sur leur rail : chacun sa grille — la version, la
+  // finition, la bordure et ses motifs, le sceau —, mesurée comme la pièce : le rail, ce qui couvre le bas, les cibles.
+  if (retenu('calques')) {
+    for (const ecran of reels(DEUX_ECRANS)) {
+      const { ctx, page } = await ouvrir({ cookie: lea }, ecran)
+      await page.goto(`${banc.url}/profil#avatar`)
+      await attendre(page, ATTENDUS.avatar)
+      await surLAvatar(page, `calques-${ecran[0]}x${ecran[1]}`)
+      for (const c of ['version', 'finition', 'bordure', 'sceau']) {
+        if ((await page.locator(`#calque-${c}`).count()) === 0) continue
+        await page.tap(`#calque-${c}`)
+        await page.waitForSelector(`#calque-${c}[aria-selected="true"]`)
+        await page.waitForTimeout(400)
+        await mesurer(page, 'calques', 'avatar', ecran, `calque-${c}-${ecran[0]}x${ecran[1]}`)
+      }
+      await ctx.close()
+    }
+  }
+
+  // Ses tenues (le paquet de cartes, le 26 novembre 2026) : trois gardées, la carte et ses points, la liste du cintre,
+  // puis une tenue touchée — son nom sur la carte, la barre « Porter ». Gardées pour la suite : ses points se voient
+  // dans les photos d'après, comme chez qui en a.
+  if (retenu('tenues')) {
+    const garder = async (nom: string) => {
+      const r = await ecrire(banc.url, '/api/joueur/tenues', { nom }, lea)
+      if (!r.ok) throw new Error(`La tenue ne se garde pas (${r.status} ${await r.text()})`)
+    }
+    await garder('Soirée')
+    await porte({ avatar: '🦊', finition: 'or', fond: null })
+    await garder('Renard')
+    await porte({ legendaire: 'lg:phenix', finition: 'holo', bordure: 'aucune' })
+    await garder('Sans bordure')
+    await porte({ finition: 'auto', bordure: 'auto', fond: 'vitrail' })
+    for (const ecran of reels(DEUX_ECRANS)) {
+      const { ctx, page } = await ouvrir({ cookie: lea }, ecran)
+      await page.goto(`${banc.url}/profil#avatar`)
+      await attendre(page, ATTENDUS.avatar)
+      const n = `${ecran[0]}x${ecran[1]}`
+      await surLAvatar(page, `tenues-${n}`)
+      await mesurer(page, 'tenues', 'avatar', ecran, `tenues-${n}`)
+      await page.tap('.loge-tenues')
+      await page.waitForSelector('.tenues-liste')
+      await page.waitForTimeout(500)
+      await page.screenshot({ path: path.join(sortie, `tenues-liste-${n}.png`) })
+      await page.locator('.tenue-montrer').nth(1).tap()
+      await page.waitForSelector('.loge-barre')
+      await page.waitForTimeout(500)
+      await mesurer(page, 'tenues', 'avatar', ecran, `tenue-essayee-${n}`)
+      await ctx.close()
+    }
+  }
 
   // Les cinq autres pièces, touchées sur leur rangée, comme on y va.
   if (retenu('pieces')) {

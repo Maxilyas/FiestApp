@@ -74,6 +74,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Cadre vide | Au musée du Cabinet, que la page ne montre plus depuis le 31 octobre 2026 : une œuvre qu'on n'avait pas encore, au mur de sa salle — ni son nom ni sa peinture, sa rareté en pointillé de sa couleur et en toutes lettres, et le jeu où la chercher. Son composant reste, sans écran qui le pose | `CaseDuMur` (`client/src/views/cabinet/Salle.tsx`) |
 | Calendrier des Heures | Douze pages enluminées, une par mois, ouvertes à vingt jours joués dans le mois et dorées pour son champion | `shared/calendrier.ts` |
 | Calibrage | La simulation de bandes d'amis jouant des soirées sur le vrai code, qui mesure les niveaux, les légendaires et la rareté des hauts faits | `server/scripts/calibrage.ts` |
+| Calque | Dans la pièce « Avatar » de la loge, l'un des réglages de l'avatar — l'avatar lui-même, sa version, sa finition, sa bordure (sa ligue et son motif), son sceau —, chacun sur un rail sous les pièces, l'aperçu de ce qu'on porte ; un seul ouvert, sa grille dessous (depuis le 26 novembre 2026) | `CalqueDeLAvatar`, `calquesDe`, `RailDesCalques` |
 | Campagne | Le jeu solo des profils, sans chronomètre, à `/campagne` : la série, les sentiers, le défi de la semaine, le carnet, et les duels sur le même écran | `CampagneStore` |
 | Carnet de révision | Ce qu'on a raté en campagne, qui revient à des rendez-vous espacés jusqu'à être appris | `shared/revision.ts` |
 | Carnet des fêtes | La ligne de « Ma collection » qui range les timbres, une page par année, une case par fête : gagné, en cours, à venir ou manqué | `carnetDesFetes` (`shared/timbres.ts`), `CarnetDesFetes` |
@@ -516,6 +517,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Télé branchée | Une télé ouverte sur `/tele` et validée par un code d'appairage depuis un téléphone : un écran de salle, sans console, pour 24 heures au plus | `ecranDeSalle`, `server/src/auth/appairage.ts` |
 | Télécommande | La console tenue sur un petit écran : l'étape, les gestes en grand, la régie — jamais la réponse avant la salle | `host:telecommande`, `client/src/telecommande.ts` |
 | Temps de lecture offert | Les premières secondes d'un QCM, pendant lesquelles le bonus de rapidité ne fond pas | `tempsDeLecture` |
+| Tenue | Le look de la carte d'un profil gardé pour être remis d'un geste — l'avatar et ses calques, le fond ; ni le titre ni la vitrine, qui le suivent. Six au plus, des cartes en paquet derrière celle de la loge : on glisse la carte, le cintre ouvre la liste | `TenueGardee`, `lookPorte`, `essaiDeLaTenue` |
 | Test de charge | Une salle entière simulée contre un serveur qui tourne, ses temps d'inscription, de diffusion et de révélation mesurés | `server/scripts/load-test.mjs` |
 | Thème | L'habillage de toutes les pages d'un profil — couleurs, polices, décor —, sur tout appareil où il est connecté ; jamais celui de l'écran commun | `shared/themes.ts` |
 | Thème de saison | Un thème en boutique pendant sa période seulement (Halloween, le Nouvel An…), gardé toute l'année une fois acheté | `enBoutique` |

@@ -369,16 +369,24 @@ test('un avatar éclaté s’essaie dans sa version rare ou d’origine, sur la 
   assert.equal(cibleDeLEclat(avatarMontre(porte, { legendaire: 'dv:seraphin' })), null)
   assert.equal(cibleDeLEclat(avatarMontre(porte, { avatar: '🦊' })), '🦊')
 
-  // Sur la carte, à côté de lui : « Version rare », pressée quand c'est elle qu'on montre.
+  // Son calque « Version » (le 26 novembre 2026 ; « Version rare » se touchait sur la carte, à côté de lui, 30 px sous
+  // le doigt) : sa version d'origine et sa version rare, chacune dessinée, celle qu'il porte cochée.
+  const version = (profil: object, essai: object = {}) => rendu('components/Apparence', 'MaVersion', { profil: { ...porte, ...profil }, essai, essayer: () => {}, busy: false })
+  assert.match(await version({}), /class="loge-case calque-case" aria-pressed="false" aria-label="Version d’origine">.*class="loge-case calque-case selected porte" aria-pressed="true" aria-label="Version rare">/)
+  assert.match(await version({ eclatsEteints: ['lg:phenix'] }), /class="loge-case calque-case selected porte" aria-pressed="true" aria-label="Version d’origine">/)
+  // Essayée, sa version d'origine a le halo de l'essai ; la rare, portée, garde sa coche.
+  assert.match(await version({}, { eclat: { cle: 'lg:phenix', brille: false } }), /class="loge-case calque-case selected essaye" aria-pressed="true" aria-label="Version d’origine">.*aria-label="Version rare, porté"/)
+  // Un avatar qui n'a pas éclaté, un Divin : sa version d'origine seule — et son calque s'éteint sur le rail.
+  assert.doesNotMatch(await version({ legendaire: 'lg:dragon' }), /Version rare/)
+  assert.doesNotMatch(await version({ legendaire: 'dv:seraphin', eclats: ['lg:phenix', '🐸'] }), /Version rare/)
   const laLoge = (profil: object) => rendu('components/Loge', 'Loge', { profil: { ...porte, ...profil }, piece: 'avatar', onPiece: () => {}, busy: false, enregistrer: async () => true })
-  assert.match(await laLoge({}), /<button type="button" class="loge-version" aria-pressed="true"><svg[^>]*>.*?<\/svg>Version rare<\/button>/)
-  assert.match(await laLoge({ eclatsEteints: ['lg:phenix'] }), /class="loge-version" aria-pressed="false"/)
-  // Ni sous un avatar qui n'a pas éclaté, ni sous un Divin.
-  assert.doesNotMatch(await laLoge({ legendaire: 'lg:dragon' }), /loge-version/)
-  assert.doesNotMatch(await laLoge({ legendaire: 'dv:seraphin', eclats: ['lg:phenix', '🐸'] }), /loge-version/)
-  // Le geste vient de la loge, qui tient l'essai ; la carte, dans sa tête légère, ne fait que le poser sur le bouton.
-  assert.match(source('components/Loge.tsx'), /version=\{rare !== null && cible \? \{ rare, essayee: !!essai\.eclat, basculer: \(\) => essayer\(\{ eclat: \{ cle: cible, brille: !rare \} \}\) \} : null\}/)
-  assert.match(source('components/LogeTete.tsx'), /<button type="button" className=\{'loge-version' \+ \(version\.essayee \? ' loge-essaye' : ''\)\} aria-pressed=\{version\.rare\} onClick=\{version\.basculer\}>/)
+  assert.match(await laLoge({}), /<button id="calque-version" type="button" role="tab" aria-selected="false" tabindex="-1" class="loge-calque">/)
+  assert.match(await laLoge({ legendaire: 'lg:dragon' }), /<button id="calque-version" type="button" role="tab" aria-selected="false" aria-disabled="true" tabindex="-1" class="loge-calque eteint">/)
+  // La carte n'a plus de bouton : sa version se règle dans son calque.
+  assert.doesNotMatch(await laLoge({}), /loge-version/)
+  // Le geste vient du calque, qui essaie la version de l'avatar montré ; la carte, dans sa tête légère, n'en sait plus rien.
+  assert.match(source('components/Apparence.tsx'), /onClick=\{\(\) => eclate && cible && essayer\(\{ eclat: \{ cle: cible, brille: v !== false, matiere: typeof v === 'string' \? v : null \} \}\)\}/)
+  assert.doesNotMatch(source('components/LogeTete.tsx'), /className=\{'loge-version/)
 
   // Ce qui brille : éclaté, et pas éteint — un serveur d'avant n'en dit rien, et tout brille.
   const { brilleChez } = await import('../../shared/profil')

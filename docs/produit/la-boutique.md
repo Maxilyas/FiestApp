@@ -104,7 +104,7 @@ La plupart des visites se font sans de quoi acheter : un confetti par bonne rép
 
 ## Essayer et porter
 
-![La loge au téléphone : la carte de Léa en tête, ses confettis au bout de la ligne d'expérience, puis les six pièces — Avatar, Titre, Vitrine et Fond sous « La salle voit », Thème et Gerbe sous « Toi seul »](../vitrine/captures/telephone-loge.jpg)
+![La loge au téléphone : la carte de Léa en tête, les points de ses tenues à son coin, puis les six pièces — Avatar, Titre, Vitrine et Fond sous « La salle voit », Thème et Gerbe sous « Toi seul » — et le rail des calques de son avatar](../vitrine/captures/telephone-loge.jpg)
 
 Ce que tu as se porte dans **la loge**, « M'habiller » sur ton profil ([le profil](le-profil.md)) : la pièce « Fond », sous « La salle voit », puis « Thème » et « Gerbe », sous « Toi seul ». Chaque pièce ne montre que ce que tu as, et compte dessous ce qui reste — « 13 fonds à gagner : où ? », vers « Ma collection » ; sous « Thème » et « Fond », « N autres à la boutique » aussi. **Un toucher essaie, rien ne s'enregistre** : un thème touché habille toute la page, un fond s'essaie derrière ta carte, une gerbe éclate. Une barre prend la place du menu — ce que tu essaies, « Annuler », « Porter » — et « Porter » enregistre tout l'essai d'un coup ; quitter la loge rend le thème que tu portais. Quand un toucher portait pour de bon, le doigt qui voulait seulement regarder un thème en habillait déjà toutes ses pages. La fin d'une partie qui vient de t'ouvrir un fond, une gerbe ou un thème le range sous « À porter » : « Essayer » ouvre la loge sur sa pièce, l'essai déjà en place — rien ne s'enregistre avant « Porter ».
 

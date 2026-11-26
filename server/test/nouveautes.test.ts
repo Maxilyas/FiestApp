@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
 import React from 'react'
 import { connexionAnimateur, cookieDe, demarrer, ecrire, inscrireProfil } from './banc'
-import { ceQuIlAPorter, retenirLesVus } from '../../shared/loge'
+import { calquesNeufs, ceQuIlAPorter, retenirLesVus } from '../../shared/loge'
 import { CLES_VUES_MAX, compteDesNouveautes, lireLesVus, premierePieceNeuve } from '../../shared/piecesDeLaLoge'
 import { LEGENDAIRES } from '../../shared/legendaires'
 import { DIVINS } from '../../shared/divins'
@@ -181,7 +181,9 @@ async function marquees(nom: string, props: object): Promise<string[]> {
   const essais: Record<string, string>[] = []
   const arbre = (await composant('components/Apparence'))[nom]({ ...props, essayer: (e: Record<string, string>) => essais.push(e) })
   const cles: string[] = []
-  for (const b of elements(arbre).filter(e => e.type === 'button' && /(^| )neuve( |$)/.test(e.props.className))) {
+  // Une case de calque (le 26 novembre 2026, `CaseDeCalque`) dit son état dans `etat` ; une pastille, dans sa classe.
+  const neuves = elements(arbre).filter(e => (e.type === 'button' && /(^| )neuve( |$)/.test(e.props.className)) || (e.type?.name === 'CaseDeCalque' && e.props.etat?.neuve))
+  for (const b of neuves) {
     essais.length = 0
     b.props.onClick()
     const e = essais[0]
@@ -266,6 +268,8 @@ test('chaque nouveauté de la pièce « Avatar » a sa marque dans la loge, et s
     const cases = await casesNeuves(tout, [cle])
     const finitions = await marquees('MesFinitions', piece(tout, [cle]))
     const bordures = await marquees('MesBordures', piece(tout, [cle]))
+    // Le rouge se suit depuis le rail des calques (le 26 novembre 2026) : son point sur le calque qui garde la case.
+    assert.deepEqual([...calquesNeufs([cle])], [cle.startsWith('finition:') ? 'finition' : cle.startsWith('bordure:') ? 'bordure' : 'avatar'], cle)
     if (cle.startsWith('finition:')) {
       assert.deepEqual([finitions, bordures, cases], [[cle], [], {}], cle)
       continue
