@@ -69,6 +69,13 @@ const DIT = {
   exploit: 'Un Divin descend sur celui qui accomplit un exploit bien précis… mais personne ne sait lequel.',
   moment: (nom: string) => `En ce moment, tous les habitués cherchent le secret ${deLui(nom)}. Il est caché dans une phrase.`,
   proposer: (sorte: SorteDePiece) => `Chacun en reçoit des mots différents. Résous mon ${laPiece(sorte)}, et je t’en souffle un.`,
+  // Une phrase que tous ont retrouvée, qu'il finit avec le Sphinx (le choix du propriétaire du 26 novembre 2026) : celle
+  // qu'il a choisie, ou — il porte le Divin du moment, toutes sont retrouvées — la plus ancienne qui lui manque.
+  suite: (nom: string, choisie: boolean) =>
+    choisie
+      ? `Tous les habitués ont retrouvé la phrase ${deLui(nom)}… et toi, tu as choisi de la finir avec moi, mot à mot.`
+      : `Tous les habitués ont retrouvé la phrase ${deLui(nom)}, mais il t’en manque des mots. Finissons-la, toi et moi.`,
+  proposerLaSuite: (sorte: SorteDePiece) => `Résous mon ${laPiece(sorte)}, et je t’en souffle un que tu n’as pas.`,
   revoila: (sorte: SorteDePiece) => `Te revoilà. Mon ${laPiece(sorte)} t’attendait.`,
   // Une énigme attend sa fin, de jour en jour (le choix du propriétaire du 25 novembre 2026) : il ne promet plus d'heure.
   plusTard: 'Comme tu voudras. Je reste là : touche-moi quand tu voudras l’entendre.',
@@ -90,8 +97,13 @@ const DIT = {
   voici: (nom: string) => `Voici un mot de la phrase ${deLui(nom)}.`,
   neuf: 'Et celui-là, *personne ne l’avait encore*.',
   dejaTrouve: 'Celui-là, d’autres habitués l’avaient déjà. Il est à toi maintenant.',
-  // Un mot neuf par jour, à tout le serveur (le choix du propriétaire du 25 novembre 2026) : il le dit, sans reproche.
-  neufParti: 'Je ne souffle qu’un mot neuf par jour, et celui d’aujourd’hui est parti. Celui-là, d’autres l’avaient : il est à toi.',
+  // Un mot neuf par jour, en moyenne, et au hasard — la même chance pour chacun, à toute heure (le choix du propriétaire
+  // du 26 novembre 2026 : le premier levé l'emportait). Il le dit, sans reproche.
+  pasLeNeuf: 'Pas de mot neuf cette fois : je n’en souffle qu’un par jour, à peu près, et au hasard. Celui-là, d’autres l’avaient : il est à toi.',
+  resteAFinir: (reste: number) =>
+    `Encore ${enLettres(reste)} mot${reste > 1 ? 's' : ''}, et tu l’auras finie toi-même. Je t’en soufflerai un autre à ma prochaine visite.`,
+  finie: (nom: string) => `Avec ce mot, tu as retrouvé toi-même chaque mot de la phrase ${deLui(nom)} !`,
+  finieAlbum: 'Elle t’attend dans ton album, entière. La prochaine fois, je te parlerai du Divin du moment.',
   autres: (n: number) =>
     n > 0
       ? // « Comparez vos mots » ne disait pas où les mettre (le premier retour de la production, le 24 novembre 2026).
@@ -100,7 +112,8 @@ const DIT = {
   album: 'Ta phrase t’attend dans ton album. Quand vous l’aurez reconstituée, je vous parlerai d’un autre Divin.',
   entiere: (nom: string) => `Avec ce mot, la phrase ${deLui(nom)} est entière : tous ensemble, vous l’avez *reconstituée* !`,
   entiereAlbum: 'Elle t’attend dans ton album. Je vous parlerai bientôt d’un autre Divin.',
-  laLire: 'Tu veux la lire en entier ? Chacun la lit quand il veut… ou jamais.',
+  laLire: 'Tu veux la lire en entier ? Ou la finir avec moi, un mot à chaque visite ? Chacun choisit… quand il veut.',
+  laFinir: 'Entendu. À chaque visite, je te soufflerai un mot qui te manque, jusqu’au dernier.',
   laVoici: 'La voici. Je vous parlerai bientôt d’un autre Divin.',
   plusTardDansLAlbum: 'Comme tu voudras. Elle t’attend dans ton album, le jour où tu voudras la lire.',
   perdu: (solution: string) => `Le sable se referme. C’était ${solution}.`,
@@ -961,7 +974,12 @@ function SceneDuSphinx({
     return () => o.disconnect()
   }, [])
   // Le menu ouvert laisse un peu plus d'air au-dessus de lui (sa feuille) : le voile se remesure aussi.
-  useLayoutEffect(ajusterLeVoile, [phrase, vue, menu])
+  // Le menu se mesure d'abord : plus haut que le Sphinx (trois choix), il relève le bas du cadre (`--sx-menu-h`).
+  useLayoutEffect(() => {
+    const choix = racine.current?.querySelector<HTMLElement>('.sx-choix')
+    racine.current?.style.setProperty('--sx-menu-h', `${choix?.offsetHeight ?? 0}px`)
+    ajusterLeVoile()
+  }, [phrase, vue, menu])
   // Ce que le haut montre de neuf se lit depuis son début : l'énigme défilée laissait le Divin du moment défilé d'autant.
   useLayoutEffect(() => {
     if (haut.current) haut.current.scrollTop = 0
@@ -1243,17 +1261,31 @@ function SceneDuSphinx({
       ])
       if (voir === 'oui') await expliquer(moi, lui.enigme)
     }
-    const entiere = apres.reconstituee || (v.phrase !== null && v.phrase.divin.key !== apres.divin.key)
+    // Son mot était le dernier qui manquait à tous (le serveur le dit : `retrouvee`) ; sinon, une phrase déjà retrouvée,
+    // c'est qu'il la finit avec le Sphinx (le choix du propriétaire du 26 novembre 2026).
+    const entiere = v.retrouvee === true
+    const surLaSuite = !entiere && apres.reconstituee
     if (entiere) await laSolutionSIlVeut()
     if (entiere && apres.aDevoiler) {
-      // Son mot était le dernier qui manquait à tous : la phrase ne s'impose pas (la décision du 24 novembre 2026). Le
-      // Sphinx le dit, et lui laisse le choix — maintenant, ou plus tard dans l'album.
+      // La phrase ne s'impose pas (la décision du 24 novembre 2026). Le Sphinx le dit, et lui laisse le choix : la lire
+      // maintenant, la finir avec lui mot à mot, ou plus tard dans l'album.
       await dire(moi, DIT.entiere(nom))
       const choix = await demander(moi, DIT.laLire, [
         ['lire', 'La lire'],
+        ['finir', 'La finir avec toi'],
         ['plus-tard', 'Pas maintenant'],
       ])
-      if (choix === 'lire') {
+      if (choix === 'finir') {
+        try {
+          await api.joueur.finirLaPhraseDuSphinx(lui.divin.key)
+          verifier(moi)
+          await dire(moi, DIT.laFinir)
+        } catch (e) {
+          if (e instanceof Abandon) throw e
+          await dire(moi, DIT.sansReseau((e as Error).message.replace(/[.\s]+$/, '')))
+          await dire(moi, DIT.plusTardDansLAlbum)
+        }
+      } else if (choix === 'lire') {
         try {
           const { phrase: toute } = await api.joueur.lirePhraseDuSphinx(lui.divin.key)
           verifier(moi)
@@ -1271,8 +1303,14 @@ function SceneDuSphinx({
     } else if (entiere) {
       await dire(moi, DIT.entiere(nom))
       await dire(moi, DIT.entiereAlbum)
+    } else if (surLaSuite) {
+      // Ce qui lui manque encore, trouvé ou appris : rien, il l'a finie lui-même — elle est entière sous ses yeux.
+      const reste = Math.max(0, apres.aTrouver - apres.siens - (apres.appris ?? 0))
+      if (mot) await dire(moi, reste === 0 ? DIT.finie(nom) : DIT.resteAFinir(reste))
+      await laSolutionSIlVeut()
+      if (reste === 0) await dire(moi, DIT.finieAlbum)
     } else {
-      if (mot) await dire(moi, neuf ? DIT.neuf : v.neufDuJourParti ? DIT.neufParti : DIT.dejaTrouve)
+      if (mot) await dire(moi, neuf ? DIT.neuf : v.pasLeMotNeuf ? DIT.pasLeNeuf : DIT.dejaTrouve)
       await laSolutionSIlVeut()
       await dire(moi, DIT.autres(Math.max(0, apres.parTous - apres.siens)))
       await dire(moi, DIT.album)
@@ -1479,9 +1517,11 @@ function SceneDuSphinx({
       await dire(moi, DIT.rares)
       await dire(moi, DIT.exploit)
       setVue('focus')
-      await dire(moi, DIT.moment(v.divin.nom))
+      // Une phrase retrouvée qu'il finit avec lui : le Sphinx en parle, pas du Divin du moment.
+      const suite = donnees.aFinir?.divin.key === v.divin.key ? donnees.aFinir : null
+      await dire(moi, suite ? DIT.suite(v.divin.nom, suite.choisie) : DIT.moment(v.divin.nom))
       retenirLaPresentation(v.jour)
-      return proposer(moi, DIT.proposer(v.enigme.sorte))
+      return proposer(moi, suite ? DIT.proposerLaSuite(v.enigme.sorte) : DIT.proposer(v.enigme.sorte))
     }
     jouer().catch(e => {
       if (!(e instanceof Abandon)) throw e
@@ -1552,7 +1592,9 @@ function SceneDuSphinx({
               <div className="sx-grand">
                 <Divin cle={phrase.divin.key} verrouille />
               </div>
-              <p className="sx-sourcil sx-moment">Le Divin du moment</p>
+              {/* Une phrase que tous ont retrouvée — qu'il finit avec le Sphinx, ou que son mot vient de compléter — ne se
+                  dit plus « du moment » : le Sphinx est passé au suivant. */}
+              <p className="sx-sourcil sx-moment">{phrase.reconstituee ? 'Retrouvée par tous' : 'Le Divin du moment'}</p>
               <h2>{phrase.divin.nom}</h2>
               <PhraseDuDivin phrase={phrase} retourne={retourne} />
               <CompteDeLaPhrase phrase={phrase} />

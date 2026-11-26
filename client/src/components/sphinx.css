@@ -129,7 +129,9 @@
 .sx-haut > * { grid-area: 1 / 1; margin: auto; pointer-events: auto; }
 /* Le menu ouvert s'élève au-dessus de la boîte jusqu'au bas du haut : un peu d'air entre eux, que sa jauge ne passe pas
    sous son cadre (une phrase de vingt et un mots, en 360 × 640). */
-.sx-avec-menu .sx-haut { bottom: calc(var(--sx-bas) + var(--sx-boite-h) + var(--sx-sphinx-h) + 22px); }
+/* Plus haut que le Sphinx — trois choix, au dernier mot d'une phrase (le 26 novembre 2026) —, le menu se mesure
+   (`--sx-menu-h`) : il passait de 31 px sur la phrase en 360 × 640. */
+.sx-avec-menu .sx-haut { bottom: calc(var(--sx-bas) + var(--sx-boite-h) + max(var(--sx-sphinx-h) + 22px, var(--sx-menu-h, 0px) + 22px)); }
 /* L'énigme, en haut : le clavier du téléphone monte par le bas. */
 .sx-en-enigme .sx-haut { top: calc(40px + var(--sx-haut)); bottom: calc(var(--sx-bas) + var(--sx-boite-h) + 74px); }
 .sx-en-enigme .sx-haut > .sx-parchemin { margin-top: 0; }

@@ -10,7 +10,11 @@ import { fileURLToPath } from 'node:url'
 import {
   CHANCE_D_UNE_VISITE,
   ENIGMES_DEJA_VUES_DU_PROPRIETAIRE,
+  JOURS_DU_RYTHME,
   MOTS_NEUFS_PAR_JOUR,
+  MOTS_NEUFS_PAR_JOUR_MAX,
+  chanceDuMotNeuf,
+  divinDuSouffle,
   ORDRE_DU_SPHINX,
   PART_DES_PROBLEMES,
   VISITES_FACILES,
@@ -340,8 +344,8 @@ test('le mot soufflé : d’abord un que personne n’a encore, sinon un qu’il
 })
 
 // Le choix du propriétaire du 25 novembre 2026, « un mot neuf par jour » : à quinze habitués, la première phrase tombait
-// en trois jours. Le mot neuf du jour parti, le Sphinx souffle un mot que d'autres ont déjà trouvé et qu'il n'a pas.
-test('le mot neuf du jour parti, un mot déjà trouvé qu’il n’a pas ; s’il les a tous, un neuf quand même', () => {
+// en trois jours. Pas de mot neuf pour lui cette fois, le Sphinx souffle un mot que d'autres ont déjà trouvé et qu'il n'a pas.
+test('pas de mot neuf cette fois, un mot déjà trouvé qu’il n’a pas ; s’il les a tous, un neuf quand même', () => {
   const caches = [0, 1, 3, 4, 8]
   const pris = new Set<number>()
   for (let g = 0; g < 200; g++) pris.add(choisirLeMot(caches, new Set([0]), new Set([0, 1, 3]), hasardDe(`e${g}`), { neufPermis: false })!)
@@ -352,6 +356,78 @@ test('le mot neuf du jour parti, un mot déjà trouvé qu’il n’a pas ; s’i
   // Permis, rien ne change : d'abord un que personne n'a.
   assert.equal(choisirLeMot(caches, new Set([0]), new Set([0, 1, 3, 4]), hasardDe('g'), { neufPermis: true }), 8)
   assert.equal(MOTS_NEUFS_PAR_JOUR, 1)
+})
+
+// Le choix du propriétaire du 26 novembre 2026 : le premier résolu du jour emportait le mot neuf — « ça tombe toujours sur
+// celui qui se lève le plus tôt ». La même chance pour chaque énigme résolue, réglée sur leur rythme.
+test('la chance du mot neuf : un par jour en moyenne, sur le rythme des derniers jours — la même à toute heure', () => {
+  const H = 3_600_000
+  const J = 24 * H
+  assert.deepEqual([MOTS_NEUFS_PAR_JOUR_MAX, JOURS_DU_RYTHME], [2, 7])
+  // Rien encore de soufflé : toute la chance.
+  assert.equal(chanceDuMotNeuf([], null, 100 * J), 1)
+  // Cinq énigmes résolues par jour sur sept jours : une chance sur cinq ; une par jour, ou moins : toute la chance.
+  const parJour = (n: number, jours: number, fin: number) => Array.from({ length: n * jours }, (_, i) => fin - Math.floor(i / n) * J - (i % n) * H - H)
+  assert.equal(chanceDuMotNeuf(parJour(5, 7, 100 * J), 0, 100 * J), 1 / 5)
+  assert.equal(chanceDuMotNeuf(parJour(1, 7, 100 * J), 0, 100 * J), 1)
+  // Ce qui a plus de sept jours ne compte plus.
+  assert.equal(chanceDuMotNeuf([...parJour(5, 7, 100 * J), ...parJour(20, 7, 93 * J)], 0, 100 * J), 1 / 5)
+  // Un serveur de deux jours mesure son rythme sur deux jours : six énigmes, trois par jour.
+  assert.equal(chanceDuMotNeuf(parJour(3, 2, 100 * J), 98 * J, 100 * J), 1 / 3)
+
+  // Cinq habitués résolvent chaque jour, de 7 h à 22 h, deux mille jours durant — sur cent, le hasard seul écartait les
+  // parts du simple au triple —, sous la règle du serveur (`Sphinx.geste`) : la chance du moment, deux mots neufs par jour
+  // au plus, le tirage sur la graine de la visite, les huit derniers jours gardés.
+  const heures = [7, 10, 13, 18, 22]
+  let resolues: number[] = []
+  let debut: number | null = null
+  const parRang = heures.map(() => 0)
+  let neufs = 0
+  const DUREE = 2000
+  for (let jour = 0; jour < DUREE; jour++) {
+    let duJour = 0
+    resolues = resolues.filter(t => t > jour * J - (JOURS_DU_RYTHME + 1) * J)
+    heures.forEach((h, rang) => {
+      const t = jour * J + h * H
+      const permis = duJour < MOTS_NEUFS_PAR_JOUR_MAX && hasardDe(`joueur${rang}|${jour}|neuf`)() < chanceDuMotNeuf(resolues, debut, t)
+      if (permis) {
+        duJour++
+        if (jour >= JOURS_DU_RYTHME) {
+          parRang[rang]++
+          neufs++
+        }
+        debut ??= t
+      }
+      resolues.push(t)
+    })
+  }
+  const jours = DUREE - JOURS_DU_RYTHME
+  assert.ok(neufs / jours > 0.85 && neufs / jours < 1.15, `un mot neuf par jour, à peu près : ${(neufs / jours).toFixed(2)}`)
+  // Celui de 7 h n'en a plus tous les jours — avant, il les avait tous : chacun en reçoit sa part. Le plafond seul en ôte
+  // un peu aux derniers du jour (deux déjà tombés, le troisième n'a plus sa chance) : cinq sur six de la part du premier.
+  assert.ok(parRang[0] / neufs < 0.3, `la part du premier levé : ${parRang.join(', ')}`)
+  assert.ok(Math.min(...parRang) / Math.max(...parRang) > 0.7, `la part de chacun, de 7 h à 22 h : ${parRang.join(', ')}`)
+})
+
+test('le souffle : la phrase qu’il finit, sinon le Divin du moment, sinon la plus ancienne des retrouvées qui lui manque', () => {
+  const rien = () => false
+  // D'office, le Divin du moment.
+  assert.deepEqual(divinDuSouffle({ moment: 'm', retrouvees: ['a', 'b'], fil: null, connait: rien }), { divin: 'm', pourquoi: 'moment' })
+  // Il a choisi de finir une phrase retrouvée : elle passe devant.
+  assert.deepEqual(divinDuSouffle({ moment: 'm', retrouvees: ['a', 'b'], fil: 'b', connait: rien }), { divin: 'b', pourquoi: 'choisie' })
+  // Finie — ou lue, ou son Divin porté (`connait`) — : le Sphinx revient de lui-même au Divin du moment.
+  assert.deepEqual(divinDuSouffle({ moment: 'm', retrouvees: ['a', 'b'], fil: 'b', connait: c => c === 'b' }), { divin: 'm', pourquoi: 'moment' })
+  // Un fil vers une phrase pas encore retrouvée — le Divin du moment, ou un suivant — ne vaut rien.
+  assert.deepEqual(divinDuSouffle({ moment: 'm', retrouvees: ['a'], fil: 'z', connait: rien }), { divin: 'm', pourquoi: 'moment' })
+  // Il porte le Divin du moment : la plus ancienne des retrouvées qu'il ne connaît pas, dans l'ordre du Sphinx.
+  assert.deepEqual(divinDuSouffle({ moment: 'm', retrouvees: ['a', 'b'], fil: null, connait: c => c === 'm' || c === 'a' }), {
+    divin: 'b',
+    pourquoi: 'plus-ancienne',
+  })
+  // Toutes retrouvées : de même.
+  assert.deepEqual(divinDuSouffle({ moment: null, retrouvees: ['a', 'b'], fil: null, connait: rien }), { divin: 'a', pourquoi: 'plus-ancienne' })
+  // Il les connaît toutes : plus rien à lui souffler.
+  assert.equal(divinDuSouffle({ moment: null, retrouvees: ['a', 'b'], fil: 'a', connait: () => true }), null)
 })
 
 test('le Divin du moment : le premier de l’ordre dont tous n’ont pas trouvé chaque mot caché ; reconstituée, sa phrase passe au suivant', () => {

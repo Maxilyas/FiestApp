@@ -609,10 +609,12 @@ export interface LigneDuSphinx {
  * comptée pour vue, une phrase retrouvée lue ou annoncée, un mot appris d'un
  * autre (`appris`, son jour `appris:<Divin>:<place>`, sans `mot` : appris
  * n'est pas trouvé), les erreurs d'inscription d'un jour (`inscrits`, son
- * jour `inscrits:<jour>`, leur nombre dans `essais`). Les comptes des visites
- * les écartent toutes (`core/sphinx.ts` lit la même liste).
+ * jour `inscrits:<jour>`, leur nombre dans `essais`), la phrase retrouvée
+ * qu'il a choisi de finir avec le Sphinx (`fil`, son jour `fil`, une seule,
+ * son Divin dans `divin`). Les comptes des visites les écartent toutes
+ * (`core/sphinx.ts` lit la même liste).
  */
-export const LIGNES_A_PART_DU_SPHINX = ['vue', 'lue', 'annoncee', 'appris', 'inscrits'] as const
+export const LIGNES_A_PART_DU_SPHINX = ['vue', 'lue', 'annoncee', 'appris', 'inscrits', 'fil'] as const
 const A_PART = `(${LIGNES_A_PART_DU_SPHINX.map(e => `'${e}'`).join(', ')})`
 
 /**
@@ -2754,15 +2756,23 @@ export class ProfileStore {
    * premier instant où elle l'a été — le jour où une phrase est retrouvée par
    * tous —, et ceux qui y ont trouvé un mot, du premier au dernier, leur
    * prénom et leur visage — les crédits de l'annonce que l'accueil en fait.
-   * Un profil suspendu n'y est pas nommé.
+   * Un profil suspendu n'y est pas nommé. Et dans le même lot, les énigmes
+   * résolues depuis `depuis` — leur Divin et leur instant — : la chance du mot
+   * neuf se règle sur leur rythme (`chanceDuMotNeuf`, `core/sphinx.ts`).
    */
-  async motsDuSphinx(): Promise<{ mots: Map<string, Set<number>>; premiers: Map<string, number>; trouveurs: Map<string, TrouveurDuSphinx[]> }> {
-    const [lus, qui] = await this.client.batch(
+  async motsDuSphinx(depuis = 0): Promise<{
+    mots: Map<string, Set<number>>
+    premiers: Map<string, number>
+    trouveurs: Map<string, TrouveurDuSphinx[]>
+    resolues: { divin: string; le: number }[]
+  }> {
+    const [lus, qui, recentes] = await this.client.batch(
       [
         'SELECT divin, mot, MIN(COALESCE(close_le, proposee_le)) AS le FROM profile_sphinx WHERE mot IS NOT NULL GROUP BY divin, mot',
         `SELECT s.divin, s.profile_id, MIN(COALESCE(s.close_le, s.proposee_le)) AS le, COUNT(DISTINCT s.mot) AS n, p.name, p.avatar, p.legendaire
            FROM profile_sphinx s JOIN profiles p ON p.id = s.profile_id AND p.disabled_at IS NULL
           WHERE s.mot IS NOT NULL GROUP BY s.divin, s.profile_id`,
+        { sql: 'SELECT divin, COALESCE(close_le, proposee_le) AS le FROM profile_sphinx WHERE mot IS NOT NULL AND COALESCE(close_le, proposee_le) >= ?', args: [depuis] },
       ],
       'read',
     )
@@ -2788,7 +2798,27 @@ export class ProfileStore {
       })
     }
     for (const t of trouveurs.values()) t.sort((a, b) => a.le - b.le || a.id.localeCompare(b.id))
-    return { mots, premiers, trouveurs }
+    const resolues = recentes.rows.map(r => ({ divin: String(r.divin), le: Number(r.le) }))
+    return { mots, premiers, trouveurs, resolues }
+  }
+
+  /**
+   * La phrase retrouvée qu'il finit avec le Sphinx (`Sphinx.finir`) : une
+   * seule ligne à part (son jour `fil`), son Divin dans `divin`, remplacée
+   * quand il en choisit une autre, effacée quand il revient au Divin du moment
+   * (`divin` null). Rend ses lignes telles que la base les garde.
+   */
+  async choisirLaPhraseAFinir(profileId: string, divin: string | null, quand: number): Promise<LigneDuSphinx[]> {
+    const ecriture =
+      divin === null
+        ? { sql: `DELETE FROM profile_sphinx WHERE profile_id = ? AND jour = 'fil'`, args: [profileId] }
+        : {
+            sql: `INSERT INTO profile_sphinx (profile_id, jour, enigme, divin, etat, proposee_le) VALUES (?, 'fil', '', ?, 'fil', ?)
+                  ON CONFLICT(profile_id, jour) DO UPDATE SET divin = excluded.divin, proposee_le = excluded.proposee_le`,
+            args: [profileId, divin, quand],
+          }
+    const [, lignes] = await this.client.batch([ecriture, lectureDuSphinx(profileId)], 'write')
+    return lignesDuSphinxLues(lignes.rows)
   }
 
   /**

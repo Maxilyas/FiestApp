@@ -9,7 +9,9 @@
 // puis la langue au chat, trois essais perdus, l'épingle seule quand
 // une soirée attend, l'album d'un non-habitué — et les mots des autres
 // qu'il y inscrit, un faux puis un juste —, une phrase reconstituée par
-// tous, moins de mouvement, l'Ivoire et le texte agrandi à 130 %.
+// tous — son dernier mot et ses trois choix, puis Lise, qui la finit avec le
+// Sphinx, mot à mot —, moins de mouvement, l'Ivoire et le texte agrandi à
+// 130 %.
 //
 //   npm run build -w client
 //   cd server && npx tsx scripts/rendu-sphinx.ts ../export/sphinx
@@ -743,9 +745,10 @@ try {
     const manquent = caches.filter(i => !trouves.has(i))
     if (manquent.length < 2) throw new Error(`la phrase inventée n’a plus que ${manquent.length} mot(s) à trouver : Marc ne peut pas trouver le dernier`)
     motsDeTous('figurant2', manquent.slice(1))
-    // Le lendemain : un seul mot neuf par jour à tout le serveur (`MOTS_NEUFS_PAR_JOUR`), et Léa a eu celui d'aujourd'hui —
-    // Marc n'aurait reçu qu'un mot déjà trouvé, et la phrase ne se serait pas reconstituée sous ses yeux.
-    horloge.t += 24 * 3_600_000
+    // Huit jours plus tard : les énigmes résolues aujourd'hui hors du rythme que suit la chance du mot neuf
+    // (`chanceDuMotNeuf`, `JOURS_DU_RYTHME`), elle est entière — sans quoi Marc aurait pu ne recevoir qu'un mot déjà
+    // trouvé, et la phrase ne se serait pas reconstituée sous ses yeux.
+    horloge.t += 8 * 24 * 3_600_000
     // Marc, venu pour l'occasion : sa première visite, quoi que les autres cas aient joué aujourd'hui.
     const marc = await inscrireProfil(banc.url, 'marc2', 'Marc', '🐶')
     habitue('marc2')
@@ -794,6 +797,35 @@ try {
         await page.waitForTimeout(1600)
         await photo(page, cas, 'lue', ecran)
       }
+      await ctx.close()
+    }
+
+    // ── Lise la finit avec le Sphinx (le choix du propriétaire du 26 novembre 2026) : choisie depuis l'album, sa visite
+    // parle de la suite plutôt que du Divin du moment, lui en souffle un mot, puis l'album dit la phrase qu'elle finit ──
+    const lise = await inscrireProfil(banc.url, 'lise', 'Lise', '🦋')
+    habitue('lise')
+    await reserve('32')
+    const choisie = await ecrire(banc.url, '/api/joueur/sphinx/finir', { divin: ORDRE_DU_SPHINX[0] }, lise)
+    if (!choisie.ok) throw new Error(`Lise ne peut pas finir la phrase retrouvée (${choisie.status})`)
+    {
+      const cas = 'finir'
+      const { ctx, page } = await telephone({ cookie: lise, ecran: PETIT })
+      await accueil(page)
+      await page.waitForSelector('.sx-boite.sx-boite-la', { timeout: 30000 })
+      for (let i = 0; i < 5; i++) await replique(page, cas, null, PETIT)
+      await replique(page, cas, 'la-suite', PETIT)
+      await choisir(page, cas, null, PETIT, 0)
+      await lEnigme(page)
+      await repondre(page, reponses(enigme('32')).juste)
+      await quandIlADit(page, 'Exact')
+      await page.waitForFunction(() => !!(globalThis as any).document.querySelector('.sx-focus .phrase-sien'), null, { timeout: 15000 })
+      await quandIlADit(page, 'tu l’auras finie toi-même')
+      await replique(page, cas, 'encore-des-mots', PETIT)
+      await page.waitForURL(/\/profil#collection-avatars-divin/, { timeout: 20000 })
+      await page.waitForSelector('.album-phrase-suite', { timeout: 20000 })
+      await page.locator('.album-phrase').scrollIntoViewIfNeeded()
+      await page.waitForTimeout(1600)
+      await photo(page, cas, 'l-album', PETIT)
       await ctx.close()
     }
   }

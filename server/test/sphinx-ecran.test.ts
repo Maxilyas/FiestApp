@@ -353,11 +353,32 @@ test('dans l’album, un trait se touche pour y inscrire un mot, un mot appris s
   assert.match(lire('client/src/components/Sphinx.tsx'), /dans ton album, tu inscriras leurs mots sur ta phrase/)
 })
 
-// Un mot neuf par jour, à tout le serveur (le choix du propriétaire du 25 novembre 2026) : parti, le Sphinx le dit.
-test('le mot neuf du jour parti, le Sphinx le dit au joueur qui reçoit un mot déjà trouvé', () => {
+// Un mot neuf par jour en moyenne, la même chance pour chaque énigme résolue, à toute heure (le choix du propriétaire du
+// 26 novembre 2026) : pas cette fois, le Sphinx le dit — sans promettre l'heure ni le premier levé.
+test('pas de mot neuf cette fois : le Sphinx le dit au joueur qui reçoit un mot déjà trouvé', () => {
   const source = lire('client/src/components/Sphinx.tsx')
-  assert.match(source, /neufParti: 'Je ne souffle qu’un mot neuf par jour/)
-  assert.match(source, /dire\(moi, neuf \? DIT\.neuf : v\.neufDuJourParti \? DIT\.neufParti : DIT\.dejaTrouve\)/)
+  assert.match(source, /pasLeNeuf: 'Pas de mot neuf cette fois : je n’en souffle qu’un par jour, à peu près, et au hasard\./)
+  assert.match(source, /dire\(moi, neuf \? DIT\.neuf : v\.pasLeMotNeuf \? DIT\.pasLeNeuf : DIT\.dejaTrouve\)/)
+  assert.doesNotMatch(source, /celui d’aujourd’hui est parti/)
+})
+
+// Une phrase retrouvée par tous, chacun peut la finir avec le Sphinx, mot à mot (le choix du propriétaire du
+// 26 novembre 2026) : l'album le propose, la visite aussi, et le Sphinx parle de la suite plutôt que du Divin du moment.
+test('une phrase retrouvée se finit avec le Sphinx : l’album le propose et dit celle qu’il finit, la visite le propose au dernier mot', () => {
+  const album = lire('client/src/components/AlbumDesAvatars.tsx')
+  assert.match(album, />\s*La finir avec le Sphinx\s*</)
+  assert.match(album, /api\.joueur\.finirLaPhraseDuSphinx\(cle\)/)
+  assert.match(album, />\s*Revenir au Divin du moment\s*</)
+  // Sur une ligne en 360 de large, comme « Sa phrase, retrouvée par tous » : « … que tu finis avec le Sphinx » en prenait deux.
+  assert.match(album, /'Sa phrase, que tu finis'/)
+  const visite = lire('client/src/components/Sphinx.tsx')
+  // Le serveur dit quand son mot était le dernier qui manquait à tous : la visite ne le devine plus.
+  assert.match(visite, /const entiere = v\.retrouvee === true/)
+  assert.match(visite, /\['finir', 'La finir avec toi'\]/)
+  assert.match(visite, /api\.joueur\.finirLaPhraseDuSphinx\(lui\.divin\.key\)/)
+  // Une visite pour la suite : le Sphinx en parle, et la dit finie au dernier mot.
+  assert.match(visite, /suite \? DIT\.suite\(v\.divin\.nom, suite\.choisie\) : DIT\.moment\(v\.divin\.nom\)/)
+  assert.match(visite, /reste === 0 \? DIT\.finie\(nom\) : DIT\.resteAFinir\(reste\)/)
 })
 
 // ── Une phrase retrouvée par tous : un choix, jamais imposée ──────────────
@@ -371,10 +392,10 @@ test('une phrase retrouvée se dévoile à la demande : l’album la propose, la
   assert.match(album, /placesDevoilees\(avant, phrase\)/)
   // L'album n'emporte toujours pas la visite pour autant.
   assert.ok(!importsStatiques(path.join(client, 'components/AlbumDesAvatars.tsx')).has(path.join(client, 'components/Sphinx.tsx')))
-  // La visite : le mot qui manquait à tous, et le Sphinx propose de la lire, ou pas maintenant.
+  // La visite : le mot qui manquait à tous, et le Sphinx propose de la lire, de la finir avec lui, ou pas maintenant.
   const visite = lire('client/src/components/Sphinx.tsx')
   assert.match(visite, /if \(entiere && apres\.aDevoiler\)/)
-  assert.match(visite, /demander\(moi, DIT\.laLire, \[\s*\['lire', 'La lire'\],\s*\['plus-tard', 'Pas maintenant'\],?\s*\]\)/)
+  assert.match(visite, /demander\(moi, DIT\.laLire, \[\s*\['lire', 'La lire'\],\s*\['finir', 'La finir avec toi'\],\s*\['plus-tard', 'Pas maintenant'\],?\s*\]\)/)
   // Ce qui s'y dévoile : seulement ce que la phrase d'après dit de plus.
   const { placesDevoilees } = await import(url('components/PhraseDuDivin.tsx'))
   assert.deepEqual(placesDevoilees(phrase(), phrase({ mots: [...phrase().mots.slice(0, 1), { forme: '_______', texte: 'Tsdfghj' }, ...phrase().mots.slice(2)] })), [1])

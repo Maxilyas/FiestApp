@@ -78,14 +78,34 @@ chacun la lit s'il le choisit, et l'accueil l'annonce une fois (plus bas).
 - **Le mot se tire au verdict, jamais avant** (`choisirLeMot`, sa graine
   `profil|jour|mot`) : d'abord un que personne n'a ; deux joueurs qui
   résolvent ensemble le dernier inconnu reçoivent l'un ce mot, l'autre un mot
-  déjà trouvé. **Un seul mot neuf par jour, à tout le serveur**
-  (`MOTS_NEUFS_PAR_JOUR`, le choix du propriétaire du 25 novembre 2026) :
-  compté sur le premier instant de chaque mot, en mémoire (`premiers`,
-  `motsNeufsDuJour`) — parti, `neufPermis: false`, un mot déjà trouvé qu'il
-  n'a pas, et s'il les a tous, un neuf quand même ; le verdict le dit
-  (`neufDuJourParti`), la visite aussi (`DIT.neufParti`). Rien ne s'écrit à
+  déjà trouvé. **Un mot neuf par jour en moyenne, la même chance pour chaque
+  énigme résolue sur le Divin du moment, à toute heure** (`MOTS_NEUFS_PAR_JOUR`,
+  le choix du propriétaire du 25 novembre 2026 ; `chanceDuMotNeuf`, celui du 26
+  — le premier résolu du jour l'emportait, « ça tombe toujours sur celui qui
+  se lève le plus tôt ») : un sur les énigmes résolues par jour, à leur rythme
+  des derniers jours (`JOURS_DU_RYTHME`, `resolues` : lues avec les mots de
+  tous, tenues en mémoire — une énigme d'une phrase déjà retrouvée n'y compte
+  pas), deux au plus par jour (`MOTS_NEUFS_PAR_JOUR_MAX`, compté sur le premier
+  instant de chaque mot, `premiers`, `motsNeufsDuJour`), tiré sur la graine
+  `profil|jour|neuf` ; pas cette fois, `neufPermis: false`, un mot déjà trouvé
+  qu'il n'a pas, et s'il les a tous, un neuf quand même ; le verdict le dit
+  (`pasLeMotNeuf`), la visite aussi (`DIT.pasLeNeuf`). Rien ne s'écrit à
   côté : deux serveurs d'une mise en ligne, ou deux joueurs au même instant,
-  peuvent en souffler un de plus ce jour-là.
+  peuvent en souffler un de plus ce jour-là. `sphinx-pur.test.ts` rejoue deux
+  mille jours à cinq habitués de 7 h à 22 h : changer la règle se mesure là.
+- **D'où le Sphinx souffle : une seule règle, `divinDuSouffle`** (le choix du
+  propriétaire du 26 novembre 2026 : « que les gens puissent finir tout
+  seuls ») — la phrase retrouvée qu'il a choisi de finir (sa ligne à part
+  `fil`, `sonFil`), sinon le Divin du moment, sinon la plus ancienne des
+  retrouvées qu'il ne connaît pas (il porte le Divin du moment, ou toutes sont
+  retrouvées) ; connaître une phrase : en porter le Divin, l'avoir lue, ou en
+  savoir chaque mot. `decider`, `divinVise` et `vue` (`aFinir`) la lisent :
+  un lecteur de plus du Divin d'une visite passe par `souffle`, jamais par
+  `divinDuMoment` seul — il oublierait la phrase qu'on finit. Le verdict dit
+  quand son mot était le dernier qui manquait à tous (`retrouvee`) : une
+  phrase qu'on finit est retrouvée elle aussi, et la visite, qui le devinait
+  de `apres.reconstituee`, aurait crié « tous ensemble, vous l'avez
+  reconstituée ! » à chaque mot de la suite.
 - **Le banc fixe le tirage** (`tirageDuSphinx`, `QuizServerOptions`) et peut
   poser sa réserve (`enigmesDuSphinx`) — ce qu'il fait d'office dans
   `sphinx-accueil.test.ts` et `qg-sphinx.test.ts` : les énigmes en vers seules

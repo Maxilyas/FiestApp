@@ -43,7 +43,7 @@ import type { Envie } from '../../shared/envie'
 import type { NouveautesDeLaLoge, VusDeLaLoge } from '../../shared/piecesDeLaLoge'
 import type { MissionsDuJour } from '../../shared/missions'
 import type { CoffreOuvert } from '../../shared/coffre'
-import type { GesteDuSphinx, InscriptionDuSphinx, LeSphinx, PhraseLueDuSphinx, VerdictDuSphinx } from '../../shared/sphinx'
+import type { GesteDuSphinx, InscriptionDuSphinx, LeSphinx, PhraseAFinirDuSphinx, PhraseLueDuSphinx, VerdictDuSphinx } from '../../shared/sphinx'
 import type { PageDuSphinxAuQg, ReponseDuSphinxAuQg } from '../../shared/qgSphinx'
 import type { CompagnonAcquis } from '../../shared/compagnons'
 import type { ReglageDesOrnements } from '../../shared/ornements'
@@ -497,6 +497,9 @@ export const api = {
       req<VerdictDuSphinx>('/api/joueur/sphinx', { method: 'POST', body: JSON.stringify(reponse === undefined ? { geste } : { geste, reponse }) }),
     /** « La phrase est retrouvée : la lire » : la phrase entière d'un Divin que tous ont retrouvée, à lui pour de bon. */
     lirePhraseDuSphinx: (divin: string) => req<PhraseLueDuSphinx>('/api/joueur/sphinx/phrase', { method: 'POST', body: JSON.stringify({ divin }) }),
+    /** « La finir avec le Sphinx » : ses prochains mots viendront de cette phrase retrouvée ; `null`, du Divin du moment. */
+    finirLaPhraseDuSphinx: (divin: string | null) =>
+      req<PhraseAFinirDuSphinx>('/api/joueur/sphinx/finir', { method: 'POST', body: JSON.stringify({ divin }) }),
     /** L'accueil a montré la carte d'une phrase retrouvée : le serveur ne la redira plus, sur aucun de ses appareils. */
     phraseAnnoncee: (divin: string) => req<{ accuse: true }>('/api/joueur/sphinx/annonce', { method: 'POST', body: JSON.stringify({ divin }) }),
     /**

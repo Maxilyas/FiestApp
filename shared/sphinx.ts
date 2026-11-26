@@ -225,12 +225,38 @@ export interface SphinxOuvert {
    * jusqu'à son navigateur.
    */
   reconstituees: PhraseDuSphinx[]
+  /**
+   * La phrase dont le Sphinx lui souffle les mots quand ce n'est pas celle du
+   * Divin du moment : une phrase que tous ont retrouvée et qu'il finit à son
+   * rythme (le choix du propriétaire du 26 novembre 2026). `choisie`, il l'a
+   * demandé — « Revenir au Divin du moment » le défait ; sinon le Sphinx n'a
+   * rien d'autre à lui souffler (il porte le Divin du moment, ou toutes les
+   * phrases sont retrouvées) et finit avec lui la plus ancienne.
+   */
+  aFinir?: PhraseAFinir
+}
+
+/** La phrase retrouvée qu'il finit avec le Sphinx, et s'il l'a choisie. */
+export interface PhraseAFinir {
+  divin: { key: string; nom: string }
+  choisie: boolean
 }
 
 /** « La phrase est retrouvée : la lire » (`POST /api/joueur/sphinx/phrase`, `{ divin }`) : la phrase entière, à lui pour de bon. */
 export interface PhraseLueDuSphinx {
   accuse: true
   phrase: PhraseDuSphinx
+}
+
+/**
+ * « La finir avec le Sphinx » (`POST /api/joueur/sphinx/finir`, `{ divin }`) :
+ * ses énigmes suivantes lui soufflent les mots qu'il n'a pas d'une phrase que
+ * tous ont retrouvée ; `{ divin: null }`, il revient au Divin du moment. Rend
+ * ce que le Sphinx lui soufflera désormais.
+ */
+export interface PhraseAFinirDuSphinx {
+  accuse: true
+  aFinir: PhraseAFinir | null
 }
 
 /** Ce qu'un geste rend : son accusé, son verdict, et la visite d'après. */
@@ -243,8 +269,15 @@ export interface VerdictDuSphinx {
   dejaDite?: true
   /** Le mot gagné n'était encore à personne. */
   motNeuf?: boolean
-  /** Le mot neuf du jour était déjà parti (un par jour, à tout le serveur) : il a reçu un mot que d'autres avaient trouvé. */
-  neufDuJourParti?: true
+  /**
+   * Le mot neuf n'est pas tombé sur lui : sur le Divin du moment, chaque énigme
+   * résolue a la même chance de le souffler, un par jour en moyenne (le choix
+   * du propriétaire du 26 novembre 2026) — il a reçu un mot que d'autres
+   * avaient trouvé.
+   */
+  pasLeMotNeuf?: true
+  /** Son mot était le dernier qui manquait à tous : avec lui, la phrase est retrouvée. */
+  retrouvee?: true
   visite: VisiteDuSphinx
   phrase: PhraseDuSphinx | null
 }
