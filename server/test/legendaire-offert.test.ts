@@ -32,7 +32,8 @@ const accueil = async (banc: Banc, cookie: string) => (await lire<{ profile: Pro
 const porter = (banc: Banc, cookie: string, cle: string) => faire(banc, cookie, '/api/joueur/moi', { legendaire: cle }, 'PUT')
 
 test('le catalogue : un légendaire offert est secret, n’a que sa voie de cadeau, et ne se met jamais en jeu', () => {
-  assert.deepEqual([...LEGENDAIRES_OFFERTS], [CADEAU])
+  // Jörmungandr, puis les deux autres essais du même jour, la baleine et le dragon du drakkar.
+  assert.deepEqual([...LEGENDAIRES_OFFERTS], [CADEAU, 'lg:baleine', 'lg:drakkar'])
   for (const cle of LEGENDAIRES_OFFERTS) {
     const l = legendaire(cle)!
     assert.ok(l.secret, `${cle} : secret, personne ne le voit à gagner`)

@@ -641,6 +641,48 @@ export const LEGENDAIRES_PEINTS: LegendairePeint[] = [
     fond: 'magenta',
     entier: true,
   },
+  // Les deux autres essais du même jour, gardés eux aussi comme légendaires offerts (« J'aime beaucoup la baleine et le
+  // dragon drakkar », le propriétaire). Leur illustration est l'essai tel quel, leur découpe celle de la page des
+  // médaillons vivants (`essai-cadeau/demo/`), à la consigne de la chaîne sur le magenta : rien de repayé que leur
+  // version rare. Tous deux sortent tout entiers du cercle — la baleine par ses nageoires, le dragon par sa tête.
+  {
+    id: 'baleine',
+    sujet:
+      'the Rune Whale of the northern seas — a colossal humpback whale gliding toward the viewer through the deep, its whole body visible ' +
+      'inside the image, its long pectoral fins spread wide like wings; its dark blue skin is carved all over with Norse runes and flowing ' +
+      'Viking knotwork inlaid in gold leaf, glowing softly; barnacles of gold and pearl on its jaw; far above, the shadow of a Viking ' +
+      'longship on the bright surface, and shafts of sunlight pierce the water around it; a tiny lone scuba diver with a lamp swims beside ' +
+      'its eye, dwarfed by it, for scale; a swirl of bubbles and gold-leaf sparks around it. Palette: deep blue, turquoise and gold against ' +
+      'the dark abyss.',
+    // Loin de la nuit polaire de Jörmungandr : le couchant, la nacre et l'or rose.
+    rare:
+      'the Rune Whale becomes a whale of mother-of-pearl at sunset — its skin turns to iridescent pearl white and pale pink nacre, its runes ' +
+      'and knotwork to glowing rose gold, its barnacles to pink pearls; the sea glows with the warm orange and rose light of a setting sun ' +
+      'shining down through the surface, the clouds above turned to coral and gold.',
+    garde: 'the whale — its whole body, its fins, its tail and the gold runes and knotwork on it',
+    retirer: 'the sea, the light rays, the clouds, the longship, the diver, the bubbles and the sparks',
+    fond: 'magenta',
+    entier: true,
+  },
+  {
+    id: 'drakkar',
+    sujet:
+      'the Sea Dragon of the sunken longship — the carved dragon figurehead of a Viking longship has come alive as a colossal sea dragon, ' +
+      'surging upward out of the wreck that lies on the seabed, its whole body visible inside the image: a long coiling body of carved and ' +
+      'gilded oak turning into living scales, Viking knotwork and Norse runes glowing in gold leaf along its neck, a round Viking shield ' +
+      'still hanging from its flank, sea-green glowing eyes, its fins like the torn striped sail; shafts of sunlight pierce the surface far ' +
+      'above; a tiny lone scuba diver with a lamp floats before its head, dwarfed by it, for scale; bubbles and gold-leaf sparks rise around ' +
+      'it. Palette: deep teal, warm oak, red and gold against the dark abyss.',
+    // L'obsidienne et la braise d'une source volcanique : loin du bleu et de l'aurore des deux autres.
+    rare:
+      'the Sea Dragon becomes a dragon of black obsidian and molten gold — its carved wood turns to polished volcanic glass, its runes and ' +
+      'knotwork glow like lava, its eyes burn orange, the shield turns to black iron rimmed with embers, its striped fins to dark red and ' +
+      'gold; the deep sea is lit from below by a glowing undersea volcano, with drifting embers instead of bubbles.',
+    garde: 'the sea dragon — its head, horns, whole coiling body, its striped fins, the round shield on its flank',
+    retirer: 'the sunken longship hull, the diver, the light rays, the bubbles, the sparks, the sea and the background',
+    fond: 'magenta',
+    entier: true,
+  },
 ]
 
 /** Les dix-huit Divins : chacun sa silhouette de bijou. Rien de leurs règles, qui ne quittent jamais le serveur. */

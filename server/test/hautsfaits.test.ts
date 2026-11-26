@@ -358,9 +358,9 @@ test('chaque légendaire a sa légende, et se gagne par un haut fait qui existe'
   const cles = new Set([...HAUTS_FAITS_REGAGNABLES, ...HAUTS_FAITS_DE_CARRIERE].map(h => h.key))
   // Vingt-six, puis les cinq des fêtes du 1er novembre 2026, et le Djinn des défis du Cabinet, le même jour ; puis les
   // deux avatars en plus du premier Grand Prix, le 19 novembre 2026, secrets ; puis le premier légendaire offert, le
-  // 26 novembre 2026, secret aussi.
-  assert.equal(LEGENDAIRES.length, 35)
-  assert.deepEqual(LEGENDAIRES.filter(l => l.secret).map(l => l.key), ['lg:pegase', 'lg:pegase-couronne', 'lg:jormungandr'])
+  // 26 novembre 2026, secret aussi, et les deux autres du même jour.
+  assert.equal(LEGENDAIRES.length, 37)
+  assert.deepEqual(LEGENDAIRES.filter(l => l.secret).map(l => l.key), ['lg:pegase', 'lg:pegase-couronne', 'lg:jormungandr', 'lg:baleine', 'lg:drakkar'])
   for (const l of LEGENDAIRES) {
     assert.ok(l.nom && l.legende, `${l.key} a un nom et une légende`)
     // Un légendaire de saison se gagne par sa saison, et par elle seule : sa récompense de saison, ou l'expédition

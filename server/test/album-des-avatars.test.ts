@@ -79,8 +79,8 @@ test('l’album : tous les avatars qui se gagnent, une fois chacun, rangés en s
   // les dix emojis des niveaux 18 à 29, peu communs, le même jour encore ; et ceux du 31 au 49, huit rares, huit épiques.
   // L'album entier : les deux secrets d'un Grand Prix compris (Pégase et Pégase couronné) — la valeur d'une collection s'y
   // lit —, que les pages ne montrent qu'à qui les a (`pagesDeLAlbum`, plus bas) ; et le premier légendaire offert,
-  // Jörmungandr (le 26 novembre 2026), secret de même.
-  assert.deepEqual(parPage, { commune: 23, peucommune: 28, rare: 37, epique: 25, legendaire: 57, divin: 18 })
+  // Jörmungandr, la Baleine runique et le Dragon du drakkar (le 26 novembre 2026), secrets de même.
+  assert.deepEqual(parPage, { commune: 23, peucommune: 28, rare: 37, epique: 25, legendaire: 59, divin: 18 })
 })
 
 test('la rareté dit ce qu’un avatar demande : plus haut sur le sentier, plus rare ; sa forme ultime, légendaire', () => {
@@ -155,6 +155,8 @@ test('chaque avatar dit où il se gagne — voie après voie ; un Divin, nulle p
     'pegase-couronne': 'grand-prix',
     // Il ne se gagne pas : il s'offre, du QG (`Legendaire.offert`).
     jormungandr: 'cadeau',
+    baleine: 'cadeau',
+    drakkar: 'cadeau',
   })
   for (const p of PORTRAITS) assert.deepEqual(avatarDeLAlbum(p.key, FERME)!.lieux, ['sentiers'], p.key)
   for (const c of COLLECTION) assert.deepEqual(avatarDeLAlbum(c.emoji, FERME)!.lieux, ['niveau'], c.emoji)

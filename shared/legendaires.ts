@@ -559,6 +559,25 @@ export const LEGENDAIRES: Legendaire[] = avecLeCabinet(avecLExpedition([
     secret: true,
     offert: true,
   },
+  {
+    // Les deux autres essais du même jour, gardés aussi pour des cadeaux (le 26 novembre 2026) : la même voie, chacun la sienne.
+    key: 'lg:baleine',
+    nom: 'La Baleine runique',
+    legende: 'Gravée de runes d’or, elle glisse sous la coque des drakkars. Elle ne se gagne pas : elle s’offre.',
+    condition: { hautFait: cleDuCadeau('lg:baleine'), fois: 1 },
+    ton: 'eclat',
+    secret: true,
+    offert: true,
+  },
+  {
+    key: 'lg:drakkar',
+    nom: 'Le Dragon du drakkar',
+    legende: 'La figure de proue d’un drakkar englouti, réveillée au fond de la mer. Il ne se gagne pas : il s’offre.',
+    condition: { hautFait: cleDuCadeau('lg:drakkar'), fois: 1 },
+    ton: 'eclat',
+    secret: true,
+    offert: true,
+  },
 ]))
 
 /**

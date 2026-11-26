@@ -100,6 +100,8 @@ const FONDS: Record<string, [string, string, string]> = {
   'lg:pegase-couronne': ['#6a6fae', '#1c2552', '#060a1e'],
   // Les légendaires offerts (`Legendaire.offert`) : le Serpent du monde, sous la lumière qui tombe dans la mer du Nord.
   'lg:jormungandr': ['#4fa8a0', '#0f3f4a', '#03121a'],
+  'lg:baleine': ['#5fc3d0', '#14506a', '#041726'],
+  'lg:drakkar': ['#c9a35a', '#1f4a46', '#06161a'],
 }
 
 /**
@@ -144,6 +146,10 @@ const FONDS_ECLAT: Record<string, [string, string, string]> = {
   'lg:pegase-couronne': ['#c49ef0', '#55309e', '#150a32'],
   // Sa nuit polaire : l'aurore, verte et violette, sous la banquise.
   'lg:jormungandr': ['#6fe0b0', '#2e3f8a', '#070b24'],
+  // Le couchant, la nacre et l'or rose.
+  'lg:baleine': ['#ffd2b8', '#c0566e', '#2e0c1e'],
+  // La braise d'une source volcanique sous l'obsidienne.
+  'lg:drakkar': ['#ffb25a', '#8a2a14', '#1a0504'],
 }
 
 /**
