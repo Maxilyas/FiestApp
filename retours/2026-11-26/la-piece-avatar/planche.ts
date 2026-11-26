@@ -349,7 +349,7 @@ const TENUES: { nom: string; t: Tenue; porte?: boolean; essaye?: boolean }[] = [
   { nom: 'Ma tenue', t: {}, porte: true },
   { nom: 'Duels', t: { legendaire: 'lg:dragon', finition: 'or', bordure: { ...PORTEE, motif: 'ecailles' }, sceau: false, eclat: false } },
   { nom: 'La mer', t: { legendaire: 'lg:kraken', finition: 'abysses', bordure: { ligue: 'argent', crans: 12, motif: 'vagues' }, sceau: false, eclat: false } },
-  { nom: 'Hiver', t: { legendaire: 'lg:chouette', finition: 'argent', bordure: { ligue: 'or', crans: 12, motif: 'flocons' }, sceau: false, eclat: false } },
+  { nom: 'Hiver', t: { legendaire: 'lg:chouette', finition: 'argent', bordure: { ligue: 'or', crans: 12, motif: 'flocons' }, sceau: false, eclat: false }, essai: { legendaire: 'lg:chouette', finition: 'argent', finitionChoisie: 'argent', motifChoisi: 'flocons', sceauMasque: true } },
 ]
 const rangeeDesTenues = (essayee?: string) =>
   `<div class="mq-tenues mq-sujet">${TENUES.map(
@@ -421,15 +421,41 @@ function railFinal(actif: CalqueFinal, opts: { essai?: Partial<Record<CalqueFina
     .join('')}</div>`
 }
 
-/** La languette du tiroir des tenues, collée au bord droit, à hauteur de la carte : elle la suit quand la page défile. */
+/** La languette du tiroir des tenues (la première version), collée au bord droit, à hauteur de la carte. */
 const LANGUETTE = `<button type="button" class="mq-languette" aria-label="Mes tenues" aria-expanded="false">${icone('hanger')}</button>`
-/** La carte de la loge, sans « Version rare » (son calque l'a reprise), la languette des tenues à son bord. */
-function carteFinale(essai: Partial<typeof LEA> = {}, languette = true): string {
-  const html = rendre(
-    h(CarteDeLaLoge, { vu: { ...LEA_FINALE, ...essai }, vitrine: VITRINE, apercu: Object.keys(essai).length > 0, essaye: { avatar: Object.keys(essai).length > 0 }, version: null, onOuvrir() {} }),
-  )
-  // La carte est rendue dans `.loge-collante` : la languette s'y range, pour rester collée avec elle.
-  return languette ? html.replace(/<\/div>$/, `${LANGUETTE}</div>`) : html
+
+// Le paquet : les tenues sont des cartes. Derrière la carte de la loge, la
+// tranche des autres ; à son coin, là où était « Version rare », un cintre
+// et un point par tenue. Le doigt glisse la carte : la tenue suivante vient
+// devant, à l'essai. Le cintre ouvre la liste, où l'on garde, renomme, retire.
+
+/** Les tenues de Léa : la première est celle qu'elle porte. */
+const TENUES_FINALES: { nom: string; t: Tenue & { eclat?: any }; essai?: Partial<typeof LEA>; porte?: boolean }[] = [
+  { nom: 'Soirée', t: {}, porte: true },
+  { nom: 'Duels', t: { legendaire: 'lg:dragon', finition: 'or', bordure: { ...PORTEE, motif: 'ecailles' }, sceau: false, eclat: false }, essai: { legendaire: 'lg:dragon', finition: 'or', finitionChoisie: 'or', motifChoisi: 'ecailles', sceauMasque: true } },
+  { nom: 'La mer', t: { legendaire: 'lg:kraken', finition: 'abysses', bordure: { ligue: 'argent', crans: 12, motif: 'vagues' }, sceau: false, eclat: false }, essai: { legendaire: 'lg:kraken', finition: 'abysses', finitionChoisie: 'abysses', bordureChoisie: 'argent', motifChoisi: 'vagues', sceauMasque: true } },
+  { nom: 'Hiver', t: { legendaire: 'lg:chouette', finition: 'argent', bordure: { ligue: 'or', crans: 12, motif: 'flocons' }, sceau: false, eclat: false }, essai: { legendaire: 'lg:chouette', finition: 'argent', finitionChoisie: 'argent', motifChoisi: 'flocons', sceauMasque: true } },
+  { nom: 'Le Lion', t: { legendaire: 'lg:lion', finition: 'or', bordure: { ligue: 'or', crans: 12, motif: 'rayons' }, sceau: false, eclat: false } },
+]
+/** Le cintre et un point par tenue, au coin de la carte : la montrée s'allonge en or, la portée garde son anneau. */
+function lesPoints(montree: number | null, n = TENUES_FINALES.length): string {
+  const points = Array.from({ length: n }, (_, i) => `<button type="button" class="mq-point${i === montree ? ' montree' : ''}${i === 0 ? ' portee' : ''}" aria-label="${TENUES_FINALES[i]?.nom ?? ''}"><i></i></button>`).join('')
+  return `<div class="mq-points"><button type="button" class="mq-cintre" aria-label="Mes tenues">${icone('hanger')}</button>${points}</div>`
+}
+type ModeDeLaCarte = 'paquet' | 'tiroir' | 'nue'
+/** La carte de la loge, sans « Version rare » (son calque l'a reprise) : en paquet, avec la languette du tiroir, ou nue. */
+function carteFinale(essai: Partial<typeof LEA> = {}, mode: ModeDeLaCarte = 'paquet', laTenue?: number | null): string {
+  const apercu = Object.keys(essai).length > 0
+  // Un calque à l'essai : la carte ne montre plus aucune tenue gardée, aucun point ne s'allume.
+  const tenue = laTenue === undefined ? (apercu ? null : 0) : laTenue
+  let html = rendre(h(CarteDeLaLoge, { vu: { ...LEA_FINALE, ...essai }, vitrine: VITRINE, apercu, essaye: { avatar: apercu }, version: null, onOuvrir() {} }))
+  if (mode === 'tiroir') return html.replace(/<\/div>$/, `${LANGUETTE}</div>`)
+  if (mode === 'nue') return html
+  // Une tenue gardée montrée : son nom à la place d'« Aperçu ».
+  if (tenue !== null && tenue > 0) html = html.replace('<span class="loge-apercu">Aperçu</span>', `<span class="loge-apercu mq-nom-de-tenue">${icone('hanger')}${TENUES_FINALES[tenue].nom}</span>`)
+  // Les points se rangent dans la rangée de l'avatar, pas au pied de la carte : sur un grand écran, la carte dit
+  // dessous son niveau suivant et ses confettis (`XpMince`), que les points couvraient.
+  return html.replace('<div class="loge-collante">', '<div class="loge-collante mq-paquet">').replace('</div><span class="xp-mince"', `${lesPoints(tenue)}</div><span class="xp-mince"`)
 }
 function ecranFinal(opts: { carte?: string; panneau: string; bas?: string; dessus?: string }): string {
   return ecran({ carte: opts.carte ?? carteFinale(), panneau: opts.panneau, bas: opts.bas, dessus: opts.dessus })
@@ -488,7 +514,8 @@ const TOM: any = {
   boutique: { confettis: { solde: 85 } },
 }
 const finalDebutant = () => {
-  const carteTom = rendre(h(CarteDeLaLoge, { vu: TOM, vitrine: [], apercu: false, essaye: {}, version: null, onOuvrir() {} })).replace(/<\/div>$/, `${LANGUETTE}</div>`)
+  // Pas encore de tenue gardée : ni tranche derrière la carte, ni point — le cintre seul, qui ouvre la liste vide.
+  const carteTom = rendre(h(CarteDeLaLoge, { vu: TOM, vitrine: [], apercu: false, essaye: {}, version: null, onOuvrir() {} })).replace(/<\/div>$/, `<div class="mq-points"><button type="button" class="mq-cintre" aria-label="Mes tenues">${icone('hanger')}</button></div></div>`)
   return ecran({
     carte: carteTom,
     panneau:
@@ -501,15 +528,8 @@ const finalDebutant = () => {
   })
 }
 
-// ── Le tiroir des tenues ─────────────────────────────────────────────────
+// ── La première version : le tiroir ──────────────────────────────────────
 
-const TENUES_FINALES: { nom: string; t: Tenue & { eclat?: any }; porte?: boolean }[] = [
-  { nom: 'Soirée', t: {}, porte: true },
-  { nom: 'Duels', t: { legendaire: 'lg:dragon', finition: 'or', bordure: { ...PORTEE, motif: 'ecailles' }, sceau: false, eclat: false } },
-  { nom: 'La mer', t: { legendaire: 'lg:kraken', finition: 'abysses', bordure: { ligue: 'argent', crans: 12, motif: 'vagues' }, sceau: false, eclat: false } },
-  { nom: 'Hiver', t: { legendaire: 'lg:chouette', finition: 'argent', bordure: { ligue: 'or', crans: 12, motif: 'flocons' }, sceau: false, eclat: false } },
-  { nom: 'Le Lion', t: { legendaire: 'lg:lion', finition: 'or', bordure: { ligue: 'or', crans: 12, motif: 'rayons' }, sceau: false, eclat: false } },
-]
 function tiroir(essayee?: string): string {
   const tenues = TENUES_FINALES.map(
     x =>
@@ -517,11 +537,11 @@ function tiroir(essayee?: string): string {
   ).join('')
   return `<aside class="mq-tiroir" aria-label="Mes tenues"><header class="mq-tiroir-tete"><button type="button" class="mq-tiroir-fermer" aria-label="Ranger les tenues">${icone('chevron-right')}</button><span class="loge-sous-titre">Tenues</span></header><div class="mq-tiroir-corps mq-sujet"><button type="button" class="mq-tenue mq-tenue-plus mq-garder">${icone('plus')}<span class="mq-tenue-nom">Garder</span></button>${tenues}</div></aside>`
 }
-const finalTiroir = () => ecranFinal({ carte: carteFinale({}, false), panneau: railFinal('avatar', { neufs: ['bordure'] }) + rendre(h(MesAvatars, PROPS_FINALES)), dessus: tiroir() })
+const finalTiroir = () => ecranFinal({ carte: carteFinale({}, 'nue'), panneau: railFinal('avatar', { neufs: ['bordure'] }) + rendre(h(MesAvatars, PROPS_FINALES)), dessus: tiroir() })
 const finalTenueEssayee = () => {
   const mer = TENUES_FINALES[2].t
   return ecranFinal({
-    carte: carteFinale({ legendaire: mer.legendaire, finition: mer.finition, finitionChoisie: mer.finition, bordureChoisie: 'argent', motifChoisi: 'vagues', sceauMasque: true }, false),
+    carte: carteFinale({ legendaire: mer.legendaire, finition: mer.finition, finitionChoisie: mer.finition, bordureChoisie: 'argent', motifChoisi: 'vagues', sceauMasque: true }, 'nue'),
     panneau:
       railFinal('avatar', {
         essai: {
@@ -534,6 +554,57 @@ const finalTenueEssayee = () => {
     bas: barre('La mer', 'Avatar · Finition · Bordure · Sceau'),
     dessus: tiroir('La mer'),
   })
+}
+
+// ── Le paquet ────────────────────────────────────────────────────────────
+
+/** Le dedans de `.loge-collante` : la carte seule, pour la poser où l'on veut. */
+// React 19 pose devant elle les liens de préchargement de ses peintures : la balise ne commence pas la chaîne.
+const sansCollante = (html: string) => html.replace(/<div class="loge-collante[^"]*">/, '').replace(/<\/div>$/, '')
+const LA_MER = TENUES_FINALES[2]
+
+/**
+ * Le doigt glisse la carte vers la droite — la tenue d'avant, comme la carte d'un joueur (à gauche la suivante, à
+ * droite la précédente) : « Hiver » s'en va, « La mer » est dessous. Vers la droite, la carte qui part découvre
+ * l'avatar de celle qui vient, à gauche.
+ */
+const finalGlisse = () => {
+  const HIVER = TENUES_FINALES[3]
+  const devant = sansCollante(carteFinale(HIVER.essai, 'nue')).replace('<span class="loge-apercu">Aperçu</span>', `<span class="loge-apercu mq-nom-de-tenue">${icone('hanger')}${HIVER.nom}</span>`)
+  // Dessous, « La mer » déjà nommée : c'est elle qui sera devant quand le doigt lâchera.
+  const dessous = sansCollante(carteFinale(LA_MER.essai, 'nue')).replace('<span class="loge-apercu">Aperçu</span>', `<span class="loge-apercu mq-nom-de-tenue">${icone('hanger')}${LA_MER.nom}</span>`)
+  return ecranFinal({
+    carte: `<div class="loge-collante mq-paquet mq-glisse"><div class="mq-glisse-dessous">${dessous}</div><div class="mq-glisse-devant">${devant}</div><span class="mq-doigt" aria-hidden="true"></span>${lesPoints(2)}</div>`,
+    panneau: railFinal('avatar', { neufs: ['bordure'] }) + rendre(h(MesAvatars, PROPS_FINALES)),
+  })
+}
+
+/** « La mer » devant : son nom sur la carte, son point en or, ses calques en pointillé, « Porter ». */
+const finalMer = () => {
+  const mer = LA_MER.t
+  return ecranFinal({
+    carte: carteFinale(LA_MER.essai, 'paquet', 2),
+    panneau:
+      railFinal('avatar', {
+        essai: {
+          avatar: av({ ...mer, bordure: null, finition: 'mat', sceau: false }),
+          finition: `<i class="finition-teinte teinte-abysses"></i>`,
+          bordure: av({ ...mer, sceau: false }),
+        },
+        neufs: ['bordure'],
+      }) + rendre(h(MesAvatars, { ...PROPS_FINALES, essai: { legendaire: mer.legendaire } })),
+    bas: barre('La mer', 'Avatar · Finition · Bordure · Sceau'),
+  })
+}
+
+/** Le cintre touché : toutes ses tenues d'un coup d'œil, et ce qui s'y règle. La carte reste au-dessus, sans voile. */
+const finalListe = () => {
+  const rangees = TENUES_FINALES.map(
+    (x, i) =>
+      `<li class="mq-rangee-tenue${i === 0 ? ' portee' : ''}"><button type="button" class="mq-rangee-porter"><span class="mq-rangee-dessin mq-sujet">${av(x.t)}</span><span class="mq-rangee-nom"><b>${x.nom}</b>${i === 0 ? '<small>Portée</small>' : ''}</span></button><button type="button" class="mq-rangee-geste" aria-label="Renommer ${x.nom}">${icone('edit')}</button><button type="button" class="mq-rangee-geste" aria-label="Retirer ${x.nom}">${icone('trash')}</button></li>`,
+  ).join('')
+  const feuille = `<div class="mq-voile"><div class="carte-feuille mq-feuille"><header class="carte-barre"><b class="feuille-titre">Mes tenues</b><button type="button" class="carte-fermer">${icone('x')}Fermer</button></header><div class="carte-corps"><ul class="mq-liste-tenues">${rangees}</ul></div><footer class="carte-pied mq-pied mq-pied-tenues"><span class="muted small">5 sur 6</span><button type="button" class="btn btn-primary">${icone('plus')}Garder ce que je porte</button></footer></div></div>`
+  return ecranFinal({ panneau: railFinal('avatar', { neufs: ['bordure'] }) + rendre(h(MesAvatars, PROPS_FINALES)), dessus: feuille })
 }
 
 // ── Les pages ────────────────────────────────────────────────────────────
@@ -635,13 +706,32 @@ const SECTIONS: Section[] = [
   },
   {
     id: 'final-tenues',
-    titre: 'Le rendu final · le tiroir des tenues',
-    dit: 'La languette, au bord droit de la carte, sort le tiroir. Il laisse l’avatar de la carte à découvert : une tenue touchée s’y voit tout de suite. « Garder » retient ce qu’elle porte ; la flèche range le tiroir.',
+    titre: 'Le rendu final · les tenues en paquet de cartes',
+    dit: 'Les tenues sont des cartes : la tranche des autres dépasse derrière celle de la loge, un point par tenue à son coin. Le doigt glisse la carte, la tenue suivante vient devant, à l’essai. Le cintre ouvre la liste.',
     ecrans: [
-      { nom: 'final-tiroir', titre: 'Le tiroir sorti', dit: 'Ses tenues, celle qu’elle porte cochée', corps: finalTiroir },
-      { nom: 'final-tenue-essayee', titre: 'Une tenue touchée', dit: 'Tout change d’un coup ; « Porter » la garde', corps: finalTenueEssayee },
+      { nom: 'final-paquet', titre: 'Au repos', dit: 'Le cintre et cinq points, la tenue portée en or', corps: finalAvatar },
+      { nom: 'final-glisse', titre: 'Le doigt glisse la carte', dit: '« Hiver » s’en va, « La mer » est dessous', corps: finalGlisse },
+      { nom: 'final-mer', titre: '« La mer » devant', dit: 'Son nom sur la carte ; « Porter » la garde', corps: finalMer },
+      { nom: 'final-liste', titre: 'Le cintre : la liste', dit: 'Garder, renommer, retirer — la carte au-dessus', corps: finalListe },
+    ],
+  },
+  {
+    id: 'final-tailles',
+    titre: 'Le rendu final · un grand téléphone, l’Ivoire',
+    dit: 'En 412 × 915, la place de cinq rangées d’avatars ; sous le thème clair, le paquet et ses points se lisent sans retouche.',
+    ecrans: [
       { nom: 'final-grand', titre: 'Sur un grand téléphone (412 × 915)', dit: 'La place de cinq rangées d’avatars', corps: finalAvatar, grand: true },
       { nom: 'final-ivoire', titre: 'Sous l’Ivoire', dit: '', corps: finalAvatar, theme: 'ivoire' },
+      { nom: 'final-ivoire-mer', titre: 'Sous l’Ivoire, « La mer » devant', dit: '', corps: finalMer, theme: 'ivoire' },
+    ],
+  },
+  {
+    id: 'final-tiroir',
+    titre: 'La première version · le tiroir',
+    dit: 'Le panneau latéral demandé, gardé pour comparer : une languette au bord de la carte, un tiroir à droite.',
+    ecrans: [
+      { nom: 'final-tiroir', titre: 'Le tiroir sorti', dit: 'Il couvre la moitié droite de la carte et de la grille', corps: finalTiroir },
+      { nom: 'final-tenue-essayee', titre: 'Une tenue touchée', dit: 'L’avatar de la carte reste à découvert', corps: finalTenueEssayee },
     ],
   },
   {

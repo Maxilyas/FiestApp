@@ -152,3 +152,51 @@ body.mq-planche { margin: 0; padding: 26px 30px 50px; width: 1280px; box-sizing:
 .mq-tiroir .mq-garder { height: 48px; flex-direction: row; justify-content: center; gap: 6px; color: var(--accent-text); }
 .mq-tiroir .mq-garder .icon { width: 18px; height: 18px; }
 .mq-tiroir .mq-garder .mq-tenue-nom { color: var(--accent-text); font-size: 0.8rem; }
+
+/* ── Les tenues en paquet de cartes ───────────────────────────────────── */
+/* La tranche des autres tenues, derrière la carte : deux cartes décalées
+   de 4 et 8 px vers le bas et la droite, au fond de la carte, sans contenu. */
+.loge-collante.mq-paquet { margin-bottom: 8px; }
+.mq-paquet > .loge-carte,
+.mq-paquet .mq-glisse-dessous > .loge-carte { position: relative; z-index: 2; }
+.mq-paquet::before,
+.mq-paquet::after { content: ''; position: absolute; inset: 4px -4px -4px 4px; z-index: 1; border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); border-radius: var(--radius); background: color-mix(in srgb, var(--surface) 80%, var(--bg)); }
+.mq-paquet::after { inset: 8px -8px -8px 8px; z-index: 0; opacity: 0.7; }
+
+/* Le cintre et les points, au coin de la carte, là où était « Version rare ». */
+.mq-points { position: absolute; right: 10px; bottom: 8px; z-index: 6; display: flex; align-items: center; gap: 0; height: 30px; padding: 0 6px 0 2px; border: 1px solid rgba(var(--fond-or-rgb, 217, 181, 106), 0.35); border-radius: 999px; background: rgba(8, 6, 10, 0.6); }
+.mq-cintre { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: none; color: #e6c47c; cursor: pointer; }
+.mq-cintre .icon { width: 17px; height: 17px; }
+.mq-point { display: grid; place-items: center; width: 13px; height: 28px; padding: 0; border: 0; background: none; cursor: pointer; }
+.mq-point i { display: block; width: 6px; height: 6px; border-radius: 99px; background: rgba(255, 255, 255, 0.5); transition: width 0.2s ease; }
+.mq-point.portee i { box-shadow: 0 0 0 1.5px rgba(8, 6, 10, 0.6), 0 0 0 2.5px #d9b56a; }
+.mq-point.montree { width: 22px; }
+.mq-point.montree i { width: 16px; background: #d9b56a; box-shadow: 0 0 8px rgba(217, 181, 106, 0.8); }
+/* Une tenue gardée montrée : son nom à la place d'« Aperçu ». */
+.mq-nom-de-tenue { display: inline-flex; align-items: center; gap: 4px; }
+.mq-nom-de-tenue .icon { width: 13px; height: 13px; }
+
+/* Le doigt qui glisse : la carte de devant part à gauche en tournant, la suivante est dessous. */
+.mq-glisse { position: sticky; }
+.mq-glisse-devant { position: absolute; inset: 0; z-index: 4; transform: translateX(64%) rotate(8deg); transform-origin: 50% 160%; filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.55)); }
+.mq-glisse-devant > .loge-carte { height: 100%; box-sizing: border-box; }
+.mq-glisse-dessous > .loge-carte { box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
+.mq-doigt { position: absolute; z-index: 7; left: 70%; top: 34%; width: 38px; height: 38px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.18) 70%); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35); }
+.mq-doigt::after { content: ''; position: absolute; top: 50%; right: 100%; width: 90px; height: 10px; margin-top: -5px; border-radius: 99px 0 0 99px; background: linear-gradient(270deg, rgba(255, 255, 255, 0.28), transparent); }
+
+/* La liste des tenues, dans la feuille : une rangée chacune, le geste de la porter, renommer, retirer. */
+.mq-liste-tenues { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.mq-rangee-tenue { display: flex; align-items: center; gap: 2px; min-height: 64px; padding: 0 4px 0 0; border: 1px solid var(--edge); border-radius: 16px; background: var(--surface-faint); }
+.mq-rangee-tenue.portee { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.mq-rangee-porter { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 62px; padding: 0 8px; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.mq-rangee-dessin { flex: none; display: grid; place-items: center; width: 54px; height: 58px; font-size: 21px; line-height: 1; }
+.mq-rangee-nom { display: flex; flex-direction: column; min-width: 0; }
+.mq-rangee-nom b { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; }
+.mq-rangee-nom small { font-size: var(--t-label); font-weight: 600; color: var(--accent-text); }
+.mq-rangee-geste { flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--muted); cursor: pointer; }
+.mq-rangee-geste .icon { width: 18px; height: 18px; }
+.mq-pied-tenues { justify-content: space-between; align-items: center; }
+.mq-pied-tenues .btn { display: inline-flex; align-items: center; gap: 6px; }
+.mq-pied-tenues .btn .icon { width: 16px; height: 16px; }
+/* Dans la rangée de l'avatar (`.loge-carte-haut`), à son coin bas droit. */
+.loge-carte-haut > .mq-points { right: 0; bottom: 0; }
