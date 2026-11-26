@@ -1618,6 +1618,1460 @@
       "source": {
         "texte": "Problème traditionnel"
       }
+    },
+    {
+      "numero": "p41",
+      "titre": "Le cadenas à trois molettes",
+      "difficulte": "difficile",
+      "figure": "🔒 ❓❓❓",
+      "recit": [
+        "Le Sphinx a fermé son coffret avec un cadenas à trois molettes. Le code compte trois chiffres, tous différents.",
+        "Sur le couvercle, il a gravé quatre essais ratés. Un chiffre juste est un chiffre du code ; il est à sa place s’il occupe la même position que dans le code.",
+        "206 : exactement deux chiffres justes, aucun à sa place. 637 : exactement deux chiffres justes, aucun à sa place. 503 : un seul chiffre juste, pas à sa place. 256 : exactement deux chiffres justes, aucun à sa place."
+      ],
+      "question": "Quel est le code du cadenas ?",
+      "reponse": {
+        "sorte": "nombre",
+        "valeur": 362
+      },
+      "solution": "362",
+      "explication": [
+        {
+          "dit": "Suppose que le 6 ne soit pas dans le code. L’essai 206 donnerait alors le 2 et le 0, et l’essai 256 le 2 et le 5.",
+          "etat": "2 · 0 · 5 ?"
+        },
+        {
+          "dit": "Mais avec le 5 et le 0, l’essai 503 aurait deux chiffres justes, et non un seul. Le 6 est donc dans le code."
+        },
+        {
+          "dit": "Il n’est jamais à sa place : ni en tête (637), ni en dernier (206 et 256). Il est au milieu.",
+          "etat": "_ 6 _"
+        },
+        {
+          "dit": "Il reste deux places. 637 réclame encore le 3 ou le 7, 206 le 2 ou le 0, 256 le 2 ou le 5 : trois demandes pour deux places."
+        },
+        {
+          "dit": "Il faut donc un chiffre qui serve 206 et 256 à la fois : c’est le 2. L’autre place va au 3 ou au 7.",
+          "etat": "2 · 6 · 3 ou 7"
+        },
+        {
+          "dit": "503 veut exactement un chiffre parmi le 5, le 0 et le 3. Ni le 5 ni le 0 ne sont dans le code : c’est le 3.",
+          "etat": "2 · 3 · 6"
+        },
+        {
+          "dit": "Le 2 n’est pas à sa place en tête (206 et 256) : il va au bout, et le 3 en tête.",
+          "etat": "3 6 2"
+        },
+        {
+          "dit": "Chaque étape était forcée : 362 est le seul code qui donne à chaque essai ses chiffres justes, tous mal placés."
+        }
+      ],
+      "source": {
+        "texte": "Problème traditionnel"
+      }
+    },
+    {
+      "numero": "p42",
+      "titre": "Les quatre coffres",
+      "difficulte": "difficile",
+      "figure": "📦 📦 📦 📦 💎",
+      "recit": [
+        "Quatre coffres attendent dans l’antre du Sphinx : un d’or, un d’argent, un de bronze et un de plomb. Un seul contient le trésor ; les trois autres sont vides.",
+        "Sur l’or : « Exactement deux de ces quatre inscriptions disent vrai. » Sur l’argent : « Le trésor est dans le coffre d’or. » Sur le bronze : « L’inscription du plomb dit vrai. » Sur le plomb : « L’inscription de l’or ment. »",
+        "Le Sphinx, qui ne ment jamais, ajoute : « L’inscription du coffre au trésor ment. Celles des coffres vides, je ne t’en dis rien. »"
+      ],
+      "question": "Où est le trésor ?",
+      "reponse": {
+        "sorte": "choix",
+        "propositions": [
+          {
+            "texte": "Dans le coffre d’or"
+          },
+          {
+            "texte": "Dans le coffre d’argent"
+          },
+          {
+            "texte": "Dans le coffre de bronze"
+          },
+          {
+            "texte": "Dans le coffre de plomb"
+          },
+          {
+            "texte": "Nulle part : les inscriptions se contredisent"
+          }
+        ],
+        "bonne": 0
+      },
+      "solution": "dans le coffre d’or",
+      "explication": [
+        {
+          "dit": "Le bronze dit que le plomb dit vrai : ces deux inscriptions sont vraies ensemble, ou fausses ensemble.",
+          "etat": "bronze = plomb"
+        },
+        {
+          "dit": "Le plomb dit que l’or ment : l’inscription de l’or dit toujours le contraire de celle du plomb.",
+          "etat": "or ≠ plomb"
+        },
+        {
+          "dit": "Trésor au bronze ou au plomb ? Ce coffre ment, l’autre aussi, et l’or dit vrai. L’argent ment : une seule vraie, et l’or, qui en annonce deux, mentirait."
+        },
+        {
+          "dit": "Trésor à l’argent ? Si l’or dit vrai, le bronze et le plomb mentent : une seule vraie, l’or a tort. S’il ment, eux disent vrai : deux vraies, l’or a raison."
+        },
+        {
+          "dit": "Dans les deux cas, l’or se contredit : le trésor n’est pas dans le coffre d’argent non plus."
+        },
+        {
+          "dit": "Trésor à l’or : son inscription doit mentir. Le plomb dit alors vrai, le bronze aussi, et l’argent aussi : trois vraies.",
+          "etat": "or ✗ · argent ✔ · bronze ✔ · plomb ✔"
+        },
+        {
+          "dit": "L’or, qui en annonce deux, ment bien : tout tient. Le trésor est dans le coffre d’or."
+        }
+      ],
+      "source": {
+        "texte": "Problème traditionnel"
+      }
+    },
+    {
+      "numero": "p43",
+      "titre": "Les quatre gardiens",
+      "difficulte": "difficile",
+      "figure": "💂 💂 💂 💂 🚪",
+      "recit": [
+        "Quatre gardiens veillent sur la porte du Sphinx. L’un est sincère et dit toujours vrai ; un autre est menteur et dit toujours faux. Les deux derniers sont fantaisistes : ils disent vrai ou faux, comme il leur plaît.",
+        "Ils savent tous qui est qui. Tu les entends parler, l’un après l’autre :",
+        "Hugo : « Le menteur, c’est Rita ou moi. » Rita : « Ce que Hugo a dit est vrai. » Maya : « Ce que Rita a dit est vrai. » Noé : « Ce que Rita a dit est faux. »"
+      ],
+      "question": "Qui est le sincère, et qui est le menteur ?",
+      "reponse": {
+        "sorte": "choix",
+        "propositions": [
+          {
+            "texte": "Hugo sincère, Rita menteuse"
+          },
+          {
+            "texte": "Maya sincère, Noé menteur"
+          },
+          {
+            "texte": "Noé sincère, Rita menteuse"
+          },
+          {
+            "texte": "Noé sincère, Maya menteuse"
+          },
+          {
+            "texte": "Hugo sincère, Noé menteur"
+          }
+        ],
+        "bonne": 3
+      },
+      "solution": "Noé est sincère, Maya menteuse",
+      "explication": [
+        {
+          "dit": "Rita dit vrai quand Hugo dit vrai, et faux sinon ; Maya de même, puisqu’elle suit Rita. Noé, c’est l’inverse : il dit vrai quand Hugo dit faux."
+        },
+        {
+          "dit": "Suppose que Hugo dise vrai. Le menteur est Rita ou lui ; pas lui, puisqu’il dit vrai : Rita. Mais Rita dit vrai elle aussi, et un menteur ne le peut pas."
+        },
+        {
+          "dit": "Hugo dit donc faux, et Rita et Maya avec lui. Seul Noé dit vrai.",
+          "etat": "Hugo ✗ · Rita ✗ · Maya ✗ · Noé ✔"
+        },
+        {
+          "dit": "Le sincère dit toujours vrai : c’est Noé, le seul qui l’ait fait."
+        },
+        {
+          "dit": "Hugo a menti : le menteur n’est ni Rita ni lui. Ce n’est pas Noé, le sincère : c’est Maya."
+        },
+        {
+          "dit": "Hugo et Rita sont les deux fantaisistes : dire faux leur est permis. Noé sincère, Maya menteuse."
+        }
+      ],
+      "source": {
+        "texte": "Problème traditionnel"
+      }
+    },
+    {
+      "numero": "p44",
+      "titre": "Le banquet des vingt",
+      "difficulte": "difficile",
+      "figure": "🍽️ ⭕ 🙂🙂🙂🙂",
+      "recit": [
+        "Sur l’île du Sphinx, chacun est soit sincère, et dit toujours vrai, soit menteur, et ment toujours.",
+        "Ce soir, vingt insulaires dînent autour d’une grande table ronde. Chacun a deux voisins : un à sa gauche, un à sa droite.",
+        "À tour de rôle, chacun des vingt déclare la même chose : « Mes deux voisins sont des menteurs. »"
+      ],
+      "question": "Combien de sincères, au moins, sont assis autour de cette table ?",
+      "reponse": {
+        "sorte": "nombre",
+        "valeur": 7
+      },
+      "solution": "sept sincères",
+      "explication": [
+        {
+          "dit": "Un sincère dit vrai : ses deux voisins sont menteurs. Deux sincères ne sont donc jamais côte à côte."
+        },
+        {
+          "dit": "Un menteur ment : il est faux que ses deux voisins mentent. Au moins un de ses voisins est sincère."
+        },
+        {
+          "dit": "Trois menteurs de suite, c’est impossible : celui du milieu n’aurait que des menteurs à côté de lui."
+        },
+        {
+          "dit": "Entre deux sincères qui se suivent autour de la table, il y a donc un ou deux menteurs : jamais aucun, jamais trois.",
+          "etat": "S M S M M S"
+        },
+        {
+          "dit": "Avec s sincères, il y a s trous entre eux, et au plus deux menteurs par trou : il faut 20 − s ≤ 2 × s.",
+          "etat": "3 × s ≥ 20"
+        },
+        {
+          "dit": "Six sincères et leurs douze menteurs ne font que 18 convives : il en faut au moins 7.",
+          "etat": "6 × 3 = 18 < 20"
+        },
+        {
+          "dit": "Et sept suffisent : un sincère et deux menteurs, six fois de suite, puis un sincère et un menteur. 18 + 2 = 20.",
+          "etat": "(S M M) × 6 + S M"
+        }
+      ],
+      "source": {
+        "texte": "Problème traditionnel"
+      }
+    },
+    {
+      "numero": "p45",
+      "titre": "Le tournoi d’échecs",
+      "difficulte": "difficile",
+      "figure": "♟️ 🏆",
+      "recit": [
+        "Huit joueurs disputent un tournoi d’échecs : chacun affronte une fois chacun des sept autres. Une victoire rapporte 1 point, une partie nulle ½ point à chacun, une défaite rien.",
+        "À la fin, les huit totaux sont tous différents : on classe les joueurs du premier au huitième.",
+        "Le deuxième a marqué exactement autant de points que les quatre derniers réunis."
+      ],
+      "question": "Comment s’est terminée la partie entre le troisième et le septième ?",
+      "reponse": {
+        "sorte": "choix",
+        "propositions": [
+          {
+            "texte": "Le septième l’a gagnée"
+          },
+          {
+            "texte": "Partie nulle"
+          },
+          {
+            "texte": "Le troisième l’a gagnée"
+          },
+          {
+            "texte": "On ne peut pas le savoir"
+          }
+        ],
+        "bonne": 2
+      },
+      "solution": "le troisième l’a gagnée",
+      "explication": [
+        {
+          "dit": "Le premier a 7 points au plus. S’il les a tous, il a battu le deuxième, qui n’en a pas plus de 6."
+        },
+        {
+          "dit": "S’il en a moins de 7, il en a 6 ½ au plus, et le deuxième, qui a moins que lui, 6 au plus. Dans tous les cas : 6 au plus.",
+          "etat": "2e ≤ 6"
+        },
+        {
+          "dit": "Les quatre derniers jouent 6 parties entre eux, et chacune distribue 1 point : à eux quatre, ils ont au moins 6 points.",
+          "etat": "4 derniers ≥ 6"
+        },
+        {
+          "dit": "Le deuxième a autant qu’eux : 6 au plus d’un côté, 6 au moins de l’autre. Tout juste 6, des deux côtés.",
+          "etat": "6 = 6"
+        },
+        {
+          "dit": "Les quatre derniers n’ont donc que les points de leurs parties entre eux : contre les quatre premiers, pas même un demi-point."
+        },
+        {
+          "dit": "Le septième a donc perdu contre le troisième, comme contre chacun des quatre premiers."
+        },
+        {
+          "dit": "Un tel tournoi existe : si chacun bat ceux classés derrière lui, les totaux vont de 7 à 0, et 6 = 3 + 2 + 1 + 0. Le troisième a bien gagné.",
+          "etat": "7 · 6 · 5 · 4 · 3 · 2 · 1 · 0"
+        }
+      ],
+      "source": {
+        "texte": "Problème traditionnel"
+      }
+    },
+    {
+      "numero": "p46",
+      "titre": "Les châteaux de sable",
+      "difficulte": "difficile",
+      "figure": "🏖️ 🏰 🏰 🏰 🏰 🏰",
+      "recit": [
+        "Cinq enfants ont bâti des châteaux de sable, et le jury les a classés du premier au cinquième, sans ex æquo.",
+        "Chacun raconte le classement en deux affirmations : chez tous les cinq, l’une est vraie, l’autre fausse.",
+        "Agathe : « Baptiste est juste devant Céleste ; Dorian est devant Céleste. » Baptiste : « Agathe a gagné ; Céleste est devant Agathe. » Céleste : « Agathe est troisième ; Dorian est juste devant Edgar. »",
+        "Dorian : « Je suis juste devant Agathe ; Edgar est devant Baptiste. » Edgar : « Je suis devant Céleste ; Céleste est troisième. »"
+      ],
+      "question": "Dans quel ordre le jury les a-t-il classés, du premier au dernier ?",
+      "aide": "« Devant » : mieux classé. « Juste devant » : classé juste avant, sans personne entre les deux.",
+      "reponse": {
+        "sorte": "choix",
+        "propositions": [
+          {
+            "texte": "Agathe, Dorian, Edgar, Baptiste, Céleste"
+          },
+          {
+            "texte": "Dorian, Edgar, Baptiste, Céleste, Agathe"
+          },
+          {
+            "texte": "Agathe, Edgar, Dorian, Céleste, Baptiste"
+          },
+          {
+            "texte": "Edgar, Céleste, Agathe, Dorian, Baptiste"
+          },
+          {
+            "texte": "Agathe, Dorian, Edgar, Céleste, Baptiste"
+          }
+        ],
+        "bonne": 4
+      },
+      "solution": "Agathe, Dorian, Edgar, Céleste, Baptiste",
+      "explication": [
+        {
+          "dit": "Suppose qu’Agathe n’ait pas gagné. Baptiste dit alors vrai en second : Céleste est devant Agathe."
+        },
+        {
+          "dit": "Agathe troisième ? Céleste, devant elle, n’est pas 3e : Edgar dit donc vrai en se mettant devant Céleste. Edgar 1er, Céleste 2e.",
+          "etat": "E · C · A"
+        },
+        {
+          "dit": "Baptiste et Dorian finissent 4e et 5e : ni Baptiste juste devant Céleste, ni Dorian devant elle. Agathe aurait tout faux : impossible."
+        },
+        {
+          "dit": "Agathe n’est donc pas troisième : Céleste dit vrai en second, Dorian est juste devant Edgar."
+        },
+        {
+          "dit": "Dorian ne peut pas être juste devant Edgar et juste devant Agathe : il dit vrai en second, Edgar est devant Baptiste."
+        },
+        {
+          "dit": "Céleste 3e ? Edgar dirait vrai sur elle, donc faux sur lui : derrière elle et devant Baptiste, il serait 4e, et Dorian 3e comme elle. Impossible."
+        },
+        {
+          "dit": "Edgar est donc devant Céleste. Dorian puis Edgar devancent tous les autres ; Céleste, pas 3e, précède Agathe : Baptiste 3e, Céleste 4e, Agathe 5e.",
+          "etat": "D · E · B · C · A"
+        },
+        {
+          "dit": "Mais Agathe aurait alors tout vrai : Baptiste juste devant Céleste, Dorian devant elle. Impossible : Agathe a gagné.",
+          "etat": "1 Agathe"
+        },
+        {
+          "dit": "Agathe a gagné : personne n’est juste devant elle, donc Edgar est devant Baptiste. Céleste ment sur elle, donc Dorian est juste devant Edgar."
+        },
+        {
+          "dit": "Derrière Agathe, restent D E B C (Agathe dirait tout vrai), C D E B (Edgar, tout faux) et D E C B : Agathe, Dorian, Edgar, Céleste, Baptiste.",
+          "etat": "A · D · E · C · B"
+        }
+      ],
+      "source": {
+        "texte": "Problème traditionnel"
+      }
+    },
+    {
+      "numero": "p47",
+      "titre": "La file des chapeaux",
+      "difficulte": "difficile",
+      "figure": "👀 🎩 🎩 🎩 🎩",
+      "recit": [
+        "Le Sphinx a six chapeaux : trois rouges, deux bleus, un vert. Élise, Fabien, Gaëlle et Hector le savent. Ils se tiennent en file, tournés vers l’avant : Élise devant, puis Fabien, puis Gaëlle, et Hector au fond.",
+        "Le Sphinx coiffe chacun d’un chapeau et cache les deux qui restent. Chacun voit les chapeaux de ceux qui sont devant lui, jamais le sien ni ceux de derrière.",
+        "Du fond vers l’avant, chacun dit s’il connaît la couleur de son chapeau. Tous raisonnent sans faute, disent vrai et tiennent compte de ce qu’ils entendent. Hector : « Je ne sais pas. » Gaëlle : « Je sais. » Fabien : « Je sais. » Élise : « Je sais. »"
+      ],
+      "question": "Quelles couleurs portent Élise, Fabien et Gaëlle ?",
+      "reponse": {
+        "sorte": "choix",
+        "propositions": [
+          {
+            "texte": "Élise en bleu, Fabien en vert, Gaëlle en rouge"
+          },
+          {
+            "texte": "Élise en vert, Fabien en bleu, Gaëlle en rouge"
+          },
+          {
+            "texte": "Élise en bleu, Fabien en bleu, Gaëlle en rouge"
+          },
+          {
+            "texte": "Élise en rouge, Fabien en bleu, Gaëlle en vert"
+          },
+          {
+            "texte": "Élise en vert, Fabien en rouge, Gaëlle en bleu"
+          }
+        ],
+        "bonne": 1
+      },
+      "solution": "Élise en vert, Fabien en bleu, Gaëlle en rouge",
+      "explication": [
+        {
+          "dit": "Hector ne saurait sa couleur que devant les deux bleus et le vert : il serait rouge. Il ne sait pas : devant lui, ce n’est pas bleu, bleu et vert."
+        },
+        {
+          "dit": "Gaëlle voit Fabien et Élise. Devant un bleu et le vert, elle ne peut être que rouge ou bleue ; bleue, Hector aurait su : elle est rouge."
+        },
+        {
+          "dit": "Devant les deux bleus, elle ne peut être que rouge ou verte ; verte, Hector aurait su : rouge encore."
+        },
+        {
+          "dit": "Devant tout le reste, deux couleurs au moins lui restent possibles. Elle sait : elle est rouge, et devant elle il y a bleu et vert, ou bleu et bleu.",
+          "etat": "Gaëlle 🔴"
+        },
+        {
+          "dit": "Fabien suit le même raisonnement, et il voit Élise. Si elle est verte, il est bleu. Si elle est bleue, il hésite entre vert et bleu."
+        },
+        {
+          "dit": "Fabien sait : Élise est verte, et lui bleu. Élise, qui a tout entendu, se sait verte à son tour.",
+          "etat": "Élise 💚 · Fabien 🔵 · Gaëlle 🔴"
+        },
+        {
+          "dit": "Élise en vert, Fabien en bleu, Gaëlle en rouge. Seul Hector ignore encore s’il est rouge ou bleu : les deux s’accordent avec tout ce qui a été dit."
+        }
+      ],
+      "source": {
+        "texte": "Problème traditionnel"
+      }
+    },
+    {
+      "numero": "p48",
+      "titre": "La fête du Sphinx",
+      "difficulte": "moyenne",
+      "figure": "📅 🎉",
+      "recit": [
+        "Le Sphinx a choisi le jour de sa fête parmi ces dix dates : 14 et 18 mars ; 12, 14 et 22 avril ; 12 et 16 mai ; 12, 16 et 20 juin.",
+        "Il souffle le mois à Mona, et le jour à Jules. Tous deux connaissent la liste ; Mona sait que Jules connaît le jour, et Jules que Mona connaît le mois. Ils raisonnent sans faute, disent vrai, et chacun tient compte de ce qu’il vient d’entendre.",
+        "Jules : « Je ne sais pas quelle est la date. » Mona : « Moi non plus. » Jules : « Je ne sais toujours pas. » Mona : « Moi, maintenant, je sais. »"
+      ],
+      "question": "Quelle date le Sphinx a-t-il choisie ?",
+      "reponse": {
+        "sorte": "choix",
+        "propositions": [
+          {
+            "texte": "Le 14 avril"
+          },
+          {
+            "texte": "Le 16 mai"
+          },
+          {
+            "texte": "Le 12 juin"
+          },
+          {
+            "texte": "Le 12 avril"
+          },
+          {
+            "texte": "Le 14 mars"
+          }
+        ],
+        "bonne": 3
+      },
+      "solution": "le 12 avril",
+      "explication": [
+        {
+          "dit": "Jules ne sait pas : son jour revient plusieurs fois dans la liste. Ce n’est ni le 18, ni le 22, ni le 20, qui n’y sont qu’une fois.",
+          "etat": "18 mars ✗ · 22 avril ✗ · 20 juin ✗"
+        },
+        {
+          "dit": "Mona le comprend. Elle ne sait pas non plus : son mois garde au moins deux dates. Ce n’est pas mars, où ne reste que le 14.",
+          "etat": "14 mars ✗"
+        },
+        {
+          "dit": "Restent les 12 et 14 avril, 12 et 16 mai, 12 et 16 juin. Jules ne sait toujours pas : ce n’est pas le 14, désormais seul de son jour.",
+          "etat": "14 avril ✗"
+        },
+        {
+          "dit": "Restent le 12 avril, les 12 et 16 mai, les 12 et 16 juin. Mona sait maintenant : son mois n’a plus qu’une date."
+        },
+        {
+          "dit": "Mai et juin en gardent deux chacun ; avril, une seule : le 12.",
+          "etat": "12 avril"
+        },
+        {
+          "dit": "Avec mai ou juin, Mona hésiterait encore. La fête du Sphinx tombe le 12 avril."
+        }
+      ],
+      "source": {
+        "texte": "Problème traditionnel"
+      }
+    },
+    {
+      "numero": "p49",
+      "titre": "Le recensement",
+      "difficulte": "moyenne",
+      "figure": "🏠 📋 👧 👦 👶",
+      "recit": [
+        "Un agent du recensement frappe chez Mme Leroux. « Quel âge ont vos trois enfants ? » Elle sourit : « Le produit de leurs trois âges fait 72. »",
+        "« Cela ne me suffit pas. » — « Leur somme est le numéro de cette maison. » L’agent regarde le numéro sur la porte, compte, et soupire : « Cela ne me suffit toujours pas. »",
+        "« Mes deux plus jeunes ont le même âge. » — « Alors, je sais ! »"
+      ],
+      "question": "Quel âge a l’aîné des trois enfants ?",
+      "aide": "Chaque âge est un nombre entier d’années, au moins 1.",
+      "reponse": {
+        "sorte": "nombre",
+        "valeur": 8
+      },
+      "solution": "8 ans",
+      "explication": [
+        {
+          "dit": "Liste les trios d’âges dont le produit fait 72 : il y en a douze, de 1 · 1 · 72 à 3 · 4 · 6."
+        },
+        {
+          "dit": "Leurs sommes : 74, 39, 28, 23, 19, 18, 22, 17, 15, 14, 14 et 13. Une seule revient deux fois : 14.",
+          "etat": "14 deux fois"
+        },
+        {
+          "dit": "L’agent voit le numéro et ne sait toujours pas : c’est donc le 14. Toute autre somme lui aurait suffi."
+        },
+        {
+          "dit": "Deux trios font 14 : 2 · 6 · 6 et 3 · 3 · 8.",
+          "etat": "2 · 6 · 6 ou 3 · 3 · 8"
+        },
+        {
+          "dit": "Dans le premier, les deux plus jeunes ont 2 et 6 ans ; dans le second, 3 et 3. C’est le second.",
+          "etat": "3 · 3 · 8"
+        },
+        {
+          "dit": "L’aîné a 8 ans, et ses deux cadets 3 ans chacun."
+        }
+      ],
+      "source": {
+        "texte": "Problème traditionnel"
+      }
+    },
+    {
+      "numero": "p50",
+      "titre": "Le moulin et le phare",
+      "difficulte": "difficile",
+      "figure": "🚶 ➡️ · ⬅️ 🚶 🕐",
+      "recit": [
+        "Un matin, au même instant, Yanis part du moulin vers le phare, et Zoé du phare vers le moulin, par la même route.",
+        "Chacun marche à son allure, toujours la même, sans jamais s’arrêter. Ils se croisent à 13 h pile, et chacun poursuit son chemin.",
+        "Yanis arrive au phare à 17 h. Zoé arrive au moulin à 22 h."
+      ],
+      "question": "Combien d’heures Zoé a-t-elle marché en tout ?",
+      "reponse": {
+        "sorte": "nombre",
+        "valeur": 15
+      },
+      "solution": "15 heures",
+      "explication": [
+        {
+          "dit": "Appelle t le temps qu’ils ont marché avant de se croiser. Après, Yanis marche encore 4 heures, Zoé 9.",
+          "etat": "t · 4 · 9"
+        },
+        {
+          "dit": "La route que Yanis a faite avant 13 h, Zoé la refait après : ce qui prend t heures à Yanis prend 9 heures à Zoé."
+        },
+        {
+          "dit": "Et la route de Zoé avant 13 h, Yanis la refait : ce qui prend t heures à Zoé prend 4 heures à Yanis."
+        },
+        {
+          "dit": "Zoé est donc plus lente dans un rapport 9 / t, et aussi dans un rapport t / 4 : les deux sont égaux.",
+          "etat": "9 / t = t / 4"
+        },
+        {
+          "dit": "Donc t × t = 9 × 4 = 36, et t = 6 : ils sont partis à 7 h du matin.",
+          "etat": "t = 6"
+        },
+        {
+          "dit": "Zoé a marché de 7 h à 22 h : 15 heures. Yanis, de 7 h à 17 h, 10 heures.",
+          "etat": "15 h · 10 h"
+        },
+        {
+          "dit": "Vérifie : Yanis va une fois et demie plus vite ; ses 6 heures du matin valent 9 heures de Zoé, et les 6 de Zoé 4 des siennes. Zoé a marché 15 heures."
+        }
+      ],
+      "source": {
+        "texte": "Problème traditionnel"
+      }
+    },
+    {
+      "numero": "p51",
+      "titre": "La rue aux quatre portes",
+      "difficulte": "difficile",
+      "figure": "🏠🏠🏠🏠 🐱 🐶 🐰 🐟",
+      "recit": [
+        "Quatre maisons se suivent dans une rue, de gauche à droite. Lucie, Marius, Noémie et Timéo y vivent, chacun chez soi. Les portes sont rouge, bleue, verte et jaune, une de chaque, et les animaux un chat, un chien, un lapin et un poisson, un par maison.",
+        "Le chien vit dans une maison voisine de celle de Lucie. Marius habite juste à gauche de la porte rouge. Noémie habite juste à gauche de la porte bleue.",
+        "La porte bleue est juste à gauche de chez Timéo, et juste à gauche du chat. La porte verte est juste à gauche du poisson."
+      ],
+      "question": "Chez qui vit le poisson ?",
+      "aide": "« Juste à gauche » : dans la maison voisine, du côté gauche.",
+      "reponse": {
+        "sorte": "choix",
+        "propositions": [
+          {
+            "texte": "Chez Lucie"
+          },
+          {
+            "texte": "Chez Marius"
+          },
+          {
+            "texte": "Chez Noémie"
+          },
+          {
+            "texte": "Chez Timéo"
+          },
+          {
+            "texte": "On ne peut pas le savoir"
+          }
+        ],
+        "bonne": 1
+      },
+      "solution": "chez Marius",
+      "explication": [
+        {
+          "dit": "La maison juste à droite de la porte bleue est celle de Timéo, et aussi celle du chat : Timéo a le chat.",
+          "etat": "Timéo 🐱"
+        },
+        {
+          "dit": "Noémie, la porte bleue, Timéo : trois maisons de suite. La bleue n’est ni chez Noémie ni chez Timéo : elle est chez Lucie ou chez Marius.",
+          "etat": "Noémie · bleue · Timéo"
+        },
+        {
+          "dit": "Chez Lucie ? Marius prend la maison qui reste, au bout gauche : au bout droit, aucune porte ne le suivrait. Marius, Noémie, Lucie, Timéo ; la rouge chez Noémie."
+        },
+        {
+          "dit": "Au bout droit, la verte n’aurait rien à sa droite : elle est chez Marius, et le poisson chez Noémie. Lucie n’a plus à côté que poisson et chat : pas de chien."
+        },
+        {
+          "dit": "La bleue est donc chez Marius, et la rouge, juste à sa droite, chez Timéo. Noémie, Marius, Timéo se suivent ; Lucie est à un bout."
+        },
+        {
+          "dit": "Au bout droit, Lucie n’aurait que Timéo pour voisin, et son chat. Elle est au bout gauche : Lucie, Noémie, Marius, Timéo.",
+          "etat": "Lucie · Noémie · Marius · Timéo"
+        },
+        {
+          "dit": "Le chien est chez Noémie, seule voisine de Lucie. La verte est chez Lucie ou Noémie, le poisson juste à sa droite : pas chez Noémie, qui a le chien."
+        },
+        {
+          "dit": "La verte est donc chez Noémie, et le poisson chez Marius. Lucie a la porte jaune et le lapin.",
+          "etat": "🐰 · 🐶 · 🐟 · 🐱"
+        }
+      ],
+      "source": {
+        "texte": "Problème traditionnel"
+      }
+    },
+    {
+      "numero": "p52",
+      "titre": "Le tableau du championnat",
+      "difficulte": "difficile",
+      "figure": "⚽ 📋",
+      "recit": [
+        "Les Aigles, les Bisons, les Castors et les Dauphins ont disputé un petit championnat : chaque équipe a joué une fois contre chacune des trois autres.",
+        "Une victoire rapporte 3 points, un nul 1 point, une défaite rien. Voici le tableau final, sans un seul score :",
+        "Aigles : 3 points, 0 but marqué, 0 encaissé. Bisons : 5 points, 3 buts marqués, 1 encaissé. Castors : 4 points, 3 marqués, 2 encaissés. Dauphins : 2 points, 1 marqué, 4 encaissés."
+      ],
+      "question": "Quel a été le score du match entre les Castors et les Dauphins ?",
+      "reponse": {
+        "sorte": "choix",
+        "propositions": [
+          {
+            "texte": "4 à 1 pour les Castors"
+          },
+          {
+            "texte": "2 à 1 pour les Castors"
+          },
+          {
+            "texte": "1 à 1"
+          },
+          {
+            "texte": "3 à 0 pour les Castors"
+          },
+          {
+            "texte": "1 à 0 pour les Castors"
+          }
+        ],
+        "bonne": 3
+      },
+      "solution": "3 à 0 pour les Castors",
+      "explication": [
+        {
+          "dit": "Les Aigles n’ont ni marqué ni encaissé : leurs trois matchs ont fini 0 à 0. Trois nuls, trois points.",
+          "etat": "Aigles : 0-0 · 0-0 · 0-0"
+        },
+        {
+          "dit": "Les autres ont chacun le point de leur nul contre les Aigles. Sur leurs deux autres matchs : 4 points aux Bisons, 3 aux Castors, 1 aux Dauphins.",
+          "etat": "4 · 3 · 1"
+        },
+        {
+          "dit": "Les Bisons font donc une victoire et un nul ; les Castors, une victoire et une défaite ; les Dauphins, un nul et une défaite."
+        },
+        {
+          "dit": "Le nul des Dauphins est contre les Bisons, car les Castors n’en ont fait aucun. Les Bisons ont battu les Castors, et les Castors les Dauphins."
+        },
+        {
+          "dit": "Les Bisons n’encaissent qu’un but : leur nul est un 1 à 1 et ils battent les Castors sans encaisser, ou un 0 à 0 et ils encaissent ce but contre eux."
+        },
+        {
+          "dit": "Avec 0 à 0, les Dauphins prennent leurs 4 buts des Castors, qui en ont aussi mis 1 aux Bisons : 5 en tout. Ils n’en ont marqué que 3."
+        },
+        {
+          "dit": "C’est donc 1 à 1. Les Dauphins ont marqué leur seul but contre les Bisons, et rien contre les Castors."
+        },
+        {
+          "dit": "Ils ont encaissé 4 buts, dont 1 contre les Bisons : les Castors leur en ont mis 3. Les Castors gagnent 3 à 0.",
+          "etat": "Castors 3 – 0 Dauphins"
+        },
+        {
+          "dit": "Vérifie : les Bisons battent les Castors 2 à 0, et les Castors marquent 0 + 3 = 3 buts, en encaissent 2 + 0 = 2. Tout tient."
+        }
+      ],
+      "source": {
+        "texte": "Problème traditionnel"
+      }
+    },
+    {
+      "numero": "p53",
+      "titre": "La pendule arrêtée",
+      "difficulte": "moyenne",
+      "figure": "🕰️ 🏠 🚶 🏡",
+      "recit": [
+        "Un matin, Léon trouve sa pendule arrêtée, et il n’a pas d’autre horloge. Il la remonte — elle marchera juste, mais pas à l’heure —, la met sur 7 h 00 au hasard, et part aussitôt chez sa sœur.",
+        "La pendule de sa sœur est toujours à l’heure. En arrivant, il y lit 8 h 10. Il repart quand elle marque 9 h 00, par le même chemin. À l’aller comme au retour, il ne s’arrête pas en route.",
+        "La route monte à l’aller et descend au retour : le retour lui prend deux fois moins de temps que l’aller. Rentré chez lui, il voit sa pendule marquer 9 h 20."
+      ],
+      "question": "Quelle heure est-il vraiment quand Léon rentre chez lui ?",
+      "reponse": {
+        "sorte": "choix",
+        "propositions": [
+          {
+            "texte": "9 h 20"
+          },
+          {
+            "texte": "9 h 30"
+          },
+          {
+            "texte": "9 h 40"
+          },
+          {
+            "texte": "9 h 50"
+          },
+          {
+            "texte": "10 h 00"
+          }
+        ],
+        "bonne": 1
+      },
+      "solution": "9 h 30",
+      "explication": [
+        {
+          "dit": "Remise en marche, sa pendule compte juste le temps qui passe : de 7 h 00 à 9 h 20, il s’est écoulé 2 h 20 depuis son départ.",
+          "etat": "2 h 20 = 140 min"
+        },
+        {
+          "dit": "Chez sa sœur, de 8 h 10 à 9 h 00, il est resté 50 minutes.",
+          "etat": "50 min"
+        },
+        {
+          "dit": "Il a donc marché 140 − 50 = 90 minutes, aller et retour.",
+          "etat": "90 min"
+        },
+        {
+          "dit": "L’aller dure deux retours : trois retours font 90 minutes. Le retour a pris 30 minutes, l’aller 60.",
+          "etat": "60 + 30"
+        },
+        {
+          "dit": "Il a quitté sa sœur à 9 h 00 : il est rentré à 9 h 30."
+        },
+        {
+          "dit": "Vérifie : parti à 7 h 10, il est arrivé chez elle à 8 h 10. Sa pendule retarde de 10 minutes : 9 h 20 pour 9 h 30."
+        }
+      ],
+      "source": {
+        "texte": "Problème traditionnel"
+      }
+    },
+    {
+      "numero": "p54",
+      "titre": "La fausse perle",
+      "difficulte": "moyenne",
+      "figure": "⚖️ ⚪⚪⚪⚪⚪ … ❓",
+      "recit": [
+        "Un joaillier a reçu un lot de perles qui se ressemblent toutes. Il sait qu’une seule est fausse : elle n’a pas tout à fait le même poids que les vraies, qui pèsent toutes pareil. Mais il ignore si elle est plus lourde ou plus légère.",
+        "Il n’a qu’une balance à deux plateaux, sans aucun poids : elle penche du côté le plus lourd, ou reste en équilibre. Il n’a rien d’autre à y poser que ses perles.",
+        "Il veut, en trois pesées, trouver la fausse perle et dire si elle est plus lourde ou plus légère. Il choisit chaque pesée d’après ce qu’ont donné les précédentes."
+      ],
+      "question": "Combien de perles, au plus, le lot peut-il compter pour qu’il soit sûr d’y arriver, quoi qu’il arrive ?",
+      "aide": "Le faux poids s’écarte si peu du vrai qu’un plateau qui porte une perle de plus penche toujours.",
+      "reponse": {
+        "sorte": "nombre",
+        "valeur": 12
+      },
+      "solution": "12 perles",
+      "explication": [
+        {
+          "dit": "Chaque pesée a trois issues : à gauche, à droite, en équilibre. Avec 13 perles, il faudrait séparer 26 cas : chaque perle, lourde ou légère.",
+          "etat": "3 × 3 × 3 = 27 issues"
+        },
+        {
+          "dit": "Pourtant, 13 perles ou plus, c’est trop. S’il en pose 5 ou plus sur chaque plateau et que ça penche, ces 10 perles au moins restent suspectes.",
+          "etat": "10 cas pour 3 × 3 issues"
+        },
+        {
+          "dit": "Il ne lui reste que deux pesées, soit 9 issues, pour 10 cas au moins : c’est perdu d’avance."
+        },
+        {
+          "dit": "S’il en pose 4 ou moins et que la balance reste en équilibre, au moins 5 perles n’ont pas été pesées, lourdes ou légères : 10 cas encore, pour 9 issues.",
+          "etat": "10 cas > 9 issues"
+        },
+        {
+          "dit": "Numérote 12 perles et pose 1 à 4 contre 5 à 8. Équilibre ? La fausse est 9, 10, 11 ou 12. Pèse 9, 10 et 11 contre trois perles sûres.",
+          "etat": "1234 ⚖️ 5678"
+        },
+        {
+          "dit": "Équilibre encore : c’est 12, pesée contre une sûre pour son sens. Sinon, tu sais son sens ; pèse 9 contre 10 : c’est celle qui penche dans ce sens, ou bien 11."
+        },
+        {
+          "dit": "Si 1 à 4 descendent (l’autre sens se traite pareil), la fausse est une lourde parmi 1234, ou une légère parmi 5678. Pèse 1, 2 et 5 contre 3, 6 et une sûre.",
+          "etat": "125 ⚖️ 36 + sûre"
+        },
+        {
+          "dit": "Côté 125 plus bas : 1 ou 2 lourde, ou 6 légère ; pèse 1 contre 2, la plus basse est fausse, sinon c’est 6. Plus haut : 3 ou 5 ; pèse 3 contre une sûre."
+        },
+        {
+          "dit": "Équilibre : 4 lourde, ou 7 ou 8 légère ; pèse 7 contre 8, la plus haute est fausse, sinon c’est 4. Trois pesées suffisent : 12 perles, pas une de plus.",
+          "etat": "12"
+        }
+      ],
+      "source": {
+        "texte": "Problème traditionnel"
+      }
+    },
+    {
+      "numero": "p55",
+      "titre": "Les sacs du changeur",
+      "difficulte": "difficile",
+      "figure": "💰💰💰💰💰💰 · 10 g · 9 g",
+      "recit": [
+        "Un changeur reçoit six sacs de cent pièces d’argent. Dans chaque sac, les pièces sont toutes vraies ou toutes fausses. Une vraie pèse 10 grammes, une fausse 9.",
+        "Combien de sacs sont faux ? Il n’en sait rien : peut-être aucun, peut-être un seul, plusieurs, ou les six.",
+        "Il a une balance à aiguille qui donne le poids exact au gramme près. Il ne pèsera qu’une fois : il prend dans chaque sac autant de pièces qu’il veut, puis pose le tout sur la balance."
+      ],
+      "question": "Combien de pièces, au moins, doit-il poser sur la balance pour être sûr de savoir exactement quels sacs sont faux ?",
+      "aide": "Il ne regarde rien d’autre que le poids affiché.",
+      "reponse": {
+        "sorte": "nombre",
+        "valeur": 63
+      },
+      "solution": "63 pièces",
+      "explication": [
+        {
+          "dit": "Chaque sac est vrai ou faux : 2 × 2 × 2 × 2 × 2 × 2 = 64 cas. Une seule pesée doit donc pouvoir afficher 64 poids différents.",
+          "etat": "64 cas"
+        },
+        {
+          "dit": "Avec n pièces sur la balance, chaque fausse ôte 1 gramme : il manque de 0 à n grammes. Cela ne fait que n + 1 poids possibles.",
+          "etat": "n + 1 poids"
+        },
+        {
+          "dit": "Pour 64 cas, il faut n + 1 ≥ 64 : au moins 63 pièces. Avec 62 ou moins, deux cas afficheraient forcément le même poids.",
+          "etat": "n ≥ 63"
+        },
+        {
+          "dit": "Et 63 suffisent : 1 pièce du premier sac, 2 du deuxième, puis 4, 8, 16 et 32 des suivants. En tout, 63.",
+          "etat": "1 · 2 · 4 · 8 · 16 · 32"
+        },
+        {
+          "dit": "Chaque nombre de grammes manquants, de 0 à 63, s’écrit d’une seule façon comme une somme de ces nombres-là, sans en prendre deux fois le même."
+        },
+        {
+          "dit": "Par exemple, la balance affiche 589 g au lieu de 630 : il manque 41 g, soit 32 + 8 + 1. Les sacs des 32, des 8 et de la pièce seule sont faux.",
+          "etat": "41 = 32 + 8 + 1"
+        },
+        {
+          "dit": "Il faut donc 63 pièces au moins, et ces 63 suffisent toujours.",
+          "etat": "63"
+        }
+      ],
+      "source": {
+        "texte": "Problème traditionnel"
+      }
+    },
+    {
+      "numero": "p56",
+      "titre": "L’huile des trois sœurs",
+      "difficulte": "difficile",
+      "figure": "🏺🏺🏺 · 👩 👩 👩",
+      "recit": [
+        "Un marchand d’huile laisse à ses trois filles trente jarres toutes pareilles : dix pleines d’huile, dix à moitié pleines et dix vides.",
+        "Chacune doit recevoir autant de jarres que ses sœurs, et autant d’huile. Personne ne transvase : chaque jarre part telle qu’elle est. Une fille peut fort bien ne recevoir aucune jarre d’une des trois sortes."
+      ],
+      "question": "De combien de façons différentes le partage peut-il se faire ?",
+      "aide": "Seul compte combien de jarres pleines, à moitié pleines et vides reçoit chacune : l’aînée, la cadette, la benjamine.",
+      "reponse": {
+        "sorte": "nombre",
+        "valeur": 21
+      },
+      "solution": "21 partages",
+      "explication": [
+        {
+          "dit": "Compte l’huile en jarres pleines : 10 + 5 = 15. Chaque fille reçoit donc 10 jarres, et l’huile de 5 jarres pleines.",
+          "etat": "10 jarres · 5 d’huile"
+        },
+        {
+          "dit": "Si une fille a p jarres pleines, il lui manque l’huile de 5 − p jarres : il lui faut 10 − 2p jarres à moitié pleines.",
+          "etat": "p · 10 − 2p · ?"
+        },
+        {
+          "dit": "Pour arriver à 10 jarres, il lui reste p jarres vides à prendre : toujours autant de vides que de pleines !",
+          "etat": "p · 10 − 2p · p"
+        },
+        {
+          "dit": "Comme 10 − 2p ne peut pas être négatif, chaque fille a de 0 à 5 jarres pleines. Et les trois en ont 10 en tout.",
+          "etat": "p ≤ 5"
+        },
+        {
+          "dit": "Les trios de 0 à 5 qui font 10 : 5-5-0, 5-4-1, 5-3-2, 4-4-2 et 4-3-3. Si le plus grand vaut 3, on n’atteint que 9.",
+          "etat": "550 · 541 · 532 · 442 · 433"
+        },
+        {
+          "dit": "Entre l’aînée, la cadette et la benjamine : 3 façons de distribuer 5-5-0, 6 pour 5-4-1, 6 pour 5-3-2, 3 pour 4-4-2, 3 pour 4-3-3.",
+          "etat": "3 + 6 + 6 + 3 + 3"
+        },
+        {
+          "dit": "21 partages en tout. Les jarres à moitié pleines et les vides suivent d’elles-mêmes : il y en a bien 10 de chaque.",
+          "etat": "21"
+        }
+      ],
+      "source": {
+        "texte": "D’après Alcuin d’York, Propositiones ad acuendos juvenes, vers l’an 800"
+      }
+    },
+    {
+      "numero": "p57",
+      "titre": "Le chat des pêcheurs",
+      "difficulte": "difficile",
+      "figure": "🎣 🐟🐟🐟 🐈 🌙",
+      "recit": [
+        "Quatre pêcheurs rentrent tard avec un tas de poissons ; ils le partageront au matin. Mais dans la nuit, le premier se réveille. Il divise le tas en quatre parts égales, sans couper de poisson : il en reste un, qu’il donne au chat.",
+        "Il cache sa part, remet les trois autres en un seul tas et se rendort. Puis le deuxième se réveille et fait de même, sans rien savoir du premier : quatre parts, un poisson de reste pour le chat, sa part cachée. Puis le troisième, puis le quatrième.",
+        "Au matin, sans rien se dire, ils partagent ce qui reste en quatre parts égales. Cette fois, il ne reste rien pour le chat."
+      ],
+      "question": "Combien de poissons y avait-il, au moins, dans le tas du soir ?",
+      "reponse": {
+        "sorte": "nombre",
+        "valeur": 765
+      },
+      "solution": "765 poissons",
+      "explication": [
+        {
+          "dit": "Astuce : prête en pensée 3 poissons au tas. Le tas moins 1 se partage en quatre ; le tas plus 3 aussi, car il a 4 poissons de plus : un de plus par part.",
+          "etat": "tas + 3 = 4 × (part + 1)"
+        },
+        {
+          "dit": "Après la nuit, il reste trois parts, et trois parts plus 3 = 3 × (part + 1) : le tas plus 3 est devenu les trois quarts de ce qu’il était.",
+          "etat": "× 3/4 chaque nuit"
+        },
+        {
+          "dit": "Le tas plus 3 doit se partager en quatre chaque nuit, et n’en garde que trois parts. Pour tenir quatre nuits, le tas du soir plus 3 se divise par 4 × 4 × 4 × 4.",
+          "etat": "soir + 3 = 256 × k"
+        },
+        {
+          "dit": "Au matin, ce nombre a été réduit aux trois quarts quatre fois : le tas du matin plus 3 vaut 3 × 3 × 3 × 3 × k = 81 × k.",
+          "etat": "matin + 3 = 81 × k"
+        },
+        {
+          "dit": "Le tas du matin se partage juste en quatre : 81 × k − 3 doit être un multiple de 4. Avec k = 1, 78 ; k = 2, 159 ; k = 3, 240 : enfin !",
+          "etat": "k = 3 → 240"
+        },
+        {
+          "dit": "Le tas du soir valait donc 256 × 3 − 3 = 765 poissons. Un k plus petit ne marche pas : 765 est le moins possible.",
+          "etat": "765"
+        },
+        {
+          "dit": "Vérifie : 765, puis 573, 429 et 321 après chaque nuit, et 240 au matin, soit 60 poissons chacun.",
+          "etat": "765 → 573 → 429 → 321 → 240"
+        }
+      ],
+      "source": {
+        "texte": "Problème traditionnel"
+      }
+    },
+    {
+      "numero": "p58",
+      "titre": "Le tirage au sort",
+      "difficulte": "moyenne",
+      "figure": "🎩 📝📝📝📝📝 🎁",
+      "recit": [
+        "Cinq amis s’offrent des cadeaux pour la nouvelle année. Chacun écrit son prénom sur un papier, les cinq papiers vont dans un chapeau, et chacun en tire un : il fera un cadeau à celui dont il a tiré le nom.",
+        "Le tirage n’est bon que si personne ne tire son propre nom. Sinon, on remet tout dans le chapeau et on recommence."
+      ],
+      "question": "Combien de tirages différents sont bons ?",
+      "aide": "Un tirage, c’est qui tire le nom de qui : il y en a 120 en tout, bons ou pas.",
+      "reponse": {
+        "sorte": "nombre",
+        "valeur": 44
+      },
+      "solution": "44 tirages",
+      "explication": [
+        {
+          "dit": "Commence petit. À deux, un seul bon tirage : chacun tire l’autre. À trois, deux : le premier tire le deuxième, qui tire le troisième, ou l’inverse.",
+          "etat": "2 amis : 1 · 3 amis : 2"
+        },
+        {
+          "dit": "Nomme les cinq amis A, B, C, D et E. A tire l’un des quatre autres, disons B. Tout dépend alors de ce que tire B."
+        },
+        {
+          "dit": "Si B tire A, ils ont échangé leurs noms ; les trois autres doivent faire un bon tirage entre eux : 2 façons.",
+          "etat": "2"
+        },
+        {
+          "dit": "Sinon, B ne doit pas tirer A, et son propre nom est déjà pris. Rebaptise « B » le papier de A : c’est un bon tirage à quatre."
+        },
+        {
+          "dit": "À quatre, le même raisonnement donne 3 choix pour le premier, puis un échange (1 façon) ou un bon tirage à trois (2) : 3 × (1 + 2) = 9.",
+          "etat": "4 amis : 9"
+        },
+        {
+          "dit": "À cinq : 4 choix pour A, puis 2 + 9 = 11 façons chaque fois. 4 × 11 = 44 bons tirages.",
+          "etat": "4 × (2 + 9) = 44"
+        },
+        {
+          "dit": "Sur les 120 tirages possibles, 44 seulement sont bons : un peu plus d’un sur trois. Ils recommenceront souvent !",
+          "etat": "44 sur 120"
+        }
+      ],
+      "source": {
+        "texte": "D’après Pierre Rémond de Montmort, Essay d’analyse sur les jeux de hazard, 1708"
+      }
+    },
+    {
+      "numero": "p59",
+      "titre": "La monnaie du manège",
+      "difficulte": "moyenne",
+      "figure": "🎠 👧👦👧👦👧👦 💶",
+      "recit": [
+        "Un tour de manège coûte 1 euro. Dix enfants font la queue : cinq ont chacun une pièce de 1 euro, et cinq une pièce de 2 euros.",
+        "La caisse est vide à l’ouverture. À qui paie avec 2 euros, la foraine rend 1 euro, pris parmi les pièces de 1 euro déjà reçues. S’il n’y en a plus aucune, impossible de rendre la monnaie."
+      ],
+      "question": "Dans combien d’ordres de la file la foraine peut-elle rendre la monnaie à chacun ?",
+      "aide": "On ne regarde que la pièce de chacun : deux files diffèrent si, à une même place, l’une a 1 euro et l’autre 2 euros.",
+      "reponse": {
+        "sorte": "nombre",
+        "valeur": 42
+      },
+      "solution": "42 files",
+      "explication": [
+        {
+          "dit": "Elle peut rendre la monnaie tant que, depuis le début de la file, il est passé au moins autant de pièces de 1 euro que de 2 euros."
+        },
+        {
+          "dit": "Note (a, b) un début de file à a pièces de 1 et b de 2, jamais plus de 2 que de 1. Selon la pièce du dernier enfant, il prolonge (a − 1, b) ou (a, b − 1).",
+          "etat": "(a − 1, b) + (a, b − 1)"
+        },
+        {
+          "dit": "Ses façons sont donc la somme des façons de ces deux-là, quand ils sont permis. Pour b = a, une seule : (a − 1, a) n’est jamais permis.",
+          "etat": "a = 1 : 1 · 1"
+        },
+        {
+          "dit": "Remplis le tableau ligne par ligne, b de 0 à a. Pour a = 2 : 1, 2, 2. Pour a = 3 : 1, 3, 5, 5.",
+          "etat": "1 · 2 · 2 → 1 · 3 · 5 · 5"
+        },
+        {
+          "dit": "Pour a = 4 : 1, puis 1 + 3 = 4, 4 + 5 = 9, 9 + 5 = 14, et 14 encore.",
+          "etat": "1 · 4 · 9 · 14 · 14"
+        },
+        {
+          "dit": "Pour a = 5 : 1, 5, 14, 28, 42, puis 42. La dernière case, cinq pièces de chaque, compte toutes les files où la monnaie se rend.",
+          "etat": "1 · 5 · 14 · 28 · 42 · 42"
+        },
+        {
+          "dit": "42 files sur les 252 possibles : un ordre sur six, tout juste.",
+          "etat": "42 sur 252"
+        }
+      ],
+      "source": {
+        "texte": "Problème traditionnel"
+      }
+    },
+    {
+      "numero": "p60",
+      "titre": "Les deux tas de châtaignes",
+      "difficulte": "difficile",
+      "figure": "🌰 9 · 🌰 12",
+      "recit": [
+        "Deux joueurs ont devant eux deux tas de châtaignes : 9 dans l’un, 12 dans l’autre.",
+        "À son tour, chacun prend au moins une châtaigne : autant qu’il veut dans un seul tas, ou bien autant dans l’un que dans l’autre. Celui qui prend la dernière châtaigne a gagné.",
+        "C’est à toi de jouer le premier coup. Ton adversaire ne fait jamais d’erreur."
+      ],
+      "question": "Quel premier coup te donne la victoire à coup sûr ?",
+      "reponse": {
+        "sorte": "choix",
+        "propositions": [
+          {
+            "texte": "Prendre 3 châtaignes dans le tas de 12"
+          },
+          {
+            "texte": "Prendre 7 châtaignes dans le tas de 12"
+          },
+          {
+            "texte": "Prendre 5 châtaignes dans chaque tas"
+          },
+          {
+            "texte": "Prendre 6 châtaignes dans le tas de 9"
+          },
+          {
+            "texte": "Prendre 2 châtaignes dans chaque tas"
+          }
+        ],
+        "bonne": 2
+      },
+      "solution": "prendre 5 châtaignes dans chaque tas",
+      "explication": [
+        {
+          "dit": "Cherche les positions perdantes : celles où qui doit jouer perd, quoi qu’il fasse. Deux tas vides en est une : il n’y a plus rien à prendre.",
+          "etat": "0 · 0"
+        },
+        {
+          "dit": "1 et 2 aussi : quoi que tu prennes, ton adversaire ramasse tout d’un coup, un tas seul ou deux tas égaux.",
+          "etat": "1 · 2"
+        },
+        {
+          "dit": "Deux positions perdantes ne se rejoignent jamais d’un coup. Un même nombre n’y sert donc qu’une fois, et un même écart entre les tas aussi."
+        },
+        {
+          "dit": "La suivante prend le plus petit nombre encore libre, avec l’écart suivant : 3 et 5, écart 2 ; 4 et 7, écart 3 ; puis 6 et 10, 8 et 13, 9 et 15…",
+          "etat": "0·0 1·2 3·5 4·7 6·10 8·13 9·15"
+        },
+        {
+          "dit": "De toute autre position, on en rejoint une d’un coup : en ôtant d’un tas pour retrouver le partenaire de l’autre, ou autant des deux pour retrouver un écart."
+        },
+        {
+          "dit": "Depuis 9 et 12 : 9 va avec 15, et 12 avec 20, tous deux trop grands. Reste l’écart : 12 − 9 = 3, celui de 4 et 7.",
+          "etat": "9 · 12 → 4 · 7"
+        },
+        {
+          "dit": "Prends 5 châtaignes dans chaque tas. Ensuite, quoi qu’il joue, ramène-le dans la liste : la dernière châtaigne sera pour toi."
+        },
+        {
+          "dit": "Les autres coups perdent : 9 et 9 se vide d’un coup ; 9 et 5, ou 3 et 12, mènent à 3 et 5 ; 7 et 10 à 4 et 7."
+        }
+      ],
+      "source": {
+        "texte": "Problème traditionnel"
+      }
+    },
+    {
+      "numero": "p61",
+      "titre": "Les quatre rangées",
+      "difficulte": "moyenne",
+      "figure": "⚫ 3 · 5 · 7 · 9",
+      "recit": [
+        "Sur la table, des jetons en quatre rangées : 3 dans la première, 5 dans la deuxième, 7 dans la troisième et 9 dans la dernière.",
+        "Chacun à son tour, deux joueurs prennent des jetons : au moins un, autant qu’ils veulent, mais toujours dans une seule rangée. Qui prend le dernier jeton de la table a gagné.",
+        "Tu joues le premier, contre un adversaire qui ne se trompe jamais."
+      ],
+      "question": "Que dois-tu jouer pour être sûr de gagner ?",
+      "reponse": {
+        "sorte": "choix",
+        "propositions": [
+          {
+            "texte": "Prendre toute la rangée de 9"
+          },
+          {
+            "texte": "Prendre 1 jeton dans la rangée de 9"
+          },
+          {
+            "texte": "Prendre 3 jetons dans la rangée de 7"
+          },
+          {
+            "texte": "Prendre 8 jetons dans la rangée de 9"
+          },
+          {
+            "texte": "Prendre 2 jetons dans la rangée de 3"
+          }
+        ],
+        "bonne": 3
+      },
+      "solution": "prendre 8 jetons dans la rangée de 9",
+      "explication": [
+        {
+          "dit": "Décompose chaque rangée en morceaux de 8, 4, 2 et 1, sans répéter : 3 = 2 + 1, 5 = 4 + 1, 7 = 4 + 2 + 1 et 9 = 8 + 1.",
+          "etat": "2+1 · 4+1 · 4+2+1 · 8+1"
+        },
+        {
+          "dit": "Dis qu’une position est paire quand chaque morceau, 8, 4, 2 et 1, y revient un nombre pair de fois. La table vide est paire : aucun morceau."
+        },
+        {
+          "dit": "Depuis une position paire, tout coup change une seule rangée, donc ses morceaux : l’un d’eux devient impair. On ne reste jamais pair."
+        },
+        {
+          "dit": "Depuis une impaire, un coup la rend paire : dans une rangée qui a le plus gros morceau impair, ôte chaque morceau impair qu’elle a, ajoute ceux qu’elle n’a pas."
+        },
+        {
+          "dit": "La rangée diminue bien : le gros morceau ôté vaut plus que tous les petits réunis, comme 8 vaut plus que 4 + 2 + 1.",
+          "etat": "8 > 4 + 2 + 1"
+        },
+        {
+          "dit": "Qui laisse une position paire gagne donc : l’autre la rend impaire, il la rend paire, et ainsi de suite jusqu’à la table vide, qu’il laisse."
+        },
+        {
+          "dit": "Ici, 8 revient une fois, 4 deux fois, 2 deux fois et 1 quatre fois. Seul le 8 est impair.",
+          "etat": "8 : 1 · 4 : 2 · 2 : 2 · 1 : 4"
+        },
+        {
+          "dit": "Seule la rangée de 9 contient un 8 : ôte-le, il lui reste 1 jeton. Prends donc 8 jetons dans la rangée de 9.",
+          "etat": "3 · 5 · 7 · 1"
+        },
+        {
+          "dit": "Les autres coups laissent un morceau impair : ton adversaire rendrait la position paire, et c’est lui qui prendrait le dernier jeton."
+        }
+      ],
+      "source": {
+        "texte": "D’après Charles L. Bouton, qui donna en 1901 la clé de ce jeu, le nim"
+      }
+    },
+    {
+      "numero": "p62",
+      "titre": "Les boules de verre",
+      "difficulte": "moyenne",
+      "figure": "🏢 🔮 🔮",
+      "recit": [
+        "Un verrier veut savoir de quelle hauteur ses nouvelles boules de verre se brisent. Il a deux boules identiques, et une tour de 80 étages d’où les lâcher par la fenêtre.",
+        "Si une boule se brise lâchée d’un étage, elle se brise de tous ceux du dessus ; si elle tient, elle tient de tous ceux du dessous, et peut resservir sans être abîmée. Il se peut qu’elle se brise dès le 1er étage, ou qu’elle tienne même du 80e.",
+        "Une boule brisée ne sert plus. Il choisit chaque lâcher d’après ce qu’ont donné les précédents."
+      ],
+      "question": "Combien de lâchers lui faut-il, au moins, pour être sûr de trouver le plus bas étage d’où elle se brise, ou qu’il n’y en a pas ?",
+      "reponse": {
+        "sorte": "nombre",
+        "valeur": 13
+      },
+      "solution": "13 lâchers",
+      "explication": [
+        {
+          "dit": "Avec une seule boule, pas le choix : il faut monter étage par étage. Brisée plus haut, elle laisserait des étages jamais essayés."
+        },
+        {
+          "dit": "Avec 13 lâchers, lâche la première boule du 13e étage. Si elle se brise, la seconde essaie du 1er au 12e, un à un : 13 lâchers au plus.",
+          "etat": "13"
+        },
+        {
+          "dit": "Si elle tient, il reste 12 lâchers : monte de 12 étages, au 25e. Brisée, la seconde essaie du 14e au 24e : 11 lâchers de plus, 13 en tout.",
+          "etat": "13 · 25"
+        },
+        {
+          "dit": "Et ainsi de suite, en montant d’un étage de moins chaque fois : 36, 46, 55, 63, 70, 76, puis le 80e. Tout est couvert en 13 lâchers.",
+          "etat": "13 · 25 · 36 · 46 · 55 · 63 · 70 · 76"
+        },
+        {
+          "dit": "Pourquoi pas 12 ? Le premier lâcher ne peut pas partir plus haut que le 12e : brisée, la boule laisserait la seconde essayer un à un tous les étages du dessous."
+        },
+        {
+          "dit": "Si elle tient, le lâcher suivant ne monte pas de plus de 11 étages, puis de 10… En 12 lâchers, on couvre au plus 12 + 11 + … + 1 = 78 étages.",
+          "etat": "78 < 80"
+        },
+        {
+          "dit": "Il en manque deux : 12 lâchers ne suffisent pas. Il en faut 13, qui couvriraient jusqu’à 91 étages.",
+          "etat": "13 + 12 + … + 1 = 91"
+        }
+      ],
+      "source": {
+        "texte": "Problème traditionnel"
+      }
+    },
+    {
+      "numero": "p63",
+      "titre": "Les deux bacs du lac",
+      "difficulte": "difficile",
+      "figure": "🏘️ ⛴️ 🌊🌊🌊 ⛴️ 🏘️",
+      "recit": [
+        "Deux bacs relient deux villages, de part et d’autre d’un lac, par la même ligne droite. Ils partent au même instant, l’un du village nord, l’autre du village sud, chacun à sa vitesse, qui ne change jamais.",
+        "Ils se croisent une première fois à 700 mètres du village nord. Arrivé en face, chacun fait demi-tour aussitôt, sans s’arrêter.",
+        "Ils se croisent une deuxième fois à 400 mètres du village sud. À ce moment-là, chacun a déjà touché la rive d’en face, et revient vers la sienne."
+      ],
+      "question": "Combien de mètres séparent les deux villages ?",
+      "reponse": {
+        "sorte": "nombre",
+        "valeur": 1700
+      },
+      "solution": "1 700 mètres",
+      "explication": [
+        {
+          "dit": "Au premier croisement, à eux deux, les bacs ont couvert la largeur du lac une fois. Celui du nord en a fait 700 mètres.",
+          "etat": "1 largeur · 700 m"
+        },
+        {
+          "dit": "Au second, chacun a traversé le lac en entier, puis ils se sont rejoints : à eux deux, ils ont couvert la largeur trois fois.",
+          "etat": "3 largeurs"
+        },
+        {
+          "dit": "Ils n’ont jamais cessé d’avancer, chacun à sa vitesse : trois fois plus de chemin à deux, c’est trois fois plus de temps, donc trois fois plus pour chacun."
+        },
+        {
+          "dit": "Le bac du nord a donc fait 3 × 700 = 2 100 mètres : la largeur entière, plus les 400 mètres du retour depuis le village sud.",
+          "etat": "2 100 = largeur + 400"
+        },
+        {
+          "dit": "La largeur vaut 2 100 − 400 = 1 700 mètres.",
+          "etat": "1 700 m"
+        },
+        {
+          "dit": "Vérifie : au premier croisement, l’autre bac a fait 1 000 m. Au second, 3 000 m : 1 700, puis 1 300 depuis le nord, soit à 400 m du sud.",
+          "etat": "1 000 · 3 000"
+        }
+      ],
+      "source": {
+        "texte": "D’après Sam Loyd, Cyclopedia of Puzzles, 1914"
+      }
+    },
+    {
+      "numero": "p64",
+      "titre": "Les quatre cavaliers",
+      "difficulte": "moyenne",
+      "figure": "🐴🐴 ⬜⬛⬜ 🐎🐎",
+      "recit": [
+        "Sur un petit échiquier de trois cases sur trois, deux cavaliers blancs occupent les deux coins du haut, et deux cavaliers noirs les deux coins du bas.",
+        "Un cavalier saute en L : deux cases tout droit dans un sens, puis une sur le côté. Il ne sort jamais de l’échiquier, et n’atterrit que sur une case libre.",
+        "Il faut échanger les cavaliers : les blancs dans les coins du bas, les noirs dans ceux du haut. On fait sauter un cavalier à la fois, de n’importe quelle couleur, dans l’ordre qu’on veut."
+      ],
+      "question": "Combien de sauts faut-il, au moins, pour y parvenir ?",
+      "aide": "Chaque saut d’un cavalier compte pour un.",
+      "reponse": {
+        "sorte": "nombre",
+        "valeur": 16
+      },
+      "solution": "16 sauts",
+      "explication": [
+        {
+          "dit": "Le centre ne sert à rien : sur un échiquier si petit, aucun saut en L n’y arrive ni n’en part."
+        },
+        {
+          "dit": "Les huit autres cases forment une boucle : de chacune, on ne peut sauter que vers deux autres, et en suivant les sauts, on fait le tour des huit.",
+          "etat": "8 cases en boucle"
+        },
+        {
+          "dit": "Le long de la boucle, on croise : blanc, case libre, blanc, case libre, noir, case libre, noir, case libre.",
+          "etat": "⚪ · ⚪ · ⚫ · ⚫ ·"
+        },
+        {
+          "dit": "Chaque saut mène à une voisine sur la boucle, et jamais sur une case prise : personne ne double personne, les quatre gardent toujours leur ordre."
+        },
+        {
+          "dit": "Pour que les blancs finissent où étaient les noirs sans changer d’ordre, chacun doit aller quatre cases plus loin sur la boucle, dans un sens ou dans l’autre."
+        },
+        {
+          "dit": "Quatre cavaliers, quatre sauts chacun au moins : 16 sauts, pas un de moins.",
+          "etat": "4 × 4 = 16"
+        },
+        {
+          "dit": "Et 16 suffisent : fais avancer chaque cavalier d’une case sur la boucle, tous dans le même sens, et recommence quatre fois.",
+          "etat": "16"
+        }
+      ],
+      "source": {
+        "texte": "D’après Paolo Guarini, 1512, l’un des plus anciens casse-tête d’échecs connus"
+      }
+    },
+    {
+      "numero": "p65",
+      "titre": "La chaîne du voyageur",
+      "difficulte": "difficile",
+      "figure": "⛓️ 🏨 🌙🌙🌙",
+      "recit": [
+        "Un voyageur sans le sou n’a qu’une chaîne d’argent : des maillons à la file, sans fermoir. L’aubergiste la prend en paiement, à un maillon la nuit : il restera autant de nuits que la chaîne a de maillons.",
+        "Chaque matin, l’aubergiste doit détenir un maillon par nuit déjà passée, ni plus ni moins. Il veut bien rendre des morceaux de chaîne qu’il détient, en échange d’autres.",
+        "Le voyageur ne veut ouvrir que deux maillons. Un maillon ouvert se détache, seul, et coupe la chaîne à cet endroit."
+      ],
+      "question": "Combien de maillons, au plus, la chaîne peut-elle avoir pour que deux maillons ouverts lui suffisent ?",
+      "reponse": {
+        "sorte": "nombre",
+        "valeur": 23
+      },
+      "solution": "23 maillons",
+      "explication": [
+        {
+          "dit": "Deux maillons ouverts donnent au plus cinq morceaux : les deux maillons seuls, et trois bouts de chaîne.",
+          "etat": "1 · 1 · ? · ? · ?"
+        },
+        {
+          "dit": "Chaque matin, l’aubergiste détient certains de ces morceaux : chaque nombre de nuits, de 1 jusqu’à la fin, doit être une somme de morceaux."
+        },
+        {
+          "dit": "Range les morceaux du plus petit au plus grand. Chacun vaut au plus 1 de plus que la somme des précédents : sinon, ce nombre-là ne se ferait jamais."
+        },
+        {
+          "dit": "Après les deux maillons seuls, qui font 2, un bout de 3 au plus ; puis de 2 + 3 + 1 = 6 au plus ; puis de 2 + 3 + 6 + 1 = 12 au plus.",
+          "etat": "1 · 1 · 3 · 6 · 12"
+        },
+        {
+          "dit": "En tout, 1 + 1 + 3 + 6 + 12 = 23 maillons au plus.",
+          "etat": "23"
+        },
+        {
+          "dit": "Et 23 marchent : ouvre le 4e et le 11e maillon. Restent un bout de 3, un maillon seul, un bout de 6, un maillon seul et un bout de 12.",
+          "etat": "3 · 1 · 6 · 1 · 12"
+        },
+        {
+          "dit": "Les deux maillons seuls font 1 et 2 ; avec le 3, tout jusqu’à 5 ; avec le 6, jusqu’à 11 ; avec le 12, jusqu’à 23. L’aubergiste rend ce qu’il faut."
+        }
+      ],
+      "source": {
+        "texte": "Problème traditionnel"
+      }
+    },
+    {
+      "numero": "p66",
+      "titre": "La partie interrompue",
+      "difficulte": "difficile",
+      "figure": "🎲 2 – 1 · 💰",
+      "recit": [
+        "Deux joueurs ont misé chacun 48 écus : le premier qui gagne 4 manches emportera les 96. Chaque manche a un gagnant, et chacun a une chance sur deux de la gagner, comme à pile ou face.",
+        "Le premier mène 2 manches à 1 quand la partie doit s’arrêter.",
+        "Ils se partagent alors les 96 écus selon leurs chances : chacun reçoit la part de l’enjeu qui correspond à ses chances de l’emporter, si la partie avait continué jusqu’au bout."
+      ],
+      "question": "Comment les 96 écus se partagent-ils entre celui qui mène et l’autre ?",
+      "reponse": {
+        "sorte": "choix",
+        "propositions": [
+          {
+            "texte": "64 et 32"
+          },
+          {
+            "texte": "72 et 24"
+          },
+          {
+            "texte": "66 et 30"
+          },
+          {
+            "texte": "60 et 36"
+          }
+        ],
+        "bonne": 2
+      },
+      "solution": "66 et 30",
+      "explication": [
+        {
+          "dit": "Il manque 2 manches au premier et 3 au second. En 4 manches de plus, l’un des deux y serait forcément arrivé.",
+          "etat": "2 · 3 → 4 manches"
+        },
+        {
+          "dit": "Imagine qu’on joue ces 4 manches jusqu’au bout, même si tout se décide avant : le vainqueur ne change pas, et les 16 suites ont toutes la même chance.",
+          "etat": "2 × 2 × 2 × 2 = 16"
+        },
+        {
+          "dit": "Le second ne gagne que s’il remporte au moins 3 de ces 4 manches : les 4 (une suite), ou 3 sur 4 (4 suites, selon celle qu’il perd).",
+          "etat": "1 + 4 = 5"
+        },
+        {
+          "dit": "Le premier l’emporte dans les 16 − 5 = 11 autres suites : 11 chances sur 16, contre 5 sur 16.",
+          "etat": "11/16 · 5/16"
+        },
+        {
+          "dit": "96 écus en seizièmes : 6 écus le seizième. Le premier reçoit 11 × 6 = 66 écus, le second 5 × 6 = 30.",
+          "etat": "66 · 30"
+        },
+        {
+          "dit": "Partager selon les manches gagnées, 2 contre 1, donnerait 64 et 32 : mais ce qui compte, c’est ce qui reste à gagner, pas ce qui est déjà gagné."
+        }
+      ],
+      "source": {
+        "texte": "D’après la correspondance de Blaise Pascal et Pierre de Fermat, 1654"
+      }
     }
   ]
 }

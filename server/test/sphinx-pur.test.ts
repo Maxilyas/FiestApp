@@ -116,12 +116,16 @@ test('la réserve : quatre-vingt-six pièces en vers, sans les traces du test à
   assert.doesNotMatch(brut, /"(aveugle|raison|retenue|lot)"\s*:/)
 })
 
-test('la réserve des problèmes : trente-six, chacun lu par le serveur, sa réponse juste, sa solution pas à pas, sans les traces du test à l’aveugle', () => {
+test('la réserve des problèmes : soixante-deux, chacun lu par le serveur, sa réponse juste, sa solution pas à pas, sans les traces du test à l’aveugle', () => {
   const brut = readFileSync(fileURLToPath(new URL('../content/sphinx/problemes.json', import.meta.url)), 'utf8')
   const fichier = (JSON.parse(brut) as { problemes: { numero: string; reponse: { sorte: string; valeur?: number; bonne?: number } }[] }).problemes
   const problemes = enigmesDuSphinx().filter(e => e.sorte === 'probleme')
   // Un problème mal formé se tairait sans un mot (`lesProblemes`) : chacun du fichier doit être dans la réserve.
-  assert.equal(fichier.length, 36)
+  assert.equal(fichier.length, 62)
+  // Les trente-six du 25 novembre 2026, puis vingt-six redoutables le lendemain (« des riddles durs ») : un tiers de la
+  // réserve est difficile, que `POIDS_DES_PROBLEMES` fait venir un problème sur trois.
+  const parDifficulte = problemes.reduce<Record<string, number>>((m, e) => ((m[e.difficulte] = (m[e.difficulte] ?? 0) + 1), m), {})
+  assert.deepEqual(parDifficulte, { facile: 26, moyenne: 15, difficile: 21 })
   assert.equal(problemes.length, fichier.length, 'chacun se lit')
   assert.equal(new Set([...problemes.map(e => e.numero), ...enigmesDuSphinx().map(e => e.numero)]).size, enigmesDuSphinx().length, 'un numéro chacun, à part des énigmes')
   const sortes = { nombre: 0, choix: 0 }

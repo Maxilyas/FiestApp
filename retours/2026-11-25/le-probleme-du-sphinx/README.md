@@ -76,6 +76,34 @@ candidat (`aveugle`), sans leurs mots :
 **La réserve : 36 problèmes** (`server/content/sphinx/problemes.json`) — 17 à
 un nombre, 19 à un choix ; 26 faciles, 6 moyens, 4 difficiles.
 
+## Les problèmes redoutables
+
+Le lendemain, le 26 novembre 2026 (« C'est possible d'avoir des riddles
+durs ? ») : vingt-six problèmes de plus, écrits pour être redoutables par
+deux auteurs — treize de logique et de déduction, treize de calcul et de
+stratégie —, chacun vérifié par un script qui énumère tous les cas et
+confirme sa réponse et qu'aucune autre ne tient (`problemes-redoutables-candidats.json`,
+**avec leurs réponses** : le propriétaire ne le relit pas).
+
+**Trois joueurs à l'aveugle**, cette fois :
+
+- **Le fort** les démontre tous, sans code, chacun à certitude 5, et ne voit
+  d'autre réponse nulle part. Ses neuf remarques, relues : aucune
+  ambiguïté ; six disent qu'il s'est dénoué vite.
+- **L'ordinaire**, qui raisonne deux ou trois minutes, les trouve tous
+  aussi : les joueurs simulés reconnaissent les casse-tête classiques. Il ne
+  départage rien.
+- **Le pressé**, une phrase de réflexion au plus — la règle des auteurs :
+  « un joueur pressé qui répond au jugé se trompe presque sûrement » —, en
+  rate vingt-deux, à une certitude moyenne de 1,35 sur 5.
+
+**Redoutable** : le pressé s'y trompe, et le fort ne l'a pas dénoué d'un
+coup — dix-sept ; les neuf autres, moyens. Aucun écarté.
+
+**La réserve : 62 problèmes** — 31 à un nombre, 31 à un choix ; 26 faciles,
+15 moyens, 21 redoutables, qu'un problème sur trois pose
+(`POIDS_DES_PROBLEMES`).
+
 ## La regarder
 
 ```bash

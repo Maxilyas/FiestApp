@@ -764,6 +764,15 @@ Le détail : [les récompenses](../produit/les-recompenses.md).
 
 *Fichiers : `server/src/core/sphinx.ts`, `server/src/sphinx.ts`, `server/src/maintenance.ts`, `server/src/auth/profiles.ts`, `shared/sphinx.ts`, `client/src/api.ts`, `client/src/components/{Sphinx,AlbumDesAvatars}.tsx`, `server/test/sphinx-pur.test.ts`, `server/test/sphinx-accueil.test.ts`, `server/test/sphinx-ecran.test.ts`*
 
+### Un problème sur trois redoutable
+**Contexte** : le 26 novembre 2026, le propriétaire : « C'est possible d'avoir des riddles durs ? » La réserve n'en avait que quatre difficiles sur trente-six, et les problèmes se tiraient aux poids des énigmes en vers — une difficile sur cinq : un habitué en croisait un tous les deux mois et demi, quatre en tout. Sur une proposition, « C'est good ».
+
+**Décision** : **les problèmes ont leurs poids à eux, un tiers de chaque difficulté** (`POIDS_DES_PROBLEMES`) — un redoutable tous les quarante-cinq jours environ chez un habitué ; ses premières visites restent faciles, et les énigmes en vers gardent une difficile sur cinq. **Vingt-six problèmes de plus**, écrits pour être redoutables — logique et déduction, calcul et stratégie, des classiques racontés avec nos mots —, chacun vérifié par un script qui en énumère tous les cas. **Un problème difficile se dit redoutable** dans sa visite (`redoutable`, sa difficulté et rien de sa réponse), et le Sphinx l'annonce à chaque ouverture : « Prends des jours s'il le faut : il t'attendra. »
+
+**Conséquence** : la mesure à l'aveugle a changé de juge. Le joueur ordinaire, qui raisonne deux ou trois minutes, trouvait les vingt-six — les joueurs simulés reconnaissent les casse-tête classiques ; c'est un joueur pressé, une phrase de réflexion au plus, qui départage : il en rate vingt-deux. Redoutable, un problème que le pressé rate et que le joueur fort démontre sans l'avoir dénoué d'un coup : dix-sept ; les neuf autres, moyens. La réserve : soixante-deux problèmes, vingt et un redoutables.
+
+*Fichiers : `server/src/core/sphinx.ts`, `server/content/sphinx/problemes.json`, `shared/sphinx.ts`, `client/src/components/Sphinx.tsx`, `server/test/sphinx-pur.test.ts`, `server/test/sphinx-accueil.test.ts`, `server/test/sphinx-ecran.test.ts`*
+
 ### Les trophées se rangent par mode, et se disent avec les mêmes mots
 **Contexte** : « très confus, les trophées que les gens gagnent » — dix lignes les rangeaient selon la logique du code (« Paliers des soirées », « Paliers de toujours »…), un même exploit tombait sous deux noms (Le Laurier et le palier du Champion du jour, aux mêmes seuils), et chaque fin de partie montrait ses gains à sa façon.
 
