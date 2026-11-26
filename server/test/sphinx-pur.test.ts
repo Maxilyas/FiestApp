@@ -86,8 +86,8 @@ test('le Sphinx juge sur les réponses acceptées, et une réponse proche brûle
   }
 })
 
-test('la réserve : quatre-vingt-six pièces, sans les traces du test à l’aveugle, chacune sa source', () => {
-  const toutes = enigmesDuSphinx()
+test('la réserve : quatre-vingt-six pièces en vers, sans les traces du test à l’aveugle, chacune sa source', () => {
+  const toutes = enigmesDuSphinx().filter(e => e.sorte !== 'probleme')
   assert.equal(toutes.length, 86)
   assert.equal(new Set(toutes.map(e => e.numero)).size, 86, 'un numéro chacune')
   assert.deepEqual(
@@ -109,6 +109,34 @@ test('la réserve : quatre-vingt-six pièces, sans les traces du test à l’ave
   // Le test à l'aveugle reste dans `retours/` : ni les réponses des joueurs simulés, ni le verdict de la relecture.
   const brut = readFileSync(fileURLToPath(new URL('../content/sphinx/enigmes.json', import.meta.url)), 'utf8')
   assert.doesNotMatch(brut, /"(aveugle|raison|retenue|lot)"\s*:/)
+})
+
+test('la réserve des problèmes : trente-six, chacun lu par le serveur, sa réponse juste, sa solution pas à pas, sans les traces du test à l’aveugle', () => {
+  const brut = readFileSync(fileURLToPath(new URL('../content/sphinx/problemes.json', import.meta.url)), 'utf8')
+  const fichier = (JSON.parse(brut) as { problemes: { numero: string; reponse: { sorte: string; valeur?: number; bonne?: number } }[] }).problemes
+  const problemes = enigmesDuSphinx().filter(e => e.sorte === 'probleme')
+  // Un problème mal formé se tairait sans un mot (`lesProblemes`) : chacun du fichier doit être dans la réserve.
+  assert.equal(fichier.length, 36)
+  assert.equal(problemes.length, fichier.length, 'chacun se lit')
+  assert.equal(new Set([...problemes.map(e => e.numero), ...enigmesDuSphinx().map(e => e.numero)]).size, enigmesDuSphinx().length, 'un numéro chacun, à part des énigmes')
+  const sortes = { nombre: 0, choix: 0 }
+  for (const e of problemes) {
+    const p = e.probleme!
+    assert.match(e.numero, /^p\d+$/, e.numero)
+    assert.ok(['facile', 'moyenne', 'difficile'].includes(e.difficulte), e.numero)
+    assert.match(p.titre, /^(Le |La |Les |L[’'])/, `n° ${e.numero} : son titre a son article, que « Le problème du… » reprend`)
+    assert.ok(e.solution && p.explication.length > 0 && p.source.texte, e.numero)
+    sortes[p.reponse.sorte]++
+    // Sa réponse, telle que le joueur la donne — le nombre au clavier, la place de la carte —, est juste.
+    const r = fichier.find(x => x.numero === e.numero)!.reponse
+    const lue = lireLaReponse(e, String(r.sorte === 'nombre' ? r.valeur : r.bonne))
+    assert.ok('lue' in lue && jugerLaReponse(e, lue.lue) === 'juste', `n° ${e.numero}`)
+  }
+  // Les deux formes de réponse, chaque problème la sienne (le choix du propriétaire du 25 novembre 2026).
+  assert.ok(sortes.nombre > 0 && sortes.choix > 0, JSON.stringify(sortes))
+  // Le passage à l'aveugle reste dans `retours/` ; et le passeur, que tout le monde connaît, n'est qu'au banc.
+  assert.doesNotMatch(brut, /"(aveugle|raison|retenu|difficulte_estimee)"\s*:/)
+  assert.ok(!problemes.some(e => e.numero === PASSEUR.numero || e.numero === PASSEUR_A_CHOISIR.numero))
 })
 
 // ── L'habitué ─────────────────────────────────────────────────────────────

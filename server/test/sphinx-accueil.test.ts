@@ -68,10 +68,19 @@ const geste = (banc: Banc, cookie: string, corps: unknown) => ecrire(banc.url, '
 const ouvrir = async (banc: Banc, admin: string, etat = 'ouverte') =>
   assert.equal((await ecrire(banc.url, '/api/admin/maintenance/pages/sphinx', { etat }, admin, 'PUT')).status, 200)
 
+/**
+ * La réserve de ces épreuves : les énigmes en vers seules. Elles répondent par
+ * les réponses acceptées du livre, et une visite sur cinq, sur la vraie
+ * réserve, poserait un problème — tiré par l'identifiant de chaque profil,
+ * neuf à chaque banc : l'épreuve rougirait une fois sur cinq. Les problèmes ont
+ * les leurs, sur le passeur (`passeur.ts`).
+ */
+const EN_VERS = enigmesDuSphinx().filter(e => e.sorte !== 'probleme')
+
 async function avecBanc(debut: number, reglages: Parameters<typeof demarrer>[0], scenario: (banc: Banc, horloge: { t: number }) => Promise<void>) {
   const horloge = { t: debut }
   // Le Sphinx passe chaque jour qu'il le peut : la chance d'une visite est à part.
-  const banc = await demarrer({ horlogeDuJour: () => horloge.t, tirageDuSphinx: () => 0, ...reglages })
+  const banc = await demarrer({ horlogeDuJour: () => horloge.t, tirageDuSphinx: () => 0, enigmesDuSphinx: EN_VERS, ...reglages })
   try {
     await scenario(banc, horloge)
   } finally {
@@ -293,7 +302,7 @@ test('une visite d’avant, restée ouverte sous la règle de minuit, attend enc
     const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐯')
     joue(banc, 'lea', jours(20, 26))
     joue(banc, 'tom', jours(20, 26))
-    const [facile, autre, troisieme] = enigmesDuSphinx().filter(e => e.difficulte === 'facile')
+    const [facile, autre, troisieme] = EN_VERS.filter(e => e.difficulte === 'facile')
     const poser = (login: string, jour: string, enigme: string, etat: string, ecoutee: number | null) =>
       base(banc, db =>
         db

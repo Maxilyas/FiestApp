@@ -60,9 +60,16 @@ const laPage = async (banc: Banc, admin: string): Promise<PageDuSphinxAuQg> => {
 }
 const voirLaReponse = (banc: Banc, admin: string, numero: string) => faire(banc, admin, `/api/admin/sphinx/enigmes/${numero}/reponse`)
 
+/**
+ * La réserve de ces épreuves : les énigmes en vers seules — elles répondent
+ * par la solution du livre, et un problème, qu'un profil sur cinq tirerait sur
+ * la vraie réserve, n'en a pas. Le problème a son épreuve, sur le passeur.
+ */
+const EN_VERS = enigmesDuSphinx().filter(e => e.sorte !== 'probleme')
+
 async function avecBanc(debut: number, reglages: Parameters<typeof demarrer>[0], scenario: (banc: Banc, horloge: { t: number }) => Promise<void>) {
   const horloge = { t: debut }
-  const banc = await demarrer({ horlogeDuJour: () => horloge.t, tirageDuSphinx: () => 0, ...reglages })
+  const banc = await demarrer({ horlogeDuJour: () => horloge.t, tirageDuSphinx: () => 0, enigmesDuSphinx: EN_VERS, ...reglages })
   try {
     await scenario(banc, horloge)
   } finally {
@@ -112,7 +119,7 @@ function rienDeSecret(page: unknown, enigmes: readonly Enigme[], ou: string) {
 }
 
 test('la page du Sphinx au QG compte tout et ne dit rien : ni une réponse, ni un mot caché, ni la forme d’une phrase', () => {
-  const reserve = enigmesDuSphinx()
+  const reserve = EN_VERS
   return avecBanc(midi(26), {}, async banc => {
     const admin = await connexionAnimateur(banc.url)
     assert.equal((await ecrire(banc.url, '/api/admin/maintenance/pages/sphinx', { etat: 'ouverte' }, admin, 'PUT')).status, 200)
@@ -305,7 +312,7 @@ test('la page et son geste ne s’ouvrent qu’à l’administrateur : ni un ani
       assert.equal(page.status, statut, `${qui} : la page`)
       const geste = await voirLaReponse(banc, cookie, '32')
       assert.equal(geste.status, statut, `${qui} : le geste`)
-      rienDeSecret([page.corps, geste.corps], enigmesDuSphinx(), qui)
+      rienDeSecret([page.corps, geste.corps], EN_VERS, qui)
     }
     assert.equal(base(banc, db => (db.prepare(`SELECT COUNT(*) AS n FROM profile_sphinx`).get() as { n: number }).n), 0, 'rien ne s’est écrit')
   }))

@@ -48,6 +48,34 @@ l'état —, et ce que le joueur voit : `docs/produit/le-sphinx.md` (« Les
 problèmes ») ; la décision : « Une visite sur cinq, un problème façon TED-Ed »
 (`docs/architecture/decisions.md`).
 
+## Les problèmes de la réserve
+
+Le même jour, quarante problèmes écrits d'après des livres du domaine public
+et la tradition, racontés avec nos mots — chacun son récit, sa question, sa
+réponse fermée, sa solution pas à pas, sa difficulté estimée par qui l'a
+écrit (`problemes-candidats.json`, **avec leurs réponses** : le propriétaire
+joue aussi, il ne le relit pas).
+
+**Résolus à l'aveugle**, comme les énigmes : deux joueurs simulés, sans outils
+ni réponses, à qui l'on n'a donné que les énoncés — un fort, qui raisonne sur
+le papier et dit si une autre réponse tient ; un ordinaire, en deux ou trois
+minutes, et sa certitude de 1 à 5. Ce qu'ils ont rendu est dans chaque
+candidat (`aveugle`), sans leurs mots :
+
+- **Le fort les trouve tous** ; l'ordinaire en manque cinq, chaque fois avec
+  assurance.
+- **Quatre écartés** (`retenu: false`, `raison`) : un joueur y a vu une
+  ambiguïté ou une autre réponse. Le Sphinx refuserait peut-être une bonne
+  réponse, et le doute ne se lève pas sans le lire.
+- **La difficulté** : facile quand les deux trouvent, difficile quand
+  l'ordinaire se trompe avec assurance — l'échelle des énigmes. Un problème
+  laisse le temps de poser son raisonnement, et presque tout serait tombé
+  facile : un problème que l'ordinaire trouve et que son auteur jugeait
+  difficile se dit moyen.
+
+**La réserve : 36 problèmes** (`server/content/sphinx/problemes.json`) — 17 à
+un nombre, 19 à un choix ; 26 faciles, 6 moyens, 4 difficiles.
+
 ## La regarder
 
 ```bash
