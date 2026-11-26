@@ -1,0 +1,127 @@
+/* La maquette de la pièce « Avatar » : la planche, puis ce que chaque piste
+   ajoute à la loge. Tout ce qui est neuf porte `mq-` : une classe courte de
+   l'application (`.invite`, `.niche`, `.fait`…) aurait repris ses règles. */
+
+/* ── La planche ─────────────────────────────────────────────────────────── */
+body.mq-planche { margin: 0; padding: 26px 30px 50px; width: 1280px; box-sizing: border-box; background: var(--bg); color: var(--ink); font: 15px/1.45 var(--sans, system-ui, sans-serif); min-height: 0; }
+.mq-planche section { padding: 6px 0 30px; }
+.mq-planche h2 { font: 600 26px var(--serif, Georgia, serif); margin: 10px 0 4px; color: var(--accent-text); }
+.mq-planche section > p { margin: 0 0 14px; max-width: 1100px; color: var(--muted); }
+.mq-tels { display: flex; gap: 34px; align-items: flex-start; }
+.mq-tel { margin: 0; display: flex; flex-direction: column; gap: 8px; width: 360px; }
+.mq-tel iframe { display: block; width: 360px; height: 640px; border: 1px solid rgba(var(--accent-rgb), 0.35); border-radius: 26px; background: var(--bg); box-shadow: 0 18px 48px rgba(0, 0, 0, 0.4); }
+.mq-tel figcaption { font-size: 13px; color: var(--muted); line-height: 1.35; padding: 0 6px; }
+.mq-tel figcaption b { display: block; font: 600 17px var(--serif, Georgia, serif); color: var(--ink); }
+
+/* ── Piste 1 · le rail des calques ─────────────────────────────────────── */
+.mq-calques { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; padding: 3px; border: 1px solid var(--edge); border-radius: 18px; background: var(--surface-faint); }
+.mq-calque { position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; padding: 5px 0 4px; border: 0; border-radius: 15px; background: none; color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; cursor: pointer; }
+.mq-calque-apercu { display: grid; place-items: center; width: 40px; height: 34px; font-size: 14px; line-height: 1; }
+.mq-calque-apercu .finition-teinte { width: 24px; height: 24px; }
+.mq-calque.actif { background: var(--surface); color: var(--accent-text); box-shadow: inset 0 0 0 1.5px var(--accent), 0 0 14px rgba(var(--accent-rgb), 0.25); }
+/* Un calque à l'essai : le pointillé de l'essai, comme la carte. */
+.mq-calque.essaye .mq-calque-apercu { outline: 1.5px dashed rgba(var(--accent-rgb), 0.85); outline-offset: 1px; border-radius: 10px; }
+
+/* La grille d'un calque : celle des avatars, une case plus haute pour son nom. */
+.mq-grille { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.mq-case { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; height: 90px; padding: 4px 2px 5px; border: 1px solid var(--edge); border-radius: 16px; background: var(--surface-faint); color: var(--ink); font: inherit; text-decoration: none; cursor: pointer; }
+.mq-case-dessin { display: grid; place-items: center; height: 62px; font-size: 25px; line-height: 1; }
+.mq-case-nom { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t-label); font-weight: 600; color: var(--muted); }
+.mq-case.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--surface); }
+.mq-case.selected .mq-case-nom { color: var(--accent-text); }
+.mq-case.essaye { border-style: dashed; box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.35); }
+.mq-case.porte:not(.selected)::after,
+.mq-case.porte.selected::after { content: '✓'; position: absolute; top: 3px; right: 6px; font-size: 11px; font-weight: 700; color: var(--accent-text); }
+.mq-case.porte.essaye::after { content: none; }
+.mq-a-gagner { border-style: dashed; color: var(--muted); }
+.mq-a-gagner b { font-size: 1.1rem; }
+.mq-auto { position: absolute; top: 4px; left: 5px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--on-accent); }
+.mq-auto .icon { width: 12px; height: 12px; }
+
+/* Là où la bordure est le sujet, ce qui sort d'un médaillon se tait : les
+   ailes du Phénix éclaté couvraient le haut du motif (la rangée d'aujourd'hui
+   le montre, chaque pastille pareille à sa voisine). */
+.mq-sujet .lg-debord,
+.mq-sujet .lg-gerbe,
+.mq-sujet .dv-rayons,
+.mq-sujet .dv-etincelles { display: none; }
+.mq-calque-apercu { position: relative; }
+.mq-calque-apercu .mq-auto { top: -2px; left: auto; right: -1px; width: 15px; height: 15px; }
+.mq-calque-apercu .mq-auto .icon { width: 10px; height: 10px; }
+
+/* ── Piste 2 · les tuiles et la feuille ───────────────────────────────── */
+.mq-tuiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.mq-tuile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; padding: 5px 2px 6px; border: 1px solid var(--edge); border-radius: 14px; background: var(--surface-faint); color: var(--ink); font: inherit; cursor: pointer; }
+.mq-tuile.actif { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.mq-tuile-titre { font-size: var(--t-label); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.mq-tuile-apercu { position: relative; display: grid; place-items: center; width: 44px; height: 38px; font-size: 16px; line-height: 1; }
+.mq-tuile-apercu .finition-teinte { width: 28px; height: 28px; }
+.mq-tuile-apercu.essaye { outline: 1.5px dashed rgba(var(--accent-rgb), 0.85); outline-offset: 1px; border-radius: 10px; }
+.mq-tuile-apercu .mq-auto,
+.mq-fiche-apercu .mq-auto { top: -3px; left: auto; right: -2px; width: 15px; height: 15px; }
+.mq-tuile-apercu .mq-auto .icon,
+.mq-fiche-apercu .mq-auto .icon { width: 10px; height: 10px; }
+.mq-tuile-valeur { display: flex; align-items: center; gap: 2px; max-width: 100%; font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
+.mq-chevron { color: var(--accent-text); font-weight: 700; }
+
+/* La feuille d'essayage : son voile s'arrête sous la carte, qui reste nette au-dessus. */
+.mq-voile { position: fixed; left: 0; right: 0; bottom: 0; top: 160px; z-index: 60; display: flex; align-items: flex-end; justify-content: center; background: rgba(8, 5, 4, 0.72); }
+.mq-voile .mq-feuille { height: 100%; max-height: 100%; background: var(--bg); }
+.mq-feuille .carte-barre { padding: 8px 12px 8px 18px; }
+.mq-feuille .carte-corps { padding: 10px 14px; gap: 8px; }
+.mq-groupe { grid-column: 1 / -1; margin: 4px 0 -4px; }
+.mq-groupe:first-child { margin-top: 0; }
+.mq-pied { display: flex; justify-content: flex-end; gap: 8px; padding: 8px 14px 10px; }
+
+/* La variante : six fiches, deux par rangée. */
+.mq-fiches { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.mq-fiche { position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; height: 74px; padding: 6px 18px 6px 6px; border: 1px solid var(--edge); border-radius: 16px; background: var(--surface-faint); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.mq-fiche-apercu { position: relative; flex: none; display: grid; place-items: center; width: 50px; height: 60px; font-size: 20px; line-height: 1; }
+.mq-fiche > .mq-chevron { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); }
+.mq-fiche-apercu .finition-teinte { width: 38px; height: 38px; }
+.mq-fiche-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.mq-fiche-texte b { font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Piste 3 · le miroir et sa bande ──────────────────────────────────── */
+.mq-miroir { height: 232px; padding: 0; }
+.mq-miroir-nom { position: absolute; top: 10px; left: 14px; display: flex; align-items: center; gap: 6px; font-family: var(--serif); font-size: 1.3rem; font-weight: 600; }
+.mq-miroir-titre { position: absolute; top: 38px; left: 14px; font-family: var(--serif); font-style: italic; color: var(--accent-text); font-size: 0.95rem; }
+.mq-miroir .loge-apercu { position: absolute; top: 10px; right: 12px; }
+.mq-miroir-avatar { position: absolute; left: 50%; top: 58%; transform: translate(-50%, -50%); font-size: 58px; line-height: 1; }
+.mq-miroir-avatar.mq-cible-avatar::after { content: ''; position: absolute; inset: -0.1em; border-radius: 50%; border: 2px dashed rgba(var(--fond-or-rgb), 0.9); pointer-events: none; }
+.mq-epingle { position: absolute; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 9px 0 8px; border: 1px solid rgba(var(--fond-or-rgb), 0.45); border-radius: 999px; background: rgba(8, 6, 10, 0.62); color: var(--ink); font: inherit; font-size: 0.74rem; font-weight: 600; cursor: pointer; backdrop-filter: blur(2px); }
+.mq-epingle { gap: 5px; }
+.mq-epingle i { width: 7px; height: 7px; border-radius: 50%; background: var(--fond-or); box-shadow: 0 0 6px var(--fond-or); }
+.mq-epingle.actif { background: var(--fond-or); border-color: var(--fond-or); color: #2a1a06; text-shadow: none; }
+.mq-epingle.actif i { background: #2a1a06; box-shadow: none; }
+.mq-g1 { left: 10px; top: 78px; }
+.mq-g2 { left: 10px; top: 128px; }
+.mq-g3 { left: 10px; top: 178px; }
+.mq-d1 { right: 10px; top: 78px; }
+.mq-d2 { right: 10px; top: 128px; }
+.mq-d3 { right: 10px; top: 178px; }
+.mq-bande { display: grid; grid-template-columns: 34px 1fr 34px; align-items: center; gap: 2px; margin-top: 4px; }
+.mq-fleche { display: grid; place-items: center; width: 34px; height: 44px; padding: 0; border: 0; background: none; color: var(--accent-text); cursor: pointer; }
+.mq-fleche .icon { width: 22px; height: 22px; }
+.mq-fleche-avant .icon { transform: scaleX(-1); }
+.mq-bande-cases { display: flex; align-items: center; justify-content: center; gap: 4px; height: 112px; overflow: hidden; }
+.mq-bande-case { position: relative; display: grid; place-items: center; line-height: 1; border-radius: 18px; }
+.mq-pas-0 { width: 104px; height: 108px; font-size: 37px; border: 1px dashed var(--accent); background: var(--surface); box-shadow: 0 0 18px rgba(var(--accent-rgb), 0.3); }
+.mq-pas-1 { width: 58px; height: 70px; font-size: 19px; opacity: 0.85; }
+.mq-pas-2 { width: 40px; height: 56px; font-size: 13px; opacity: 0.45; }
+.mq-bande-case.porte::after { content: '✓'; position: absolute; top: 2px; right: 4px; font-size: 11px; font-weight: 700; color: var(--accent-text); }
+.mq-bande-nom { display: flex; flex-direction: column; align-items: center; gap: 0; }
+.mq-bande-nom b { font-family: var(--serif); font-size: 1.25rem; }
+.mq-bande-nom span { font-size: var(--t-label); color: var(--muted); }
+
+/* ── Le bonus · les tenues ────────────────────────────────────────────── */
+.mq-tenues { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.mq-tenue { position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; height: 74px; padding: 3px 2px 4px; border: 1px solid var(--edge); border-radius: 14px; background: var(--surface-faint); color: var(--ink); font: inherit; cursor: pointer; }
+.mq-tenue-dessin { display: grid; place-items: center; height: 50px; font-size: 19px; line-height: 1; }
+.mq-tenue-dessin .icon { width: 20px; height: 20px; color: var(--accent-text); }
+.mq-tenue-nom { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t-label); font-weight: 600; color: var(--muted); }
+.mq-tenue.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--surface); }
+.mq-tenue.selected .mq-tenue-nom { color: var(--accent-text); }
+.mq-tenue.essaye { border-style: dashed; }
+.mq-tenue.porte::after { content: '✓'; position: absolute; top: 2px; right: 5px; font-size: 11px; font-weight: 700; color: var(--accent-text); }
+.mq-tenue-plus { border-style: dashed; }
