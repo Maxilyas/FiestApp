@@ -788,6 +788,7 @@ test('un problème à nombre : son récit et sa question partent, jamais sa rép
     const avant = JSON.stringify(v)
     for (const champ of ['valeur', 'solution', 'explication', 'bonne', 'acceptees']) assert.ok(!avant.includes(`"${champ}"`), `« ${champ} » avant la fin`)
     assert.equal(v.enigme.source.recueil, PASSEUR.probleme!.source.texte, 'sa source à lui, pas le recueil de 1858')
+    assert.equal(v.enigme.redoutable, undefined, 'facile : rien de redoutable')
 
     // Un mot n'est pas un nombre : redemandé, sans coûter d'essai.
     const illisible = await geste(banc, lea, { geste: 'repondre', reponse: 'beaucoup' })
@@ -802,6 +803,18 @@ test('un problème à nombre : son récit et sa question partent, jamais sa rép
     assert.equal(juste.corps.visite.enigme.solution, PASSEUR.solution)
     assert.deepEqual(juste.corps.visite.enigme.explication, PASSEUR.probleme!.explication)
     assert.ok(juste.corps.visite.mot, 'résolu, il souffle son mot comme une énigme')
+  }))
+
+// « Des riddles durs » (le choix du propriétaire du 26 novembre 2026) : la visite dit qu'un problème difficile est
+// redoutable — sa difficulté, rien de sa réponse —, et le Sphinx l'annonce (`sphinx-ecran.test.ts`).
+test('un problème difficile se dit redoutable dans sa visite, sans rien de sa réponse', () =>
+  avecBanc(midi(26), { enigmesDuSphinx: [{ ...PASSEUR, difficulte: 'difficile' }] }, async banc => {
+    await ouvrir(banc, await connexionAnimateur(banc.url))
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    joue(banc, 'lea', jours(20, 26))
+    const v = (await leSphinx(banc, lea)).visite
+    assert.deepEqual([v.enigme.numero, v.enigme.redoutable], [PASSEUR.numero, true])
+    for (const champ of ['valeur', 'solution', 'explication', 'bonne']) assert.ok(!JSON.stringify(v).includes(`"${champ}"`), `« ${champ} » avant la fin`)
   }))
 
 test('un problème à choisir se joue d’un seul toucher : une mauvaise proposition le perd, et sa solution part avec la bonne', () =>

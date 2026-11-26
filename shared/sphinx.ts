@@ -174,6 +174,13 @@ export interface EnigmeDuSphinx {
   source: { recueil: string; page: string; facSimile: string }
   /** Un problème : son récit, sa question et comment s'y répond. */
   probleme?: ProblemeDuSphinx
+  /**
+   * Un problème difficile — mesuré à l'aveugle : le joueur ordinaire s'y
+   * trompait — : le Sphinx l'annonce redoutable, et qu'on a des jours pour y
+   * réfléchir (le choix du propriétaire du 26 novembre 2026). Rien de sa
+   * réponse : sa difficulté seule.
+   */
+  redoutable?: true
   /** La solution du livre, une fois la visite close — d'un problème, sa réponse dite en mots. */
   solution?: string
   /** Une charade : comment la clé du livre la découpe (« Cher-cher »), une fois la visite close. */

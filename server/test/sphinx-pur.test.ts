@@ -17,6 +17,7 @@ import {
   divinDuSouffle,
   ORDRE_DU_SPHINX,
   PART_DES_PROBLEMES,
+  POIDS_DES_PROBLEMES,
   VISITES_FACILES,
   appliquerLeGeste,
   choisirLEnigme,
@@ -631,4 +632,28 @@ test('une visite sur cinq pose un problème, tant qu’il en reste ; une réserv
     const apres = choisirLEnigme([...enVers, ...problemes], new Set(problemes.map(e => e.numero)), i % 6, hasardDe(`q|${i}`))
     assert.equal(apres?.numero, avant?.numero)
   }
+})
+
+// Le choix du propriétaire du 26 novembre 2026, « des riddles durs », et qu'ils viennent assez souvent : les problèmes ont
+// leurs poids — un tiers de chaque difficulté —, les énigmes en vers gardent les leurs, une difficile sur cinq.
+test('un problème sur trois est redoutable, passé ses premières visites ; les énigmes en vers gardent une difficile sur cinq', () => {
+  assert.deepEqual(POIDS_DES_PROBLEMES, { facile: 1, moyenne: 1, difficile: 1 })
+  const trois = (sorte: 'probleme' | 'enigme') =>
+    Array.from({ length: 30 }, (_, i): Enigme => ({
+      ...(sorte === 'probleme' ? PASSEUR : enigme('32')),
+      numero: `${sorte}${i}`,
+      difficulte: (['facile', 'moyenne', 'difficile'] as const)[i % 3],
+    }))
+  const partDesDifficiles = (reserve: Enigme[]) => {
+    let dures = 0
+    const n = 3000
+    for (let i = 0; i < n; i++) if (choisirLEnigme(reserve, new Set(), VISITES_FACILES, hasardDe(`d|${i}`))?.difficulte === 'difficile') dures++
+    return dures / n
+  }
+  const problemes = partDesDifficiles(trois('probleme'))
+  assert.ok(problemes > 0.3 && problemes < 0.37, `problèmes : ${problemes.toFixed(3)} de redoutables`)
+  const enVers = partDesDifficiles(trois('enigme'))
+  assert.ok(enVers > 0.17 && enVers < 0.23, `énigmes en vers : ${enVers.toFixed(3)} de difficiles`)
+  // Ses premières visites, un problème facile quand même.
+  for (let i = 0; i < 50; i++) assert.equal(choisirLEnigme(trois('probleme'), new Set(), VISITES_FACILES - 1, hasardDe(`f|${i}`))?.difficulte, 'facile')
 })

@@ -84,6 +84,9 @@ const DIT = {
   // Une visite sur cinq, un problème (le souhait du propriétaire du 25 novembre 2026, sur les « Can you solve this
   // riddle? » de TED-Ed) : une petite histoire, une réponse fermée, puis la solution pas à pas — sans indice.
   ecouteProbleme: 'Cette fois, un *problème*. Lis bien… et prends ton temps.',
+  // Un problème difficile (le choix du propriétaire du 26 novembre 2026, « des riddles durs ») : il attend sa fin de jour en
+  // jour, et le Sphinx le dit — on peut y réfléchir des jours, ou en parler à un ami.
+  ecouteRedoutable: 'Cette fois, un problème *redoutable*. Prends des jours s’il le faut : il t’attendra.',
   unNombre: (essais: number) => `Écris un nombre en haut. ${essais >= 3 ? 'Tu as trois essais.' : essais === 2 ? 'Il te reste deux essais.' : 'Il te reste un seul essai.'}`,
   aChoisir: 'Choisis en haut. Un seul essai : réfléchis bien.',
   voirLaSolution: 'Tu veux voir comment on le résout ?',
@@ -1165,7 +1168,7 @@ function SceneDuSphinx({
         r(i)
       }
     })
-    const ecrite = ecrire(moi, probleme ? DIT.ecouteProbleme : DIT.ecoute).catch(() => {})
+    const ecrite = ecrire(moi, !probleme ? DIT.ecoute : v.enigme.redoutable ? DIT.ecouteRedoutable : DIT.ecouteProbleme).catch(() => {})
     const morceaux = probleme ? probleme.recit.length : v.enigme.vers.length
     for (let i = 1; i <= morceaux; i++) {
       await attendre(moi, calme ? 0 : probleme ? 1100 : 650)

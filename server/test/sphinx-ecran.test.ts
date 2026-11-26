@@ -353,6 +353,14 @@ test('dans l’album, un trait se touche pour y inscrire un mot, un mot appris s
   assert.match(lire('client/src/components/Sphinx.tsx'), /dans ton album, tu inscriras leurs mots sur ta phrase/)
 })
 
+// « Des riddles durs » (le choix du propriétaire du 26 novembre 2026) : un problème difficile, le Sphinx l'annonce
+// redoutable, et qu'on a des jours pour y réfléchir — à chaque ouverture, puisqu'il attend sa fin.
+test('un problème redoutable, le Sphinx le dit en l’ouvrant', () => {
+  const source = lire('client/src/components/Sphinx.tsx')
+  assert.match(source, /ecouteRedoutable: 'Cette fois, un problème \*redoutable\*\. Prends des jours s’il le faut : il t’attendra\.'/)
+  assert.match(source, /ecrire\(moi, !probleme \? DIT\.ecoute : v\.enigme\.redoutable \? DIT\.ecouteRedoutable : DIT\.ecouteProbleme\)/)
+})
+
 // Un mot neuf par jour en moyenne, la même chance pour chaque énigme résolue, à toute heure (le choix du propriétaire du
 // 26 novembre 2026) : pas cette fois, le Sphinx le dit — sans promettre l'heure ni le premier levé.
 test('pas de mot neuf cette fois : le Sphinx le dit au joueur qui reçoit un mot déjà trouvé', () => {

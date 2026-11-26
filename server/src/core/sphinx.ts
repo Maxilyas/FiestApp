@@ -81,6 +81,14 @@ export const PART_DES_PROBLEMES = 1 / 5
  * assurance, au test à l'aveugle.
  */
 export const POIDS_DES_DIFFICULTES = { facile: 2, moyenne: 2, difficile: 1 } as const
+/**
+ * Les problèmes ont les leurs : un tiers de chaque difficulté (le choix du
+ * propriétaire du 26 novembre 2026, « des riddles durs », et qu'ils viennent
+ * assez souvent) — un problème redoutable environ tous les quarante-cinq jours
+ * chez un habitué, quand les poids des énigmes n'en posaient qu'un tous les
+ * deux mois et demi. Ses premières visites restent faciles (`VISITES_FACILES`).
+ */
+export const POIDS_DES_PROBLEMES = { facile: 1, moyenne: 1, difficile: 1 } as const
 /** Une réponse tient en une ligne : au-delà, elle se coupe (`tronquer`). */
 export const REPONSE_MAX = 80
 /** Un mot inscrit sur sa phrase : le plus long d'une légende tient bien en dessous. */
@@ -416,13 +424,15 @@ export function choisirLEnigme(enigmes: readonly Enigme[], vues: ReadonlySet<str
   const restantes = problemes.length === 0 ? enVers : enVers.length === 0 ? problemes : hasard() < PART_DES_PROBLEMES ? problemes : enVers
   const par = (d: Difficulte) => restantes.filter(e => e.difficulte === d)
   const difficultes = Object.keys(POIDS_DES_DIFFICULTES) as Difficulte[]
+  // Un problème se tire à ses poids à lui (`POIDS_DES_PROBLEMES`) : les redoutables y viennent plus souvent.
+  const poids = restantes[0]?.sorte === 'probleme' ? POIDS_DES_PROBLEMES : POIDS_DES_DIFFICULTES
   let parmi: Enigme[]
   if (visitesAvant < VISITES_FACILES) {
     parmi = difficultes.map(par).find(es => es.length > 0)!
   } else {
     const classes = difficultes.filter(d => par(d).length > 0)
-    let x = hasard() * classes.reduce((n, d) => n + POIDS_DES_DIFFICULTES[d], 0)
-    const choisie = classes.find(d => (x -= POIDS_DES_DIFFICULTES[d]) < 0) ?? classes[classes.length - 1]
+    let x = hasard() * classes.reduce((n, d) => n + poids[d], 0)
+    const choisie = classes.find(d => (x -= poids[d]) < 0) ?? classes[classes.length - 1]
     parmi = par(choisie)
   }
   return parmi[Math.floor(hasard() * parmi.length)]
@@ -1188,6 +1198,7 @@ export class Sphinx {
       // Un problème dit sa source à lui — un livre du domaine public, raconté avec nos mots —, pas le recueil de 1858.
       source: p ? { recueil: p.source.texte, page: '', facSimile: p.source.lien ?? '' } : { recueil: laReserve().recueil, page: e.page, facSimile: e.facSimile },
       ...(p && { probleme: problemeVu(p) }),
+      ...(p && e.difficulte === 'difficile' && { redoutable: true as const }),
       // La réponse ne part qu'une fois la visite close — d'un problème, avec sa solution pas à pas, et la bonne proposition.
       ...(close && {
         solution: e.solution,
