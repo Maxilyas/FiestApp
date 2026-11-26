@@ -15,6 +15,8 @@ import { etatDeLaTraverseeEnRoute, peutSeRendre, type TraverseeEnRouteAuQg } fro
 import { ETAT_D_UN_SALON } from '../../../shared/qgAnimateurs'
 import { CONFETTIS_PAR_DON_MAX, MOT_D_UN_DON_MAX, type FicheDuJoueur, type ProfilDAdministration } from '../../../shared/profil'
 import { MOT_D_UN_COFFRE_OFFERT_MAX, NOM_DU_COFFRE, RANGS_DU_COFFRE, type RangDuCoffre } from '../../../shared/coffre'
+import { LEGENDAIRES_OFFERTS, legendaire } from '../../../shared/legendaires'
+import { CarteDeLAdministrateur } from './CarteDeLAdministrateur'
 
 /** « 1 joué », « 0 gagné », « 3 joués » : zéro s'écrit au singulier. */
 const pluriel = (n: number, mot: string) => `${formatNumber(n)} ${mot}${n > 1 ? 's' : ''}`
@@ -85,7 +87,9 @@ export function FicheDuJoueurAuQg({
   const [don, setDon] = useState<{ confettis: number; mot: string } | null>(null)
   // Un coffre à offrir : son rang, et un mot que la scène de l'ouverture dit.
   const [coffre, setCoffre] = useState<{ rang: RangDuCoffre; mot: string } | null>(null)
-  // « Offrir… » déplié : ses trois dons, confettis, Éclat, coffre.
+  // Un légendaire à offrir (`Legendaire.offert`) : lequel, et le mot que son accueil dira.
+  const [cadeau, setCadeau] = useState<{ legendaire: string; mot: string } | null>(null)
+  // « Offrir… » déplié : ses dons, confettis, Éclat, coffre — et un légendaire, à un autre que soi.
   const [offrirOuvert, setOffrirOuvert] = useState(false)
   // Le code de secours tiré : montré ici une seule fois, jamais relu.
   const [code, setCode] = useState<{ code: string; login: string } | null>(null)
@@ -161,6 +165,22 @@ export function FicheDuJoueurAuQg({
       f.toi ? `${NOM_DU_COFFRE[coffre.rang]} t’attend sur ton accueil` : `${NOM_DU_COFFRE[coffre.rang]} offert à ${f.nom}`,
     )
 
+  // Un seul exemplaire : la confirmation le dit, le serveur refuse le second.
+  const offrirLeLegendaire = async () => {
+    if (!cadeau) return
+    const nom = legendaire(cadeau.legendaire)?.nom ?? cadeau.legendaire
+    const ok = await confirmDialog({
+      title: `Offrir ${nom} à ${f.nom} ?`,
+      message: `Il n’en existe qu’un : il sera à ${f.nom} pour toujours, et ne pourra plus s’offrir à personne d’autre. Son accueil le lui dira une fois, avec ton mot.`,
+      confirmLabel: `Offrir ${nom}`,
+    })
+    if (ok)
+      await geste(async () => {
+        await api.admin.offrirUnLegendaire(f.id, cadeau.legendaire, cadeau.mot)
+        setCadeau(null)
+      }, `${nom} offert à ${f.nom}`)
+  }
+
   const reconnecter = async () => {
     const ok = await confirmDialog({
       title: 'Lui tirer un code de secours neuf ?',
@@ -212,7 +232,7 @@ export function FicheDuJoueurAuQg({
   // « Offrir… ».
   const aider = [
     // Sur son propre profil aussi : c'est son serveur (le 14 octobre 2026).
-    !f.suspendu && !don && !coffre && (
+    !f.suspendu && !don && !coffre && !cadeau && (
       <Geste key="offrir" icone="sparkles" ouvert={offrirOuvert} onClick={() => setOffrirOuvert(o => !o)}>
         {f.toi ? 'T’offrir…' : 'Offrir…'}
       </Geste>
@@ -223,7 +243,7 @@ export function FicheDuJoueurAuQg({
       </Geste>
     ),
   ].filter(Boolean)
-  const lesDons = offrirOuvert && !f.suspendu && !don && !coffre && (
+  const lesDons = offrirOuvert && !f.suspendu && !don && !coffre && !cadeau && (
     <div className="admin-gestes qg-fiche-offrir" role="group" aria-label={f.toi ? 'Ce que tu peux t’offrir' : 'Ce que tu peux lui offrir'}>
       <Geste
         icone="sparkles"
@@ -253,6 +273,18 @@ export function FicheDuJoueurAuQg({
       >
         {f.toi ? 'T’offrir un coffre' : 'Offrir un coffre'}
       </Geste>
+      {/* Jamais à soi : essayé sur son propre profil, il ne pourrait plus s'offrir (un seul exemplaire). */}
+      {!f.toi && LEGENDAIRES_OFFERTS.length > 0 && (
+        <Geste
+          icone="heart"
+          onClick={() => {
+            setOffrirOuvert(false)
+            setCadeau({ legendaire: LEGENDAIRES_OFFERTS[0], mot: '' })
+          }}
+        >
+          Offrir un légendaire
+        </Geste>
+      )}
     </div>
   )
   // Le masque se pose depuis les classements — du quiz du jour, des duels —,
@@ -465,6 +497,45 @@ export function FicheDuJoueurAuQg({
                   {f.toi ? 'T’offrir' : 'Offrir'} {NOM_DU_COFFRE[coffre.rang].toLowerCase()}
                 </button>
                 <button type="button" className="salon-geste" onClick={() => setCoffre(null)}>
+                  Fermer
+                </button>
+              </div>
+            </div>
+          )}
+          {cadeau && (
+            <div className="qg-fiche-don">
+              <span className="label" id="cadeau-legendaire">
+                Quel légendaire ?
+              </span>
+              <div className="admin-gestes" role="group" aria-labelledby="cadeau-legendaire">
+                {LEGENDAIRES_OFFERTS.map(cle => (
+                  <button key={cle} type="button" className="salon-geste" aria-pressed={cadeau.legendaire === cle} onClick={() => setCadeau(c => c && { ...c, legendaire: cle })}>
+                    {legendaire(cle)?.nom ?? cle}
+                  </button>
+                ))}
+              </div>
+              <label className="label" htmlFor="cadeau-mot">
+                Un mot, lu sur son accueil
+              </label>
+              <input
+                id="cadeau-mot"
+                className="input"
+                value={cadeau.mot}
+                maxLength={MOT_D_UN_DON_MAX}
+                placeholder="Joyeux anniversaire !"
+                onChange={e => setCadeau(c => c && { ...c, mot: e.target.value })}
+              />
+              {/* Telle que son accueil la lui montrera, une fois. */}
+              <ul className="annonces-admin annonce-apercu" aria-hidden="true">
+                <CarteDeLAdministrateur annonce={{ id: 'apercu', sorte: 'legendaire', legendaire: cadeau.legendaire, mot: cadeau.mot.trim() || null, le: 0 }} prenom={f.nom} />
+              </ul>
+              <p className="muted small">Il ne se gagne pas : personne d’autre ne le voit à gagner. Un seul exemplaire, qui ne se reprend pas.</p>
+              <div className="admin-gestes">
+                <button type="button" className="salon-geste admin-geste-oui" aria-disabled={occupe || undefined} onClick={() => void offrirLeLegendaire()}>
+                  <Icon name="heart" />
+                  Offrir {legendaire(cadeau.legendaire)?.nom ?? cadeau.legendaire}
+                </button>
+                <button type="button" className="salon-geste" onClick={() => setCadeau(null)}>
                   Fermer
                 </button>
               </div>

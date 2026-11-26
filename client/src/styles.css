@@ -5658,6 +5658,32 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
     linear-gradient(transparent 5%, #000 9%, #000 91%, transparent 95%) intersect,
     linear-gradient(90deg, transparent 5%, #000 9%, #000 91%, transparent 95%);
 }
+/* Celui qui s'enroule autour de son cercle — Jörmungandr, le premier légendaire offert (le 26 novembre 2026 : « est-ce
+   possible de faire de la fausse 3D ? », le propriétaire) : sur les arcs de `--lg-derriere`, ce qui sort du disque se
+   retire de la bande de l'anneau (de 68 % à 80 % du rayon de son cadre : r 45 à 50 du médaillon, la lueur d'un cercle de
+   finition comprise), et l'anneau passe par-dessus sa queue — elle file derrière le cadre, puis revient devant lui.
+   La même image, le même cadre : seul le masque s'enrichit de deux calques ajoutés l'un à l'autre (la bande trouée, les
+   arcs troués : il ne reste caché que leur croisement), sous les quatre de `.lg-entier`. Ses arcs se lisent sur sa
+   peinture, là où sa boucle croise l'anneau : un légendaire de plus qui s'enroule a les siens (`ENROULES`,
+   `Legendaire.tsx`). Dans une liste, rien ne déborde : rien ne s'enroule. */
+.lg-jormungandr { --lg-derriere: conic-gradient(from -46deg, #000 0deg, transparent 7deg 85deg, #000 92deg); }
+.lg-entier.lg-enroule .lg-debord {
+  -webkit-mask:
+    var(--lg-forme, none) 0 0 / 100% 100% no-repeat,
+    radial-gradient(circle closest-side at 50% 50%, transparent 0 68%, #000 69.5%),
+    linear-gradient(transparent 5%, #000 9%, #000 91%, transparent 95%),
+    linear-gradient(90deg, transparent 5%, #000 9%, #000 91%, transparent 95%),
+    radial-gradient(circle closest-side at 50% 50%, #000 0 67%, transparent 68.5% 79.5%, #000 81.5%),
+    var(--lg-derriere, linear-gradient(#000, #000));
+  -webkit-mask-composite: source-in, source-in, source-in, source-in, source-over;
+  mask:
+    var(--lg-forme, none) 0 0 / 100% 100% no-repeat intersect,
+    radial-gradient(circle closest-side at 50% 50%, transparent 0 68%, #000 69.5%) intersect,
+    linear-gradient(transparent 5%, #000 9%, #000 91%, transparent 95%) intersect,
+    linear-gradient(90deg, transparent 5%, #000 9%, #000 91%, transparent 95%) intersect,
+    radial-gradient(circle closest-side at 50% 50%, #000 0 67%, transparent 68.5% 79.5%, #000 81.5%) add,
+    var(--lg-derriere, linear-gradient(#000, #000));
+}
 
 @keyframes lg-paillettes {
   0%, 100% { opacity: 0; }
@@ -16831,6 +16857,16 @@ button.annonce-phrase-ligne { cursor: pointer; }
 .annonce-admin-question .annonce-mot .annonce-choix-bouton { align-self: stretch; }
 .annonce-admin-question .annonce-mot .input { text-align: left; }
 .annonce-admin-question .annonce-admin-merci { align-self: center; margin: 0; }
+/* Un légendaire offert (`AnnonceDuCadeau`) : centré comme une question, son médaillon en grand. Il sort de son cercle
+   (`.lg-entier`, 13 % de chaque côté) : sa case garde cette marge, et la carte ne coupe rien. */
+/* Sa pellicule holo glisse au-delà du médaillon : la carte la garde (`overflow: hidden`), sans quoi la page s'élargissait
+   de 20 px en 360 de large. Le serpent sort encore de son cercle : la carte lui laisse sa marge, de tous côtés. */
+.annonce-admin-cadeau { flex-direction: column; align-items: center; gap: 10px; padding: 18px 14px 16px; text-align: center; overflow: hidden; }
+.annonce-cadeau-medaillon { display: block; font-size: 7.5rem; line-height: 1; margin: 0.12em 0 0.16em; }
+.annonce-admin-cadeau .annonce-admin-texte { flex: none; align-items: center; gap: 4px; }
+.annonce-admin-cadeau .annonce-admin-texte > b { font-family: var(--serif); font-size: 1.5rem; line-height: 1.15; }
+.annonce-admin-cadeau .annonce-admin-texte > span:not([class]) { font-size: 1.05rem; line-height: 1.35; }
+.annonce-admin-cadeau .annonce-admin-merci { align-self: center; margin: 0; }
 .annonce-question-merci { font-weight: 600; color: var(--accent-text); }
 /* Les signalements (`/admin#signalements`) : les onglets, d'où viennent les
    questions et le tri sur une rangée ; puis une carte par question — d'où

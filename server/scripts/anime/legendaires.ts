@@ -613,6 +613,76 @@ export const LEGENDAIRES_PEINTS: LegendairePeint[] = [
     garde: 'the winged horse — its head, its body, its four legs, its two wings, its constellation mane and its constellation tail — and the diadem of stars and laurel on its brow',
     retirer: 'the fence of stars and its pillars beneath it, the trail of stardust, the sparks far from it, the Milky Way, the stars and the night sky',
   },
+  // Le premier légendaire offert (le 26 novembre 2026) : un cadeau de l'administrateur, qui ne se gagne pas
+  // (`offert`, `shared/legendaires.ts`). Plongée et mythologie nordique : le Serpent de Midgard au fond de la mer du
+  // Nord. Choisi sur trois essais (la baleine runique, le dragon du drakkar), son illustration est l'essai tel quel
+  // (`export/legendaires/essai-cadeau/`) — sa consigne, celle de la chaîne mot pour mot. Sa boucle passe le bord du
+  // disque de tous côtés : il sort tout entier du cercle, et s'y enroule (`ENROULES`, `Legendaire.tsx`). Jamais sa
+  // queue dans sa gueule : ce serait l'Ouroboros. Sa version rare quitte le bleu-vert pour la nuit polaire — loin du
+  // Kraken violet et menthe, et du Phénix de glace, cyan et blanc.
+  {
+    id: 'jormungandr',
+    sujet:
+      'Jörmungandr, the World Serpent of Norse myth, in the depths of the northern sea — a colossal sea serpent coiled in one great loop ' +
+      'around the center of the canvas, its whole body visible inside the image, never biting its tail: its great horned head rises toward ' +
+      'the viewer from the bottom of the loop, jaws slightly open, glowing sea-green eyes; its scales are deep teal and bronze, each band of ' +
+      'scales engraved with Norse runes and Viking knotwork inlaid in gold leaf; long fins like torn sails along its spine; far above, ' +
+      'shafts of sunlight pierce the surface of the sea and fall through the water; on the seabed below lies a sunken Viking longship with ' +
+      'its carved dragon prow; a tiny lone scuba diver with a lamp floats in the light, dwarfed by the serpent, for scale; bubbles and ' +
+      'gold-leaf sparks drift upward. Palette: deep teal, turquoise and gold against the dark blue abyss.',
+    rare:
+      'the World Serpent becomes the serpent of the polar night — its scales turn to deep midnight blue and polished silver, its runes and ' +
+      'knotwork glow with the green and violet light of the northern lights, its fins become translucent sheets of glacier ice edged with ' +
+      'silver, its eyes pale violet; the sea turns to a dark arctic water beneath a ceiling of ice, through which the green and violet ' +
+      'curtains of an aurora shine down instead of the sunlight; the longship is rimmed with frost.',
+    garde: 'the sea serpent — its horned head, its open jaws, its whole coiled body, its fins along its spine and its tail',
+    retirer:
+      'the sunken longship, the scuba diver and his light, the bubbles, the gold sparks far from the serpent, the shafts of light, the sea and the background',
+    fond: 'magenta',
+    entier: true,
+  },
+  // Les deux autres essais du même jour, gardés eux aussi comme légendaires offerts (« J'aime beaucoup la baleine et le
+  // dragon drakkar », le propriétaire). Leur illustration est l'essai tel quel, leur découpe celle de la page des
+  // médaillons vivants (`essai-cadeau/demo/`), à la consigne de la chaîne sur le magenta : rien de repayé que leur
+  // version rare. Tous deux sortent tout entiers du cercle — la baleine par ses nageoires, le dragon par sa tête.
+  {
+    id: 'baleine',
+    sujet:
+      'the Rune Whale of the northern seas — a colossal humpback whale gliding toward the viewer through the deep, its whole body visible ' +
+      'inside the image, its long pectoral fins spread wide like wings; its dark blue skin is carved all over with Norse runes and flowing ' +
+      'Viking knotwork inlaid in gold leaf, glowing softly; barnacles of gold and pearl on its jaw; far above, the shadow of a Viking ' +
+      'longship on the bright surface, and shafts of sunlight pierce the water around it; a tiny lone scuba diver with a lamp swims beside ' +
+      'its eye, dwarfed by it, for scale; a swirl of bubbles and gold-leaf sparks around it. Palette: deep blue, turquoise and gold against ' +
+      'the dark abyss.',
+    // Loin de la nuit polaire de Jörmungandr : le couchant, la nacre et l'or rose.
+    rare:
+      'the Rune Whale becomes a whale of mother-of-pearl at sunset — its skin turns to iridescent pearl white and pale pink nacre, its runes ' +
+      'and knotwork to glowing rose gold, its barnacles to pink pearls; the sea glows with the warm orange and rose light of a setting sun ' +
+      'shining down through the surface, the clouds above turned to coral and gold.',
+    garde: 'the whale — its whole body, its fins, its tail and the gold runes and knotwork on it',
+    retirer: 'the sea, the light rays, the clouds, the longship, the diver, the bubbles and the sparks',
+    fond: 'magenta',
+    entier: true,
+  },
+  {
+    id: 'drakkar',
+    sujet:
+      'the Sea Dragon of the sunken longship — the carved dragon figurehead of a Viking longship has come alive as a colossal sea dragon, ' +
+      'surging upward out of the wreck that lies on the seabed, its whole body visible inside the image: a long coiling body of carved and ' +
+      'gilded oak turning into living scales, Viking knotwork and Norse runes glowing in gold leaf along its neck, a round Viking shield ' +
+      'still hanging from its flank, sea-green glowing eyes, its fins like the torn striped sail; shafts of sunlight pierce the surface far ' +
+      'above; a tiny lone scuba diver with a lamp floats before its head, dwarfed by it, for scale; bubbles and gold-leaf sparks rise around ' +
+      'it. Palette: deep teal, warm oak, red and gold against the dark abyss.',
+    // L'obsidienne et la braise d'une source volcanique : loin du bleu et de l'aurore des deux autres.
+    rare:
+      'the Sea Dragon becomes a dragon of black obsidian and molten gold — its carved wood turns to polished volcanic glass, its runes and ' +
+      'knotwork glow like lava, its eyes burn orange, the shield turns to black iron rimmed with embers, its striped fins to dark red and ' +
+      'gold; the deep sea is lit from below by a glowing undersea volcano, with drifting embers instead of bubbles.',
+    garde: 'the sea dragon — its head, horns, whole coiling body, its striped fins, the round shield on its flank',
+    retirer: 'the sunken longship hull, the diver, the light rays, the bubbles, the sparks, the sea and the background',
+    fond: 'magenta',
+    entier: true,
+  },
 ]
 
 /** Les dix-huit Divins : chacun sa silhouette de bijou. Rien de leurs règles, qui ne quittent jamais le serveur. */

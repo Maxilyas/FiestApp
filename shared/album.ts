@@ -41,6 +41,7 @@ import { DIVINS } from './divins'
 import {
   LEGENDAIRES,
   LEGENDAIRE_DES_DEFIS,
+  PREFIXE_D_UN_CADEAU,
   cleDuCabinet,
   legendaire,
   legendaireDeLExpedition,
@@ -86,7 +87,7 @@ export type SorteDAvatar = 'legendaire' | 'divin' | 'portrait' | 'compagnon' | '
  * au Cabinet de curiosités. La pastille de sa case, et l'icône de chacune de
  * ses voies.
  */
-export type LieuDAvatar = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'niveau' | 'saison' | 'boutique' | 'niche' | 'eclat' | 'expedition' | 'cabinet' | 'grand-prix'
+export type LieuDAvatar = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'niveau' | 'saison' | 'boutique' | 'niche' | 'eclat' | 'expedition' | 'cabinet' | 'grand-prix' | 'cadeau'
 
 export interface AvatarDeLAlbum {
   /** `lg:phenix`, `dv:seraphin`, `br:cerf`, `cp:loup-jeune`, ou l'emoji de collection lui-même. */
@@ -118,6 +119,8 @@ function lieuDuHautFait(cle: string): LieuDAvatar {
   if (cle === cleDuCabinet(LEGENDAIRE_DES_DEFIS)) return 'cabinet'
   // L'avatar en plus d'un Grand Prix (`shared/grandPrix.ts`) : rangé à qui a battu le fantôme, ce jour-là.
   if (cle.startsWith(PREFIXE_D_UN_PRIX)) return 'grand-prix'
+  // Un légendaire offert par l'administrateur (`Legendaire.offert`) : rangé à qui l'a reçu, et à lui seul.
+  if (cle.startsWith(PREFIXE_D_UN_CADEAU)) return 'cadeau'
   const h = hautFait(cle)
   return (h && origineDe(h)) ?? 'soiree'
 }
@@ -216,6 +219,7 @@ const DANS: Record<LieuDAvatar, string> = {
   expedition: 'en expédition',
   cabinet: 'au Cabinet',
   'grand-prix': 'au Grand Prix',
+  cadeau: 'en cadeau',
 }
 
 /** « a, b et c », « a ou b » : une liste dite, son dernier lien devant le dernier. */
@@ -385,6 +389,7 @@ const OU: Record<LieuDAvatar, string> = {
   expedition: 'En expédition',
   cabinet: 'Au Cabinet',
   'grand-prix': 'Au Grand Prix',
+  cadeau: 'En cadeau',
 }
 
 const compte = (acquis: number, requis: number, avant = '') => ({ acquis, requis, dit: `${avant}${formatNumber(acquis)} sur ${formatNumber(requis)}` })
@@ -428,6 +433,10 @@ function etapeDuHautFait(c: SimpleCondition, recompenses: ReadonlyMap<string, nu
   if (lieu === 'grand-prix') {
     // Il ne se gagnait qu'un jour : seul celui qui l'a voit sa fiche, et sa voie se dit tenue.
     return { lieu, titre: `${OU['grand-prix']} : battre le fantôme, le jour venu`, regle: 'Il ne se gagnait que le jour de son Grand Prix', tenue: tenu, progres: null }
+  }
+  if (lieu === 'cadeau') {
+    // Il ne se gagne pas : seul celui qui l'a reçu voit sa fiche, et sa voie se dit tenue.
+    return { lieu, titre: `${OU.cadeau} : offert par l’administrateur`, regle: 'Il ne se gagne pas, il s’offre', tenue: tenu, progres: null }
   }
   if (lieu === 'cabinet') {
     // Pas de jauge non plus : une traversée se gagne ou non, et il y garde un acte ou non — une fois suffit. Le Djinn

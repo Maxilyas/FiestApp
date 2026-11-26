@@ -226,4 +226,25 @@ export const IMAGES: Record<string, ImagesDeLegendaire> = {
     rarePerso: ['/medaillons/pegase-couronne-rare-perso-512.5a5ff672e1.webp', '/medaillons/pegase-couronne-rare-perso-256.d9a7000daf.webp'],
     artPerso: ['/medaillons/pegase-couronne-art-perso-512.fe684d868b.webp', '/medaillons/pegase-couronne-art-perso-256.0717be6fc8.webp'],
   },
+  'lg:jormungandr': {
+    art: ['/medaillons/jormungandr-art-512.e5da433c0c.webp', '/medaillons/jormungandr-art-256.60a33fcd5d.webp'],
+    rare: ['/medaillons/jormungandr-rare-512.b1558f3be8.webp', '/medaillons/jormungandr-rare-256.2f74017720.webp'],
+    perso: '/medaillons/jormungandr-perso-256.8c67a6c6a8.webp',
+    rarePerso: ['/medaillons/jormungandr-rare-perso-512.99d717c5c0.webp', '/medaillons/jormungandr-rare-perso-256.d19490eeb3.webp'],
+    artPerso: ['/medaillons/jormungandr-art-perso-512.037c5e5526.webp', '/medaillons/jormungandr-art-perso-256.c3be31a579.webp'],
+  },
+  'lg:baleine': {
+    art: ['/medaillons/baleine-art-512.0f19d9bb6e.webp', '/medaillons/baleine-art-256.c37ed832c6.webp'],
+    rare: ['/medaillons/baleine-rare-512.85f87ab9dc.webp', '/medaillons/baleine-rare-256.8561af7a8b.webp'],
+    perso: '/medaillons/baleine-perso-256.20a86dbc4c.webp',
+    rarePerso: ['/medaillons/baleine-rare-perso-512.e969e46a40.webp', '/medaillons/baleine-rare-perso-256.03e86bf9f0.webp'],
+    artPerso: ['/medaillons/baleine-art-perso-512.d005751953.webp', '/medaillons/baleine-art-perso-256.fa5fb602e3.webp'],
+  },
+  'lg:drakkar': {
+    art: ['/medaillons/drakkar-art-512.aead4fe82e.webp', '/medaillons/drakkar-art-256.7f60be93aa.webp'],
+    rare: ['/medaillons/drakkar-rare-512.478cba189c.webp', '/medaillons/drakkar-rare-256.603e63d978.webp'],
+    perso: '/medaillons/drakkar-perso-256.b3148dfd2d.webp',
+    rarePerso: ['/medaillons/drakkar-rare-perso-512.2fbcf578ed.webp', '/medaillons/drakkar-rare-perso-256.deab8cb4e0.webp'],
+    artPerso: ['/medaillons/drakkar-art-perso-512.1cdbe4037d.webp', '/medaillons/drakkar-art-perso-256.d89279a182.webp'],
+  },
 }

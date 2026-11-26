@@ -36,6 +36,10 @@ const DES_LEGENDAIRES: Readonly<Record<string, string>> = {
   'lg:fantome': 'nuages',
   'lg:gramophone': 'notes',
   'lg:janus': 'grecque',
+  // Les légendaires offerts : la mer du Nord, ses vagues et ses écailles.
+  'lg:jormungandr': 'vagues',
+  'lg:baleine': 'vagues',
+  'lg:drakkar': 'ecailles',
   'lg:kraken': 'vagues',
   'lg:licorne': 'etoiles',
   'lg:lion': 'rayons',

@@ -968,6 +968,12 @@ export const api = {
     offrirUnEclat: (id: string) => req<{ ok: true; enReserve: number }>(`/api/admin/profils/${encodeURIComponent(id)}/eclat`, { method: 'POST', body: '{}' }),
     offrirUnCoffre: (id: string, rang: string, mot: string) =>
       req<{ ok: true; cle: string }>(`/api/admin/profils/${encodeURIComponent(id)}/coffre`, { method: 'POST', body: JSON.stringify({ rang, mot }) }),
+    /** Un légendaire offert (`Legendaire.offert`), avec son mot : un seul exemplaire chacun. */
+    offrirUnLegendaire: (id: string, legendaire: string, mot: string) =>
+      req<{ ok: true; legendaire: string; mot: string | null }>(`/api/admin/profils/${encodeURIComponent(id)}/legendaire`, {
+        method: 'POST',
+        body: JSON.stringify({ legendaire, mot }),
+      }),
     codeDeSecours: (id: string) =>
       req<{ code: string; login: string }>(`/api/admin/profils/${encodeURIComponent(id)}/secours`, { method: 'POST', body: '{}' }),
     renommer: (id: string, nom: string) =>
