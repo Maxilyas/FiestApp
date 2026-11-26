@@ -373,6 +373,169 @@ const tenueEssayee = () => {
   })
 }
 
+// ── Le rendu final ───────────────────────────────────────────────────────
+// Le choix du propriétaire, le même jour : « calques + tenues c'est le top.
+// Par contre je mettrais pas les tenues ici, mais plus dans un panneau
+// latéral rétractable. » Et les quatre réponses du README : la ligue et le
+// motif dans un même calque « Bordure » ; « Version rare » quitte la carte
+// pour son calque ; la loge s'ouvre sur « Avatar », sur le calque qui a du
+// neuf, ou sur celui qu'un lien « Essayer » demande ; les tenues dans un
+// tiroir à droite — la carte garde son avatar à gauche, l'essai se voit
+// tiroir ouvert.
+//
+// Léa a ici huit légendaires (deux rangées), deux matières taillées dans son
+// Phénix, et les Comètes tout juste sorties de son coffre : neuves, elles
+// mettent le point rouge sur « Bordure » et sur leur case.
+
+const LEA_FINALE: any = {
+  ...LEA,
+  legendaires: ['lg:phenix', 'lg:dragon', 'lg:kraken', 'lg:chouette', 'lg:licorne', 'lg:lion', 'lg:comete', 'lg:serpent'],
+  matieres: { 'lg:phenix': ['jade', 'obsidienne'] },
+  motifs: [...SES_MOTIFS, 'cometes'],
+}
+const PROPS_FINALES = { ...PROPS, profil: LEA_FINALE }
+const MOTIFS_FINAUX: string[] = LEA_FINALE.motifs
+
+/** Le point rouge d'une nouveauté (`.loge-neuf`), sur un calque ou une case. */
+const NEUF = '<span class="loge-neuf" aria-hidden="true"></span>'
+
+type CalqueFinal = 'avatar' | 'version' | 'finition' | 'bordure' | 'sceau'
+/** Le rail : ses calques, l'actif, ce qui est à l'essai, ce qui a du neuf. Version et Sceau seulement pour qui les a. */
+function railFinal(actif: CalqueFinal, opts: { essai?: Partial<Record<CalqueFinal, string>>; neufs?: CalqueFinal[]; sans?: CalqueFinal[]; apercus?: Partial<Record<CalqueFinal, string>> } = {}): string {
+  const apercu: Record<CalqueFinal, () => string> = {
+    avatar: () => av({ bordure: null, finition: 'mat', sceau: false, eclat: false }),
+    version: () => av({ bordure: null, sceau: false }),
+    finition: () => `<i class="finition-teinte teinte-${LA_PLUS_BELLE}"></i>`,
+    bordure: () => av({ sceau: false }),
+    sceau: () => av({ bordure: null }),
+  }
+  const NOMS: Record<CalqueFinal, string> = { avatar: 'Avatar', version: 'Version', finition: 'Finition', bordure: 'Bordure', sceau: 'Sceau' }
+  const auto: CalqueFinal[] = ['finition', 'bordure']
+  const ids = (['avatar', 'version', 'finition', 'bordure', 'sceau'] as CalqueFinal[]).filter(c => !opts.sans?.includes(c))
+  return `<div class="mq-calques" role="tablist" aria-label="Ce que je change" style="grid-template-columns: repeat(${ids.length}, minmax(0, 1fr))">${ids
+    .map(id => {
+      const essaye = opts.essai?.[id]
+      const dessin = essaye ?? opts.apercus?.[id] ?? apercu[id]()
+      return `<button type="button" role="tab" aria-selected="${id === actif}" class="mq-calque${id === actif ? ' actif' : ''}${essaye ? ' essaye' : ''}"><span class="mq-calque-apercu mq-sujet">${dessin}${auto.includes(id) && !essaye ? AUTO() : ''}${opts.neufs?.includes(id) ? NEUF : ''}</span><span class="mq-calque-nom">${NOMS[id]}</span></button>`
+    })
+    .join('')}</div>`
+}
+
+/** La languette du tiroir des tenues, collée au bord droit, à hauteur de la carte : elle la suit quand la page défile. */
+const LANGUETTE = `<button type="button" class="mq-languette" aria-label="Mes tenues" aria-expanded="false">${icone('hanger')}</button>`
+/** La carte de la loge, sans « Version rare » (son calque l'a reprise), la languette des tenues à son bord. */
+function carteFinale(essai: Partial<typeof LEA> = {}, languette = true): string {
+  const html = rendre(
+    h(CarteDeLaLoge, { vu: { ...LEA_FINALE, ...essai }, vitrine: VITRINE, apercu: Object.keys(essai).length > 0, essaye: { avatar: Object.keys(essai).length > 0 }, version: null, onOuvrir() {} }),
+  )
+  // La carte est rendue dans `.loge-collante` : la languette s'y range, pour rester collée avec elle.
+  return languette ? html.replace(/<\/div>$/, `${LANGUETTE}</div>`) : html
+}
+function ecranFinal(opts: { carte?: string; panneau: string; bas?: string; dessus?: string }): string {
+  return ecran({ carte: opts.carte ?? carteFinale(), panneau: opts.panneau, bas: opts.bas, dessus: opts.dessus })
+}
+
+const finalAvatar = () => ecranFinal({ panneau: railFinal('avatar', { neufs: ['bordure'] }) + rendre(h(MesAvatars, PROPS_FINALES)) })
+
+const VERSIONS: [string | boolean, string][] = [
+  [false, 'D’origine'],
+  [true, 'Rare'],
+  ['jade', 'Jade'],
+  ['obsidienne', 'Obsidienne'],
+]
+const finalVersion = () =>
+  ecranFinal({
+    carte: carteFinale({ matieres: { 'lg:phenix': ['jade', 'obsidienne'] } }),
+    panneau:
+      railFinal('version', { neufs: ['bordure'] }) +
+      `<div class="mq-grille mq-grille-3">${VERSIONS.map(([v, nom]) => caseDe(av({ bordure: null, sceau: false, eclat: v as any }), nom, v === true ? 'porte' : '')).join('')}</div>`,
+  })
+
+const finalFinition = () =>
+  ecranFinal({
+    carte: carteFinale({ finition: 'abysses', finitionChoisie: 'abysses' }),
+    panneau: railFinal('finition', { essai: { finition: `<i class="finition-teinte teinte-abysses"></i>` }, neufs: ['bordure'] }) + grilleDesFinitions('abysses'),
+    bas: barre('Finition', 'Abysses'),
+  })
+
+const finalSceau = () =>
+  ecranFinal({
+    panneau:
+      railFinal('sceau', { neufs: ['bordure'] }) +
+      `<div class="mq-grille mq-grille-3">${caseDe(av({ bordure: null }), 'Montré', 'porte')}${caseDe(av({ bordure: null, sceau: false }), 'Masqué')}</div>`,
+  })
+
+/** Le calque « Bordure » : la ligue sur une ligne, puis ses motifs — les Comètes neuves, leur point rouge. */
+const grilleFinaleDesMotifs = (essaye?: string) =>
+  `<div class="mq-grille mq-sujet">${[
+    caseDe(av({ sceau: false }), 'Accordé', 'porte', etincelle),
+    ...MOTIFS_FINAUX.map(k => caseDe(av({ sceau: false, bordure: { ...PORTEE, motif: k } }), NOM_DU_MOTIF(k), k === essaye ? 'essaye' : '', k === 'cometes' ? NEUF : '')),
+    aGagner(MOTIFS.length - MOTIFS_FINAUX.length, 'à gagner'),
+  ].join('')}</div>`
+const calqueBordureFinal = (essaye?: string) =>
+  railFinal('bordure', essaye ? { essai: { bordure: av({ sceau: false, bordure: { ...PORTEE, motif: essaye } }) } } : {}) +
+  `<span class="loge-sous-titre">Ligue</span>` +
+  rangeeDesLigues() +
+  `<span class="loge-sous-titre">Motif</span>` +
+  grilleFinaleDesMotifs(essaye)
+const finalBordure = () => ecranFinal({ carte: carteFinale({ motifChoisi: 'etoiles' }), panneau: calqueBordureFinal('etoiles'), bas: barre('Motif', 'Les Étoiles') })
+const finalBordureDefilee = () => ecranFinal({ panneau: calqueBordureFinal() })
+
+// Tom, qui vient de créer son profil : ni Éclat ni sceau, pas encore de duel — trois calques, et sa bordure dit comment l'ouvrir.
+const TOM: any = {
+  ...LEA, id: 'tom', name: 'Tom', niveau: 4, requis: 600, acquis: 140, titre: null, avatar: '🐻', legendaire: null, legendaires: [], sentiers: {},
+  finition: 'argent', ouvertes: ['mat', 'argent'], bordures: [], motifs: [], scelles: [], eclats: [], matieres: {}, fond: null, vitrine: [],
+  boutique: { confettis: { solde: 85 } },
+}
+const finalDebutant = () => {
+  const carteTom = rendre(h(CarteDeLaLoge, { vu: TOM, vitrine: [], apercu: false, essaye: {}, version: null, onOuvrir() {} })).replace(/<\/div>$/, `${LANGUETTE}</div>`)
+  return ecran({
+    carte: carteTom,
+    panneau:
+      railFinal('bordure', {
+        sans: ['version', 'sceau'],
+        apercus: { avatar: rendre(h(Avatar, { avatar: '🐻' })), finition: `<i class="finition-teinte teinte-argent"></i>`, bordure: `<i class="bordure-sans"></i>` },
+      }) +
+      // Le calque dit déjà « Bordure » : la phrase de la pièce d'aujourd'hui, sans son petit titre.
+      rendre(h(MesBordures, { ...PROPS, profil: TOM })).replace('<span class="loge-sous-titre">Bordure</span>', ''),
+  })
+}
+
+// ── Le tiroir des tenues ─────────────────────────────────────────────────
+
+const TENUES_FINALES: { nom: string; t: Tenue & { eclat?: any }; porte?: boolean }[] = [
+  { nom: 'Soirée', t: {}, porte: true },
+  { nom: 'Duels', t: { legendaire: 'lg:dragon', finition: 'or', bordure: { ...PORTEE, motif: 'ecailles' }, sceau: false, eclat: false } },
+  { nom: 'La mer', t: { legendaire: 'lg:kraken', finition: 'abysses', bordure: { ligue: 'argent', crans: 12, motif: 'vagues' }, sceau: false, eclat: false } },
+  { nom: 'Hiver', t: { legendaire: 'lg:chouette', finition: 'argent', bordure: { ligue: 'or', crans: 12, motif: 'flocons' }, sceau: false, eclat: false } },
+  { nom: 'Le Lion', t: { legendaire: 'lg:lion', finition: 'or', bordure: { ligue: 'or', crans: 12, motif: 'rayons' }, sceau: false, eclat: false } },
+]
+function tiroir(essayee?: string): string {
+  const tenues = TENUES_FINALES.map(
+    x =>
+      `<button type="button" class="mq-tenue${x.porte ? ' porte' : ''}${(x.porte && !essayee) || x.nom === essayee ? ' selected' : ''}${x.nom === essayee ? ' essaye' : ''}"><span class="mq-tenue-dessin">${av(x.t)}</span><span class="mq-tenue-nom">${x.nom}</span></button>`,
+  ).join('')
+  return `<aside class="mq-tiroir" aria-label="Mes tenues"><header class="mq-tiroir-tete"><button type="button" class="mq-tiroir-fermer" aria-label="Ranger les tenues">${icone('chevron-right')}</button><span class="loge-sous-titre">Tenues</span></header><div class="mq-tiroir-corps mq-sujet"><button type="button" class="mq-tenue mq-tenue-plus mq-garder">${icone('plus')}<span class="mq-tenue-nom">Garder</span></button>${tenues}</div></aside>`
+}
+const finalTiroir = () => ecranFinal({ carte: carteFinale({}, false), panneau: railFinal('avatar', { neufs: ['bordure'] }) + rendre(h(MesAvatars, PROPS_FINALES)), dessus: tiroir() })
+const finalTenueEssayee = () => {
+  const mer = TENUES_FINALES[2].t
+  return ecranFinal({
+    carte: carteFinale({ legendaire: mer.legendaire, finition: mer.finition, finitionChoisie: mer.finition, bordureChoisie: 'argent', motifChoisi: 'vagues', sceauMasque: true }, false),
+    panneau:
+      railFinal('avatar', {
+        essai: {
+          avatar: av({ ...mer, bordure: null, finition: 'mat', sceau: false }),
+          finition: `<i class="finition-teinte teinte-abysses"></i>`,
+          bordure: av({ ...mer, sceau: false }),
+        },
+        neufs: ['bordure'],
+      }) + rendre(h(MesAvatars, { ...PROPS_FINALES, essai: { legendaire: mer.legendaire } })),
+    bas: barre('La mer', 'Avatar · Finition · Bordure · Sceau'),
+    dessus: tiroir('La mer'),
+  })
+}
+
 // ── Les pages ────────────────────────────────────────────────────────────
 
 const STYLE = readFileSync(path.join(ICI, 'maquette.css'), 'utf8')
@@ -390,6 +553,8 @@ interface Ecran {
   corps: () => string
   defile?: number
   theme?: string
+  /** Un grand téléphone (412 × 915) au lieu du petit de référence. */
+  grand?: boolean
 }
 interface Section {
   id: string
@@ -448,6 +613,38 @@ const SECTIONS: Section[] = [
     ],
   },
   {
+    id: 'final-calques',
+    titre: 'Le rendu final · les calques',
+    dit: 'La pièce s’ouvre sur « Avatar ». « Version rare » a quitté la carte pour son calque ; à sa place, la languette des tenues. Le point rouge suit le neuf jusqu’au calque, puis jusqu’à sa case.',
+    ecrans: [
+      { nom: 'final-avatar', titre: 'Avatar, d’office', dit: 'Deux rangées d’avatars au-dessus du menu', corps: finalAvatar },
+      { nom: 'final-version', titre: 'Version', dit: 'D’origine, rare, chaque matière taillée', corps: finalVersion },
+      { nom: 'final-finition', titre: 'Finition', dit: 'Chacune portée par son avatar, essayée sur la carte', corps: finalFinition },
+      { nom: 'final-sceau', titre: 'Sceau', dit: 'Pour qui a un légendaire scellé', corps: finalSceau },
+    ],
+  },
+  {
+    id: 'final-bordure',
+    titre: 'Le rendu final · la bordure',
+    dit: 'La ligue sur une ligne, puis ses motifs. Le motif neuf a son point rouge. Un nouveau venu n’a que trois calques, et sa bordure lui dit comment l’ouvrir.',
+    ecrans: [
+      { nom: 'final-bordure', titre: 'Bordure : un motif à l’essai', dit: 'La carte le montre, la barre propose de le porter', corps: finalBordure },
+      { nom: 'final-bordure-defilee', titre: 'Défilée jusqu’aux Comètes', dit: 'La carte reste collée en haut, la languette avec elle', corps: finalBordureDefilee, defile: 470 },
+      { nom: 'final-debutant', titre: 'Tom, un nouveau venu', dit: 'Avatar, Finition, Bordure : rien d’autre', corps: finalDebutant },
+    ],
+  },
+  {
+    id: 'final-tenues',
+    titre: 'Le rendu final · le tiroir des tenues',
+    dit: 'La languette, au bord droit de la carte, sort le tiroir. Il laisse l’avatar de la carte à découvert : une tenue touchée s’y voit tout de suite. « Garder » retient ce qu’elle porte ; la flèche range le tiroir.',
+    ecrans: [
+      { nom: 'final-tiroir', titre: 'Le tiroir sorti', dit: 'Ses tenues, celle qu’elle porte cochée', corps: finalTiroir },
+      { nom: 'final-tenue-essayee', titre: 'Une tenue touchée', dit: 'Tout change d’un coup ; « Porter » la garde', corps: finalTenueEssayee },
+      { nom: 'final-grand', titre: 'Sur un grand téléphone (412 × 915)', dit: 'La place de cinq rangées d’avatars', corps: finalAvatar, grand: true },
+      { nom: 'final-ivoire', titre: 'Sous l’Ivoire', dit: '', corps: finalAvatar, theme: 'ivoire' },
+    ],
+  },
+  {
     id: 'ivoire',
     titre: 'Les calques, sous l’Ivoire',
     dit: 'La piste recommandée sous le thème clair.',
@@ -465,7 +662,7 @@ for (const s of SECTIONS) for (const e of s.ecrans) writeFileSync(path.join(ICI,
 const planche = `<!doctype html><html lang="fr"><meta charset="utf-8"><title>La pièce Avatar</title><link rel="stylesheet" href="feuille.css"><body class="mq-planche">${SECTIONS.map(
   s =>
     `<section id="${s.id}"><h2>${s.titre}</h2><p>${s.dit}</p><div class="mq-tels">${s.ecrans
-      .map(e => `<figure class="mq-tel"><iframe src="ecran-${e.nom}.html" data-defile="${e.defile ?? 0}" width="360" height="640" scrolling="no"></iframe><figcaption><b>${e.titre}</b>${e.dit}</figcaption></figure>`)
+      .map(e => `<figure class="mq-tel${e.grand ? ' grand' : ''}"><iframe src="ecran-${e.nom}.html" data-defile="${e.defile ?? 0}" width="${e.grand ? 412 : 360}" height="${e.grand ? 915 : 640}" scrolling="no"></iframe><figcaption><b>${e.titre}</b>${e.dit}</figcaption></figure>`)
       .join('')}</div></section>`,
 ).join('')}</body></html>`
 const fichier = path.join(ICI, 'planche.html')

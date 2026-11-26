@@ -22,6 +22,14 @@ de la loge jouent comme sur un téléphone. Ce qui est neuf vit dans
 Les mesures plus bas sont celles de ces cadres (le bas des gemmes, de la
 première rangée d'avatars, le haut du menu à 573 px), que le script imprime.
 
+## Le choix
+
+Le même jour, devant la planche : « Je suis d'accord calques + tenues c'est
+le top. Par contre je mettrais pas les tenues ici, mais plus dans un panneau
+latéral rétractable. Pour les questions c'est quoi tes recommandations ?
+J'aimerais bien voir une maquette du rendu final. » Les réponses et le rendu
+final sont plus bas (« Le rendu final »).
+
 ## Le constat
 
 La pièce empile un réglage par rangée — la finition, la bordure, le motif,
@@ -178,3 +186,78 @@ chaque réglage en grille — `MesFinitions`, `MesBordures`, `MesMotifs`,
 les pastilles (`style.test.ts`, `un-seul-avatar.test.ts`, `loge.test.ts`,
 `nouveautes.test.ts`) et ce que `rendu-loge.ts` doit voir tenir
 (`DOIT_TENIR` : deux rangées d'avatars en 360 × 640 au lieu d'aucune).
+
+## Le rendu final (`planche-final-*.jpg`)
+
+Les calques, et les tenues dans un tiroir à droite. Léa a ici huit
+légendaires, deux matières taillées dans son Phénix, et les Comètes tout
+juste sorties de son coffre ; Tom vient de créer son profil.
+
+### Les quatre réponses
+
+1. **La ligue et le motif dans un même calque « Bordure ».** À l'œil, c'est
+   une seule chose ; la ligue tient sur une ligne (huit choix au plus), le
+   motif a sa grille dessous. Le rail garde cinq calques de 63 px en 360 de
+   large ; à six, chacun n’en aurait plus que 52.
+2. **« Version rare » quitte la carte pour son calque « Version ».** Tout ce
+   qui habille l'avatar est au même endroit, la feuille « Sa version »
+   disparaît (ses matières ont leur grille), et la carte perd sa dernière
+   cible de doigt sous 44 px (30, notée dans `profil.md`). À sa place, la
+   languette des tenues. Le calque paraît dès qu'elle a un Éclat — il ne
+   saute pas d'un avatar à l'autre : sur un avatar qui n'a pas éclaté, il
+   s'éteint et ne montre que sa version d'origine. « Sceau » de même, dès
+   un légendaire scellé. Un nouveau venu n'a que trois calques.
+3. **La loge s'ouvre sur « Avatar »** — on vient surtout en changer —, sauf
+   quand un calque a du neuf (il s'ouvre sur le premier, comme la loge sur
+   la première pièce qui en a) ou qu'un lien « Essayer » en demande un — un
+   motif de la boutique, du coffre ou de « Ma collection » ouvre « Bordure »,
+   une finition « Finition ». Le temps d'une visite, une pièce quittée puis
+   reprise retrouve le calque où l'on était.
+4. **Les tenues, dans le tiroir, dès maintenant.** Ce que je propose d'en
+   faire :
+   - **Six au plus** (un choix de produit) : assez pour la soirée, les
+     duels, une fête, sans devenir une seconde collection.
+   - **« Garder » retient tout l'avatar** — l'avatar, sa version, sa
+     finition, sa bordure et son motif, son sceau —, sous le nom de son
+     avatar (« Le Kraken ») ; un appui long renomme ou retire.
+   - **Une tenue s'essaie comme le reste** : touchée, tout change sur la
+     carte, les calques prennent le pointillé, la barre dit ce qui change,
+     « Porter » la garde. Celle qu'elle porte a sa coche.
+   - **Une pièce qui n'est plus à elle** — un légendaire repris avec une
+     soirée retirée — se porte sans elle : le serveur valide chaque champ
+     comme aujourd'hui (`PUT /api/joueur/moi`), et la tenue garde le reste.
+   - **Seulement ce qui se voit de l'avatar** : ni le titre, ni la vitrine,
+     ni le fond, ni le thème — eux ont leur pièce.
+
+### Ce que montre la planche
+
+- **Les calques** (`planche-final-calques.jpg`) : « Avatar » d'office, ses
+  gemmes à 367 px et ses deux rangées de légendaires au-dessus du menu ;
+  « Version » — d'origine, rare, jade, obsidienne ; « Finition », chacune
+  portée par son avatar, les Abysses à l'essai ; « Sceau », montré ou
+  masqué. Le point rouge des Comètes est sur « Bordure » à chaque écran.
+- **La bordure** (`planche-final-bordure.jpg`) : la ligue sur une ligne, les
+  motifs dessous, les Étoiles à l'essai ; défilée jusqu'aux Comètes, la
+  carte collée en haut et la languette avec elle ; Tom, ses trois calques,
+  et sa bordure qui lui dit comment l'ouvrir — la phrase d'aujourd'hui, sans
+  son petit titre : le calque le dit déjà.
+- **Le tiroir** (`planche-final-tenues.jpg`) : sorti, 132 px de large, du
+  haut de la carte au menu — l'avatar de la carte reste à découvert, à
+  gauche — ; « Garder » en tête, puis ses tenues ; « La mer » touchée, le
+  Kraken aux Abysses sur la carte, la barre « Porter » ; un grand téléphone
+  (412 × 915), la place de cinq rangées d'avatars ; l'Ivoire.
+
+### Ce que l'écrire toucherait
+
+Le client : la pièce « Avatar » d'`Apparence.tsx` (le rail, et chaque
+réglage en grille ; les règles de l'essai ne bougent pas), la carte de
+`LogeTete.tsx` (sans « Version rare », la languette à sa place), la feuille
+« Sa version » de `Loge.tsx` (partie), le tiroir (neuf), `essaiDemande`
+(le calque qu'un lien demande), le bloc « La loge » de `styles.css`. Le
+serveur : `profile_tenues` (le profil, le nom, ce qu'elle porte en JSON),
+deux routes — garder, retirer ou renommer —, la documentation de la table et
+des routes. Les épreuves : celles qui comptent les pastilles et lisent la
+pièce (`style.test.ts`, `un-seul-avatar.test.ts`, `loge.test.ts`,
+`nouveautes.test.ts`), une de plus pour les tenues ; et `rendu-loge.ts`, qui
+devra voir tenir deux rangées d'avatars en 360 × 640 au lieu d'aucune, et le
+tiroir sans rien passer sous la niche.
