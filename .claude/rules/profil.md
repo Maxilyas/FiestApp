@@ -396,9 +396,17 @@ paths:
   première rangée de 6 à 24 px en 360 × 640. Tout au plus long — les douze
   finitions du niveau 50 sur deux lignes, un Éclat en réserve, sept pages
   d'avatars — ne tient sur aucun téléphone : ses gemmes finissent 3 px sous
-  le menu en 412 × 915 (209 avant). **Ce qui la ferait repasser sous le
-  menu** — deux pixels y suffisent en 360 × 640 — : un réglage de plus
-  au-dessus de la grille (une rangée de pastilles, 47 à 49 px, son petit
+  le menu en 412 × 915 (209 avant). **Depuis les calques** (le 26 novembre
+  2026), les trois réglages empilés sont un rail d'une ligne (66 px) : les
+  gemmes de l'habituée finissent à 379 px en 360 × 640 (573 avant), 361
+  sans compagnon — la place de deux rangées d'avatars sur le petit
+  téléphone, trois en 390 × 664, quatre dès 740 px de haut, cinq en
+  412 × 915 ; un nouveau venu, trois, quatre, puis cinq dès 740 ; tout au
+  plus long, un Éclat en réserve et sept pages, 11 px sous le menu en
+  360 × 640 ; ses tenues gardées, la tranche du paquet descend tout de 8 px
+  (le cas `tenues`). **Ce qui la ferait repasser sous le menu** — il reste
+  196 px en 360 × 640 — : un réglage remis au-dessus de la grille plutôt
+  que dans son calque (une rangée de pastilles, 47 à 49 px, son petit
   titre, 33), une ligne de plus sur la carte, un bloc de plus au-dessus
   du panneau, une phrase qui reviendrait sous une rangée. Le
   script sort en erreur si, dans un cas qui doit tenir, un bloc d'avant la

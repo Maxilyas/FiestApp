@@ -225,7 +225,7 @@ const base = () => new Database(banc.quizDbUrl.replace(/^file:/, ''))
  * Les cas où ce qu'on vient faire doit se voir sans défiler : sinon, le script sort en erreur. Les autres — tout au
  * plus long, une tablette, le texte agrandi, le bandeau du service — se disent sans faire échouer.
  */
-const DOIVENT_TENIR = ['sans-niche', 'debutant', 'avatar', 'commune', 'pieces', 'essai', 'ivoire']
+const DOIVENT_TENIR = ['sans-niche', 'debutant', 'avatar', 'commune', 'pieces', 'essai', 'tenues', 'ivoire']
 /**
  * Ce qui doit tenir, dans chacun de ces cas et à chaque taille (mesuré le 10 novembre 2026) : tout ce que la pièce
  * laisse choisir avant sa grille, au-dessus du menu ; et de sa grille, autant de rangées entières que le compte rendu
@@ -242,11 +242,16 @@ const DOIVENT_TENIR = ['sans-niche', 'debutant', 'avatar', 'commune', 'pieces', 
  * duel gagné dans la ligue, ou plus haut, y sertit un cran » : trois lignes à toutes les largeurs de téléphone, 19 px
  * de plus, et la quatrième rangée finit 7 px sous le menu en 412 × 800. La phrase reste entière — un nouveau venu
  * n'a qu'elle pour comprendre ses bordures — : c'est le compte qui suit, pas elle qui se coupe.
+ *
+ * Depuis les calques (le 26 novembre 2026) : un rail d'une ligne à la place des trois réglages empilés, et ses gemmes
+ * finissent à 379 px chez l'habituée en 360 × 640 (573 avant) — de quoi lui montrer deux rangées d'avatars sur le petit
+ * téléphone, trois en 390 × 664, quatre dès 740 px de haut, cinq en 915 ; un nouveau venu, trois, quatre, puis cinq dès
+ * 740. Ses tenues gardées, la tranche du paquet descend tout de 8 px : rien ne change au compte (`tenues`).
  */
 const DOIT_TENIR = (hauteur: number, nom: string, piece: PieceDeLaLoge): number => {
   if (piece !== 'avatar') return 1
-  if (nom === 'debutant') return hauteur >= 900 ? 5 : hauteur >= 844 ? 4 : hauteur >= 740 ? 3 : 2
-  return hauteur >= 900 ? 3 : hauteur >= 844 ? 2 : hauteur >= 740 ? 1 : 0
+  if (nom === 'debutant') return hauteur >= 740 ? 5 : hauteur >= 664 ? 4 : 3
+  return hauteur >= 900 ? 5 : hauteur >= 740 ? 4 : hauteur >= 664 ? 3 : 2
 }
 /**
  * La hauteur qui compte pour ce qui doit tenir : sous l'encoche d'un iPhone, la page commence plus bas (son retrait du
