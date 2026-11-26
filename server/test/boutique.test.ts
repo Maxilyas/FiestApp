@@ -598,3 +598,20 @@ test('la barre fine des onglets, que la boutique a quittée, garde son trait sou
   assert.match(regle('.onglets-fins .onglet.actif'), /border-bottom-color: var\(--accent\)/)
   assert.match(regle('.onglets-fins .onglet.actif'), /box-shadow: none/)
 })
+
+// « Dans la boutique, les motifs de bordure, l'avatar sort du cadre » (le propriétaire, le 26 novembre 2026) : sous un
+// avatar peint, éclaté — le Phénix et ses ailes —, deux défauts. Le présentoir perdait son centrage : `.presentoir-image`,
+// plus bas dans la feuille et de même force, remettait `display: block`, et l'avatar partait au coin de son cadre, sa
+// bordure dehors. La tuile du rayon, 46 px en 360 × 640, laissait passer les ailes de 11 px — coupées au bord. Mesuré au
+// navigateur : `rendu-boutique.ts`, le cas `bordures`, qui sort en erreur si l'avatar sort de l'un ou de l'autre.
+test('le rayon « Bordures » : l’avatar tient dans sa tuile et dans le présentoir — centré, sans ce qui sort d’un médaillon', async () => {
+  const rayon = source('components/RayonDesMotifs.tsx')
+  // La bordure est le sujet de la tuile : ce qui sort d'un médaillon s'y tait, comme dans la grille des motifs de la loge.
+  assert.match(rayon, /<span className="article-bordure calque-sujet" aria-hidden="true">/)
+  const css = source('styles.css')
+  assert.match(css, /\.calque-sujet \.lg-debord,\s*\.calque-sujet \.lg-gerbe,\s*\.calque-sujet \.dv-rayons,\s*\.calque-sujet \.dv-etincelles \{ display: none; \}/)
+  // Le présentoir centre son avatar par une règle plus forte que `.presentoir-image` ; à classe seule, elle perdait.
+  assert.match(css, /^\.presentoir-image\.presentoir-bordure \{ display: grid; place-items: center; aspect-ratio: 1;/m)
+  assert.doesNotMatch(css, /^\.presentoir-bordure \{/m)
+  assert.ok(css.indexOf('.presentoir-image {') > css.indexOf('.presentoir-image.presentoir-bordure {'), 'la règle générale vient après : seule la force les départage')
+})

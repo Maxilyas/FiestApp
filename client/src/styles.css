@@ -10125,8 +10125,9 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .calque-grille .calque-case:not(.selected):not(:hover) .av::after {
   animation: none;
 }
-/* Là où la bordure est le sujet — le rail, la grille des motifs —, ce qui sort d'un médaillon se tait : les ailes d'un
-   Phénix éclaté couvraient le haut du motif, et chaque case ressemblait à sa voisine. */
+/* Là où la bordure est le sujet — le rail, la grille des motifs, les tuiles du rayon « Bordures » de la boutique —, ce
+   qui sort d'un médaillon se tait : les ailes d'un Phénix éclaté couvraient le haut du motif, et chaque case ressemblait
+   à sa voisine ; dans une tuile de 46 px, elles en passaient le bord de 11 px. */
 .calque-sujet .lg-debord,
 .calque-sujet .lg-gerbe,
 .calque-sujet .dv-rayons,
@@ -13508,7 +13509,9 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 /* La bordure remplit la case (1,9 em de diamètre, une case de 50 px en 360) : plus petite, on ne distinguait pas un motif d'un autre. */
 .article-bordure { display: grid; place-items: center; flex: 1; font-size: 1.45rem; background: var(--surface-strong); overflow: hidden; }
 .article-motif .article-marque { top: 2px; right: 2px; padding: 2px; }
-.presentoir-bordure { display: grid; place-items: center; aspect-ratio: 1; font-size: 3.2rem; }
+/* Deux classes : `.presentoir-image`, plus bas et de même force, le remettait en `display: block`, et l'avatar quittait le
+   centre pour le coin de son cadre, sa bordure dehors (le retour du 26 novembre 2026, « l'avatar sort du cadre »). */
+.presentoir-image.presentoir-bordure { display: grid; place-items: center; aspect-ratio: 1; font-size: 3.2rem; }
 /* Le présentoir : la feuille d'un article, la même pour les quatre rayons.
    Sa barre feuillette le rayon et porte l'étoile de son envie ; son image à
    gauche, ce qu'il est et son prix à droite ; ses gestes au pied, sous le

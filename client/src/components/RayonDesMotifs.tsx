@@ -68,7 +68,9 @@ export function RayonDesMotifs({
                   aria-label={nomDeLaCase(m, prix, solde) + (envie === m.key ? ', ton envie' : '')}
                   onClick={() => onOuvrir(m.key)}
                 >
-                  <span className="article-bordure" aria-hidden="true">
+                  {/* La bordure est le sujet : ce qui sort d'un médaillon se tait (`.calque-sujet`) — les ailes d'un Phénix
+                      éclaté passaient le bord de la tuile et s'y coupaient (le retour du 26 novembre 2026). */}
+                  <span className="article-bordure calque-sujet" aria-hidden="true">
                     <Avatar {...lui} finition={profil.finition} bordure={saBordureSous(profil, m.key)} className="article-bordure-avatar" />
                   </span>
                   {envie === m.key && (

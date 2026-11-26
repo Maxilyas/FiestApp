@@ -3,7 +3,9 @@
 // et son envie en tête —, chaque rayon par son segment, le présentoir de chaque sorte d'article — un thème feuilleté, son
 // étoile, « L'acheter » puis « Confirmer », « Le porter » ; un compagnon, ses formes, son essai dans la niche, « Garder » ;
 // un fond sur sa carte ; un objet et sa quantité ; ce qui est trop cher et son envie —, la barre de l'essai, la feuille de
-// ce qu'on essaie, « Tes confettis », le texte agrandi à 130 %, une tablette, l'Ivoire.
+// ce qu'on essaie, « Tes confettis », le texte agrandi à 130 %, une tablette, l'Ivoire ; et le rayon « Bordures » sous un
+// avatar peint qui déborde de son médaillon, le Phénix éclaté de Mia (`SEULEMENT=bordures`) : ce que l'avatar peint,
+// boîte par boîte, contre sa tuile et l'image de son présentoir, moins ce qu'un parent découpe.
 //
 // En grilles depuis le 10 novembre 2026 (la maquette validée par le propriétaire, `retours/2026-11-10/boutique/` :
 // « J'ai l'impression que les utilisateurs ont du mal et ne voient pas grand-chose sur leur téléphone ») : en 360 × 640,
@@ -11,8 +13,8 @@
 // erreur si ce qui est gagné se perd : le compte des thèmes entiers à l'arrivée (`THEMES_ENTIERS`), la hauteur de la
 // page en écrans (`ECRANS_AU_PLUS`), les cinq compagnons sur une rangée, un nom coupé sur une tuile, « Confirmer » ailleurs
 // que sous « L'acheter », un présentoir qui défile ou dont les gestes sortent de l'écran, la barre de l'essai sur le
-// menu, un rayon sous la niche ; et, partout, une page plus large que l'écran, une cible de doigt sous 44 px, un texte
-// sous 11 px.
+// menu, un rayon sous la niche, un avatar qui sort de sa tuile ou de son présentoir au rayon « Bordures » ; et, partout,
+// une page plus large que l'écran, une cible de doigt sous 44 px, un texte sous 11 px.
 // Le client construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-boutique.ts [dossier]     # sans dossier : export/boutique
@@ -22,7 +24,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { demarrer, inscrireProfil } from '../test/banc'
+import { ADMIN, demarrer, inscrireProfil } from '../test/banc'
 
 const ici = path.dirname(fileURLToPath(import.meta.url))
 const sortie = path.resolve(process.argv[2] ?? path.join(ici, '../../export/boutique'))
@@ -145,17 +147,32 @@ try {
   const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐼')
   const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
   const zoe = await inscrireProfil(banc.url, 'zoe', 'Zoé', '🐸')
+  // Mia porte un avatar peint, éclaté — le Phénix et ses ailes, qui sortent de son médaillon : le rayon « Bordures » et
+  // son présentoir l'entourent de chaque motif (le cas `bordures`, le 26 novembre 2026 : « Dans la boutique, les motifs
+  // de bordure, l'avatar sort du cadre », le propriétaire). Les trois autres portent un emoji.
+  const mia = await inscrireProfil(banc.url, 'mia', 'Mia', '🦉')
   const idDe = async (cookie: string) => ((await (await fetch(`${banc.url}/api/joueur/moi?leger`, { headers: { Cookie: cookie } })).json()) as any).profile.id as string
   const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  {
+    const id = await idDe(mia)
+    const espace = (db.prepare('SELECT id FROM accounts WHERE slug = ?').get(ADMIN.slug) as { id: string }).id
+    db.prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, 'hf:phenix', 'une-soiree-d-avant', ?, '🔥', 'Le Phénix', 1)`).run(id, espace)
+    db.prepare(`INSERT INTO profile_eclats (profile_id, avatar, soiree_id, created_at) VALUES (?, 'lg:phenix', 'une-soiree-d-avant', 1)`).run(id)
+  }
   const don = db.prepare(`INSERT INTO profile_dons (id, profile_id, confettis, mot, created_at) VALUES (?, ?, ?, NULL, 1)`)
   don.run('don-tom', await idDe(tom), 80)
   don.run('don-lea', await idDe(lea), 1400)
   don.run('don-zoe', await idDe(zoe), 6000)
+  don.run('don-mia', await idDe(mia), 1400)
   const achat = db.prepare('INSERT INTO profile_achats (profile_id, theme, prix, created_at) VALUES (?, ?, 0, 1)')
   for (const theme of ['neige', 'ocean']) achat.run(await idDe(lea), theme)
   db.prepare(`INSERT INTO profile_compagnons (profile_id, compagnon, prix, rang, nom, created_at) VALUES (?, 'loup', 0, 1, 'Croc', 1)`).run(await idDe(lea))
   db.close()
   await banc.redemarrer()
+  {
+    const r = await fetch(`${banc.url}/api/joueur/moi`, { method: 'PUT', headers: { Cookie: mia, 'Content-Type': 'application/json', 'X-Requested-With': 'quizz' }, body: JSON.stringify({ legendaire: 'lg:phenix' }) })
+    if (!r.ok) dire(`Mia ne porte pas le Phénix : ${r.status} ${await r.text()}`)
+  }
   // L'envie de Tom, par la vraie route : le thème Jungle.
   const poserLEnvie = (cookie: string, envie: object | null) =>
     fetch(`${banc.url}/api/joueur/envie`, { method: 'PUT', headers: { Cookie: cookie, 'Content-Type': 'application/json', 'X-Requested-With': 'quizz' }, body: JSON.stringify({ envie }) })
@@ -384,6 +401,67 @@ try {
       if (!cher.feuille?.gestes.some((g: any) => g.nom === 'J’en ai envie' && g.principal)) dire(`presentoir-trop-cher-${t} : « J'en ai envie » n'est pas le geste d'un article trop cher`)
       await photo(pauvre.page, `presentoir-trop-cher-${t}`, 700)
       await pauvre.ctx.close()
+    }
+  }
+
+  // ── Le rayon « Bordures » et son présentoir, sous un avatar peint qui déborde de son médaillon ──
+  if (retenu('bordures')) {
+    // Ce que l'avatar dessine — sa bordure, les ailes d'un éclaté, sa lumière —, boîte par boîte, contre le cadre qui le
+    // tient : la tuile du rayon (`.article-bordure`), l'image du présentoir (`.presentoir-bordure`). Ce qui dépasse s'y
+    // coupait au bord, ou passait sur la tuile voisine.
+    const HORS_DU_CADRE = (cadre: string) => `(() => {
+      const r = []
+      for (const c of document.querySelectorAll(${JSON.stringify(cadre)})) {
+        const b = c.getBoundingClientRect()
+        let pire = 0, qui = ''
+        for (const e of c.querySelectorAll('*')) {
+          const s = getComputedStyle(e)
+          if (s.display === 'none' || s.visibility === 'hidden' || Number(s.opacity) === 0) continue
+          const x = e.getBoundingClientRect()
+          if (x.width < 1 || x.height < 1) continue
+          // Ce qu'un parent découpe ne se peint pas : le reflet d'un médaillon, plus grand que lui, vit dans son disque
+          // (\`clip-path\`), et celui de ses ailes dans leur forme (\`mask\`, qui cache tout hors de sa boîte) — sa boîte
+          // passait le cadre, rien de ce qu'il peint.
+          let g = x.left, dr = x.right, h = x.top, bas = x.bottom
+          for (let a = e.parentElement; a && a !== c; a = a.parentElement) {
+            const sa = getComputedStyle(a)
+            const masque = (sa.maskImage || sa.webkitMaskImage || 'none') !== 'none'
+            if (sa.clipPath === 'none' && sa.overflow === 'visible' && !masque) continue
+            const ra = a.getBoundingClientRect()
+            g = Math.max(g, ra.left); dr = Math.min(dr, ra.right); h = Math.max(h, ra.top); bas = Math.min(bas, ra.bottom)
+          }
+          if (dr - g < 1 || bas - h < 1) continue
+          const d = Math.max(b.left - g, dr - b.right, b.top - h, bas - b.bottom)
+          if (d > pire) { pire = d; qui = (e.getAttribute('class') || e.tagName.toLowerCase()) + ' (' + Math.round(x.width) + ' × ' + Math.round(x.height) + ')' }
+        }
+        r.push({ px: Math.round(pire), qui })
+      }
+      return r
+    })()`
+    type HorsDuCadre = { px: number; qui: string }
+    const pireDe = (l: HorsDuCadre[]): HorsDuCadre => l.reduce((a, b) => (b.px > a.px ? b : a), { px: 0, qui: '' })
+    for (const ecran of DEUX_ECRANS) {
+      const t = `${ecran[0]}x${ecran[1]}`
+      const { ctx, page } = await ouvrir(mia, ecran)
+      await page.locator('.boutique-rayons a[href="#bordures"]').tap()
+      await page.waitForSelector('.grille-motifs .article-motif')
+      await page.waitForTimeout(900)
+      const tuiles = (await page.evaluate(HORS_DU_CADRE('.grille-motifs .article-bordure'))) as HorsDuCadre[]
+      const taille = (await page.evaluate(`(() => { const r = document.querySelector('.grille-motifs .article-bordure').getBoundingClientRect(); return Math.round(r.width) + ' × ' + Math.round(r.height) })()`)) as string
+      const tuile = pireDe(tuiles)
+      console.log(`rayon-bordures-${t} — ${tuiles.length} tuiles de ${taille} px · ce qui dépasse du cadre : ${tuile.px} px au plus${tuile.qui ? ` (${tuile.qui})` : ''}`)
+      if (tuile.px > 0) dire(`rayon-bordures-${t} : L'AVATAR SORT DE SA TUILE (${tuile.px} px, ${tuile.qui})`)
+      partout(`rayon-bordures-${t}`, await mesurer(page, `rayon-bordures-${t}`))
+      await photo(page, `rayon-bordures-${t}`)
+      await page.locator('.article-motif').first().tap()
+      await page.waitForSelector('.feuille-boutique .presentoir-bordure')
+      await page.waitForTimeout(700)
+      const fiche = pireDe((await page.evaluate(HORS_DU_CADRE('.feuille-boutique .presentoir-bordure'))) as HorsDuCadre[])
+      console.log(`presentoir-motif-${t} — ce qui dépasse de son image : ${fiche.px} px${fiche.qui ? ` (${fiche.qui})` : ''}`)
+      if (fiche.px > 0) dire(`presentoir-motif-${t} : L'AVATAR SORT DE SON IMAGE (${fiche.px} px, ${fiche.qui})`)
+      partout(`presentoir-motif-${t}`, await mesurer(page, `presentoir-motif-${t}`))
+      await photo(page, `presentoir-motif-${t}`)
+      await ctx.close()
     }
   }
 
