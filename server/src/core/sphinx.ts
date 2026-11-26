@@ -13,15 +13,17 @@ import { minuitDe } from '../../../shared/qg'
 import { JOURS_DU_SPHINX_AU_QG, visitesParJour, type PageDuSphinxAuQg, type ReponseDuSphinxAuQg } from '../../../shared/qgSphinx'
 import { nomsAffiches } from '../../../shared/homonymes'
 import type { AnnonceDeLAdministrateur } from '../../../shared/profil'
+import { lireNombre } from '../../../shared/nombres'
 import {
   ERREURS_D_INSCRIPTION_PAR_JOUR,
-  ESSAIS_DU_SPHINX,
+  essaisDe,
   FENETRE_DE_L_HABITUE,
   GESTES_DU_SPHINX,
   JOURS_DE_L_HABITUE,
   QUI_A_DES_MOTS_MONTRES,
   VISITE_CLOSE,
   type EnigmeDuSphinx,
+  type EtapeDeLaSolution,
   type EtatDeLaVisite,
   type GesteDuSphinx,
   type InscriptionDuSphinx,
@@ -30,6 +32,8 @@ import {
   type MotDeLaPhrase,
   type PhraseDuSphinx,
   type PhraseLueDuSphinx,
+  type ProblemeDuSphinx,
+  type SorteDePiece,
   type SphinxDesMissions,
   type VerdictDuSphinx,
   type VisiteDuSphinx,
@@ -62,6 +66,13 @@ export const CHANCE_D_UNE_VISITE = 1 / 3
 export const LETTRES_D_UN_PETIT_MOT = 3
 /** Ses premières visites ne posent que des énigmes faciles : on y entre sans se décourager. */
 export const VISITES_FACILES = 3
+/**
+ * Une visite sur cinq pose un problème plutôt qu'une énigme en vers (le choix
+ * du propriétaire du 25 novembre 2026 : « une bonne part, et qu'il y en ait
+ * assez souvent (1/5 ça serait cool) »), tant qu'il lui en reste à voir — et
+ * à défaut d'énigme, un problème toujours.
+ */
+export const PART_DES_PROBLEMES = 1 / 5
 /**
  * Ensuite, une difficulté tirée à ces poids, parmi celles qui lui restent :
  * une difficile une fois sur cinq — le joueur ordinaire s'y trompait avec
@@ -124,13 +135,25 @@ const CATALOGUE: ReadonlySet<string> = new Set(DIVINS.map(d => d.key))
 
 export type Difficulte = keyof typeof POIDS_DES_DIFFICULTES
 
+/**
+ * Un problème de la réserve, réponse et solution comprises (le souhait du
+ * propriétaire du 25 novembre 2026, sur les « Can you solve this riddle? » de
+ * TED-Ed) : tiré d'un livre du domaine public, raconté avec nos mots, une
+ * réponse fermée — un nombre, ou un choix —, et sa solution pas à pas.
+ */
+export interface ProblemeDeLaReserve extends Omit<ProblemeDuSphinx, 'reponse'> {
+  reponse: { sorte: 'nombre'; valeur: number } | { sorte: 'choix'; propositions: { texte: string; emoji?: string }[]; bonne: number }
+  explication: EtapeDeLaSolution[]
+}
+
 /** Une énigme de la réserve, réponses comprises : elle ne quitte jamais le serveur telle quelle. */
 export interface Enigme {
   numero: string
-  sorte: 'enigme' | 'charade'
+  sorte: SorteDePiece
   difficulte: Difficulte
+  /** Ses vers ; un problème n'en a pas. */
   vers: string[]
-  /** La solution de la clé du livre. */
+  /** La solution de la clé du livre ; d'un problème, sa réponse dite en mots (« sept traversées »). */
   solution: string
   /** Une charade : la clé du livre qui la découpe (« Cher-cher »). */
   cle?: string
@@ -141,9 +164,12 @@ export interface Enigme {
   /** La page du livre, et celle du fac-similé sur Wikisource. */
   page: string
   facSimile: string
+  /** Un problème : son récit, sa question, sa réponse et sa solution. */
+  probleme?: ProblemeDeLaReserve
 }
 
 const FICHIER_DES_ENIGMES = path.join(SERVEUR, 'content/sphinx/enigmes.json')
+const FICHIER_DES_PROBLEMES = path.join(SERVEUR, 'content/sphinx/problemes.json')
 
 let reserveLue: { recueil: string; enigmes: Enigme[] } | null = null
 
@@ -179,12 +205,99 @@ function laReserve(): { recueil: string; enigmes: Enigme[] } {
         },
       ]
     })
-    reserveLue = { recueil: texte(brut.recueil), enigmes }
+    reserveLue = { recueil: texte(brut.recueil), enigmes: [...enigmes, ...lesProblemes()] }
   } catch (e) {
     console.error('[sphinx] la réserve des énigmes ne se lit pas :', e)
-    reserveLue = { recueil: '', enigmes: [] }
+    reserveLue = { recueil: '', enigmes: lesProblemes() }
   }
   return reserveLue
+}
+
+/**
+ * Les problèmes de la réserve (`problemes.json`, à côté des énigmes, serveur
+ * seulement : leurs réponses et leurs solutions y sont). Un problème mal
+ * formé — sans réponse lisible, une bonne proposition hors de la liste, sans
+ * solution pas à pas — ne se pose pas ; un fichier absent ou illisible n'en
+ * pose aucun, et les énigmes restent.
+ */
+function lesProblemes(): Enigme[] {
+  let brut: { problemes?: unknown[] }
+  try {
+    if (!fs.existsSync(FICHIER_DES_PROBLEMES)) return []
+    brut = JSON.parse(fs.readFileSync(FICHIER_DES_PROBLEMES, 'utf8')) as { problemes?: unknown[] }
+  } catch (e) {
+    console.error('[sphinx] la réserve des problèmes ne se lit pas :', e)
+    return []
+  }
+  return (brut.problemes ?? []).flatMap((p): Enigme[] => {
+    const probleme = lireUnProbleme(p)
+    const x = p as Record<string, unknown>
+    const difficulte = x.difficulte === 'facile' || x.difficulte === 'moyenne' || x.difficulte === 'difficile' ? x.difficulte : null
+    if (!probleme || !texte(x.numero) || !difficulte || !texte(x.solution)) return []
+    return [
+      { numero: texte(x.numero), sorte: 'probleme', difficulte, vers: [], solution: texte(x.solution), acceptees: [], presque: [], page: '', facSimile: probleme.source.lien ?? '', probleme },
+    ]
+  })
+}
+
+/** Un problème tel que le fichier le dit, vérifié champ par champ ; null s'il ne se pose pas. */
+export function lireUnProbleme(brut: unknown): ProblemeDeLaReserve | null {
+  const x = (brut ?? {}) as Record<string, unknown>
+  const r = (x.reponse ?? {}) as Record<string, unknown>
+  const source = (x.source ?? {}) as Record<string, unknown>
+  let reponse: ProblemeDeLaReserve['reponse'] | null = null
+  if (r.sorte === 'nombre' && typeof r.valeur === 'number' && Number.isFinite(r.valeur)) reponse = { sorte: 'nombre', valeur: r.valeur }
+  if (r.sorte === 'choix' && Array.isArray(r.propositions)) {
+    const propositions = r.propositions.flatMap(q => {
+      const y = (q ?? {}) as Record<string, unknown>
+      return texte(y.texte) ? [{ texte: texte(y.texte), ...(texte(y.emoji) && { emoji: texte(y.emoji) }) }] : []
+    })
+    const bonne = typeof r.bonne === 'number' ? r.bonne : -1
+    if (propositions.length >= 2 && propositions.length === r.propositions.length && Number.isInteger(bonne) && bonne >= 0 && bonne < propositions.length) {
+      reponse = { sorte: 'choix', propositions, bonne }
+    }
+  }
+  const explication = (Array.isArray(x.explication) ? x.explication : []).flatMap(e => {
+    const y = (e ?? {}) as Record<string, unknown>
+    return texte(y.dit) ? [{ dit: texte(y.dit), ...(texte(y.etat) && { etat: texte(y.etat) }) }] : []
+  })
+  const recit = textes(x.recit)
+  if (!reponse || !texte(x.titre) || recit.length === 0 || !texte(x.question) || explication.length === 0 || !texte(source.texte)) return null
+  return {
+    titre: texte(x.titre),
+    recit,
+    question: texte(x.question),
+    ...(texte(x.aide) && { aide: texte(x.aide) }),
+    ...(texte(x.figure) && { figure: texte(x.figure) }),
+    reponse,
+    explication,
+    source: { texte: texte(source.texte), ...(texte(source.lien) && { lien: texte(source.lien) }) },
+  }
+}
+
+/** L'énoncé d'un problème en lignes, tel que le joueur le lit — le QG le montre au toucher de sa ligne, comme des vers. */
+function enonceDe(p: ProblemeDeLaReserve): string[] {
+  return [...p.recit, p.question, ...(p.aide ? [p.aide] : []), ...(p.reponse.sorte === 'choix' ? p.reponse.propositions.map(q => `— ${q.texte}`) : [])]
+}
+
+/** Ce que « Voir la réponse » dit accepté : d'un problème, le nombre attendu ou la bonne proposition. */
+function accepteesAuQg(e: Enigme): string[] {
+  const r = e.probleme?.reponse
+  if (!r) return e.acceptees
+  return r.sorte === 'nombre' ? [String(r.valeur)] : [r.propositions[r.bonne].texte]
+}
+
+/** Ce que la page reçoit d'un problème : tout, sauf sa réponse et sa solution — elles ne partent qu'une fois la visite close. */
+function problemeVu(p: ProblemeDeLaReserve): ProblemeDuSphinx {
+  return {
+    titre: p.titre,
+    recit: p.recit,
+    question: p.question,
+    ...(p.aide && { aide: p.aide }),
+    ...(p.figure && { figure: p.figure }),
+    reponse: p.reponse.sorte === 'nombre' ? { sorte: 'nombre' } : { sorte: 'choix', propositions: p.reponse.propositions },
+    source: p.source,
+  }
 }
 
 /** Les énigmes de la réserve livrée. */
@@ -216,12 +329,53 @@ export function normaliser(brut: string): string {
 /** La même, sans ses blancs : « pente-côte », « pentecôte » et « pente côte » sont une seule réponse. */
 const comparable = (s: string) => normaliser(s).replace(/ /g, '')
 
+/** Les petits nombres écrits en lettres, sans accents : « sept » répond « 7 ». Au-delà de vingt, en chiffres. */
+const EN_LETTRES = ['zero', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix sept', 'dix huit', 'dix neuf', 'vingt']
+
+/**
+ * Un nombre tapé en réponse à un problème : en chiffres, comme on l'écrit en
+ * France (`lireNombre` : « 1 000 », « 2,5 »), ou en lettres jusqu'à vingt,
+ * avec ou sans article (« sept », « une »). Ce qui ne se lit pas : null — la
+ * page le redemande sans coûter d'essai.
+ */
+export function nombreTape(brut: string): number | null {
+  const n = lireNombre(brut.trim())
+  if (n !== null && Number.isFinite(n)) return n
+  const mots = normaliser(brut)
+  const i = mots === 'une' ? 1 : EN_LETTRES.indexOf(mots)
+  return i >= 0 ? i : null
+}
+
+/**
+ * Une réponse telle que le Sphinx la garde et la compare : d'une énigme, lue
+ * sans accents ni article (`normaliser`) ; d'un problème à nombre, le nombre ;
+ * d'un problème à choisir, la place de la proposition touchée. Illisible, un
+ * refus qui dit quoi faire, sans coûter d'essai.
+ */
+export function lireLaReponse(e: Enigme, brut: string): { lue: string } | { refus: string } {
+  const p = e.probleme
+  if (!p) {
+    const lue = normaliser(brut)
+    return lue ? { lue } : { refus: 'Écris ta réponse avant de l’envoyer.' }
+  }
+  if (p.reponse.sorte === 'choix') {
+    const i = /^\d+$/.test(brut.trim()) ? Number(brut.trim()) : -1
+    return i >= 0 && i < p.reponse.propositions.length ? { lue: String(i) } : { refus: 'Le Sphinx ne comprend pas ce choix : recharge la page.' }
+  }
+  const n = nombreTape(brut)
+  return n === null ? { refus: 'Écris un nombre : en chiffres, comme 12.' } : { lue: String(n) }
+}
+
 /**
  * Le verdict d'une réponse : juste — la solution du livre, ou une réponse
  * acceptée, lue de la même façon que celle du joueur —, brûlante (elle ne
- * coûte pas d'essai), ou fausse.
+ * coûte pas d'essai), ou fausse. D'un problème, la réponse lue
+ * (`lireLaReponse`) est le nombre ou la proposition attendus, ou elle est
+ * fausse : rien n'y brûle.
  */
 export function jugerLaReponse(e: Enigme, reponse: string): 'juste' | 'brulant' | 'faux' {
+  const p = e.probleme
+  if (p) return reponse === String(p.reponse.sorte === 'nombre' ? p.reponse.valeur : p.reponse.bonne) ? 'juste' : 'faux'
   const r = comparable(reponse)
   if (!r) return 'faux'
   if (r === comparable(e.solution) || e.acceptees.some(a => comparable(a) === r)) return 'juste'
@@ -244,14 +398,20 @@ export const estHabitue = (jours: number) => jours >= JOURS_DE_L_HABITUE
 export const tirageDeLaVisite = (graine: string): number => hasardDe(graine)()
 
 /**
- * L'énigme d'une visite : jamais une qu'il a vue ; ses premières visites, une
- * facile (sinon la plus douce qui reste) ; ensuite, une difficulté tirée à
- * ses poids parmi celles qui lui restent, puis une énigme de cette
- * difficulté. Plus rien à lui poser : null, et pas de visite.
+ * L'énigme d'une visite : jamais une qu'il a vue ; une fois sur cinq, un
+ * problème plutôt qu'une énigme en vers (`PART_DES_PROBLEMES`) ; ses premières
+ * visites, une facile (sinon la plus douce qui reste) ; ensuite, une
+ * difficulté tirée à ses poids parmi celles qui lui restent, puis une pièce de
+ * cette difficulté. Plus rien à lui poser : null, et pas de visite.
  */
 export function choisirLEnigme(enigmes: readonly Enigme[], vues: ReadonlySet<string>, visitesAvant: number, hasard: () => number): Enigme | null {
-  const restantes = enigmes.filter(e => !vues.has(e.numero))
-  if (restantes.length === 0) return null
+  const pasVues = enigmes.filter(e => !vues.has(e.numero))
+  if (pasVues.length === 0) return null
+  // Un problème une fois sur cinq (`PART_DES_PROBLEMES`), tant qu'il en reste ; sans énigme, un problème toujours. Le
+  // hasard ne se tire que s'il y a un choix à faire : une réserve sans problème garde ses tirages d'avant.
+  const problemes = pasVues.filter(e => e.sorte === 'probleme')
+  const enVers = pasVues.filter(e => e.sorte !== 'probleme')
+  const restantes = problemes.length === 0 ? enVers : enVers.length === 0 ? problemes : hasard() < PART_DES_PROBLEMES ? problemes : enVers
   const par = (d: Difficulte) => restantes.filter(e => e.difficulte === d)
   const difficultes = Object.keys(POIDS_DES_DIFFICULTES) as Difficulte[]
   let parmi: Enigme[]
@@ -517,14 +677,16 @@ export function appliquerLeGeste(v: EtatDUneVisite, geste: GesteDuSphinx, repons
   if (geste === 'ecouter') return { apres: { etat: 'proposee', essais: v.essais, reponses } }
   if (geste === 'plus-tard') return { apres: { etat: 'plus-tard', essais: v.essais, reponses } }
   if (geste === 'chat') return { apres: { etat: 'abandonnee', essais: v.essais, reponses }, verdict: 'abandon' }
-  const lue = normaliser(reponse ?? '')
-  if (!lue) return { refus: 'Écris ta réponse avant de l’envoyer.', statut: 400 }
+  const lu = lireLaReponse(e, reponse ?? '')
+  if ('refus' in lu) return { refus: lu.refus, statut: 400 }
+  const { lue } = lu
   const verdict = jugerLaReponse(e, lue)
   if (verdict === 'juste') return { apres: { etat: 'resolue', essais: v.essais + 1, reponses }, verdict }
   if (verdict === 'brulant') return { apres: { etat: 'proposee', essais: v.essais, reponses }, verdict }
   if (reponses.includes(lue)) return { apres: { etat: 'proposee', essais: v.essais, reponses }, verdict: 'faux', dejaDite: true }
   const essais = v.essais + 1
-  return essais >= ESSAIS_DU_SPHINX
+  // Trois essais, un seul pour un problème à choisir (`essaisDe`) : à trois, on essaierait toutes les propositions.
+  return essais >= essaisDe(e)
     ? { apres: { etat: 'perdue', essais, reponses: [...reponses, lue] }, verdict: 'perdu' }
     : { apres: { etat: 'proposee', essais, reponses: [...reponses, lue] }, verdict: 'faux' }
 }
@@ -908,12 +1070,20 @@ export class Sphinx {
     const phrase = this.phraseDe(this.divinVise(ligne, lignes, porte), lignes, porte)
     if (!e || !phrase) return null
     const close = estClose(ligne)
+    const p = e.probleme
     const enigme: EnigmeDuSphinx = {
       numero: e.numero,
       sorte: e.sorte,
       vers: e.vers,
-      source: { recueil: laReserve().recueil, page: e.page, facSimile: e.facSimile },
-      ...(close && { solution: e.solution, ...(e.cle && { cle: e.cle }) }),
+      // Un problème dit sa source à lui — un livre du domaine public, raconté avec nos mots —, pas le recueil de 1858.
+      source: p ? { recueil: p.source.texte, page: '', facSimile: p.source.lien ?? '' } : { recueil: laReserve().recueil, page: e.page, facSimile: e.facSimile },
+      ...(p && { probleme: problemeVu(p) }),
+      // La réponse ne part qu'une fois la visite close — d'un problème, avec sa solution pas à pas, et la bonne proposition.
+      ...(close && {
+        solution: e.solution,
+        ...(e.cle && { cle: e.cle }),
+        ...(p && { explication: p.explication, ...(p.reponse.sorte === 'choix' && { bonne: p.reponse.bonne }) }),
+      }),
     }
     const texteDuMot = ligne.mot === null ? undefined : motsDeLaLegende(this.legende(ligne.divin)!)[ligne.mot]?.texte
     return {
@@ -921,7 +1091,7 @@ export class Sphinx {
       etat: ligne.etat,
       divin: phrase.divin,
       enigme,
-      essaisRestants: Math.max(0, ESSAIS_DU_SPHINX - ligne.essais),
+      essaisRestants: Math.max(0, essaisDe(e) - ligne.essais),
       ...(ligne.mot !== null && texteDuMot !== undefined && { mot: { index: ligne.mot, texte: texteDuMot } }),
       phrase,
     }
@@ -1199,8 +1369,10 @@ export class Sphinx {
         return {
           numero: e.numero,
           sorte: e.sorte,
+          ...(e.probleme && { titre: e.probleme.titre }),
           difficulte: e.difficulte,
-          vers: e.vers,
+          // D'un problème, ce que le joueur lit : son récit, sa question, ses propositions — jamais sa réponse.
+          vers: e.probleme ? enonceDe(e.probleme) : e.vers,
           vues: [...issues.values()].reduce((n, v) => n + v, 0),
           resolues: issues.get('resolue') ?? 0,
           perdues: issues.get('perdue') ?? 0,
@@ -1237,7 +1409,7 @@ export class Sphinx {
       const { lignes } = await this.deps.profiles.compterUneEnigmePourVue(profileId, numero, this.deps.maintenant())
       // Posée entre-temps par sa ligne des missions, d'un autre onglet : elle reste à lui, sans sa réponse.
       if (laPose(lignes)) return refus
-      return { numero, solution: e.solution, ...(e.cle && { cle: e.cle }), acceptees: e.acceptees, presque: e.presque, deja: avant.some(l => l.enigme === numero) }
+      return { numero, solution: e.solution, ...(e.cle && { cle: e.cle }), acceptees: accepteesAuQg(e), presque: e.presque, deja: avant.some(l => l.enigme === numero) }
     })
   }
 }

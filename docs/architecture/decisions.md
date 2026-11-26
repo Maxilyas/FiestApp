@@ -746,6 +746,15 @@ Le détail : [les récompenses](../produit/les-recompenses.md).
 
 *Fichiers : `server/src/core/sphinx.ts`, `server/src/auth/profiles.ts`, `shared/sphinx.ts`, `shared/qgSphinx.ts`, `client/src/components/{Sphinx,QgSphinx}.tsx`, `server/test/sphinx-pur.test.ts`, `server/test/sphinx-accueil.test.ts`, `server/test/qg-sphinx.test.ts`, `server/test/sphinx-ecran.test.ts`*
 
+### Une visite sur cinq, un problème façon TED-Ed
+**Contexte** : le 25 novembre 2026, le propriétaire : « Quelque chose que j'adorais c'est “Can you solve this Riddle” de TED-Ed […] Ça serait possible d'avoir ce genre de chose ? » Les vidéos ne se reprennent pas — leurs histoires et leurs textes sont à leurs auteurs —, mais les casse-tête qu'elles mettent en scène sont souvent des classiques bien plus anciens, et une idée n'appartient à personne. Le format de l'énigme ne s'y prêtait pas : une réponse de TED-Ed est souvent une stratégie, qu'un champ de texte ne juge pas. Une maquette, le même jour (`retours/2026-11-25/le-probleme-du-sphinx/`), sur le passeur, le loup, la chèvre et le chou, que tout le monde connaît ; puis ses choix : « Les deux selon problème », « Pas d'indice », « une bonne part et qu'il y en ait assez souvent (1/5 ça serait cool) ».
+
+**Décision** : **une visite sur cinq pose un problème** (`PART_DES_PROBLEMES`), une sorte de pièce de plus dans la réserve (`problemes.json`, serveur seulement) : une petite histoire tirée d'un livre du domaine public et racontée avec nos mots, une **réponse fermée** — un nombre, en trois essais, ou un choix entre trois à cinq cartes, d'un seul toucher (`essaisDe`) —, **sans indice**, puis **sa solution pas à pas**, toujours, que le joueur ait trouvé ou non. Comme une énigme, il attend sa fin, souffle un mot, et sa réponse et sa solution ne partent qu'une fois la visite close. Chacun résolu à l'aveugle avant d'entrer dans la réserve.
+
+**Conséquence** : le moteur, puis le contenu, en deux temps — sans problème dans la réserve, le tirage reste celui d'avant, au hasard près (`choisirLEnigme` ne tire la sorte que s'il y a un choix à faire). Une réponse d'un problème ne brûle jamais ; un mot qui n'est pas un nombre se redemande sans coûter d'essai. Le QG le nomme par son titre et montre son énoncé au toucher, jamais sa réponse.
+
+*Fichiers : `server/src/core/sphinx.ts`, `shared/sphinx.ts`, `shared/qgSphinx.ts`, `client/src/components/{Sphinx,QgSphinx}.tsx`, `client/src/components/sphinx.css`, `server/test/passeur.ts`, `server/test/sphinx-pur.test.ts`, `server/test/sphinx-accueil.test.ts`, `server/test/qg-sphinx.test.ts`, `server/test/sphinx-ecran.test.ts`*
+
 ### Les trophées se rangent par mode, et se disent avec les mêmes mots
 **Contexte** : « très confus, les trophées que les gens gagnent » — dix lignes les rangeaient selon la logique du code (« Paliers des soirées », « Paliers de toujours »…), un même exploit tombait sous deux noms (Le Laurier et le palier du Champion du jour, aux mêmes seuils), et chaque fin de partie montrait ses gains à sa façon.
 

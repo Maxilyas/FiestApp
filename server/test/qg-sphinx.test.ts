@@ -17,6 +17,7 @@ import { legendeDe } from '../src/core/divins'
 import { ENIGMES_DEJA_VUES_DU_PROPRIETAIRE, ORDRE_DU_SPHINX, enigmesDuSphinx, motsDeLaLegende, normaliser, type Enigme } from '../src/core/sphinx'
 import { JOURS_DU_SPHINX_AU_QG, type PageDuSphinxAuQg, type ReponseDuSphinxAuQg } from '../../shared/qgSphinx'
 import type { EtatDeLaMaintenance } from '../../shared/maintenance'
+import { PASSEUR, PASSEUR_A_CHOISIR } from './passeur'
 
 ProfileStore.tirageEclat = () => false
 
@@ -261,6 +262,31 @@ test('« Voir la réponse » la rend, la range pour vue sur le profil de l’adm
     horloge.t = midi(28)
     assert.equal((await lire(banc, proprio, '/api/joueur/sphinx')).corps.visite, null)
     assert.ok(!('sphinx' in (await lire(banc, proprio, '/api/joueur/missions')).corps))
+  })
+})
+
+// Une visite sur cinq, un problème (le 25 novembre 2026) : la page le nomme par son titre et montre son énoncé au toucher,
+// comme les vers d'une énigme — jamais sa réponse, que seul « Voir la réponse » donne.
+test('un problème au QG : son titre, son énoncé au toucher, jamais sa réponse ; « Voir la réponse » dit le nombre ou la bonne proposition', () => {
+  const reserve = [...ENIGMES_DEJA_VUES_DU_PROPRIETAIRE.map(enigmeDe), PASSEUR, PASSEUR_A_CHOISIR]
+  return avecBanc(midi(26), { enigmesDuSphinx: reserve }, async banc => {
+    const admin = await connexionAnimateur(banc.url)
+    assert.equal((await ecrire(banc.url, '/api/admin/maintenance/pages/sphinx', { etat: 'ouverte' }, admin, 'PUT')).status, 200)
+    await inscrireProfil(banc.url, 'proprio', 'Antoine', '🦉')
+    base(banc, db => db.prepare(`UPDATE accounts SET profile_id = ? WHERE role = 'admin'`).run(idDe(banc, 'proprio')))
+    await banc.redemarrer()
+    const admin2 = await connexionAnimateur(banc.url)
+    const page = await laPage(banc, admin2)
+    rienDeSecret(page, reserve, 'la page')
+    const ligne = page.enigmes.find(e => e.numero === PASSEUR.numero)!
+    assert.deepEqual([ligne.sorte, ligne.titre, ligne.difficulte], ['probleme', PASSEUR.probleme!.titre, PASSEUR.difficulte])
+    assert.ok(ligne.vers.includes(PASSEUR.probleme!.question), 'son énoncé, montré au toucher')
+    const aChoisir = page.enigmes.find(e => e.numero === PASSEUR_A_CHOISIR.numero)!
+    assert.ok(aChoisir.vers.includes('— La chèvre') && aChoisir.vers.includes('— Le loup'), 'ses propositions, sans dire la bonne')
+    const nombre = (await voirLaReponse(banc, admin2, PASSEUR.numero)).corps as ReponseDuSphinxAuQg
+    assert.deepEqual([nombre.solution, nombre.acceptees, nombre.presque], [PASSEUR.solution, ['7'], []])
+    const choix = (await voirLaReponse(banc, admin2, PASSEUR_A_CHOISIR.numero)).corps as ReponseDuSphinxAuQg
+    assert.deepEqual([choix.solution, choix.acceptees], [PASSEUR_A_CHOISIR.solution, ['La chèvre']])
   })
 })
 

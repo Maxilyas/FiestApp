@@ -405,6 +405,50 @@
 .sx-parchemin .sx-plus-tard,
 .sx-parchemin .sx-chat { min-height: 44px; padding: 0 10px; border: 0; background: none; color: var(--sx-muted); font-size: 0.8125rem; text-decoration: underline; text-underline-offset: 3px; }
 
+/* ── Un problème : une petite histoire, une question, une réponse fermée ───── */
+/* Une visite sur cinq (le souhait du propriétaire du 25 novembre 2026) : en prose, plus long qu'une énigme — le haut
+   défile, et la visite y descend jusqu'à la question. La figure montre la situation, jamais la solution. */
+.sx-figure { margin: 0 0 10px; font-size: 1.5rem; line-height: 1.2; letter-spacing: 0.08em; text-align: center; }
+.sx-recit p { margin: 0 0 8px; font: 500 1.0625rem/1.38 var(--sx-titre); color: var(--sx-ink); opacity: 0; translate: 0 4px; transition: opacity 0.6s ease, translate 0.6s ease; }
+.sx-recit p.sx-la { opacity: 1; translate: 0 0; }
+.sx-question { margin: 4px 0 12px; font: 700 1.125rem/1.3 var(--sx-titre); color: var(--sx-or-clair); text-wrap: pretty; scroll-margin-top: 8px; }
+.sx-question small { display: block; margin-top: 4px; font: 500 0.8125rem/1.4 var(--sx-texte); color: var(--sx-muted); }
+/* Un choix : des cartes d'un seul toucher, chacune sa cible de doigt ; la touchée attend son verdict en or, la fausse
+   en rouge, et la bonne se montre une fois la visite close. */
+.sx-propositions { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 8px; }
+.sx-propositions button {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 4px;
+  min-height: 64px;
+  padding: 10px 6px;
+  border: 1px solid rgba(var(--sx-or-rgb), 0.4);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--sx-ink);
+  font: 600 0.875rem/1.15 var(--sx-texte);
+  text-wrap: balance;
+}
+.sx-propositions button span { font-size: 1.625rem; line-height: 1; }
+.sx-propositions button:disabled { cursor: default; }
+.sx-propositions button.sx-choisie,
+.sx-propositions button.sx-bonne { border-color: var(--sx-or-clair); background: rgba(var(--sx-or-rgb), 0.16); }
+.sx-propositions button.sx-faux { border-color: var(--sx-faux); background: rgba(224, 108, 108, 0.12); animation: sx-frisson 0.42s steps(6) 1; }
+
+/* La solution, pas à pas : un trait d'or par étape dite, les étapes écrites l'une sous l'autre, la dernière en or. */
+.sx-solution-compte { margin: 0 0 12px; font: 600 0.75rem/1 var(--sx-texte); color: var(--sx-muted); font-variant-numeric: tabular-nums; }
+.sx-traits { display: flex; justify-content: center; gap: 4px; margin: 0 0 12px; }
+.sx-traits i { width: 18px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.12); transition: background 0.3s; }
+.sx-traits i.sx-faite { background: var(--sx-or); }
+.sx-etapes { display: grid; gap: 8px; margin: 0; padding: 0 0 0 1.4em; }
+.sx-etapes li { padding-left: 2px; color: var(--sx-muted); font: 500 0.875rem/1.4 var(--sx-texte); }
+.sx-etapes li::marker { color: var(--sx-or); font-weight: 700; }
+.sx-etapes li.sx-courante { color: var(--sx-ink); animation: sx-parait 0.45s ease backwards; }
+.sx-etape-dit { display: block; }
+.sx-etape-etat { display: block; margin-top: 2px; font-size: 1.125rem; letter-spacing: 0.06em; }
+.sx-solution-fin { margin: 12px 0 2px; font: 700 1.0625rem/1.3 var(--sx-titre); color: var(--sx-or-clair); }
+
 /* Le mot gagné, qui part se ranger dans la phrase. */
 .sx-mot-vole {
   z-index: 9;
@@ -490,8 +534,12 @@ body.avec-menu .accueil:has(.sx-epingle) { padding-bottom: 0; }
 .sx-calme .sx-boite-la,
 .sx-calme .sx-boite-part,
 .sx-calme .sx-vers span,
+.sx-calme .sx-recit p,
+.sx-calme .sx-traits i,
 .sx-calme .sx-rangee figure { transition: none; }
-.sx-calme .sx-montre { animation: none; }
+.sx-calme .sx-montre,
+.sx-calme .sx-etapes li.sx-courante,
+.sx-calme .sx-propositions button.sx-faux { animation: none; }
 /* `transition: none`, pas une durée d'un centième : sans propriété nommée, une transition vaut pour toutes, et la hauteur
    du cadre du haut glissait d'un centième de seconde — la mesure du voile lisait encore l'ancienne. */
 @media (prefers-reduced-motion: reduce) {

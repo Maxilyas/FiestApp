@@ -47,6 +47,18 @@ En haut de l'écran — le clavier du téléphone monte par le bas : son numéro
 
 **Annoncée une fois** : quand une phrase est retrouvée, chaque profil le lit une fois en tête de son accueil, à la place d'« À la une » — « La phrase d'Osiris est retrouvée », grâce aux trois premiers à y avoir trouvé un mot, puis « et 4 autres » —, jamais un mot de la phrase. La ligne mène à la fiche du Divin dans l'album, où le choix l'attend ; le serveur retient qu'elle a paru, sur tous ses appareils.
 
+## Les problèmes
+
+Une visite sur cinq, le Sphinx ne pose pas une énigme en vers mais un **problème** (le souhait du propriétaire du 25 novembre 2026, sur les « Can you solve this riddle? » de TED-Ed, et sa maquette du même jour, `retours/2026-11-25/le-probleme-du-sphinx/`) : « Cette fois, un *problème*. Lis bien… et prends ton temps. »
+
+- **Une petite histoire** : son titre (« Le problème du passeur »), une ligne d'emojis qui montre la situation — jamais la solution —, deux à quatre courts paragraphes qui paraissent un à un, puis la question et ce qui la précise (« un aller compte pour une traversée, un retour aussi »). Plus long qu'une énigme : sur un petit téléphone, le parchemin défile, et descend de lui-même jusqu'à la question une fois le récit lu.
+- **Une réponse fermée**, selon le problème : **un nombre**, tapé au clavier des chiffres — en chiffres, ou en lettres jusqu'à vingt —, en trois essais, sans rien qui brûle ; ou **un choix** entre trois à cinq cartes, d'**un seul toucher** — à trois essais, on les essaierait toutes. Un mot qui n'est pas un nombre se redemande sans coûter d'essai.
+- **Pas d'indice** (le choix du propriétaire, le même jour : la maquette en proposait un).
+- **La solution, pas à pas**, que le joueur ait trouvé ou non — le meilleur moment des vidéos qui l'ont inspiré : le Sphinx dit chaque étape dans sa boîte, et elles s'écrivent au-dessus de lui l'une sous l'autre, chacune ce qu'elle montre, jusqu'à la réponse. Résolu, il souffle d'abord son mot, puis propose « Tu veux voir comment on le résout ? » ; perdu ou abandonné, « Regarde comment on le résout », toujours.
+- **D'où ils viennent** : des livres du domaine public — Alcuin d'York (vers l'an 800), Bachet de Méziriac (1612), Ozanam (1694), Édouard Lucas (1882-1894), Lewis Carroll, Dudeney, Sam Loyd — ou de la tradition, **racontés avec nos mots** : la source s'écrit sous le problème, « raconté par le Sphinx ». Chacun résolu à l'aveugle avant d'entrer dans la réserve, comme les énigmes, pour qu'il n'ait qu'une réponse et que sa difficulté soit mesurée.
+
+Une énigme et un problème se jouent de la même façon pour le reste : un problème attend sa fin, garde ses essais, souffle un mot de la phrase du Divin du moment, et ne revient jamais une fois vu. Sans problème à lui poser, une énigme ; sans énigme, un problème.
+
 ## Dans l'album
 
 La page des Divins de « Ma collection » (`/profil#collection-avatars-divin`) montre, **à tout profil, habitué ou non**, la fiche du Divin du moment — sa case allumée d'or, un « ? » à son épaule — avec sa phrase telle qu'il la voit : ses mots en or, les traits des autres, ce que tous en ont trouvé et la jauge. À qui n'est pas un habitué : « Le Sphinx ne parle qu'aux habitués : joue 4 jours sur 7 ». À un habitué : combien de mots les autres ont trouvés qu'il n'a pas. Une phrase que tous ont reconstituée montre dans la fiche de son Divin ses mots en or, la forme du reste et « 8 sur 8 », puis « La phrase est retrouvée : la lire » : confirmé, elle se dévoile — pour de bon, sur tous ses appareils —, ses mots se retournent comme un mot gagné, et elle se lit ensuite entière, sous son voile. Qui porte ce Divin, ou en a trouvé chaque mot lui-même, la lit sans geste.
@@ -70,7 +82,7 @@ Le Sphinx, après un mot soufflé, le dit aussi : « Demande-leur : dans ton alb
 
 ## Ce qui reste secret
 
-La phrase d'un Divin est sa légende : elle ne quitte le serveur que mot à mot — les mots qu'il a gagnés, la forme du reste, les petits mots offerts —, entière seulement à qui porte ce Divin, à qui en a trouvé chaque mot, ou, une fois reconstituée, à qui choisit de la lire : à qui ne l'a pas choisie, son texte n'arrive même pas dans le navigateur. Les réponses des énigmes ne quittent le serveur qu'une fois la visite close. Ni ce document, ni la documentation, ni le code du navigateur n'en citent une.
+La phrase d'un Divin est sa légende : elle ne quitte le serveur que mot à mot — les mots qu'il a gagnés, la forme du reste, les petits mots offerts —, entière seulement à qui porte ce Divin, à qui en a trouvé chaque mot, ou, une fois reconstituée, à qui choisit de la lire : à qui ne l'a pas choisie, son texte n'arrive même pas dans le navigateur. Les réponses des énigmes ne quittent le serveur qu'une fois la visite close — d'un problème, ni le nombre attendu, ni la bonne carte, ni sa solution pas à pas. Ni ce document, ni la documentation, ni le code du navigateur n'en citent une.
 
 Au QG non plus (« Sphinx », sous « Modes ») : l'administrateur joue aussi. La page compte — combien de mots du Divin du moment tous ont trouvés, les visites, la réussite de chaque énigme — sans dire lesquels ni montrer une phrase ; la réponse d'une énigme n'y paraît que derrière un geste confirmé, qui la retire d'abord de ses propres visites ([Administrer](../guides/administrer.md#le-sphinx-de-laccueil)).
 

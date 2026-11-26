@@ -12,6 +12,7 @@ import {
   ENIGMES_DEJA_VUES_DU_PROPRIETAIRE,
   MOTS_NEUFS_PAR_JOUR,
   ORDRE_DU_SPHINX,
+  PART_DES_PROBLEMES,
   VISITES_FACILES,
   appliquerLeGeste,
   choisirLEnigme,
@@ -22,7 +23,10 @@ import {
   jugerLaReponse,
   joursJoues,
   laSuivanteSurgit,
+  lireLaReponse,
+  lireUnProbleme,
   motsDeLaLegende,
+  nombreTape,
   motsEgaux,
   normaliser,
   phraseVue,
@@ -36,7 +40,8 @@ import type { LigneDuSphinx } from '../src/auth/profiles'
 import { legendeDe } from '../src/core/divins'
 import { DIVINS } from '../../shared/divins'
 import { AUCUNE_ACTIVITE, type ActiviteDuJour } from '../../shared/missions'
-import { ESSAIS_DU_SPHINX, JOURS_DE_L_HABITUE, QUI_A_DES_MOTS_MONTRES } from '../../shared/sphinx'
+import { ESSAIS_DU_SPHINX, JOURS_DE_L_HABITUE, QUI_A_DES_MOTS_MONTRES, essaisDe } from '../../shared/sphinx'
+import { PASSEUR, PASSEUR_A_CHOISIR } from './passeur'
 import { jourAvant } from '../../shared/jour'
 import { hasardDe } from '../../shared/missions'
 
@@ -439,4 +444,87 @@ test('la suivante ne surgit que s’il a joué celle d’avant — une réponse 
   assert.equal(laSuivanteSurgit(uneVisite('2026-09-20', 'perdue', { essais: 3 })), true)
   // Une visite d'avant laissée sans une réponse jusqu'à minuit, sous la règle d'avant : il ne l'a pas jouée.
   assert.equal(laSuivanteSurgit(uneVisite('2026-09-20', 'proposee')), false)
+})
+
+// ── Les problèmes ─────────────────────────────────────────────────────────
+
+// Le souhait du propriétaire du 25 novembre 2026, sur les « Can you solve this
+// riddle? » de TED-Ed : une visite sur cinq, un problème — une petite histoire,
+// une réponse fermée, un nombre ou un choix, sans indice —, puis sa solution
+// pas à pas. Le banc pose celui de la maquette, le passeur (`passeur.ts`).
+
+test('un problème se lit champ par champ : une réponse lisible, une bonne proposition dans la liste, une solution pas à pas', () => {
+  const bon = {
+    titre: 'Le passeur',
+    recit: ['Un paragraphe.'],
+    question: 'Combien ?',
+    reponse: { sorte: 'nombre', valeur: 7 },
+    explication: [{ dit: 'D’abord ceci.', etat: '🐐 | 🐺' }],
+    source: { texte: 'Problème traditionnel' },
+  }
+  assert.deepEqual(lireUnProbleme(bon)?.reponse, { sorte: 'nombre', valeur: 7 })
+  const choix = { ...bon, reponse: { sorte: 'choix', propositions: [{ texte: 'A' }, { texte: 'B', emoji: '🐐' }], bonne: 1 } }
+  assert.deepEqual(lireUnProbleme(choix)?.reponse, { sorte: 'choix', propositions: [{ texte: 'A' }, { texte: 'B', emoji: '🐐' }], bonne: 1 })
+  // Ce qui ne se pose pas : une bonne proposition hors de la liste, une seule proposition, une réponse illisible, rien à expliquer, sans source.
+  for (const casse of [
+    { ...choix, reponse: { ...choix.reponse, bonne: 2 } },
+    { ...choix, reponse: { ...choix.reponse, propositions: [{ texte: 'A' }], bonne: 0 } },
+    { ...bon, reponse: { sorte: 'nombre', valeur: 'sept' } },
+    { ...bon, explication: [] },
+    { ...bon, recit: [] },
+    { ...bon, source: {} },
+  ]) {
+    assert.equal(lireUnProbleme(casse), null)
+  }
+})
+
+test('la réponse d’un problème : un nombre en chiffres ou en lettres, ou la place d’une proposition ; illisible, redemandée sans coûter d’essai', () => {
+  assert.deepEqual([nombreTape('7'), nombreTape(' 7 '), nombreTape('sept'), nombreTape('Sept !'), nombreTape('1 000'), nombreTape('dix-sept'), nombreTape('une')], [7, 7, 7, 7, 1000, 17, 1])
+  assert.equal(nombreTape('beaucoup'), null)
+  assert.deepEqual(lireLaReponse(PASSEUR, 'sept'), { lue: '7' })
+  assert.ok('refus' in lireLaReponse(PASSEUR, 'la chèvre'))
+  assert.deepEqual(lireLaReponse(PASSEUR_A_CHOISIR, '1'), { lue: '1' })
+  for (const hors of ['3', '-1', 'la chèvre', '']) assert.ok('refus' in lireLaReponse(PASSEUR_A_CHOISIR, hors), `« ${hors} »`)
+  assert.deepEqual([jugerLaReponse(PASSEUR, '7'), jugerLaReponse(PASSEUR, '6'), jugerLaReponse(PASSEUR_A_CHOISIR, '1'), jugerLaReponse(PASSEUR_A_CHOISIR, '0')], ['juste', 'faux', 'juste', 'faux'])
+})
+
+test('un problème à nombre se joue en trois essais, un problème à choisir d’un seul toucher ; rien n’y brûle', () => {
+  assert.deepEqual([essaisDe(PASSEUR), essaisDe(PASSEUR_A_CHOISIR), essaisDe(enigme('32'))], [ESSAIS_DU_SPHINX, 1, ESSAIS_DU_SPHINX])
+  let ligne = { etat: 'proposee' as const, essais: 0, reponses: [] as string[] }
+  const geste = (e: Enigme, reponse: string): any => {
+    const r = appliquerLeGeste(ligne, 'repondre', reponse, e)
+    if (!('refus' in r)) ligne = { ...ligne, ...r.apres } as typeof ligne
+    return r
+  }
+  assert.equal(geste(PASSEUR, 'beaucoup').statut, 400, 'illisible : pas un essai de moins')
+  assert.equal(ligne.essais, 0)
+  assert.equal(geste(PASSEUR, '5').verdict, 'faux')
+  const redite = geste(PASSEUR, 'cinq')
+  assert.deepEqual([redite.verdict, redite.dejaDite, ligne.essais], ['faux', true, 1], 'le même nombre, en lettres : pas un second essai')
+  assert.equal(geste(PASSEUR, '6').verdict, 'faux')
+  assert.deepEqual([geste(PASSEUR, '7').verdict, ligne.etat], ['juste', 'resolue'])
+  // À choisir : une mauvaise proposition, et c'est fini.
+  ligne = { etat: 'proposee', essais: 0, reponses: [] }
+  assert.deepEqual([geste(PASSEUR_A_CHOISIR, '0').verdict, ligne.etat, ligne.essais], ['perdu', 'perdue', 1])
+  ligne = { etat: 'proposee', essais: 0, reponses: [] }
+  assert.deepEqual([geste(PASSEUR_A_CHOISIR, '1').verdict, ligne.etat], ['juste', 'resolue'])
+})
+
+test('une visite sur cinq pose un problème, tant qu’il en reste ; une réserve sans problème garde ses tirages d’avant', () => {
+  assert.equal(PART_DES_PROBLEMES, 1 / 5)
+  const enVers = enigmesDuSphinx().slice(0, 40)
+  const problemes = Array.from({ length: 20 }, (_, i): Enigme => ({ ...PASSEUR, numero: `p${i}`, difficulte: (['facile', 'moyenne', 'difficile'] as const)[i % 3] }))
+  let tires = 0
+  const n = 4000
+  for (let i = 0; i < n; i++) if (choisirLEnigme([...enVers, ...problemes], new Set(), VISITES_FACILES, hasardDe(`p|${i}`))?.sorte === 'probleme') tires++
+  assert.ok(tires / n > 0.17 && tires / n < 0.23, `${tires} problèmes sur ${n} visites`)
+  // Plus d'énigme à voir : un problème toujours ; plus de problème : une énigme toujours.
+  assert.equal(choisirLEnigme([...enVers, ...problemes], new Set(enVers.map(e => e.numero)), 5, hasardDe('x'))?.sorte, 'probleme')
+  assert.notEqual(choisirLEnigme([...enVers, ...problemes], new Set(problemes.map(e => e.numero)), 5, hasardDe('x'))?.sorte, 'probleme')
+  // Une réserve dont tous les problèmes sont vus tire exactement comme une réserve sans problème : le hasard ne sert qu'à choisir.
+  for (let i = 0; i < 50; i++) {
+    const avant = choisirLEnigme(enVers, new Set(), i % 6, hasardDe(`q|${i}`))
+    const apres = choisirLEnigme([...enVers, ...problemes], new Set(problemes.map(e => e.numero)), i % 6, hasardDe(`q|${i}`))
+    assert.equal(apres?.numero, avant?.numero)
+  }
 })

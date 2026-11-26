@@ -128,16 +128,65 @@ export interface InscriptionDuSphinx {
   phrase: PhraseDuSphinx
 }
 
+/**
+ * Ce que le Sphinx pose : une énigme ou une charade de 1858, en vers, ou —
+ * une visite sur cinq — un problème (le souhait du propriétaire du
+ * 25 novembre 2026, sur les « Can you solve this riddle? » de TED-Ed : une
+ * petite histoire, une question à réponse fermée, puis la solution pas à pas).
+ */
+export type SorteDePiece = 'enigme' | 'charade' | 'probleme'
+
+/**
+ * Comment un problème se répond : un nombre, tapé, en trois essais ; ou un
+ * choix entre trois à cinq propositions, d'un seul toucher — à trois essais,
+ * on les essaierait toutes.
+ */
+export type ReponseDUnProbleme = { sorte: 'nombre' } | { sorte: 'choix'; propositions: { texte: string; emoji?: string }[] }
+
+/** Un problème, tel que la page le reçoit : son récit et sa question, jamais sa réponse ni sa solution avant la fin. */
+export interface ProblemeDuSphinx {
+  /** « Le passeur » : la page dit « Le problème du passeur ». */
+  titre: string
+  /** Quelques paragraphes courts, qui paraissent un à un. */
+  recit: string[]
+  question: string
+  /** Une règle de comptage, en une phrase (« un aller compte pour une traversée, un retour aussi »). */
+  aide?: string
+  /** Une ligne d'emojis qui montre la situation — jamais la solution. */
+  figure?: string
+  reponse: ReponseDUnProbleme
+  /** D'où il vient : un livre du domaine public, raconté avec nos mots. */
+  source: { texte: string; lien?: string }
+}
+
+/** Une étape de la solution d'un problème : ce que dit le Sphinx, et ce qu'elle montre (une ligne d'emojis, des nombres). */
+export interface EtapeDeLaSolution {
+  dit: string
+  etat?: string
+}
+
 /** Une énigme, telle que la page la reçoit : sa réponse seulement une fois la visite close. */
 export interface EnigmeDuSphinx {
   numero: string
-  sorte: 'enigme' | 'charade'
+  sorte: SorteDePiece
+  /** Les vers d'une énigme ou d'une charade ; un problème n'en a pas. */
   vers: string[]
   source: { recueil: string; page: string; facSimile: string }
-  /** La solution du livre, une fois la visite close. */
+  /** Un problème : son récit, sa question et comment s'y répond. */
+  probleme?: ProblemeDuSphinx
+  /** La solution du livre, une fois la visite close — d'un problème, sa réponse dite en mots. */
   solution?: string
   /** Une charade : comment la clé du livre la découpe (« Cher-cher »), une fois la visite close. */
   cle?: string
+  /** Un problème à choisir : la bonne proposition, une fois la visite close. */
+  bonne?: number
+  /** Un problème : sa solution pas à pas, une fois la visite close. */
+  explication?: EtapeDeLaSolution[]
+}
+
+/** Les essais d'une pièce : trois, sauf un problème à choisir, qui se joue d'un seul toucher. */
+export function essaisDe(piece: { probleme?: { reponse: ReponseDUnProbleme } }): number {
+  return piece.probleme?.reponse.sorte === 'choix' ? 1 : ESSAIS_DU_SPHINX
 }
 
 /** La visite du jour. */

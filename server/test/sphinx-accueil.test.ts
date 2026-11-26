@@ -12,6 +12,7 @@ import { ProfileStore } from '../src/auth/profiles'
 import { legendeDe } from '../src/core/divins'
 import { ENIGMES_DEJA_VUES_DU_PROPRIETAIRE, ORDRE_DU_SPHINX, enigmesDuSphinx, motsDeLaLegende, type Enigme } from '../src/core/sphinx'
 import { jourAvant } from '../../shared/jour'
+import { PASSEUR, PASSEUR_A_CHOISIR } from './passeur'
 
 ProfileStore.tirageEclat = () => false
 
@@ -665,3 +666,64 @@ test('les énigmes que le propriétaire a déjà vues comptent pour vues sur le 
     assert.ok(!('sphinx' in (await missions(banc, proprio))))
   })
 })
+
+// ── Les problèmes ─────────────────────────────────────────────────────────
+
+// Une visite sur cinq, un problème (le souhait du propriétaire du 25 novembre
+// 2026) : sa réponse et sa solution pas à pas ne partent qu'une fois la visite
+// close, comme la solution d'une énigme. Le banc ne pose que le passeur, que
+// tout le monde connaît (`passeur.ts`).
+test('un problème à nombre : son récit et sa question partent, jamais sa réponse ; trois essais ; résolu, sa solution pas à pas et son mot', () =>
+  avecBanc(midi(26), { enigmesDuSphinx: [PASSEUR] }, async banc => {
+    await ouvrir(banc, await connexionAnimateur(banc.url))
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    joue(banc, 'lea', jours(20, 26))
+    assert.equal((await missions(banc, lea)).sphinx, 'attend')
+    const v = (await leSphinx(banc, lea)).visite
+    assert.deepEqual([v.enigme.sorte, v.enigme.numero, v.essaisRestants, v.enigme.vers], ['probleme', PASSEUR.numero, 3, []])
+    assert.deepEqual(v.enigme.probleme, {
+      titre: PASSEUR.probleme!.titre,
+      recit: PASSEUR.probleme!.recit,
+      question: PASSEUR.probleme!.question,
+      aide: PASSEUR.probleme!.aide,
+      figure: PASSEUR.probleme!.figure,
+      reponse: { sorte: 'nombre' },
+      source: PASSEUR.probleme!.source,
+    })
+    // Ni sa valeur, ni sa solution, ni son explication avant la fin.
+    const avant = JSON.stringify(v)
+    for (const champ of ['valeur', 'solution', 'explication', 'bonne', 'acceptees']) assert.ok(!avant.includes(`"${champ}"`), `« ${champ} » avant la fin`)
+    assert.equal(v.enigme.source.recueil, PASSEUR.probleme!.source.texte, 'sa source à lui, pas le recueil de 1858')
+
+    // Un mot n'est pas un nombre : redemandé, sans coûter d'essai.
+    const illisible = await geste(banc, lea, { geste: 'repondre', reponse: 'beaucoup' })
+    assert.deepEqual([illisible.status, illisible.corps.error], [400, 'Écris un nombre : en chiffres, comme 12.'])
+    const faux = await geste(banc, lea, { geste: 'repondre', reponse: '5' })
+    assert.deepEqual([faux.corps.verdict, faux.corps.visite.essaisRestants], ['faux', 2])
+    assert.equal(faux.corps.visite.enigme.explication, undefined, 'toujours rien avant la fin')
+    const redit = await geste(banc, lea, { geste: 'repondre', reponse: 'cinq' })
+    assert.deepEqual([redit.corps.dejaDite, redit.corps.visite.essaisRestants], [true, 2])
+    const juste = await geste(banc, lea, { geste: 'repondre', reponse: 'sept' })
+    assert.deepEqual([juste.corps.verdict, juste.corps.visite.etat], ['juste', 'resolue'])
+    assert.equal(juste.corps.visite.enigme.solution, PASSEUR.solution)
+    assert.deepEqual(juste.corps.visite.enigme.explication, PASSEUR.probleme!.explication)
+    assert.ok(juste.corps.visite.mot, 'résolu, il souffle son mot comme une énigme')
+  }))
+
+test('un problème à choisir se joue d’un seul toucher : une mauvaise proposition le perd, et sa solution part avec la bonne', () =>
+  avecBanc(midi(26), { enigmesDuSphinx: [PASSEUR_A_CHOISIR] }, async banc => {
+    await ouvrir(banc, await connexionAnimateur(banc.url))
+    const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐯')
+    joue(banc, 'tom', jours(20, 26))
+    const v = (await leSphinx(banc, tom)).visite
+    assert.equal(v.essaisRestants, 1)
+    assert.deepEqual(v.enigme.probleme.reponse, { sorte: 'choix', propositions: [{ texte: 'Le loup', emoji: '🐺' }, { texte: 'La chèvre', emoji: '🐐' }, { texte: 'Le chou', emoji: '🥬' }] })
+    assert.equal(v.enigme.bonne, undefined)
+    // Une place hors de la liste ne se joue pas.
+    assert.equal((await geste(banc, tom, { geste: 'repondre', reponse: '3' })).status, 400)
+    const perdu = await geste(banc, tom, { geste: 'repondre', reponse: '0' })
+    assert.deepEqual([perdu.corps.verdict, perdu.corps.visite.etat, perdu.corps.visite.essaisRestants], ['perdu', 'perdue', 0])
+    assert.deepEqual([perdu.corps.visite.enigme.bonne, perdu.corps.visite.enigme.solution], [1, PASSEUR_A_CHOISIR.solution])
+    assert.equal(perdu.corps.visite.enigme.explication.length, PASSEUR.probleme!.explication.length, 'perdu, il voit quand même la solution')
+    assert.equal(perdu.corps.visite.mot, undefined)
+  }))
