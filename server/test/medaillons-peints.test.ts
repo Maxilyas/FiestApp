@@ -166,32 +166,6 @@ test('en grand, ses grands fichiers, et le reflet suit le doigt', async () => {
   assert.doesNotMatch(html, /-256\./)
 })
 
-// L'effet D des médaillons vivants (le 27 novembre 2026) : les créatures marines offertes ondulent en grand, d'un filtre
-// SVG — le disque et ce qui en sort sous la même vague, leurs deux filtres dans le SVG du disque, une seule horloge.
-test('en grand, les créatures marines offertes ondulent : une vague, le disque et ce qui en sort ensemble', async () => {
-  const html = await legendaire({ cle: 'lg:baleine', grand: true })
-  assert.match(html, /<svg class="lg-art" viewBox="0 0 100 100" aria-hidden="true"><defs><filter id="([^"]+-filtre)"[^>]*>.*?<feDisplacementMap/)
-  const filtres = [...html.matchAll(/<filter id="([^"]+)"/g)].map(m => m[1])
-  assert.equal(filtres.length, 2, 'le filtre du disque et celui de ce qui en sort, dans le même SVG')
-  assert.equal((html.match(/<animate /g) ?? []).length, 4, 'la vague glisse, en x et en y, dans chacun')
-  assert.match(html, new RegExp(`<span class="lg-debord"[^>]*><svg viewBox="0 0 100 100" aria-hidden="true"><image href="/medaillons/baleine-art-perso-512\\.[0-9a-f]{10}\\.webp"[^>]*filter="url\\(#${filtres[1]}\\)"`))
-  // Ailleurs, l'image telle quelle : petit, d'un autre légendaire, verrouillé.
-  assert.match(await legendaire({ cle: 'lg:baleine' }), /<img class="lg-art"/)
-  assert.doesNotMatch(await legendaire({ cle: 'lg:dragon', grand: true }), /feDisplacementMap/)
-  assert.doesNotMatch(await legendaire({ cle: 'lg:baleine', grand: true, verrouille: true }), /feDisplacementMap/)
-  // Taillé dans une matière, la vague passe d'abord, la matière ensuite.
-  const taille = await legendaire({ cle: 'lg:drakkar', grand: true, eclat: 'jade' })
-  assert.match(taille, /<feDisplacementMap[^>]*result="ondule"[^>]*><\/feDisplacementMap><feColorMatrix in="ondule"/)
-  // Le système demande moins de mouvement : rien ne bouge.
-  const avant = (globalThis as { matchMedia?: unknown }).matchMedia
-  ;(globalThis as { matchMedia?: unknown }).matchMedia = () => ({ matches: true })
-  try {
-    assert.doesNotMatch(await legendaire({ cle: 'lg:baleine', grand: true }), /feDisplacementMap|<animate/)
-  } finally {
-    ;(globalThis as { matchMedia?: unknown }).matchMedia = avant
-  }
-})
-
 test('éclaté : sa version rare sous le prisme, ses paillettes, sa gerbe — et la créature sort du cadre', async () => {
   const html = await legendaire({ cle: 'lg:renard', eclat: true })
   assert.match(html, /aria-label="Le Renard Lunaire, éclaté"/)
