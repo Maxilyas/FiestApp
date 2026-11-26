@@ -10072,6 +10072,9 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
    avatar dans la bordure, au métal de sa finition — on voit ce qu'on essaie. */
 .loge-bordures { display: flex; flex-direction: column; gap: var(--loge-serre); }
 .loge-bordures > .muted { margin: 0; }
+/* Le motif prolonge la bordure : sa rangée s'y colle, à l'écart d'un titre et de sa rangée plutôt qu'à celui de deux
+   blocs — séparées, les gemmes passaient de 6 px sous le menu chez une habituée, en 360 × 640 (`rendu-loge.ts`). */
+.loge-panneau > .loge-motifs { margin-top: calc(var(--loge-serre) - var(--loge-bloc)); }
 .bordure-apercu { position: relative; display: grid; place-items: center; width: var(--loge-pastille); height: var(--loge-pastille); border-radius: 50%; font-size: calc(var(--loge-pastille) / 2); line-height: 1; }
 .bordure-sans { display: block; width: calc(var(--loge-pastille) - 4px); height: calc(var(--loge-pastille) - 4px); box-sizing: border-box; border: 1.5px dashed var(--muted); border-radius: 50%; }
 .bordure-choix.selected .bordure-apercu { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
@@ -13399,12 +13402,17 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .article-fond .article-pied { padding: 5px 2px 6px; align-items: center; }
 .article-fond .article-nom { font-size: 0.72rem; text-align: center; }
 .article-fond .article-marque { padding: 3px; }
-/* Une bordure : son avatar entouré du motif, à sa ligue et à ses crans (`RayonDesMotifs`) ; trois par rangée, comme les thèmes. */
-.grille-motifs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* Une bordure : son avatar entouré du motif, à sa ligue et à ses crans (`RayonDesMotifs`), six par rangée et sans pied —
+   leur prix est celui du rayon, leur nom se dit à l'oreille et au présentoir. Trois par rangée avec nom et prix, les douze
+   faisaient 600 px de haut ; quatre, 362 : la page passait toujours 4,2 écrans en 360 × 640 (`rendu-boutique.ts`). */
+.grille-motifs { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
 @media (min-width: 520px) {
-  .grille-motifs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .grille-motifs { grid-template-columns: repeat(8, minmax(0, 1fr)); }
 }
-.article-bordure { display: grid; place-items: center; height: 86px; font-size: 1.75rem; background: var(--surface-strong); overflow: hidden; }
+.article-motif { aspect-ratio: 1; }
+/* La bordure remplit la case (1,9 em de diamètre, une case de 50 px en 360) : plus petite, on ne distinguait pas un motif d'un autre. */
+.article-bordure { display: grid; place-items: center; flex: 1; font-size: 1.45rem; background: var(--surface-strong); overflow: hidden; }
+.article-motif .article-marque { top: 2px; right: 2px; padding: 2px; }
 .presentoir-bordure { display: grid; place-items: center; aspect-ratio: 1; font-size: 3.2rem; }
 /* Le présentoir : la feuille d'un article, la même pour les quatre rayons.
    Sa barre feuillette le rayon et porte l'étoile de son envie ; son image à

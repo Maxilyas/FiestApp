@@ -665,8 +665,10 @@ export function MesMotifs({ profil, essai, essayer }: PropsDUnePiece) {
   const reste = MOTIFS.length - siens.length
   return (
     <div className="loge-bordures loge-motifs">
-      <span className="loge-sous-titre" id="loge-motifs-titre">
-        Motif
+      {/* Son titre se dit à l'oreille : à l'œil, la rangée prolonge « Bordure », et sa première pastille dit « Accordé » —
+          montré, il faisait passer les gemmes sous le menu d'une habituée en 360 × 640 (`rendu-loge.ts`). */}
+      <span className="sr-only" id="loge-motifs-titre">
+        Motif de la bordure
       </span>
       <div className={rangee(1 + siens.length + (reste > 0 ? 1 : 0)) + ' loge-bordures-rangee'} role="group" aria-labelledby="loge-motifs-titre">
         {pastille(null, 'Accordé', 'Accordé à ton avatar, d’office')}

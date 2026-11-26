@@ -43,8 +43,7 @@ paths:
   nom deux lignes au plus sous le Velours), un haut de page moins serré —
   la page remonte de 12 px sous sa tête (`.la-boutique`, `margin-top`), et
   la rangée des rayons s'arrête 4 px sous la niche. Le script sort en
-  erreur pour un compte de thèmes sous `THEMES_ENTIERS`, une page de plus
-  de 4,2 écrans, des compagnons sur deux rangées, un nom coupé, la rangée
+  erreur pour un compte de thèmes sous `THEMES_ENTIERS`, une page de plus de 4,4 écrans (4,2 jusqu'au rayon « Bordures », le 26 novembre 2026 : 4,3 pour un nouveau venu, son envie en tête), des compagnons sur deux rangées, un nom coupé, la rangée
   des rayons sous la niche une fois la page défilée, « Confirmer » ailleurs
   que sous « L'acheter », un présentoir qui défile ou dont un geste sort
   de l'écran, la barre de l'essai sur le menu, une cible de doigt sous

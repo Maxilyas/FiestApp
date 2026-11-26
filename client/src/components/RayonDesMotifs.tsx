@@ -76,10 +76,6 @@ export function RayonDesMotifs({
                       <Icon name="star" />
                     </span>
                   )}
-                  <span className="article-pied">
-                    <b className="article-nom">{m.nom}</b>
-                    <span className={`article-prix${prix > solde ? ' article-prix-loin' : ''}`}>{`🎊 ${formatNumber(prix)}`}</span>
-                  </span>
                 </button>
               </li>
             )
