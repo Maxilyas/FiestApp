@@ -13,6 +13,7 @@ import { tronquer } from '../../shared/avatars'
 import { deNom } from '../../shared/typographie'
 import { jourDe } from '../../shared/jour'
 import { NOM_DU_COFFRE, type RangDuCoffre } from '../../shared/coffre'
+import { legendaire } from '../../shared/legendaires'
 import type { FicheDuJoueur, ProfilDAdministration } from '../../shared/profil'
 import { JOURS_DU_QG, minuitsDeParis, modeDeLaSerie } from '../../shared/qg'
 import { activiteDesJoueurs, parModeVide, type ActiviteDUnJoueur, type PartieSeule } from '../../shared/qgActivite'
@@ -221,6 +222,29 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
       const cle = await deps.profiles.offrirUnCoffre(p.id, rang, req.body?.mot)
       noterLeGeste(res, { sorte: 'profil', resume: `${NOM_DU_COFFRE[rang as RangDuCoffre]} offert : ${nomme(p)}`, cible: p.id })
       res.json({ ok: true, cle })
+    }),
+  )
+
+  // Offrir un légendaire (le 26 novembre 2026 : « je voulais lui donner
+  // uniquement un légendaire en cadeau », le propriétaire, pour un
+  // anniversaire) : un de ceux qui ne se gagnent pas (`Legendaire.offert`),
+  // et un mot, dit une fois sur son accueil (`ProfileStore.offrirUnLegendaire`).
+  // Un seul exemplaire chacun : jamais à soi — essayé sur son propre profil, il
+  // ne pourrait plus s'offrir —, jamais à un profil suspendu, qui ne le verrait pas.
+  app.post(
+    '/api/admin/profils/:id/legendaire',
+    wrap(async (req, res) => {
+      const p = await leProfil(req, res)
+      if (!p) return
+      if (p.disabledAt) return res.status(400).json({ error: 'Réactive d’abord ce profil' })
+      if (estLeSien(res, p)) return res.status(400).json({ error: 'Un légendaire offert ne se garde pas pour soi : il n’en existe qu’un' })
+      const { legendaire: cle, mot } = await deps.profiles.offrirUnLegendaire(p.id, req.body?.legendaire, req.body?.mot)
+      noterLeGeste(res, {
+        sorte: 'profil',
+        resume: `${legendaire(cle)?.nom ?? cle} offert : ${nomme(p)}${mot ? ` — « ${mot} »` : ''}`,
+        cible: p.id,
+      })
+      res.json({ ok: true, legendaire: cle, mot })
     }),
   )
 

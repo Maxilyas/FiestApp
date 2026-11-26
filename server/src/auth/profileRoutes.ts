@@ -263,7 +263,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     // Ce que l'administrateur a fait pour lui : ses dons, son prénom changé, ses
     // signalements qui ont servi, ses annonces à tous — dits une fois, son
     // téléphone retient le reste.
-    const annonces = profiles.annoncesDe(rec, lue?.dons ?? [], Date.now(), mercis, lue?.aTous ?? [])
+    const annonces = profiles.annoncesDe(rec, lue?.dons ?? [], Date.now(), mercis, lue?.aTous ?? [], lue?.cadeaux ?? [])
     // Et les phrases retrouvées par tous, une fois chacune — celles déjà annoncées lues dans le même lot ; de la mémoire du
     // Sphinx, sans un aller-retour de plus. Ce qui y tomberait n'ôte qu'elles.
     if (lue && deps.sphinx && sphinxOuvert) {

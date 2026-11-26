@@ -40,6 +40,7 @@ import {
   LEGENDAIRES_DE_L_EXPEDITION,
   cleDeLExpedition,
   cleDuCabinet,
+  cleDuCadeau,
   estUneVoieDExpedition,
   estUneVoieDuCabinet,
   legendairesDebloques,
@@ -356,9 +357,10 @@ test('un légendaire se débloque sur ses hauts faits, et se voit venir', () => 
 test('chaque légendaire a sa légende, et se gagne par un haut fait qui existe', () => {
   const cles = new Set([...HAUTS_FAITS_REGAGNABLES, ...HAUTS_FAITS_DE_CARRIERE].map(h => h.key))
   // Vingt-six, puis les cinq des fêtes du 1er novembre 2026, et le Djinn des défis du Cabinet, le même jour ; puis les
-  // deux avatars en plus du premier Grand Prix, le 19 novembre 2026, secrets.
-  assert.equal(LEGENDAIRES.length, 34)
-  assert.deepEqual(LEGENDAIRES.filter(l => l.secret).map(l => l.key), ['lg:pegase', 'lg:pegase-couronne'])
+  // deux avatars en plus du premier Grand Prix, le 19 novembre 2026, secrets ; puis le premier légendaire offert, le
+  // 26 novembre 2026, secret aussi.
+  assert.equal(LEGENDAIRES.length, 35)
+  assert.deepEqual(LEGENDAIRES.filter(l => l.secret).map(l => l.key), ['lg:pegase', 'lg:pegase-couronne', 'lg:jormungandr'])
   for (const l of LEGENDAIRES) {
     assert.ok(l.nom && l.legende, `${l.key} a un nom et une légende`)
     // Un légendaire de saison se gagne par sa saison, et par elle seule : sa récompense de saison, ou l'expédition
@@ -377,8 +379,10 @@ test('chaque légendaire a sa légende, et se gagne par un haut fait qui existe'
     // celle du Cabinet, une ligne rangée au réveil d'un gardien
     // (`cabinet-gardiens.test.ts`). Toute autre, un haut fait qui existe.
     // Un secret d'un Grand Prix n'a qu'une voie, la ligne que le Grand Prix range (`cleDuPrix`) : rien d'autre ne le donne.
+    // Un légendaire offert, la ligne que le QG range en l'offrant (`cleDuCadeau`).
     if (l.secret) {
-      assert.deepEqual(voiesDe(l), [{ hautFait: cleDuPrix(l.key), fois: 1 }], `${l.key} : sa seule voie, le Grand Prix`)
+      if (l.offert) assert.deepEqual(voiesDe(l), [{ hautFait: cleDuCadeau(l.key), fois: 1 }], `${l.key} : sa seule voie, le cadeau`)
+      else assert.deepEqual(voiesDe(l), [{ hautFait: cleDuPrix(l.key), fois: 1 }], `${l.key} : sa seule voie, le Grand Prix`)
       continue
     }
     for (const voie of voiesDe(l).filter(v => !estUneVoieDExpedition(v) && !estUneVoieDuCabinet(v))) {

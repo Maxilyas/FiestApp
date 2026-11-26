@@ -613,6 +613,34 @@ export const LEGENDAIRES_PEINTS: LegendairePeint[] = [
     garde: 'the winged horse — its head, its body, its four legs, its two wings, its constellation mane and its constellation tail — and the diadem of stars and laurel on its brow',
     retirer: 'the fence of stars and its pillars beneath it, the trail of stardust, the sparks far from it, the Milky Way, the stars and the night sky',
   },
+  // Le premier légendaire offert (le 26 novembre 2026) : un cadeau de l'administrateur, qui ne se gagne pas
+  // (`offert`, `shared/legendaires.ts`). Plongée et mythologie nordique : le Serpent de Midgard au fond de la mer du
+  // Nord. Choisi sur trois essais (la baleine runique, le dragon du drakkar), son illustration est l'essai tel quel
+  // (`export/legendaires/essai-cadeau/`) — sa consigne, celle de la chaîne mot pour mot. Sa boucle passe le bord du
+  // disque de tous côtés : il sort tout entier du cercle, et s'y enroule (`ENROULES`, `Legendaire.tsx`). Jamais sa
+  // queue dans sa gueule : ce serait l'Ouroboros. Sa version rare quitte le bleu-vert pour la nuit polaire — loin du
+  // Kraken violet et menthe, et du Phénix de glace, cyan et blanc.
+  {
+    id: 'jormungandr',
+    sujet:
+      'Jörmungandr, the World Serpent of Norse myth, in the depths of the northern sea — a colossal sea serpent coiled in one great loop ' +
+      'around the center of the canvas, its whole body visible inside the image, never biting its tail: its great horned head rises toward ' +
+      'the viewer from the bottom of the loop, jaws slightly open, glowing sea-green eyes; its scales are deep teal and bronze, each band of ' +
+      'scales engraved with Norse runes and Viking knotwork inlaid in gold leaf; long fins like torn sails along its spine; far above, ' +
+      'shafts of sunlight pierce the surface of the sea and fall through the water; on the seabed below lies a sunken Viking longship with ' +
+      'its carved dragon prow; a tiny lone scuba diver with a lamp floats in the light, dwarfed by the serpent, for scale; bubbles and ' +
+      'gold-leaf sparks drift upward. Palette: deep teal, turquoise and gold against the dark blue abyss.',
+    rare:
+      'the World Serpent becomes the serpent of the polar night — its scales turn to deep midnight blue and polished silver, its runes and ' +
+      'knotwork glow with the green and violet light of the northern lights, its fins become translucent sheets of glacier ice edged with ' +
+      'silver, its eyes pale violet; the sea turns to a dark arctic water beneath a ceiling of ice, through which the green and violet ' +
+      'curtains of an aurora shine down instead of the sunlight; the longship is rimmed with frost.',
+    garde: 'the sea serpent — its horned head, its open jaws, its whole coiled body, its fins along its spine and its tail',
+    retirer:
+      'the sunken longship, the scuba diver and his light, the bubbles, the gold sparks far from the serpent, the shafts of light, the sea and the background',
+    fond: 'magenta',
+    entier: true,
+  },
 ]
 
 /** Les dix-huit Divins : chacun sa silhouette de bijou. Rien de leurs règles, qui ne quittent jamais le serveur. */

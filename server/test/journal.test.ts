@@ -160,6 +160,7 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     ok(await faire(banc, admin, `/api/admin/profils/${idLea}/confettis`, { confettis: 100, mot: 'Merci pour samedi !' }), 'confettis')
     ok(await faire(banc, admin, `/api/admin/profils/${idLea}/eclat`), 'éclat offert')
     ok(await faire(banc, admin, `/api/admin/profils/${idLea}/coffre`, { rang: 'or', mot: 'Pour samedi' }), 'coffre offert')
+    ok(await faire(banc, admin, `/api/admin/profils/${idLea}/legendaire`, { legendaire: 'lg:jormungandr', mot: 'Joyeux anniversaire !' }), 'légendaire offert')
     ok(await faire(banc, admin, `/api/admin/profils/${idLea}/secours`), 'code de secours')
     for (let i = 0; i < 5; i++) await ecrire(banc.url, '/api/joueur/connexion', { login: 'lea', password: 'pas-le-bon-1' })
     ok(await faire(banc, admin, `/api/admin/profils/${idLea}/connexion`), 'verrou')
@@ -304,6 +305,7 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       '100 confettis offerts : Léa (@lea) — « Merci pour samedi ! »',
       'Éclat offert, en réserve : Léa (@lea)',
       'Le coffre d’or offert : Léa (@lea)',
+      'Jörmungandr offert : Léa (@lea) — « Joyeux anniversaire ! »',
       'Code de secours neuf tiré : Léa (@lea)',
       'Verrou de connexion levé : Léa (@lea)',
       'Traversée du Cabinet rendue, sans rien coûter : Léa (@lea) — au choix de ses cartes',
@@ -407,6 +409,7 @@ test('chaque route de l’administration qui change quelque chose se note avec s
         'Épreuve de sentier libérée, sans coûter de vie : Léa (@lea) — …',
         'Verrou de connexion levé : Léa (@lea)',
         'Code de secours neuf tiré : Léa (@lea)',
+        'Jörmungandr offert : Léa (@lea) — « Joyeux anniversaire ! »',
         'Le coffre d’or offert : Léa (@lea)',
         'Éclat offert, en réserve : Léa (@lea)',
         '100 confettis offerts : Léa (@lea) — « Merci pour samedi ! »',

@@ -1199,6 +1199,8 @@ export type IssueQuiSert = 'corrigee' | 'reclassee' | 'retiree' | 'annulee'
  */
 export type AnnonceDeLAdministrateur =
   | { id: string; sorte: 'confettis'; confettis: number; mot: string | null; le: number }
+  /** Un légendaire offert (`Legendaire.offert`, le 26 novembre 2026) : sa clé et le mot qui l'accompagne. */
+  | { id: string; sorte: 'legendaire'; legendaire: string; mot: string | null; le: number }
   | { id: string; sorte: 'prenom'; nom: string; le: number }
   | { id: string; sorte: 'merci'; mode: 'jour' | 'campagne'; issue: IssueQuiSert; question: string; le: number }
   | { id: string; sorte: 'annonce'; message: string; confettis: number; le: number; question?: QuestionAPoser; aQuelquesUns?: true }

@@ -98,6 +98,16 @@ export interface Legendaire {
    * trophée qu'on ne peut plus gagner — jamais à qui l'a.
    */
   secret?: true
+  /**
+   * Un cadeau de l'administrateur (le 26 novembre 2026 : « je voulais lui
+   * donner uniquement un légendaire en cadeau », le propriétaire, pour un
+   * anniversaire — le Grand Prix gardé pour une autre) : il ne se gagne pas,
+   * il s'offre, du QG, à un seul profil (`POST /api/admin/profils/:id/legendaire`),
+   * qui range sa voie (`cleDuCadeau`). Toujours `secret` aussi : personne
+   * d'autre ne le voit à gagner. Jamais mis en jeu par un Grand Prix
+   * (`PRIX_DES_GRANDS_PRIX` l'écarte) : il serait gagnable par toute une salle.
+   */
+  offert?: true
 }
 
 /** La clé que l'Expédition range sur le profil quand il garde ce légendaire au bout de l'acte 3 : `expedition:kraken`. */
@@ -226,7 +236,13 @@ const avecLeCabinet = (legendaires: Legendaire[]): Legendaire[] =>
  * plus proche » n'en font rien : on les a, ou non. Un préfixe de plus s'ajoute
  * ici, et partout il est écarté d'un coup.
  */
-export const PREFIXES_DES_VOIES_RANGEES = ['saison:', 'expedition:', 'cabinet:', 'timbre:', 'flot:', 'grandprix:'] as const
+export const PREFIXES_DES_VOIES_RANGEES = ['saison:', 'expedition:', 'cabinet:', 'timbre:', 'flot:', 'grandprix:', 'cadeau:'] as const
+
+/** Le préfixe d'un légendaire offert par l'administrateur : `cadeau:jormungandr` donne `lg:jormungandr` (`Legendaire.offert`). */
+export const PREFIXE_D_UN_CADEAU = 'cadeau:'
+
+/** La clé rangée qui donne un légendaire offert : `lg:jormungandr` → `cadeau:jormungandr`. */
+export const cleDuCadeau = (legendaireCle: string) => `${PREFIXE_D_UN_CADEAU}${legendaireCle.replace(/^lg:/, '')}`
 
 /**
  * Les tombes muettes : les paliers d'un trophée parti du catalogue, dont des
@@ -532,10 +548,27 @@ export const LEGENDAIRES: Legendaire[] = avecLeCabinet(avecLExpedition([
     ton: 'eclat',
     secret: true,
   },
+  {
+    // Le premier légendaire offert (le 26 novembre 2026), pour un anniversaire : plongée et mythologie nordique. Sa
+    // seule voie, celle que le QG range en l'offrant (`cleDuCadeau`). Ni joker, ni gardien, ni sceau.
+    key: 'lg:jormungandr',
+    nom: 'Jörmungandr',
+    legende: 'Le Serpent du monde, enroulé au fond de la mer du Nord. Il ne se gagne pas : il s’offre.',
+    condition: { hautFait: cleDuCadeau('lg:jormungandr'), fois: 1 },
+    ton: 'eclat',
+    secret: true,
+    offert: true,
+  },
 ]))
 
-/** Les avatars en plus qu'un Grand Prix peut mettre en jeu : les légendaires secrets, dans l'ordre du catalogue. */
-export const PRIX_DES_GRANDS_PRIX: readonly string[] = LEGENDAIRES.filter(l => l.secret).map(l => l.key)
+/**
+ * Les avatars en plus qu'un Grand Prix peut mettre en jeu : les légendaires secrets, dans l'ordre du catalogue — sauf
+ * ceux qu'on offre (`offert`), qui ne se mettent jamais en jeu.
+ */
+export const PRIX_DES_GRANDS_PRIX: readonly string[] = LEGENDAIRES.filter(l => l.secret && !l.offert).map(l => l.key)
+
+/** Les légendaires que l'administrateur peut offrir (`Legendaire.offert`), dans l'ordre du catalogue. */
+export const LEGENDAIRES_OFFERTS: readonly string[] = LEGENDAIRES.filter(l => l.offert).map(l => l.key)
 
 /**
  * Les légendaires qu'un profil voit dans l'album, la loge et tout ce qui dit

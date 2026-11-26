@@ -226,4 +226,11 @@ export const IMAGES: Record<string, ImagesDeLegendaire> = {
     rarePerso: ['/medaillons/pegase-couronne-rare-perso-512.5a5ff672e1.webp', '/medaillons/pegase-couronne-rare-perso-256.d9a7000daf.webp'],
     artPerso: ['/medaillons/pegase-couronne-art-perso-512.fe684d868b.webp', '/medaillons/pegase-couronne-art-perso-256.0717be6fc8.webp'],
   },
+  'lg:jormungandr': {
+    art: ['/medaillons/jormungandr-art-512.e5da433c0c.webp', '/medaillons/jormungandr-art-256.60a33fcd5d.webp'],
+    rare: ['/medaillons/jormungandr-rare-512.b1558f3be8.webp', '/medaillons/jormungandr-rare-256.2f74017720.webp'],
+    perso: '/medaillons/jormungandr-perso-256.8c67a6c6a8.webp',
+    rarePerso: ['/medaillons/jormungandr-rare-perso-512.99d717c5c0.webp', '/medaillons/jormungandr-rare-perso-256.d19490eeb3.webp'],
+    artPerso: ['/medaillons/jormungandr-art-perso-512.037c5e5526.webp', '/medaillons/jormungandr-art-perso-256.c3be31a579.webp'],
+  },
 }

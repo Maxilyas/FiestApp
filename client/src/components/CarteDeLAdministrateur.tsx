@@ -4,7 +4,9 @@ import { deNom, espacesFines } from '../format'
 import { formatNumber } from '../../../shared/typographie'
 import { phraseDeLaProposition, phraseDuMerci, type AnnonceDeLAdministrateur } from '../../../shared/profil'
 import { MOT_MAX, NOTE_MAX, type QuestionDAnnonce } from '../../../shared/annonces'
-import { motifDe } from '../api'
+import { api, motifDe } from '../api'
+import { legendaire } from '../../../shared/legendaires'
+import { Dessin } from './Avatar'
 
 const ICONE: Record<AnnonceDeLAdministrateur['sorte'], IconName> = {
   confettis: 'sparkles',
@@ -13,6 +15,71 @@ const ICONE: Record<AnnonceDeLAdministrateur['sorte'], IconName> = {
   annonce: 'megaphone',
   proposition: 'edit',
   phrase: 'help',
+  legendaire: 'heart',
+}
+
+/**
+ * Un légendaire offert par l'administrateur (`Legendaire.offert`, le
+ * 26 novembre 2026 : un cadeau d'anniversaire), dit une fois en tête de son
+ * accueil : le médaillon en grand — il sort de son cercle, et penche sous le
+ * doigt —, son nom, le mot qui l'accompagne, et « Le porter », qui le met
+ * sur lui sans passer par la loge. Sans `onRanger`, l'aperçu du QG : ses
+ * boutons ne sont qu'une image.
+ */
+function AnnonceDuCadeau({ annonce: a, onRanger }: { annonce: Extract<AnnonceDeLAdministrateur, { sorte: 'legendaire' }>; onRanger?: () => void }) {
+  const [porte, setPorte] = useState(false)
+  const [erreur, setErreur] = useState<string | null>(null)
+  const l = legendaire(a.legendaire)
+  if (!l) return null
+  const porter = async () => {
+    setErreur(null)
+    try {
+      const { profile } = await api.joueur.enregistrer({ legendaire: a.legendaire })
+      setPorte(profile.legendaire === a.legendaire)
+    } catch (e) {
+      setErreur((e as Error).message)
+    }
+  }
+  return (
+    <li className="annonce-admin annonce-admin-cadeau">
+      <span className="annonce-cadeau-medaillon">
+        <Dessin cle={a.legendaire} grand />
+      </span>
+      <span className="annonce-admin-texte">
+        <span className="label">Un cadeau pour toi</span>
+        <b>{l.nom}</b>
+        {a.mot && <span>{espacesFines(`« ${a.mot} »`)}</span>}
+        <span className="muted small">— de l’administrateur</span>
+      </span>
+      {porte ? (
+        <span className="muted small" role="status">
+          {espacesFines(`Tu portes ${l.nom} : c’est lui que la salle verra.`)}
+        </span>
+      ) : onRanger ? (
+        <button type="button" className="btn btn-primary" onClick={() => void porter()}>
+          Le porter
+        </button>
+      ) : (
+        <span className="btn btn-primary" aria-hidden="true">
+          Le porter
+        </span>
+      )}
+      {erreur && (
+        <span className="error small" role="alert">
+          {erreur}
+        </span>
+      )}
+      {onRanger ? (
+        <button type="button" className="annonce-admin-merci" onClick={onRanger}>
+          Merci
+        </button>
+      ) : (
+        <span className="annonce-admin-merci" aria-hidden="true">
+          Merci
+        </span>
+      )}
+    </li>
+  )
 }
 
 /**
@@ -181,6 +248,7 @@ export function CarteDeLAdministrateur({
 }) {
   const [merci, setMerci] = useState<number | null>(null)
   if (a.sorte === 'phrase') return <AnnonceDeLaPhrase annonce={a} onVoir={onRanger} />
+  if (a.sorte === 'legendaire') return <AnnonceDuCadeau annonce={a} onRanger={onRanger} />
   // Une question qui attend sa réponse se range en « Plus tard » : elle reviendra à la prochaine visite.
   const libelle =
     a.sorte === 'merci'

@@ -367,6 +367,16 @@ Les confettis offerts par l'administrateur, avec leur mot — et ceux d'une anno
 - **Lue par** : `ProfileStore` (le solde, l'annonce sur l'accueil) ; la page de l'économie du QG (`economieDepuis`, « Tes dons »).
 - **Effacée par** : la suppression du profil.
 
+### `profile_cadeaux`
+
+Les légendaires offerts par l'administrateur (`Legendaire.offert`), un par ligne, avec leur mot. Le légendaire lui-même vient de sa voie, rangée dans `profile_badges` (`cadeau:<clé>`, sous `#cadeau:<id>`) : cette table ne garde que ce que l'accueil dit.
+
+- **Colonnes clés** : `id` (celui du rangement de sa voie), `profile_id` (indexée), `legendaire` (`lg:jormungandr`), `mot`, `created_at`.
+- **Espace** : non.
+- **Écrite par** : `ProfileStore.offrirUnLegendaire` (`POST /api/admin/profils/:id/legendaire`), après sa voie, jamais modifiée.
+- **Lue par** : `ProfileStore` (l'annonce sur l'accueil, dans le lot de ses dons — `achatsDe`, `annoncesDe` —, ce dernier mois).
+- **Effacée par** : la suppression du profil, avec sa voie : le légendaire peut s'offrir de nouveau.
+
 ### `profile_loge_vus`
 
 Ce que chaque profil a déjà vu dans sa loge, pièce par pièce : la pastille rouge de « Profil », de « M'habiller » et des pièces compte ce qu'il a et qui n'y est pas.

@@ -98,6 +98,8 @@ const FONDS: Record<string, [string, string, string]> = {
   // Les Grands Prix : un cheval d'étoiles sur la nuit (`shared/grandPrix.ts`).
   'lg:pegase': ['#3a5a9e', '#14234f', '#050a1c'],
   'lg:pegase-couronne': ['#6a6fae', '#1c2552', '#060a1e'],
+  // Les légendaires offerts (`Legendaire.offert`) : le Serpent du monde, sous la lumière qui tombe dans la mer du Nord.
+  'lg:jormungandr': ['#4fa8a0', '#0f3f4a', '#03121a'],
 }
 
 /**
@@ -140,9 +142,20 @@ const FONDS_ECLAT: Record<string, [string, string, string]> = {
   'lg:djinn': ['#f0e6c6', '#7a8aa8', '#141b30'],
   'lg:pegase': ['#b48ae6', '#4a2596', '#12082e'],
   'lg:pegase-couronne': ['#c49ef0', '#55309e', '#150a32'],
+  // Sa nuit polaire : l'aurore, verte et violette, sous la banquise.
+  'lg:jormungandr': ['#6fe0b0', '#2e3f8a', '#070b24'],
 }
 
-const OMBRE: [string, string, string] = ['#d9c9ff', '#6d4fb3', '#1d1233']
+/**
+ * Ceux qui s'enroulent autour de leur cercle (`.lg-enroule`, le 26 novembre
+ * 2026) : sortis tout entiers (`artPerso`), ils passent aussi derrière
+ * l'anneau, sur les arcs que leur feuille de style leur donne
+ * (`--lg-derriere`, lus sur leur peinture) — la fausse 3D d'un serpent qui
+ * s'enroule autour du médaillon, d'un masque, sans une image de plus.
+ */
+const ENROULES: ReadonlySet<string> = new Set(['lg:jormungandr'])
+
+const OMBRE: [string, string, string] =['#d9c9ff', '#6d4fb3', '#1d1233']
 
 interface Props {
   /** La clé du légendaire (`lg:phenix`…). */
@@ -233,6 +246,8 @@ export function Legendaire({ cle, verrouille, finition, eclat, grand, className 
   if (verrouille) classes.push('lg-verrou')
   if (eclate) classes.push('lg-eclate')
   if (entier) classes.push('lg-entier')
+  // Il s'enroule autour de son cercle : l'anneau passe par-dessus sa queue, sur les arcs que sa feuille lui donne.
+  if (entier && ENROULES.has(cle)) classes.push('lg-enroule')
   if (matiere) classes.push('lg-matiere')
   if (grand && !verrouille) classes.push('lg-touche-libre')
   if (className) classes.push(className)
