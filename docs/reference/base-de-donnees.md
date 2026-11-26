@@ -367,7 +367,7 @@ Les confettis offerts par l'administrateur, avec leur mot — et ceux d'une anno
 - **Lue par** : `ProfileStore` (le solde, l'annonce sur l'accueil) ; la page de l'économie du QG (`economieDepuis`, « Tes dons »).
 - **Effacée par** : la suppression du profil.
 
-### `profile_cadeaux`
+### `profile_legendaires_offerts`
 
 Les légendaires offerts par l'administrateur (`Legendaire.offert`), un par ligne, avec leur mot. Le légendaire lui-même vient de sa voie, rangée dans `profile_badges` (`cadeau:<clé>`, sous `#cadeau:<id>`) : cette table ne garde que ce que l'accueil dit.
 

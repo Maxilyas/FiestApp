@@ -1160,7 +1160,7 @@ function vusDeLaLigne(brut: unknown): VusDeLaLoge | null {
   }
 }
 
-/** Un légendaire offert par l'administrateur, tel que l'accueil le dit (`profile_cadeaux`). */
+/** Un légendaire offert par l'administrateur, tel que l'accueil le dit (`profile_legendaires_offerts`). */
 export interface CadeauLu {
   id: string
   legendaire: string
@@ -1188,7 +1188,7 @@ export interface AchatsLus {
   affiches: AfficheLue[]
   /** Les Divins dont l'accueil lui a déjà annoncé la phrase retrouvée par tous (ses lignes `annoncee` de `profile_sphinx`). */
   phrasesAnnoncees: string[]
-  /** Les légendaires que l'administrateur lui a offerts ce dernier mois, avec leur mot (`profile_cadeaux`). */
+  /** Les légendaires que l'administrateur lui a offerts ce dernier mois, avec leur mot (`profile_legendaires_offerts`). */
   cadeaux: CadeauLu[]
   /** Ses soirées, quand on les a demandées (`historique`). */
   historique?: SoireeDeLHistorique[]
@@ -1790,15 +1790,16 @@ export class ProfileStore {
         'CREATE INDEX IF NOT EXISTS idx_profile_dons_quand ON profile_dons(created_at)',
         // Les légendaires que l'administrateur offre (`Legendaire.offert`, `offrirUnLegendaire`), un par ligne, jamais
         // effacée : son mot, que l'accueil dit une fois. Le légendaire lui-même vient de sa voie, rangée à côté
-        // (`cadeau:<clé>` sous `#cadeau:<id>`) : cette table ne garde que ce qui se dit.
-        `CREATE TABLE IF NOT EXISTS profile_cadeaux (
+        // (`cadeau:<clé>` sous `#cadeau:<id>`) : cette table ne garde que ce qui se dit. Pas `profile_cadeaux` : ce
+        // nom est aux cadeaux des compagnons, et `IF NOT EXISTS` aurait gardé la première des deux tables.
+        `CREATE TABLE IF NOT EXISTS profile_legendaires_offerts (
            id         TEXT PRIMARY KEY,
            profile_id TEXT NOT NULL,
            legendaire TEXT NOT NULL,
            mot        TEXT,
            created_at INTEGER NOT NULL
          )`,
-        'CREATE INDEX IF NOT EXISTS idx_profile_cadeaux ON profile_cadeaux(profile_id)',
+        'CREATE INDEX IF NOT EXISTS idx_profile_legendaires_offerts ON profile_legendaires_offerts(profile_id)',
         // Les annonces de l'administrateur à tous (`shared/annonces.ts`), une
         // ligne chacune, jamais effacée — retirée, elle se tait. Les confettis
         // qu'elle offre sont des dons, un par profil (`annoncerATous`) : le
@@ -2520,7 +2521,7 @@ export class ProfileStore {
               { sql: `SELECT divin FROM profile_sphinx WHERE profile_id = ? AND etat = 'annoncee'`, args: [profileId] },
               // Les légendaires qu'on lui a offerts ce dernier mois : leur mot se dit une fois, comme un don.
               {
-                sql: 'SELECT id, legendaire, mot, created_at FROM profile_cadeaux WHERE profile_id = ? AND created_at >= ? ORDER BY created_at DESC',
+                sql: 'SELECT id, legendaire, mot, created_at FROM profile_legendaires_offerts WHERE profile_id = ? AND created_at >= ? ORDER BY created_at DESC',
                 args: [profileId, annonces.depuis],
               },
             ]
@@ -7039,7 +7040,7 @@ export class ProfileStore {
    * 26 novembre 2026 : un cadeau d'anniversaire) : sa voie (`cleDuCadeau`)
    * rangée sous un nom qu'aucune soirée, aucun jour ni aucune semaine ne porte
    * (`#cadeau:<id>`) — rien ne la reprend en passant —, et son mot, que
-   * l'accueil dit une fois (`profile_cadeaux`, `annoncesDe`). Un seul
+   * l'accueil dit une fois (`profile_legendaires_offerts`, `annoncesDe`). Un seul
    * exemplaire par légendaire ; jamais à un profil suspendu, ni à soi
    * (`profilsAdmin.ts`) : essayé sur soi, il ne pourrait plus s'offrir.
    */
@@ -7058,7 +7059,7 @@ export class ProfileStore {
     // Sa voie d'abord : un mot sans légendaire se dirait pour rien.
     await this.ranger(id, `#cadeau:${cadeau}`, [voie], quand)
     await this.client.execute({
-      sql: 'INSERT INTO profile_cadeaux (id, profile_id, legendaire, mot, created_at) VALUES (?, ?, ?, ?, ?)',
+      sql: 'INSERT INTO profile_legendaires_offerts (id, profile_id, legendaire, mot, created_at) VALUES (?, ?, ?, ?, ?)',
       args: [cadeau, id, cle, propre || null, quand],
     })
     return { legendaire: cle, mot: propre || null }
@@ -7607,7 +7608,7 @@ export class ProfileStore {
           'profile_fonds',
           'profile_motifs',
           'profile_dons',
-          'profile_cadeaux',
+          'profile_legendaires_offerts',
           'qg_annonce_reponses',
           'qg_annonce_destinataires',
           'profile_affiches',
