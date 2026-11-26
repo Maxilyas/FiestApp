@@ -71,9 +71,11 @@ import type { Fiche, FriseATheme, Lieu, Replique } from '../../shared/cabinet/co
  * Ce que le contenu livré tient, au moins : un plancher qui ne recule pas. Il
  * monte quand un lot entre — un lot rangé puis perdu par une fusion
  * maladroite ferait rougir ce test, pas un joueur qui retombe sur les mêmes
- * lieux.
+ * lieux. Un retrait voulu le baisse et dit pourquoi : le 26 novembre 2026,
+ * « E.T. téléphone maison », qui écrivait qui l'a dite (`refusDeLaReplique`) —
+ * 136 répliques.
  */
-const AU_MOINS: Readonly<Record<SorteDuContenu, number>> = { lieux: 171, fiches: 138, repliques: 137, frises: 18, filet: 1930, reperes: 80 }
+const AU_MOINS: Readonly<Record<SorteDuContenu, number>> = { lieux: 171, fiches: 138, repliques: 136, frises: 18, filet: 1930, reperes: 80 }
 
 const brut = (s: SorteDuContenu): unknown[] => JSON.parse(readFileSync(path.join(DOSSIER_DU_CONTENU, SORTES[s].fichier), 'utf8'))
 
@@ -647,6 +649,8 @@ test('une réplique : un seul mot qui manque, trois leurres et deux autres perso
     [{ ...REPLIQUE, leurres: ['homme', 'beau village', 'public'] }, /^un leurre, « beau village » : un seul mot/, 'un leurre de deux mots'],
     [{ ...REPLIQUE, autres: ['Mistinguett', 'Josephine Baker'] }, /^les autres personnes : distinctes/, 'qui parmi les autres, sans accent'],
     [{ ...REPLIQUE, autres: ['Mistinguett'] }, /^les autres personnes : 2/, 'une seule autre personne'],
+    [{ ...REPLIQUE, avant: 'E.T. téléphone', mot: 'maison', apres: '.', qui: 'E.T.' }, /^la réplique dit « E\.T\. »/, 'qui l’a dite, écrit dans la réplique'],
+    [{ ...REPLIQUE, avant: "J'ai deux amours, Fréhel, mon" }, /^la réplique dit « Fréhel »/, 'une autre personne écrite dans la réplique'],
     [{ ...REPLIQUE, apres: ` ${Array.from({ length: MOTS_D_UNE_REPLIQUE_MAX }, () => 'et').join(' ')}.` }, /^la réplique : \d+ mots/, 'plus de quinze mots'],
     [{ ...REPLIQUE, apres: 'et Paris.' }, /^ce qui suit le mot : un blanc d’abord/, 'le mot collé à la suite'],
     [{ ...REPLIQUE, apres: ' et Paris. ' }, /^ce qui suit le mot : sur une ligne/, 'un blanc au bout'],

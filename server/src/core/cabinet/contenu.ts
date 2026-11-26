@@ -361,6 +361,14 @@ export function refusDeLaReplique(brut: unknown): string | null {
       return toutesDistinctes([r.qui as string, ...autres]) ? null : 'les autres personnes : distinctes entre elles et de qui l’a dite'
     },
     () => {
+      // « E.T. téléphone maison » : la réplique écrivait qui l'a dite, et la page la montre aux deux étapes — « Qui l'a dit ? »
+      // se répondait en la lisant. Tirée au hasard, elle a rougi la CI le 26 novembre 2026 (`cabinet-ecran-neufs.test.ts`).
+      // Un autre nom proposé, écrit dans la réplique, se lirait pour la réponse : il s'y refuse aussi.
+      const replique = `${r.avant} ${r.mot}${r.apres}`
+      const dit = [r.qui as string, ...(r.autres as string[])].find(nom => ecritDans(replique, nom))
+      return dit ? `la réplique dit « ${dit} » : « Qui l’a dit ? » se répondrait en la lisant` : null
+    },
+    () => {
       const mots = `${r.avant} ${r.mot}${r.apres}`.split(/\s+/).filter(m => /\p{L}/u.test(m)).length
       return mots > MOTS_D_UNE_REPLIQUE_MAX ? `la réplique : ${mots} mots, pour ${MOTS_D_UNE_REPLIQUE_MAX} au plus` : null
     },
