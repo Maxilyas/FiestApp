@@ -11,6 +11,7 @@ import { AUCUNE_BORDURE, NOM_DE_LA_BORDURE, type ChoixDeBordure } from '../../..
 import type { Essai } from '../../../shared/loge'
 import type { PublicProfileDetail } from '../../../shared/profil'
 import { enMatiere, type Matiere, type MatiereTaillee } from '../../../shared/matieres'
+import { motif } from '../../../shared/motifs'
 
 // Ce qu'un toucher du profil change, et ce que le lecteur d'écran en entend.
 // À part des onglets qui l'emploient : la page du profil l'annonce, et
@@ -40,6 +41,8 @@ export type ChoixDuProfil = {
   matiereDeReserve?: { cle: string; matiere: MatiereTaillee }
   /** La bordure de ligue : `auto`, `aucune`, ou celle d'une ligue atteinte en duel. */
   bordure?: ChoixDeBordure
+  /** Le motif de sa bordure : la clé d'un motif qu'il tient, ou null — accordé à son avatar (`shared/motifs.ts`). */
+  motif?: string | null
   /** Le compagnon de sa niche, parmi ceux qu'il a adoptés : c'est lui qui grandit. */
   niche?: string | null
   /** Le sceau de ses légendaires se montre (`true`, d'office) ou se masque. */
@@ -113,6 +116,10 @@ function annonceDUnChamp(choix: ChoixDuProfil): string {
   if (choix.bordure) {
     if (choix.bordure === 'auto') return 'Ta plus haute bordure, d’office.'
     return choix.bordure === AUCUNE_BORDURE ? 'Sans bordure.' : `Ta bordure : ${NOM_DE_LA_BORDURE[choix.bordure]}.`
+  }
+  if (choix.motif !== undefined) {
+    const nom = choix.motif ? motif(choix.motif)?.nom : undefined
+    return nom ? `Ton motif de bordure : ${nom}.` : 'Ta bordure, accordée à ton avatar.'
   }
   if (choix.titre !== undefined) {
     // Un maître, un champion du mois : ce ne sont pas des hauts faits, et ils se disaient « Sans titre ».

@@ -49,8 +49,13 @@ const DEUX_ECRANS: Ecran[] = [[360, 640], [390, 844]]
 const THEMES_ENTIERS: Record<number, number> = { 640: 9, 664: 9, 740: 9, 800: 12, 844: 12, 915: 15 }
 /** Avec son envie en tête (62 px et son écart) : une rangée de moins là où la dernière tenait à quelques pixels. */
 const THEMES_ENTIERS_AVEC_ENVIE: Record<number, number> = { 640: 6, 664: 6, 740: 9, 800: 9, 844: 12, 915: 12 }
-/** La hauteur de la page, en écrans visibles au-dessus du menu, au plus — 6,2 avant, en 360 × 640. */
-const ECRANS_AU_PLUS = 4.2
+/**
+ * La hauteur de la page, en écrans visibles au-dessus du menu, au plus — 6,2 avant la refonte, en 360 × 640 ; 4,2
+ * jusqu'au 26 novembre 2026, quand le rayon « Bordures » est venu (ses douze motifs en deux rangées d'avatars bordés,
+ * 136 à 154 px, son titre et sa ligne) : 4,3 écrans pour un nouveau venu, son envie en tête. L'arrivée ne change pas
+ * — les thèmes entiers se comptent à part, plus haut — ; seul le bas de la page s'allonge d'un rayon.
+ */
+const ECRANS_AU_PLUS = 4.4
 /** Une cible de doigt, au moins — à un demi-pixel près. */
 const CIBLE = 44
 /** Une cible d'avant, plus basse, que cette refonte n'a pas touchée : « Fermer », en tête de toute feuille (`Feuille`, 40 px). */

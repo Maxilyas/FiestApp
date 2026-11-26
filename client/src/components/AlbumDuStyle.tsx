@@ -13,6 +13,7 @@ import { CRANS_D_UNE_BORDURE, ligueParCle, ouSeGagnentSesCrans, type CleDeLigue 
 import { NOM_RARETE } from '../../../shared/badges'
 import { sonAvatar } from '../../../shared/sonAvatar'
 import type { Finition, PublicProfileDetail } from '../../../shared/profil'
+import { bordurePortee } from '../../../shared/duels'
 
 // Le style, dans « Ma collection » : les fonds de carte, les gerbes, les
 // finitions et les bordures de ligue, chacun en album — comme les avatars et
@@ -30,19 +31,21 @@ const CE_QU_IL_HABILLE: Record<PartieDuStyle, string> = {
   gerbes: 'Elle éclate sur ton téléphone à chaque bonne réponse : toi seul la vois.',
   finitions: 'Le cercle de ton avatar, partout où la salle le voit.',
   bordures: 'Autour de ton avatar : chaque duel gagné dans sa ligue, ou plus haut, en sertit un cran.',
+  motifs: 'Ce qui pousse à chaque victoire autour de ton avatar : la ligue garde son métal, son insigne et ses crans.',
 }
 
 /** Ce qu'il est, à la place d'une rareté dans sa fiche : le style n'en a pas. */
-const SORTE: Record<PartieDuStyle, string> = { fonds: 'Fond de carte', gerbes: 'Gerbe', finitions: 'Finition', bordures: 'Bordure de ligue' }
+const SORTE: Record<PartieDuStyle, string> = { fonds: 'Fond de carte', gerbes: 'Gerbe', finitions: 'Finition', bordures: 'Bordure de ligue', motifs: 'Motif de bordure' }
 
 /** Porté ou portée : un fond, une gerbe, une finition, une bordure. */
-const PORTE: Record<PartieDuStyle, string> = { fonds: 'porté', gerbes: 'portée', finitions: 'portée', bordures: 'portée' }
+const PORTE: Record<PartieDuStyle, string> = { fonds: 'porté', gerbes: 'portée', finitions: 'portée', bordures: 'portée', motifs: 'porté' }
 /** Et sa fiche l'accorde de même : « Comment il se gagne » sous une gerbe se lisait de travers. */
 const IL: Record<PartieDuStyle, { il: string; le: string }> = {
   fonds: { il: 'il', le: 'le' },
   gerbes: { il: 'elle', le: 'la' },
   finitions: { il: 'elle', le: 'la' },
   bordures: { il: 'elle', le: 'la' },
+  motifs: { il: 'il', le: 'le' },
 }
 
 /**
@@ -54,6 +57,7 @@ const ESSAI: Record<PartieDuStyle, { piece: string; cle: (o: ObjetDuStyle) => st
   gerbes: { piece: 'gerbe', cle: o => o.cle },
   finitions: { piece: 'avatar', cle: o => `finition:${o.cle}` },
   bordures: { piece: 'avatar', cle: o => `bordure:${o.cle}` },
+  motifs: { piece: 'avatar', cle: o => `motif:${o.cle}` },
 }
 
 const ICONE_DU_LIEU: Record<LieuDuStyle, IconName> = {
@@ -128,6 +132,11 @@ export function AlbumDuStyle({ partie, profil }: { partie: PartieDuStyle; profil
         return <Avatar {...sonAvatar(profil)} finition={o.cle as Finition} />
       case 'bordures':
         return <Avatar {...sonAvatar(profil)} finition={profil.finition} bordure={{ ligue: o.cle as CleDeLigue, crans: o.crans ?? 0 }} />
+      case 'motifs': {
+        // Autour de ce qu'il porte, à sa bordure du moment — sans bordure encore, un bronze serti en aperçu.
+        const sienne = bordurePortee(profil.bordureChoisie ?? 'auto', profil.bordures) ?? { ligue: 'bronze' as const, crans: 12 }
+        return <Avatar {...sonAvatar(profil)} finition={profil.finition} bordure={{ ligue: sienne.ligue, crans: sienne.crans, motif: o.cle }} />
+      }
     }
   }
   return (

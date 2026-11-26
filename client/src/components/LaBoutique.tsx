@@ -3,12 +3,15 @@ import type { PublicProfileDetail } from '../../../shared/profil'
 import { theme as leTheme } from '../../../shared/themes'
 import { COMPAGNONS_DE_LA_BOUTIQUE, compagnon as leCompagnon } from '../../../shared/compagnons'
 import { fond as leFond } from '../../../shared/fonds'
+import { motif as leMotif } from '../../../shared/motifs'
 import { QUESTIONS_PAR_JOUR } from '../../../shared/jour'
 import { CONFETTIS_D_UNE_MISSION, CONFETTIS_DES_TROIS, MISSIONS_PAR_JOUR } from '../../../shared/missions'
 import { ouEnEstLEnvie, type Envie } from '../../../shared/envie'
 import { lignesDuPanier, sansLaSorte, type EssaiDeLaBoutique, type LigneDuPanier, type SorteDEssai } from '../../../shared/panier'
 import {
   LIGNE_DES_FONDS,
+  LIGNE_DES_MOTIFS,
+  motifsEnRayon,
   LIGNE_DU_COMPTOIR,
   RAYONS,
   RAYON_DE,
@@ -29,6 +32,7 @@ import { JaugeFine } from './LigneDeCollection'
 import { RayonDesThemes } from './Boutique'
 import { RayonDesCompagnons, compagnonDeLAdresse } from './RayonDesCompagnons'
 import { RayonDesFonds, fondDeLAdresse } from './RayonDesFonds'
+import { RayonDesMotifs, motifDeLAdresse } from './RayonDesMotifs'
 import { RayonDesObjets, useComptoir } from './Comptoir'
 import { OBJETS, objetDeLAdresse } from './Objets'
 import { Presentoir } from './Presentoir'
@@ -80,6 +84,9 @@ export function ceQueLAdresseOuvre(hash: string): { rayon: Rayon | null; fiche: 
   if (hash === '#fonds') return { rayon: 'fonds', fiche: null }
   const f = fondDeLAdresse(hash)
   if (f) return { rayon: 'fonds', fiche: { sorte: 'fond', cle: f } }
+  if (hash === '#bordures') return { rayon: 'bordures', fiche: null }
+  const m = motifDeLAdresse(hash)
+  if (m) return { rayon: 'bordures', fiche: { sorte: 'motif', cle: m } }
   if (hash === '#objets') return { rayon: 'objets', fiche: null }
   if (hash === '#vies') return { rayon: 'objets', fiche: { sorte: 'objet', cle: 'vie' } }
   const o = objetDeLAdresse(hash)
@@ -105,6 +112,7 @@ function nomDeLArticle(a: Envie): string | undefined {
   if (a.sorte === 'theme') return leTheme(a.cle)?.nom
   if (a.sorte === 'compagnon') return leCompagnon(a.cle)?.nom
   if (a.sorte === 'fond') return leFond(a.cle)?.nom
+  if (a.sorte === 'motif') return leMotif(a.cle)?.nom
   return OBJETS.find(o => o.cle === a.cle)?.nom
 }
 
@@ -199,6 +207,7 @@ export function PanneauBoutique({
   acheter,
   acheterCompagnon,
   acheterFond,
+  acheterMotif,
   onSolde,
   onEnvie,
 }: {
@@ -208,6 +217,8 @@ export function PanneauBoutique({
   acheter: (cle: string, porter: boolean) => Promise<string | null>
   acheterCompagnon: (cle: string, installer: boolean) => Promise<string | null>
   acheterFond: (cle: string, porter: boolean) => Promise<string | null>
+  /** Un motif de bordure (`shared/motifs.ts`) ; absent d'une page d'avant, le présentoir le dit. */
+  acheterMotif?: (cle: string, porter: boolean) => Promise<string | null>
   /** Un objet acheté : le solde que le serveur rend. */
   onSolde: (solde: number) => void
   /** Son envie, telle que le serveur l'a retenue ; null : retirée. */
@@ -287,12 +298,14 @@ export function PanneauBoutique({
     themes: themes.map(t => t.key),
     compagnons: COMPAGNONS_DE_LA_BOUTIQUE.map(c => c.key),
     fonds: fondsEnRayon(profil.fonds ?? []).map(f => f.key),
+    bordures: motifsEnRayon(profil.motifs ?? [], boutique.jour).map(m => m.key),
     objets: OBJETS.map(o => o.cle),
   }
   const lignesDesRayons: Record<Rayon, string> = {
     themes: ligneDesThemes(themes, solde),
     compagnons: ligneDesCompagnons(adoptes.filter(c => COMPAGNONS_DE_LA_BOUTIQUE.some(b => b.key === c)).length),
     fonds: LIGNE_DES_FONDS,
+    bordures: LIGNE_DES_MOTIFS,
     objets: LIGNE_DU_COMPTOIR,
   }
 
@@ -416,6 +429,8 @@ export function PanneauBoutique({
             <RayonDesCompagnons profil={profil} essai={essai.compagnon} envie={envieDe('compagnon')} onOuvrir={cle => ouvrir({ sorte: 'compagnon', cle })} />
           ) : r.id === 'fonds' ? (
             <RayonDesFonds profil={profil} envie={envieDe('fond')} onOuvrir={cle => ouvrir({ sorte: 'fond', cle })} />
+          ) : r.id === 'bordures' ? (
+            <RayonDesMotifs profil={profil} envie={envieDe('motif')} onOuvrir={cle => ouvrir({ sorte: 'motif', cle })} />
           ) : (
             <RayonDesObjets comptoir={comptoir} solde={solde} envie={envieDe('objet')} onOuvrir={cle => ouvrir({ sorte: 'objet', cle })} />
           )}
@@ -436,6 +451,7 @@ export function PanneauBoutique({
           acheter={acheter}
           acheterCompagnon={acheterCompagnon}
           acheterFond={acheterFond}
+          acheterMotif={acheterMotif}
           enregistrer={enregistrer}
           onPorte={porte}
           onFermer={fermer}

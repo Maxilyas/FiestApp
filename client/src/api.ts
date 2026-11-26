@@ -548,6 +548,12 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ fond, porter }),
       }),
+    /** Acheter un motif de bordure — le porter aussitôt, ou le garder pour plus tard. Ses motifs reviennent relus, le nouveau compris. */
+    acheterMotif: (motif: string, porter = true) =>
+      req<{ profile: PublicProfile; boutique: BoutiqueDuProfil; motifChoisi: string | null; motifs: string[] }>('/api/joueur/motifs', {
+        method: 'POST',
+        body: JSON.stringify({ motif, porter }),
+      }),
     /** Acheter un Éclat : il attend en réserve dans la loge. La réserve et le solde reviennent. */
     acheterUnEclat: () =>
       req<{ enReserve: number; confettis: { gagnes: number; depenses: number; solde: number } }>('/api/joueur/eclat', { method: 'POST', body: '{}' }),

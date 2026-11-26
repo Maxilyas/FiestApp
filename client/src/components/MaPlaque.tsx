@@ -21,7 +21,7 @@ import type { PropsDUnePiece } from './choix'
 // podium ; et son écrin dans chaque liste. L'aperçu montre les deux : on
 // choisit ce qu'on voit, pas un nom dans une liste.
 
-type SaLigne = Pick<PublicProfileDetail, 'name' | 'laurier' | 'avatar' | 'finition' | 'legendaire' | 'eclats' | 'eclatsEteints' | 'matieres' | 'matieresPortees' | 'scelles' | 'sceauMasque' | 'bordureChoisie' | 'bordures'>
+type SaLigne = Pick<PublicProfileDetail, 'name' | 'laurier' | 'avatar' | 'finition' | 'legendaire' | 'eclats' | 'eclatsEteints' | 'matieres' | 'matieresPortees' | 'scelles' | 'sceauMasque' | 'bordureChoisie' | 'motifChoisi' | 'bordures'>
 
 /** Son avatar tel qu'il le porte, à la classe des classements (`lb-avatar`) : sur sa ligne comme sur sa marche. */
 function SonAvatar({ profil }: { profil: SaLigne }) {
@@ -34,7 +34,7 @@ function SonAvatar({ profil }: { profil: SaLigne }) {
       eclat={profil.eclats ? eclatChez(profil, cibleEclat(profil.legendaire ?? undefined, profil.avatar)) : false}
       legendaire={profil.legendaire ?? undefined}
       sceau={sceauVisible(profil)}
-      bordure={bordurePortee(profil.bordureChoisie ?? 'auto', profil.bordures)}
+      bordure={bordurePortee(profil.bordureChoisie ?? 'auto', profil.bordures, profil.motifChoisi)}
     />
   )
 }

@@ -10,6 +10,7 @@ import { BRANCHES } from './branches'
 import { PRIX_D_UN_COMPAGNON, COMPAGNONS } from './compagnons'
 import { recompenseDeLaSemaine, type SemaineJouee } from './duels'
 import { fond } from './fonds'
+import { motif } from './motifs'
 import { jourAvant } from './jour'
 import { LEGENDAIRES } from './legendaires'
 import { compteDuJour, JOURS_DE_L_HABITUDE, JOURS_DES_TUILES, jourDeLInstant, joursDesMinuits, minuitDe, type CompteDuJour } from './qg'
@@ -35,13 +36,14 @@ export const NOM_DE_LA_SOURCE: Record<SourceDeConfettis, string> = {
 }
 
 /** Où ils partent : tout ce que la boutique vend. */
-export const DEPENSES_DE_CONFETTIS = ['themes', 'compagnons', 'fonds', 'vies', 'sabliers', 'eclats'] as const
+export const DEPENSES_DE_CONFETTIS = ['themes', 'compagnons', 'fonds', 'motifs', 'vies', 'sabliers', 'eclats'] as const
 export type DepenseDeConfettis = (typeof DEPENSES_DE_CONFETTIS)[number]
 
 export const NOM_DE_LA_DEPENSE: Record<DepenseDeConfettis, string> = {
   themes: 'Thèmes',
   compagnons: 'Compagnons',
   fonds: 'Fonds de carte',
+  motifs: 'Motifs de bordure',
   vies: 'Vies',
   sabliers: 'Sabliers',
   eclats: 'Éclats',
@@ -331,7 +333,7 @@ export function circulationDes(soldes: readonly { solde: number; actif: boolean 
 export const VENTES_AU_QG = 8
 
 /** Ce qui se vend à l'unité, et se compte aux meilleures ventes. */
-export type SorteDeVente = 'theme' | 'compagnon' | 'fond'
+export type SorteDeVente = 'theme' | 'compagnon' | 'fond' | 'motif'
 
 /** Un article vendu : son nom et sa rareté, ses ventes depuis toujours et ces trente jours. */
 export interface VenteDUnArticle {
@@ -355,10 +357,11 @@ export function meilleuresVentes(lignes: readonly { sorte: SorteDeVente; article
       const theme = l.sorte === 'theme' ? THEMES.find(t => t.key === l.article) : undefined
       const compagnon = l.sorte === 'compagnon' ? COMPAGNONS.find(c => c.key === l.article) : undefined
       const leFond = l.sorte === 'fond' ? fond(l.article) : undefined
+      const leMotif = l.sorte === 'motif' ? motif(l.article) : undefined
       return {
         ...l,
-        nom: theme?.nom ?? compagnon?.nom ?? leFond?.nom ?? l.article,
-        rarete: l.sorte === 'compagnon' ? 'Compagnon' : l.sorte === 'fond' ? 'Fond de carte' : theme ? NOM_DE_RARETE[theme.rarete] : '–',
+        nom: theme?.nom ?? compagnon?.nom ?? leFond?.nom ?? leMotif?.nom ?? l.article,
+        rarete: l.sorte === 'compagnon' ? 'Compagnon' : l.sorte === 'fond' ? 'Fond de carte' : l.sorte === 'motif' ? 'Motif de bordure' : theme ? NOM_DE_RARETE[theme.rarete] : '–',
       }
     })
     .sort((a, b) => b.recentes - a.recentes || b.ventes - a.ventes || a.nom.localeCompare(b.nom, 'fr'))

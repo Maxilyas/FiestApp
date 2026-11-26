@@ -900,6 +900,8 @@ export interface CoteDesDuels {
   ligue: CleDeLigue
   cote: number
   bordures: BordureDeLigue[]
+  /** Ses victoires contre Automate, au dé : les Rouages s'ouvrent à cinquante (`shared/motifs.ts`). */
+  victoiresAuDe: number
 }
 
 /** Ce que la campagne dit d'un profil à son solde et à sa page, d'une seule lecture (`CampagneStore.duProfil`). */
@@ -6212,7 +6214,7 @@ export class CampagneStore {
     const ligne = ({ item: j, rang }: (typeof classes)[number]): LigneDesDuels => {
       const { niveau, finition, eclat, legendaire, sceau, laurier } = p.apparenceDe(j.profil)
       // Sa bordure de ligue, lue sur le même relevé que sa cote.
-      const bordure = bordurePortee(j.profil.bordure, j.releve.bordures)
+      const bordure = bordurePortee(j.profil.bordure, j.releve.bordures, j.profil.motif)
       // La plaque de son nom, de mémoire.
       const plaque = p.plaqueDe?.(j.profil)
       const avant = auLundi.get(j)
@@ -9633,7 +9635,7 @@ export function sujetsDeLaQuestion(q: QuestionDeLaBase): readonly string[] {
 function sonApparence(p: Pick<ProfileStore, 'apparenceDe'> & Partial<Pick<ProfileStore, 'plaqueDe'>>, x: ProfileRec, releve?: ReleveDesDuels): SonApparence {
   const { finition, eclat, legendaire, sceau } = p.apparenceDe(x)
   // Sa bordure de ligue, quand ses duels sont lus avec lui.
-  const bordure = bordurePortee(x.bordure, releve?.bordures)
+  const bordure = bordurePortee(x.bordure, releve?.bordures, x.motif)
   const plaque = p.plaqueDe?.(x)
   // Mat, c'est l'avatar sans rien autour : sa ligne n'a rien de plus à dire.
   return {
@@ -10037,7 +10039,7 @@ function paliersCommences(sentiers: readonly SentierDuJoueur[]): Paliers {
 
 /** Sa ligue, sa cote et ses bordures, d'un relevé de ses duels ; null tant qu'il n'a fini aucun duel classé — l'absence, pas une ligue de bronze. */
 function coteDuReleve(r: ReleveDesDuels): CoteDesDuels | null {
-  return r.joues > 0 ? { ligue: ligueDe(r.cote).cle, cote: r.cote, bordures: r.bordures } : null
+  return r.joues > 0 ? { ligue: ligueDe(r.cote).cle, cote: r.cote, bordures: r.bordures, victoiresAuDe: r.victoiresAuDe } : null
 }
 
 /**

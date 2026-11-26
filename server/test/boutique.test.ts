@@ -125,23 +125,26 @@ function gestes(html: string) {
   }))
 }
 
-test('la boutique est une seule page : ses quatre rayons en grilles, chacun sa ligne, une rangée qui y mène — et plus de « À la une »', async () => {
+test('la boutique est une seule page : ses cinq rayons en grilles, chacun sa ligne, une rangée qui y mène — et plus de « À la une »', async () => {
   const html = await boutique()
   assert.deepEqual(puces(html), [
     { nom: 'Thèmes', href: '#themes', ici: true },
     { nom: 'Compagnons', href: '#compagnons', ici: false },
     { nom: 'Fonds', href: '#fonds', ici: false },
+    // Les bordures, leurs motifs, depuis le 26 novembre 2026 : de l'habit, avant le comptoir.
+    { nom: 'Bordures', href: '#bordures', ici: false },
     { nom: 'Objets', href: '#objets', ici: false },
   ])
   // Plus d'onglets : rien ne se cache, on descend.
   assert.doesNotMatch(html, /role="tab"|role="tabpanel"|onglets-fins/)
-  // Les quatre rayons, dans l'ordre des segments : son nom, et ce qu'on vient y chercher en une ligne.
+  // Les cinq rayons, dans l'ordre des segments : son nom, et ce qu'on vient y chercher en une ligne.
   const enRayon = themesEnRayon(JEANNE.boutique.possedes, JEANNE.boutique.jour)
   const rayons = [...html.matchAll(/<section id="rayon-(\w+)" class="rayon-de-la-boutique" aria-labelledby="titre-\w+"><header class="rayon-tete"><h2 id="titre-\w+">([^<]+)<\/h2><p>([^<]+)<\/p><\/header>/g)].map(m => [m[1], m[2], m[3]])
   assert.deepEqual(rayons, [
     ['themes', 'Thèmes', ligneDesThemes(enRayon, 420)],
     ['compagnons', 'Compagnons', '1000 chacun'],
     ['fonds', 'Fonds', '250 chacun · derrière ta carte'],
+    ['bordures', 'Bordures', '400 chacune · la ligue reste à gagner'],
     ['objets', 'Le comptoir', 'ce qui sert en jeu'],
   ])
   assert.match(rayons[0][2], /^\d+, dont \d+ à ta portée$/)

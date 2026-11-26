@@ -165,7 +165,13 @@ test('le coffre ne donne jamais ce qu’on a déjà, et descend d’un cran quan
   assert.equal(haut.rarete, 'legendaire')
   // Tout le légendaire à lui : l'épique.
   const sansLegendaire = tirerLeCoffre('royal', {
-    possede: o => o.sorte === 'compagnon' || (o.sorte === 'fond' && ['dragon', 'cite-celeste'].includes(o.cle)) || o.sorte === 'theme' || (o.sorte === 'gerbe' && o.cle === 'tresor'),
+    possede: o =>
+      o.sorte === 'compagnon' ||
+      (o.sorte === 'fond' && ['dragon', 'cite-celeste'].includes(o.cle)) ||
+      o.sorte === 'theme' ||
+      (o.sorte === 'gerbe' && o.cle === 'tresor') ||
+      // La couronne royale, le motif de bordure légendaire du trésor (le 26 novembre 2026).
+      (o.sorte === 'motif' && o.cle === 'couronne'),
     hasard: hasards(0.999, 0),
     jour,
   })

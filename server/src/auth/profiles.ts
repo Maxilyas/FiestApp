@@ -1,4 +1,5 @@
 import { AUCUNE_BORDURE, bordurePortee, choixDeBordure, ligueParCle, type BordureDeLigue, type CleDeLigue } from '../../../shared/duels'
+import { MOTIF_ACCORDE, choixDeMotif, motif, motifsTenus, prixDuMotif, regleDuMotif, saisonDuMotif } from '../../../shared/motifs'
 import { ajouterColonne, clientDistant, type Client } from '../core/distante'
 import type { InStatement, ResultSet, Row } from '@libsql/client'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
@@ -295,6 +296,12 @@ export interface ProfileRec {
    * `AUCUNE_BORDURE` : aucune. Ses crans se relisent dans ses duels.
    */
   bordure: string | null
+  /**
+   * Le motif de sa bordure (`shared/motifs.ts`), s'il en a choisi un — null :
+   * accordé à l'avatar qu'il porte (`motifAccorde`), le réglage d'office.
+   * Vérifié quand il le prend, puis cru : ce qui ouvre un motif ne se reprend pas.
+   */
+  motif: string | null
   /**
    * Le compagnon qu'il a installé dans sa niche (`loup`), s'il en a choisi un
    * — null : celui que la règle désigne (`compagnonDeLaNiche`). C'est lui qui
@@ -1149,6 +1156,8 @@ export interface AchatsLus {
   eclats: number
   compagnons: number
   fonds: Map<string, number>
+  /** Ses motifs de bordure achetés, et leur prix. */
+  motifs: Map<string, number>
   dons: { id: string; confettis: number; mot: string | null; le: number }[]
   /** Ce que ses missions faites et ses coffres lui ont donné en confettis. */
   missions: number
@@ -1313,6 +1322,12 @@ export class ProfileStore {
    * vérifie sans aller-retour.
    */
   private fondsAchetes = new Map<string, Set<string>>()
+  /**
+   * Les motifs de bordure qu'il a achetés (`profile_motifs`), par profil.
+   * Chargés avec le profil, comme ses fonds : le motif qu'il porte se vérifie
+   * sans aller-retour.
+   */
+  private motifsAchetes = new Map<string, Set<string>>()
   /**
    * Les légendaires qu'il avait gagnés avant que leurs règles se durcissent,
    * avec la règle d'alors : il les garde tant qu'elle tient. Écrits au
@@ -1719,6 +1734,17 @@ export class ProfileStore {
            PRIMARY KEY (profile_id, fond)
          )`,
         'CREATE INDEX IF NOT EXISTS idx_profile_fonds_quand ON profile_fonds(created_at)',
+        // Les motifs de bordure achetés en confettis (`shared/motifs.ts`), le
+        // 26 novembre 2026 : une ligne par motif, jamais effacée, avec ce qu'il
+        // a coûté — comme un fond. Ceux du coffre vivent dans `profile_coffres`.
+        `CREATE TABLE IF NOT EXISTS profile_motifs (
+           profile_id TEXT NOT NULL,
+           motif      TEXT NOT NULL,
+           prix       INTEGER NOT NULL,
+           created_at INTEGER NOT NULL,
+           PRIMARY KEY (profile_id, motif)
+         )`,
+        'CREATE INDEX IF NOT EXISTS idx_profile_motifs_quand ON profile_motifs(created_at)',
         // Les confettis que l'administrateur offre, un don par ligne, jamais
         // effacée : comptés dans le solde à chaque lecture (`boutiqueDe`),
         // comme ce qu'il gagne en jouant, et dits une fois sur son accueil.
@@ -1941,6 +1967,8 @@ export class ProfileStore {
     await ajouterColonne(this.client, 'profiles', 'gerbe', 'TEXT')
     // La bordure de ligue qu'il porte, parmi celles de ses duels.
     await ajouterColonne(this.client, 'profiles', 'bordure', 'TEXT')
+    // Le motif de sa bordure, depuis le 26 novembre 2026 : NULL, accordé à son avatar.
+    await ajouterColonne(this.client, 'profiles', 'motif', 'TEXT')
     // Le compagnon qu'il installe dans sa niche, parmi ceux qu'il a adoptés.
     await ajouterColonne(this.client, 'profiles', 'niche', 'TEXT')
     // Le sceau de ses légendaires : null, il se montre ; `cache`, il l'a masqué.
@@ -2045,7 +2073,7 @@ export class ProfileStore {
     for (let i = 0; i < manquants.length; i += PROFILS_PAR_PAQUET) {
       const paquet = manquants.slice(i, i + PROFILS_PAR_PAQUET)
       const marques = paquet.map(() => '?').join(', ')
-      const [lignes, eclats, badges, compagnons, coffres, fonds] = await this.client.batch(
+      const [lignes, eclats, badges, compagnons, coffres, fonds, motifs] = await this.client.batch(
         [
           { sql: `SELECT * FROM profiles WHERE id IN (${marques})`, args: paquet },
           { sql: `SELECT profile_id, avatar, eteint, matiere FROM profile_eclats WHERE profile_id IN (${marques})`, args: paquet },
@@ -2057,6 +2085,7 @@ export class ProfileStore {
           // Dans le même lot : le trésor de ses coffres n'ajoute pas un aller-retour à son premier passage.
           { sql: `SELECT profile_id, objet FROM profile_coffres WHERE profile_id IN (${marques})`, args: paquet },
           { sql: `SELECT profile_id, fond FROM profile_fonds WHERE profile_id IN (${marques})`, args: paquet },
+          { sql: `SELECT profile_id, motif FROM profile_motifs WHERE profile_id IN (${marques})`, args: paquet },
         ],
         'read',
       )
@@ -2070,6 +2099,8 @@ export class ProfileStore {
       for (const r of coffres.rows) tresorsDe.get(String(r.profile_id))?.add(String(r.objet))
       const fondsDe = new Map<string, Set<string>>(paquet.map(id => [id, new Set()]))
       for (const r of fonds.rows) fondsDe.get(String(r.profile_id))?.add(String(r.fond))
+      const motifsDe = new Map<string, Set<string>>(paquet.map(id => [id, new Set()]))
+      for (const r of motifs.rows) motifsDe.get(String(r.profile_id))?.add(String(r.motif))
       for (const r of lignes.rows) {
         const id = String(r.id)
         // Arrivé en mémoire pendant l'aller-retour — un geste, un renommage —,
@@ -2081,6 +2112,7 @@ export class ProfileStore {
         if (!this.compagnons.has(id)) this.compagnons.set(id, compagnonsDe.get(id)!)
         if (!this.tresors.has(id)) this.tresors.set(id, tresorsDe.get(id)!)
         if (!this.fondsAchetes.has(id)) this.fondsAchetes.set(id, fondsDe.get(id)!)
+        if (!this.motifsAchetes.has(id)) this.motifsAchetes.set(id, motifsDe.get(id)!)
       }
     }
     return ids.map(id => {
@@ -2305,6 +2337,26 @@ export class ProfileStore {
     return this.fondsAchetes.get(id) ?? new Set()
   }
 
+  /** Les motifs de bordure qu'il a achetés, de mémoire : chargés avec le profil. */
+  motifsAchetesOf(id: string): ReadonlySet<string> {
+    return this.motifsAchetes.get(id) ?? new Set()
+  }
+
+  /**
+   * Les motifs de bordure qu'il tient (`shared/motifs.ts`) : ses achats et ses
+   * coffres, de mémoire ; ses bordures et ses victoires au dé, de ses duels ;
+   * ses légendaires, pour les motifs de saison.
+   */
+  motifsTenusDe(p: ProfileRec, duels: Pick<CoteDesDuels, 'bordures' | 'victoiresAuDe'> | null | undefined): string[] {
+    return motifsTenus({
+      bordures: duels?.bordures,
+      victoiresAuDe: duels?.victoiresAuDe,
+      achetes: this.motifsAchetesOf(p.id),
+      tresors: this.tresorsOf(p.id),
+      legendaires: this.legendairesOf(p.id),
+    })
+  }
+
   /** Les fonds de carte qu'il peut porter : son niveau, son quiz du jour, ses paliers de carrière, ses maîtres des sentiers, ses coffres, ses achats (`shared/fonds.ts`). */
   fondsOuvertsDe(p: ProfileRec, jour: { joues: number; victoires: number }, maitres = 0): CleDeFond[] {
     return fondsOuverts({
@@ -2387,6 +2439,7 @@ export class ProfileStore {
         { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_compagnons WHERE profile_id = ?', args: [profileId] },
         // Chaque fond, pas leur somme : « À la une » ne met en avant que ceux qu'il n'a pas.
         { sql: 'SELECT fond, prix FROM profile_fonds WHERE profile_id = ?', args: [profileId] },
+        { sql: 'SELECT motif, prix FROM profile_motifs WHERE profile_id = ?', args: [profileId] },
         { sql: 'SELECT id, confettis, mot, created_at FROM profile_dons WHERE profile_id = ? ORDER BY created_at DESC', args: [profileId] },
         // Dans le même lot : les missions et les coffres n'ajoutent pas un aller-retour au solde.
         {
@@ -2428,8 +2481,8 @@ export class ProfileStore {
       ],
       'read',
     )
-    const [themes, vies, sabliers, eclats, compagnons, fonds, dons, missions, coffres] = lus
-    let suivante = 9
+    const [themes, vies, sabliers, eclats, compagnons, fonds, motifs, dons, missions, coffres] = lus
+    let suivante = 10
     const aTous = annonces ? lus[suivante++] : undefined
     const affiches = annonces ? lus[suivante++] : undefined
     const annoncees = annonces ? lus[suivante++] : undefined
@@ -2443,6 +2496,7 @@ export class ProfileStore {
       eclats: Number(eclats.rows[0]?.prix ?? 0),
       compagnons: Number(compagnons.rows[0]?.prix ?? 0),
       fonds: new Map(fonds.rows.map(r => [String(r.fond), Number(r.prix)])),
+      motifs: new Map(motifs.rows.map(r => [String(r.motif), Number(r.prix)])),
       dons: dons.rows.map(r => ({ id: String(r.id), confettis: Number(r.confettis), mot: r.mot == null ? null : String(r.mot), le: Number(r.created_at) })),
       missions: gainsDesMissions(Number(missions.rows[0]?.faites ?? 0), Number(missions.rows[0]?.trois ?? 0)).confettis,
       coffres: Number(coffres.rows[0]?.n ?? 0),
@@ -2565,7 +2619,7 @@ export class ProfileStore {
       achats.coffres +
       confettisDesDefis(this.recompensesOf(p.id))
     const somme = (prix: Map<string, number>) => [...prix.values()].reduce((n, x) => n + x, 0)
-    const depenses = somme(achats.themes) + achats.vies + achats.sabliers + achats.eclats + achats.compagnons + somme(achats.fonds)
+    const depenses = somme(achats.themes) + achats.vies + achats.sabliers + achats.eclats + achats.compagnons + somme(achats.fonds) + somme(achats.motifs)
     const sien = this.ceQuIlADeLaBoutique(p, achats, maitresDe(deCampagne.paliers).length)
     // Son envie, relue sur ce qu'il a ce jour-là : la boutique que rend l'achat de l'article visé ne la porte déjà
     // plus, et rien n'a eu à l'effacer. Sa ligne est en mémoire : pas une lecture de plus.
@@ -2607,11 +2661,16 @@ export class ProfileStore {
    * deux façons, sa boutique pourrait taire l'envie que la route vient
    * d'accepter.
    */
-  private ceQuIlADeLaBoutique(p: ProfileRec, achats: Pick<AchatsLus, 'themes' | 'fonds'>, maitres: number) {
+  private ceQuIlADeLaBoutique(p: ProfileRec, achats: Pick<AchatsLus, 'themes' | 'fonds' | 'motifs'>, maitres: number) {
     return {
       themes: this.themesPossedes(p, achats.themes, maitres),
       compagnons: COMPAGNONS.filter(c => this.compagnons.get(p.id)?.has(c.key)).map(c => c.key),
       fonds: FONDS_EN_BOUTIQUE.filter(f => achats.fonds.has(f.key)).map(f => f.key),
+      // Ceux qui se vendent et qu'il tient : achetés, ou un motif de saison que son légendaire lui a ouvert.
+      motifs: motifsTenus({ achetes: new Set(achats.motifs.keys()), legendaires: this.legendairesOf(p.id) }).filter(k => {
+        const v = motif(k)?.voie.sorte
+        return v === 'boutique' || v === 'saison'
+      }),
     } satisfies CeQuIlADeLaBoutique
   }
 
@@ -3834,6 +3893,49 @@ export class ProfileStore {
     })
   }
 
+  /**
+   * Achète un motif de bordure (`shared/motifs.ts`) — et le porte, ou le
+   * garde pour plus tard. Un de la boutique toute l'année, un de saison à sa
+   * fête ; jamais un du coffre, des duels ou d'une ligue sertie : ceux-là se
+   * gagnent. Une ligne par motif, avec son prix (`profile_motifs`).
+   */
+  acheterMotif(id: string, cle: unknown, jour: string, { porter = true }: { porter?: boolean } = {}): Promise<ProfileRec> {
+    return this.unAchatALaFois(id, async () => {
+      const rec = await this.require(id)
+      const m = motif(cle)
+      if (!m) throw new Error('Ce motif n’existe pas')
+      // « Le Houx est », « Les Cœurs sont » : le nom d'un motif porte son nombre.
+      const un = !m.nom.startsWith('Les ')
+      if (m.voie.sorte === 'coffre') throw new Error('Ce motif ne se vend pas : il ne sort que du coffre de la semaine')
+      if (m.voie.sorte === 'offert') throw new Error(`${m.nom} ${un ? 'est' : 'sont'} déjà à toi`)
+      if (m.voie.sorte === 'duel' || m.voie.sorte === 'feuille') throw new Error(`Ce motif ne se vend pas : il se gagne en duel — ${regleDuMotif(m).charAt(0).toLowerCase()}${regleDuMotif(m).slice(1)}`)
+      const tenus = motifsTenus({ achetes: this.motifsAchetesOf(id), legendaires: this.legendairesOf(id) })
+      if (tenus.includes(m.key)) throw new Error(`${m.nom} ${un ? 'est' : 'sont'} déjà à toi`)
+      const prix = prixDuMotif(m, jour)
+      if (prix === null) throw new Error(`${m.nom} ${un ? 'n’est' : 'ne sont'} en boutique que ${saisonDuMotif(m)?.periode.periode ?? 'pendant sa saison'}`)
+      const manque = prix - (await this.boutiqueDe(rec, jour)).confettis.solde
+      if (manque > 0) throw new Error(`Il te manque ${nConfettis(manque)} pour ${nomDansLaPhrase(m.nom)}`)
+      await this.client.batch(
+        [
+          { sql: 'INSERT INTO profile_motifs (profile_id, motif, prix, created_at) VALUES (?, ?, ?, ?)', args: [id, m.key, prix, Date.now()] },
+          ...(porter ? [{ sql: 'UPDATE profiles SET motif = ? WHERE id = ?', args: [m.key, id] }] : []),
+        ],
+        'write',
+      )
+      let siens = this.motifsAchetes.get(id)
+      if (!siens) this.motifsAchetes.set(id, (siens = new Set()))
+      siens.add(m.key)
+      if (porter) rec.motif = m.key
+      return rec
+    })
+  }
+
+  /** Ses motifs relus, après un achat : celui qu'il a choisi, et tous ceux qu'il tient — la loge les propose sans recharger. */
+  async motifsAJour(p: ProfileRec): Promise<{ motifChoisi: string | null; motifs: string[] }> {
+    const duels = await this.duelsDe?.(p.id).catch(() => null)
+    return { motifChoisi: choixDeMotif(p.motif), motifs: this.motifsTenusDe(p, duels) }
+  }
+
   /** Ce que sa fin de soirée dit de ses confettis : ceux de ce soir, son solde, le thème qu'il vise. */
   async confettisDeLaFin(p: ProfileRec, gagnes: number, jour: string): Promise<ConfettisDeLaFin> {
     const boutique = await this.boutiqueDe(p, jour)
@@ -4037,7 +4139,7 @@ export class ProfileStore {
     achats: Achat[]
     eclats: { quand: number; soiree: string }[]
   }> {
-    const [soirees, dons, themes, compagnons, fonds, vies, sabliers, eclats, missions, coffres, eclatsAchetes, defis] = await this.client.batch(
+    const [soirees, dons, themes, compagnons, fonds, vies, sabliers, eclats, missions, coffres, eclatsAchetes, defis, motifs] = await this.client.batch(
       [
         // Une soirée se nomme d'abord par son jour (`archiveIdOf`) : lue par son nom, les lignes à part
         // (`#jour`…) n'en sont pas. La veille comprise : un premier quiz fini après minuit crédite le lendemain.
@@ -4059,6 +4161,7 @@ export class ProfileStore {
         { sql: 'SELECT prix, created_at FROM profile_eclats_achetes WHERE created_at >= ? AND created_at < ?', args: [depuis, jusqua] },
         // Les rangs des défis du Cabinet, par l'index des clés rangées : leur plage seule, jamais toute l'étagère.
         { sql: 'SELECT badge, created_at FROM profile_badges WHERE badge >= ? AND badge < ? AND created_at >= ? AND created_at < ?', args: [...PLAGE_DES_DEFIS, depuis, jusqua] },
+        { sql: 'SELECT motif, prix, created_at FROM profile_motifs WHERE created_at >= ? AND created_at < ?', args: [depuis, jusqua] },
       ],
       'read',
     )
@@ -4089,6 +4192,7 @@ export class ProfileStore {
         ...themes.rows.map(r => achat('themes', r, 1, String(r.theme))),
         ...compagnons.rows.map(r => achat('compagnons', r, 1, String(r.compagnon))),
         ...fonds.rows.map(r => achat('fonds', r, 1, String(r.fond))),
+        ...motifs.rows.map(r => achat('motifs', r, 1, String(r.motif))),
         ...vies.rows.map(r => achat('vies', r, Number(r.nombre), null)),
         ...sabliers.rows.map(r => achat('sabliers', r, 1, null)),
         ...eclatsAchetes.rows.map(r => achat('eclats', r, 1, null)),
@@ -4125,6 +4229,7 @@ export class ProfileStore {
         'SELECT profile_id, SUM(prix) AS n FROM profile_eclats_achetes GROUP BY profile_id',
         'SELECT profile_id, SUM(prix) AS n FROM profile_compagnons GROUP BY profile_id',
         'SELECT profile_id, SUM(prix) AS n FROM profile_fonds GROUP BY profile_id',
+        'SELECT profile_id, SUM(prix) AS n FROM profile_motifs GROUP BY profile_id',
       ],
       'read',
     )
@@ -4167,12 +4272,13 @@ export class ProfileStore {
 
   /** Les thèmes, les compagnons et les fonds vendus, chacun ses ventes depuis toujours et depuis un instant : le QG, « Les meilleures ventes ». */
   async ventesDepuis(depuis: number): Promise<{ sorte: SorteDeVente; article: string; ventes: number; recentes: number }[]> {
-    const [themes, compagnons, fonds] = await this.client.batch(
+    const [themes, compagnons, fonds, motifs] = await this.client.batch(
       [
         // Un thème offert ne se vend pas : à prix nul, ce n'est pas une vente.
         { sql: 'SELECT theme AS article, COUNT(*) AS ventes, SUM(created_at >= ?) AS recentes FROM profile_achats WHERE prix > 0 GROUP BY theme', args: [depuis] },
         { sql: 'SELECT compagnon AS article, COUNT(*) AS ventes, SUM(created_at >= ?) AS recentes FROM profile_compagnons WHERE prix > 0 GROUP BY compagnon', args: [depuis] },
         { sql: 'SELECT fond AS article, COUNT(*) AS ventes, SUM(created_at >= ?) AS recentes FROM profile_fonds WHERE prix > 0 GROUP BY fond', args: [depuis] },
+        { sql: 'SELECT motif AS article, COUNT(*) AS ventes, SUM(created_at >= ?) AS recentes FROM profile_motifs WHERE prix > 0 GROUP BY motif', args: [depuis] },
       ],
       'read',
     )
@@ -4182,7 +4288,7 @@ export class ProfileStore {
       ventes: Number(r.ventes),
       recentes: Number(r.recentes ?? 0),
     })
-    return [...themes.rows.map(lire('theme')), ...compagnons.rows.map(lire('compagnon')), ...fonds.rows.map(lire('fond'))]
+    return [...themes.rows.map(lire('theme')), ...compagnons.rows.map(lire('compagnon')), ...fonds.rows.map(lire('fond')), ...motifs.rows.map(lire('motif'))]
   }
 
   /**
@@ -4602,6 +4708,7 @@ export class ProfileStore {
       finition: finitionSur(this.legendairePorte(p), p.finition, niveau),
       finitionChoisie: choixDeFinition(p.finition, niveau),
       bordureChoisie: choixDeBordure(p.bordure),
+      motifChoisi: choixDeMotif(p.motif),
       xp: p.xp,
       niveau,
       acquis,
@@ -4839,7 +4946,7 @@ export class ProfileStore {
       creeLe: p.createdAt,
       avatar,
       apparence: apparenceDeLAvatar(apparence),
-      bordure: bordurePortee(p.bordure, autres.bordures),
+      bordure: bordurePortee(p.bordure, autres.bordures, p.motif),
       niveau,
       legendaires: this.legendairesOf(id),
       // L'étoile du zénith de chacun, la règle de sa page (`toDetail`) : masquée dans la loge, elle compte encore.
@@ -4992,6 +5099,7 @@ export class ProfileStore {
       theme: null,
       gerbe: null,
       bordure: null,
+      motif: null,
       niche: null,
       sceau: null,
       plaque: null,
@@ -5058,6 +5166,7 @@ export class ProfileStore {
       theme: null,
       gerbe: null,
       bordure: null,
+      motif: null,
       niche: null,
       sceau: null,
       plaque: null,
@@ -5196,6 +5305,8 @@ export class ProfileStore {
       gerbe?: unknown
       eclat?: unknown
       bordure?: unknown
+      /** Le motif de sa bordure : `accorde` (ou null), ou la clé d'un motif qu'il tient (`shared/motifs.ts`). */
+      motif?: unknown
       niche?: unknown
       /** Le sceau de ses légendaires se montre-t-il ? `false` le masque. */
       sceau?: unknown
@@ -5213,7 +5324,7 @@ export class ProfileStore {
     // Seules les colonnes demandées s'écrivent : la mémoire ne suit qu'après
     // coup, et un prénom changé sur le téléphone pendant que la tablette
     // change l'emoji ne doit pas revenir en arrière.
-    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine' | 'fond' | 'theme' | 'gerbe' | 'bordure' | 'niche' | 'sceau' | 'plaque' | 'camp'>> = {}
+    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine' | 'fond' | 'theme' | 'gerbe' | 'bordure' | 'motif' | 'niche' | 'sceau' | 'plaque' | 'camp'>> = {}
     if (patch.name !== undefined) {
       const name = cleanName(patch.name)
       if (!name) throw new Error('Il faut un prénom')
@@ -5354,6 +5465,22 @@ export class ProfileStore {
         if (!duels?.bordures.some(b => b.ligue === choix)) throw new Error(`Cette bordure s’ouvre en atteignant la ${ligueParCle(choix).nom.toLowerCase()} en duel`)
       }
       champs.bordure = choix === 'auto' ? null : choix
+    }
+    // Le motif de sa bordure : accordé à son avatar, il s'écrit null ; un motif,
+    // seulement s'il le tient — offert, prêté par une bordure sertie, gagné en
+    // duel, acheté, tiré du coffre. Ses duels ne se lisent que pour ceux qu'ils ouvrent.
+    if (patch.motif !== undefined) {
+      if (patch.motif === null || patch.motif === '' || patch.motif === MOTIF_ACCORDE) champs.motif = null
+      else {
+        const m = motif(patch.motif)
+        if (!m) throw new Error('Ce motif n’existe pas')
+        const duels = m.voie.sorte === 'feuille' || m.voie.sorte === 'duel' ? await this.duelsDe?.(id) : null
+        if (!this.motifsTenusDe(rec, duels).includes(m.key)) {
+          const regle = regleDuMotif(m)
+          throw new Error(`Ce motif se gagne d’abord : ${regle.charAt(0).toLowerCase()}${regle.slice(1)}`)
+        }
+        champs.motif = m.key
+      }
     }
     // Le sceau se montre ou se masque, qu'il en ait un ou pas encore : un
     // réglage, comme la version d'un Éclat, que la salle relit.
@@ -7335,6 +7462,7 @@ export class ProfileStore {
           'profile_eclats_achetes',
           'profile_compagnons',
           'profile_fonds',
+          'profile_motifs',
           'profile_dons',
           'qg_annonce_reponses',
           'qg_annonce_destinataires',
@@ -7370,6 +7498,7 @@ export class ProfileStore {
       this.compagnons,
       this.tresors,
       this.fondsAchetes,
+      this.motifsAchetes,
       this.acquis,
       this.gardes,
       this.achatsEnCours,
@@ -7611,7 +7740,7 @@ export class ProfileStore {
   bordureDe(p: ProfileRec): BordureDeLigue | null {
     const bordures = this.borduresDe?.(p.id)
     if (!bordures) this.connaitreSesBordures?.(p.id)
-    return bordurePortee(p.bordure, bordures)
+    return bordurePortee(p.bordure, bordures, p.motif)
   }
 
   /** Les profils qui ont au moins une ligne d'expérience, c'est-à-dire qui ont joué. */
@@ -7670,6 +7799,10 @@ export class ProfileStore {
       const res = await this.client.execute({ sql: 'SELECT fond FROM profile_fonds WHERE profile_id = ?', args: [rec.id] })
       this.fondsAchetes.set(rec.id, new Set(res.rows.map(r => String(r.fond))))
     }
+    if (!this.motifsAchetes.has(rec.id)) {
+      const res = await this.client.execute({ sql: 'SELECT motif FROM profile_motifs WHERE profile_id = ?', args: [rec.id] })
+      this.motifsAchetes.set(rec.id, new Set(res.rows.map(r => String(r.motif))))
+    }
     return rec.disabledAt ? null : rec
   }
 
@@ -7693,6 +7826,7 @@ export class ProfileStore {
       theme: typeof r.theme === 'string' && r.theme ? r.theme : null,
       gerbe: typeof r.gerbe === 'string' && r.gerbe ? r.gerbe : null,
       bordure: typeof r.bordure === 'string' && r.bordure ? r.bordure : null,
+      motif: choixDeMotif(r.motif),
       niche: typeof r.niche === 'string' && r.niche ? r.niche : null,
       sceau: r.sceau === 'cache' ? 'cache' : null,
       plaque: typeof r.plaque === 'string' && r.plaque ? r.plaque : null,

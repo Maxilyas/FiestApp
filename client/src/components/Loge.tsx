@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type MutableRefObject } from 'react'
 import { CarteDeLaLoge, PiecesDeLaLoge } from './LogeTete'
-import { MaGerbe, MesAvatars, MesBordures, MesFinitions, MonFond, MonSceau, MonTitre } from './Apparence'
+import { MaGerbe, MesAvatars, MesBordures, MesFinitions, MesMotifs, MonFond, MonSceau, MonTitre } from './Apparence'
 import { MaVitrine } from './Trophees'
 import { MesThemes } from './Boutique'
 import { choixDialog } from './Dialog'
@@ -255,7 +255,7 @@ export function Loge({
   const montree = cible ? eclatChez(vu, cible) : false
   const nomDeLaVersion = montree === false ? 'Version d’origine' : montree === true ? 'Version rare' : NOM_DE_LA_MATIERE[montree]
   // Quelque chose de ce que la salle voit est à l'essai : la carte le montre, « Aperçu ».
-  const apercu = (['avatar', 'legendaire', 'finition', 'bordure', 'titre', 'vitrine', 'fond', 'eclat', 'sceau'] as const).some(k => essai[k] !== undefined)
+  const apercu = (['avatar', 'legendaire', 'finition', 'bordure', 'motif', 'titre', 'vitrine', 'fond', 'eclat', 'sceau'] as const).some(k => essai[k] !== undefined)
   return (
     <div className="loge" ref={loge}>
       <CarteDeLaLoge
@@ -263,7 +263,7 @@ export function Loge({
         vitrine={vitrineVue(vu)}
         apercu={apercu}
         essaye={{
-          avatar: essai.avatar !== undefined || essai.legendaire !== undefined || essai.finition !== undefined || essai.bordure !== undefined || !!essai.eclat || essai.sceau !== undefined,
+          avatar: essai.avatar !== undefined || essai.legendaire !== undefined || essai.finition !== undefined || essai.bordure !== undefined || essai.motif !== undefined || !!essai.eclat || essai.sceau !== undefined,
           titre: essai.titre !== undefined,
           vitrine: essai.vitrine !== undefined,
         }}
@@ -317,6 +317,7 @@ export function Loge({
           <>
             <MesFinitions {...props} />
             <MesBordures {...props} />
+            <MesMotifs {...props} />
             <MonSceau {...props} />
             <MesAvatars {...props} />
           </>

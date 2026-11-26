@@ -130,6 +130,7 @@ export const EVENEMENTS_DES_ROUTES: Record<string, FaitDuFil> = {
   'POST /api/joueur/themes': { sorte: 'boutique', mode: null, texte: 'Un thème acheté' },
   'POST /api/joueur/compagnons': { sorte: 'boutique', mode: null, texte: 'Un compagnon adopté' },
   'POST /api/joueur/fonds': { sorte: 'boutique', mode: null, texte: 'Un fond de carte acheté' },
+  'POST /api/joueur/motifs': { sorte: 'boutique', mode: null, texte: 'Un motif de bordure acheté' },
   'POST /api/campagne/vies': { sorte: 'boutique', mode: 'campagne', texte: 'Une vie achetée' },
   'POST /api/jour/commencer': { sorte: 'partie', mode: 'jour', texte: 'Une partie du quiz du jour commence' },
   'POST /api/campagne/serie': { sorte: 'partie', mode: 'campagne', texte: 'Une série de campagne commence' },

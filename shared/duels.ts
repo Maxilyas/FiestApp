@@ -463,6 +463,13 @@ export const CRANS_D_UNE_BORDURE = 12
 export interface BordureDeLigue {
   ligue: CleDeLigue
   crans: number
+  /**
+   * Le motif qu'il a choisi pour elle (`shared/motifs.ts`), sur la bordure
+   * qu'il porte seulement — absent, elle est accordée à l'avatar qu'elle
+   * entoure (`motifAccorde`), que seul le dessin connaît : une salle, un
+   * classement, un essai de la loge la dessinent sans rien demander de plus.
+   */
+  motif?: string
 }
 
 /**
@@ -513,7 +520,13 @@ export function choixDeBordure(brut: unknown): ChoixDeBordure {
  * s'il veut la montrer ; `aucune` : rien. Une ligue qu'il n'a pas (une page
  * d'avant, une règle changée) se lit `auto`.
  */
-export function bordurePortee(choix: unknown, bordures: readonly BordureDeLigue[] | undefined): BordureDeLigue | null {
+export function bordurePortee(choix: unknown, bordures: readonly BordureDeLigue[] | undefined, motif?: string | null): BordureDeLigue | null {
+  const portee = laBordurePortee(choix, bordures)
+  // Le motif choisi voyage avec elle ; sans choix, rien : le dessin l'accorde à l'avatar (le 26 novembre 2026).
+  return portee && motif ? { ligue: portee.ligue, crans: portee.crans, motif } : portee
+}
+
+function laBordurePortee(choix: unknown, bordures: readonly BordureDeLigue[] | undefined): BordureDeLigue | null {
   const c = choixDeBordure(choix)
   if (c === AUCUNE_BORDURE || !bordures) return null
   if (c !== 'auto') {
@@ -546,6 +559,8 @@ export interface ReleveDesDuels {
    * Vide tant qu'il n'a fini aucun duel : l'absence, pas une bordure de bronze.
    */
   bordures: BordureDeLigue[]
+  /** Ses victoires contre Automate, au dé : cinquante ouvrent les Rouages (`shared/motifs.ts`). Ne font que monter. */
+  victoiresAuDe: number
 }
 
 /**
@@ -570,6 +585,7 @@ export function releverLesDuels(duels: readonly DuelJoue[], semaineDe: (instant:
   const victoires = new Map<CleDeLigue, number>()
   const ecarts = new Map<string, { avant: number; ecart: number }>()
   const semaines = new Map<string, SemaineJouee>()
+  let victoiresAuDe = 0
   ordre.forEach((d, i) => {
     const resultat = resultatDuDuel(d.justes, d.sesJustes)
     const sonScore = coteDuScore(d.sesJustes)
@@ -582,6 +598,8 @@ export function releverLesDuels(duels: readonly DuelJoue[], semaineDe: (instant:
     if (resultat === 1) {
       const ici = ligueDe(cote).cle
       victoires.set(ici, (victoires.get(ici) ?? 0) + 1)
+      // Au dé, rien n'est figé d'en face (`forceQuOnVoit`) : c'est Automate.
+      if (d.coteAdverse === undefined) victoiresAuDe++
     }
     cote = apres.cote
     plancher = apres.plancher
@@ -608,6 +626,7 @@ export function releverLesDuels(duels: readonly DuelJoue[], semaineDe: (instant:
     premierLe: ordre.length > 0 ? ordre[0].finiLe : null,
     dernierLe: ordre.length > 0 ? ordre[ordre.length - 1].finiLe : null,
     bordures: atteintes.map(l => ({ ligue: l.cle, crans: crans.get(l.cle) ?? 0 })),
+    victoiresAuDe,
   }
 }
 

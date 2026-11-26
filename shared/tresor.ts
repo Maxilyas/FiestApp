@@ -19,6 +19,7 @@ import { CHANCES_DU_COFFRE, CONFETTIS_DU_COFFRE, type ObjetDuTresor, type RangDu
 import { COMPAGNONS, COMPAGNONS_DE_LA_BOUTIQUE } from './compagnons'
 import { FONDS } from './fonds'
 import { GERBES } from './gerbes'
+import { MOTIFS_DU_TRESOR } from './motifs'
 import { formatNumber } from './typographie'
 import { enBoutique, THEMES } from './themes'
 
@@ -40,6 +41,8 @@ function reserveDe(rarete: Rarete, jour: string): Candidat[] {
   return [
     ...FONDS.filter(f => f.tresor === rarete).map(f => tresor({ sorte: 'fond', cle: f.key })),
     ...GERBES.flatMap(g => ('tresor' in g.par && g.par.tresor === rarete ? [tresor({ sorte: 'gerbe', cle: g.key })] : [])),
+    // Les motifs de bordure du trésor (le 26 novembre 2026), après ses fonds et ses gerbes : un tirage d'avant, au même hasard, redonne le même fond.
+    ...MOTIFS_DU_TRESOR.flatMap(m => (m.voie.sorte === 'coffre' && m.voie.rarete === rarete ? [tresor({ sorte: 'motif', cle: m.key })] : [])),
     // Un thème de saison ne sort qu'à sa saison, comme en boutique : hors d'elle, il cesserait d'être rare.
     ...THEMES.filter(t => t.rarete === rarete && !t.gagne && (!t.saison || enBoutique(t, jour))).map(t => boutique({ sorte: 'theme', cle: t.key })),
     // Un compagnon vaut le prix d'un thème légendaire : il est légendaire au coffre.
@@ -114,6 +117,8 @@ export function nomDeLObjet(o: ObjetDuTresor): string {
       return THEMES.find(t => t.key === o.cle)?.nom ?? o.cle
     case 'compagnon':
       return COMPAGNONS.find(c => c.key === o.cle)?.nom ?? o.cle
+    case 'motif':
+      return MOTIFS_DU_TRESOR.find(m => m.key === o.cle)?.nom ?? o.cle
   }
 }
 
@@ -132,6 +137,8 @@ export function phraseDeLObjet(o: ObjetDuTresor): string {
       const c = COMPAGNONS.find(x => x.key === o.cle)
       return c ? `${c.phrase} Porte-le : il grandit avec tes bonnes réponses.` : 'Un compagnon : il grandit avec tes bonnes réponses.'
     }
+    case 'motif':
+      return 'Un motif de bordure du trésor, introuvable en boutique : il pousse à chaque victoire, autour de ton avatar.'
   }
 }
 
