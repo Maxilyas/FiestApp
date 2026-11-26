@@ -23,6 +23,8 @@ import { DIVINS } from '../../shared/divins'
 import { LEGENDAIRES } from '../../shared/legendaires'
 import { NOM_DE_RARETE, RARETES_DE_THEME, THEMES } from '../../shared/themes'
 import { GERBES } from '../../shared/gerbes'
+import { LIGUES } from '../../shared/duels'
+import { MOTIFS } from '../../shared/motifs'
 import { hautFait, type HautFaitVu } from '../../shared/hautsfaits'
 
 const lieu = { pathname: '/profil', search: '', hash: '', origin: 'http://banc' }
@@ -151,6 +153,39 @@ test('le compte de la collection : trois familles, leurs lignes, un total — ce
   assert.deepEqual([jour.acquis, jour.total, jour.sections.map(s => s.cle)], [0, 27, ['pistes', 'exploits', 'coups']])
 })
 
+// Les motifs de bordure (la PR des bordures au choix, le 26 novembre 2026) avaient pris une neuvième ligne : elle passait
+// sous le menu à toutes les tailles de téléphone, de 12 à 39 px (`rendu-carrefour.ts`) — et ce fichier ne l'a pas vu, Léa
+// n'ayant pas de motifs. Ils vivent dans la ligne des bordures, comme la loge les règle dans le calque « Bordure ».
+test('les motifs comptent dans la ligne des bordures : huit lignes au plus, et l’adresse des motifs ouvre les bordures sur eux', async () => {
+  const AVEC_SES_MOTIFS = { ...LEA, bordures: [{ ligue: 'bronze', crans: 12 }, { ligue: 'argent', crans: 3 }], motifs: ['feuilles-bronze', 'jonc'], carnet: { timbres: [], jour: '2026-12-31' } }
+  const style = compteDeLaCollection(AVEC_SES_MOTIFS as any).familles.find(f => f.famille === 'style')!
+  assert.deepEqual(
+    style.parties.map(p => `${p.partie} ${p.acquis}/${p.total}`),
+    ['themes 3/36', 'fonds 1/25', 'gerbes 2/25', 'finitions 3/12', `bordures 4/${LIGUES.length + MOTIFS.length}`],
+  )
+  // Toutes ses collections, carnet compris : huit lignes — ce que le carrefour tient au-dessus du menu.
+  lieu.hash = ''
+  const html = await rendu('components/Collection', 'MaCollection', { profil: AVEC_SES_MOTIFS })
+  assert.equal([...html.matchAll(/<span class="trophee-texte"><b>/g)].length, 8)
+  assert.doesNotMatch(html, /collection-motifs|Motifs de bordure/)
+
+  // `#collection-motifs` — « +28 à gagner », sous les motifs de la loge — ouvre les bordures, ses ligues puis ses motifs,
+  // chacun sous son petit titre ; la note de l'album une seule fois, et chaque album sa fiche.
+  lieu.hash = '#collection-motifs'
+  const motifs = await rendu('components/Collection', 'MaCollection', { profil: AVEC_SES_MOTIFS })
+  assert.match(motifs, /<li id="collection-bordures" class="trophee trophee-ouvert"/)
+  assert.match(motifs, /<h4 class="label collection-sous-titre">Ligues<\/h4><div class="trophees-grille style-grille style-bordures">/)
+  assert.match(motifs, /<section id="collection-motifs" class="collection-motifs" aria-labelledby="collection-motifs-titre"><h4 class="label collection-sous-titre" id="collection-motifs-titre">Motifs<\/h4><div class="trophees-grille style-grille style-motifs">/)
+  assert.equal([...motifs.matchAll(/En couleur, ce qui est à toi/g)].length, 1)
+  assert.match(source('client/src/components/AlbumDuStyle.tsx'), /id=\{`fiche-style-\$\{partie\}`\}/)
+  // Un serveur d'avant ne dit pas ses motifs : les ligues seules, et pas de petit titre de trop.
+  lieu.hash = '#collection-bordures'
+  const avant = await rendu('components/Collection', 'MaCollection', { profil: { ...AVEC_SES_MOTIFS, motifs: undefined } })
+  assert.doesNotMatch(avant, /collection-motifs/)
+  assert.equal([...avant.matchAll(/En couleur, ce qui est à toi/g)].length, 1)
+  lieu.hash = ''
+})
+
 test('les trophées se comptent par la même règle que la collection : chaque page sur son onglet', async () => {
   const html = await rendu('components/AlbumDesTrophees', 'AlbumDesTrophees', { profil: LEA, page: 'soiree', onPage: () => {} })
   const onglets = [...html.matchAll(/<button id="trophees-onglet-(\w+)" type="button" role="tab" aria-selected="(true|false)"[^>]*aria-label="([^"]+)"/g)].map(m => `${m[1]}${m[2] === 'true' ? '*' : ''} ${m[3]}`)
@@ -239,7 +274,7 @@ test('la collection : son total, trois familles, une ligne par collection — re
     'Fonds de carte',
     'Gerbes',
     'Finitions',
-    'Bordures de ligue',
+    'Bordures',
   ])
   assert.equal(html.match(/aria-expanded="true"/g), null, 'tout replié à l’ouverture')
   // On n'y règle rien : on y regarde. Les avatars s'y parcourent sans « Le porter ».
@@ -275,7 +310,7 @@ test('la collection en lignes : chaque ligne dit l’essentiel puis ses suites, 
       'Fonds de carte — Derrière ta carte, quand on touche ton nom',
       'Gerbes — Ce qui éclate à chaque bonne réponse',
       'Finitions — Le cercle de ton avatar, au fil des niveaux',
-      'Bordures de ligue — Autour de ton avatar, une par ligue de duel',
+      'Bordures — Ta ligue et son motif, autour de ton avatar',
     ],
   )
   // L'essentiel tient sur la ligne d'un téléphone, à côté du compte et du chevron : 24 caractères au plus — au-delà, il se

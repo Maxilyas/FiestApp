@@ -217,6 +217,10 @@ try {
     await page.waitForSelector(`#collection-${partie}.trophee-ouvert`)
     await photo(`6-collection-${partie}`)
   }
+  // Les motifs, dans la ligne des bordures depuis le 26 novembre 2026 : leur adresse l'ouvre, sur eux.
+  await page.goto(`${banc.url}/profil#collection-motifs`)
+  await page.waitForSelector('#collection-bordures.trophee-ouvert #collection-motifs')
+  await photo('6-collection-motifs')
   // Le style en albums : une fiche à gagner — où il en est —, une à elle — « Essayer » —, une bordure.
   for (const [partie, nomDeLaFiche, cas] of [
     ['fonds', 'fond-a-gagner', 'Nuit étoilée'],
@@ -227,16 +231,17 @@ try {
     await page.goto(`${banc.url}/profil#collection-${partie}`)
     await page.waitForSelector(`#collection-${partie}.trophee-ouvert`)
     await page.click(`#collection-${partie} .style-case[aria-label^="${cas}"]`)
-    await page.waitForSelector('#fiche-style')
-    await page.locator('#fiche-style').evaluate((e: any) => e.scrollIntoView({ block: 'center' }))
+    // Son id dit son album (`fiche-style-<partie>`) : les bordures et leurs motifs partagent une ligne.
+    await page.waitForSelector(`#fiche-style-${partie}`)
+    await page.locator(`#fiche-style-${partie}`).evaluate((e: any) => e.scrollIntoView({ block: 'center' }))
     await photo(`6-style-fiche-${nomDeLaFiche}`)
   }
   // « Essayer », d'une fiche : la loge s'ouvre, la finition à l'essai sur la carte, sans recharger la page.
   await page.goto(`${banc.url}/profil#collection-finitions`)
   await page.waitForSelector('#collection-finitions.trophee-ouvert')
   await page.click('#collection-finitions .style-case[aria-label^="Or"]')
-  await page.waitForSelector('#fiche-style .album-essayer')
-  await page.click('#fiche-style .album-essayer')
+  await page.waitForSelector('#fiche-style-finitions .album-essayer')
+  await page.click('#fiche-style-finitions .album-essayer')
   await page.waitForSelector('.loge-barre')
   await photo('6-style-essayer-dans-la-loge')
   await page.click('.loge-barre .btn-ghost')

@@ -13351,6 +13351,10 @@ button.cab-tv-carte { cursor: pointer; }
 .trophee-ouvert { background: color-mix(in srgb, var(--lueur) 5%, transparent); }
 .trophee-ouvert .trophee-chevron { transform: rotate(180deg); }
 .trophee-contenu { display: flex; flex-direction: column; gap: 10px; padding: 4px 14px 16px; }
+/* Les bordures et leurs motifs, dans la même ligne (le 26 novembre 2026 : une neuvième passait sous le menu) : chacun
+   son album sous son petit titre, comme le calque « Bordure » de la loge. */
+.collection-sous-titre { margin: 4px 0 -4px; }
+.collection-motifs { display: flex; flex-direction: column; gap: 10px; }
 .jauge-fine { display: block; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--lueur, var(--accent)) 16%, transparent); overflow: hidden; }
 .jauge-fine > span { display: block; height: 100%; border-radius: 2px; background: var(--lueur, var(--accent)); box-shadow: 0 0 8px var(--lueur, var(--accent)); }
 @media (prefers-reduced-motion: reduce) { .trophee-chevron { transition: none; } }

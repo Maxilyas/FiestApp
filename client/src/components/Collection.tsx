@@ -40,9 +40,15 @@ const LIGNES: Record<PartieDeLaCollection, { emoji: string; nom: string; detail:
   fonds: { emoji: '🖼️', nom: 'Fonds de carte', detail: 'Derrière ta carte', suite: [', quand on touche ton nom'], couleur: '#5fa8ff' },
   gerbes: { emoji: '🎉', nom: 'Gerbes', detail: 'Ce qui éclate', suite: [' à chaque bonne réponse'], couleur: '#ff9f5a' },
   finitions: { emoji: '✨', nom: 'Finitions', detail: 'Le cercle de ton avatar', suite: [', au fil des niveaux'], couleur: '#ffd36e' },
-  bordures: { emoji: '⚔️', nom: 'Bordures de ligue', detail: 'Autour de ton avatar', suite: [', une par ligue de duel'], couleur: '#7dd3c0' },
-  motifs: { emoji: '🌿', nom: 'Motifs de bordure', detail: 'Ce qui pousse', suite: [' à chaque victoire'], couleur: '#9fd6a0' },
+  // Leurs motifs y sont (le 26 novembre 2026) : une neuvième ligne passait sous le menu, et la loge les règle ensemble.
+  bordures: { emoji: '⚔️', nom: 'Bordures', detail: 'Ta ligue et son motif', suite: [', autour de ton avatar'], couleur: '#7dd3c0' },
 }
+
+/**
+ * Les adresses d'une ligne fondue dans une autre : `#collection-motifs` — « +28 à gagner », sous les motifs de la loge —
+ * ouvre les bordures, sur leurs motifs.
+ */
+const FONDUES: Record<string, PartieDeLaCollection> = { motifs: 'bordures' }
 
 const NOM_DE_FAMILLE: Record<FamilleDeLaCollection, string> = { avatars: 'Avatars', trophees: 'Trophées', style: 'Style' }
 
@@ -85,6 +91,7 @@ function lireLAdresse(profil: PublicProfileDetail): { partie: PartieDeLaCollecti
   const reste = h.startsWith(`${ADRESSE}-`) ? h.slice(ADRESSE.length + 1) : ''
   const rien = { page: null, trophees: null }
   if (reste in LIGNES) return { ...rien, partie: reste as PartieDeLaCollection }
+  if (reste in FONDUES) return { ...rien, partie: FONDUES[reste] }
   if (reste.startsWith('avatars-')) return { ...rien, partie: 'avatars', page: pageNommee(reste.slice('avatars-'.length)) }
   if (reste.startsWith('trophees-')) return { ...rien, partie: 'trophees', trophees: pageDesTropheesNommee(reste.slice('trophees-'.length)) }
   if (reste in AVANT_L_ALBUM) return { ...rien, partie: 'avatars', page: AVANT_L_ALBUM[reste](profil) }
@@ -187,9 +194,11 @@ export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
   const [page, setPage] = useState<RareteDAvatar>(() => lireLAdresse(profil).page ?? pageDuDebut(profil))
   // Celle des trophées : celle que l'adresse nomme, sinon le mode où il en a le plus.
   const [pageDesTrophees, setPageDesTrophees] = useState<PageDesTrophees>(() => lireLAdresse(profil).trophees ?? pageDuDebutDesTrophees(profil))
-  // Ouverte d'un lien (`#collection-themes`), la ligne vient sous les yeux.
+  // Ouverte d'un lien (`#collection-themes`), la ligne vient sous les yeux — ou ce que l'adresse nomme dedans : les
+  // motifs, sous les ligues (`#collection-motifs`).
   useEffect(() => {
-    if (ouverte) document.getElementById(`${ADRESSE}-${ouverte}`)?.scrollIntoView({ block: 'start' })
+    const vise = document.getElementById(window.location.hash.slice(1)) ?? (ouverte && document.getElementById(`${ADRESSE}-${ouverte}`))
+    if (ouverte && vise) vise.scrollIntoView({ block: 'start' })
     // Une fois, à l'ouverture : ensuite, c'est le doigt qui parcourt.
   }, [])
   // Une autre ligne tapée dans l'adresse, la page déjà là : elle s'ouvre — sur sa page de l'album, si elle en nomme une.
@@ -271,16 +280,20 @@ export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
         <OuLePorter ecran="avatar" nom="Mon avatar" quoi="Elle se choisit dans" />
       </>
     ),
+    // Les ligues, puis leurs motifs — chacun son album, sous son petit titre, comme le calque « Bordure » de la loge.
     bordures: (
       <>
-        <AlbumDuStyle partie="bordures" profil={profil} />
-        <OuLePorter ecran="avatar" nom="Mon avatar" quoi="Elle se choisit dans" />
-      </>
-    ),
-    motifs: (
-      <>
-        <AlbumDuStyle partie="motifs" profil={profil} />
-        <OuLePorter ecran="avatar" nom="Mon avatar" quoi="Il se choisit dans" />
+        <h4 className="label collection-sous-titre">Ligues</h4>
+        <AlbumDuStyle partie="bordures" profil={profil} note={!profil.motifs} />
+        {profil.motifs && (
+          <section id={`${ADRESSE}-motifs`} className="collection-motifs" aria-labelledby={`${ADRESSE}-motifs-titre`}>
+            <h4 className="label collection-sous-titre" id={`${ADRESSE}-motifs-titre`}>
+              Motifs
+            </h4>
+            <AlbumDuStyle partie="motifs" profil={profil} />
+          </section>
+        )}
+        <OuLePorter ecran="avatar" nom="Mon avatar" quoi="Elles se choisissent dans" />
       </>
     ),
   }

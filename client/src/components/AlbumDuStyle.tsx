@@ -103,7 +103,7 @@ export const adresseDeLEssaiDuStyle = (partie: PartieDuStyle, o: ObjetDuStyle) =
  * fiche de la touchée sous sa rangée. Une gerbe touchée éclate, même à
  * gagner : on sait ce qu'on vise.
  */
-export function AlbumDuStyle({ partie, profil }: { partie: PartieDuStyle; profil: PublicProfileDetail }) {
+export function AlbumDuStyle({ partie, profil, note = true }: { partie: PartieDuStyle; profil: PublicProfileDetail; note?: boolean }) {
   const objets = objetsDuStyle(partie, profil)
   const [ouvert, setOuvert] = useState<string | null>(null)
   const detail = useFiche(ouvert, partie)
@@ -149,7 +149,7 @@ export function AlbumDuStyle({ partie, profil }: { partie: PartieDuStyle; profil
               className={'trophee-case style-case' + (o.aLui ? '' : ' trophee-manque')}
               style={gemme('offert')}
               aria-expanded={ouvert === o.cle}
-              aria-controls={ouvert === o.cle ? 'fiche-style' : undefined}
+              aria-controls={ouvert === o.cle ? `fiche-style-${partie}` : undefined}
               aria-label={`${o.nom}, ${o.porte ? PORTE[partie] : o.aLui ? 'à toi' : `à gagner : ${o.court}`}`}
               onClick={() => toucher(o)}
             >
@@ -171,15 +171,17 @@ export function AlbumDuStyle({ partie, profil }: { partie: PartieDuStyle; profil
                 </span>
               )}
             </button>
+            {/* Son id dit son album : les bordures et leurs motifs partagent une ligne, et chacun sa fiche ouverte. */}
             {ouvert === o.cle && (
-              <div id="fiche-style" className="fiche-case album-fiche" ref={detail}>
+              <div id={`fiche-style-${partie}`} className="fiche-case album-fiche" ref={detail}>
                 <FicheDuStyle o={o} partie={partie} visuel={visuel(o, true)} />
               </div>
             )}
           </Fragment>
         ))}
       </div>
-      <p className="muted small">{espacesFines('En couleur, ce qui est à toi ; éteint, ce qui reste. Touches-en un : comment l’avoir, et où tu en es.')}</p>
+      {/* Une fois par ligne : sous les ligues, les motifs suivent, et la dite. */}
+      {note && <p className="muted small">{espacesFines('En couleur, ce qui est à toi ; éteint, ce qui reste. Touches-en un : comment l’avoir, et où tu en es.')}</p>}
       {eclat && <GerbeDeJuste key={eclat.n} cle={eclat.cle} />}
     </>
   )
