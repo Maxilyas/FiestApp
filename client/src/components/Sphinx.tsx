@@ -907,6 +907,21 @@ function SceneDuSphinx({
   visiteVue.current = visite
   const sable = useRef<ReturnType<typeof leSable> | null>(null)
   const image = useRef<HTMLImageElement | null>(null)
+  const vueCourante = useRef(vue)
+  vueCourante.current = vue
+
+  /**
+   * La solution d'un problème : l'étape que le Sphinx dit reste sous les yeux,
+   * les précédentes au-dessus — et à la dernière, la réponse avec elle. Redit
+   * quand la boîte grandit : sa réplique la plus longue, la dernière étape,
+   * relevait le bas du cadre après coup, et la réponse finissait sous son bord
+   * (le rendu des vrais problèmes du 26 novembre 2026, en 360 × 640).
+   */
+  const montrerLEtape = () => {
+    if (vueCourante.current !== 'solution') return
+    const r = racine.current
+    ;(r?.querySelector('.sx-solution-fin') ?? r?.querySelector('.sx-courante'))?.scrollIntoView?.({ block: 'nearest' })
+  }
 
   /**
    * Le Divin du moment tient au-dessus du Sphinx : quand sa phrase est longue
@@ -937,6 +952,7 @@ function SceneDuSphinx({
     const o = new ResizeObserver(() => {
       r.style.setProperty('--sx-boite-h', `${b.offsetHeight}px`)
       ajusterLeVoile()
+      montrerLEtape()
     })
     o.observe(b)
     // Et ce qu'il montre : une police arrivée après coup — sous moins de mouvement, rien ne l'attend — change sa hauteur.
@@ -950,10 +966,7 @@ function SceneDuSphinx({
   useLayoutEffect(() => {
     if (haut.current) haut.current.scrollTop = 0
   }, [vue])
-  // La solution d'un problème : l'étape que le Sphinx dit reste sous les yeux, les précédentes au-dessus.
-  useLayoutEffect(() => {
-    if (vue === 'solution') racine.current?.querySelector('.sx-courante')?.scrollIntoView?.({ block: 'nearest' })
-  }, [vue, etape])
+  useLayoutEffect(montrerLEtape, [vue, etape])
 
   // Modale : le reste de la page inerte, le focus dans la scène, Échap la remet à plus tard.
   const fuir = () => {

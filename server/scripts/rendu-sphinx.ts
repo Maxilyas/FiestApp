@@ -191,6 +191,10 @@ const MESURES = `(() => {
       }
     }
   }
+  // La solution d'un problème : l'étape que le Sphinx dit — à la dernière, la réponse sous elle — dans la part visible du
+  // cadre. La boîte qui grandissait après coup relevait son bas, et la réponse finissait dessous (le 26 novembre 2026).
+  const dite = document.querySelector('.sx-solution.sx-montre .sx-solution-fin') || document.querySelector('.sx-solution.sx-montre .sx-courante')
+  const etapeCachee = dite && cadre ? (r => Math.max(0, Math.round(Math.max(cadre.top - r.top, r.bottom - cadre.bottom))))(dite.getBoundingClientRect()) : 0
   const coupeDansLeHaut = haut && getComputedStyle(haut).overflowY !== 'auto' && haut.scrollHeight > haut.clientHeight + 1 ? 'le haut déborde de ' + (haut.scrollHeight - haut.clientHeight) + ' px' : null
   const defileLeHaut = haut && getComputedStyle(haut).overflowY === 'auto' && haut.scrollHeight > haut.clientHeight + 1 ? haut.scrollHeight - haut.clientHeight : 0
   // Ce qui le fait défiler : ce qui dépasse le bas de son cadre, nommé.
@@ -233,6 +237,7 @@ const MESURES = `(() => {
     dehors,
     sous: [...new Set(sous)],
     coupeDansLeHaut,
+    etapeCachee,
     defileLeHaut,
     quiDepasse,
     enEnigme: !!document.querySelector('.sx-en-enigme'),
@@ -308,6 +313,7 @@ async function photo(page: any, cas: string, quoi: string, [w, h]: Ecran, { surA
     m.dehors.length && `hors de l’écran : ${m.dehors.join(' ; ')}`,
     m.sous.length && `sous la boîte : ${m.sous.join(' ; ')}`,
     m.coupeDansLeHaut,
+    m.etapeCachee > 1 && `l’étape dite passe de ${m.etapeCachee} px hors de son cadre`,
     m.defileLeHaut > 0 && !m.enEnigme && !agrandi && `ce qu’il montre défile de ${m.defileLeHaut} px (${m.quiDepasse.join(', ')})`,
     m.cibles.length && `cibles sous 44 px : ${m.cibles.join(' ; ')}`,
     m.petits.length && `texte sous 11 px : ${m.petits.join(' ; ')}`,

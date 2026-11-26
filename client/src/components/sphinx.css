@@ -444,10 +444,12 @@
 .sx-etapes { display: grid; gap: 8px; margin: 0; padding: 0 0 0 1.4em; }
 .sx-etapes li { padding-left: 2px; color: var(--sx-muted); font: 500 0.875rem/1.4 var(--sx-texte); }
 .sx-etapes li::marker { color: var(--sx-or); font-weight: 700; }
-.sx-etapes li.sx-courante { color: var(--sx-ink); animation: sx-parait 0.45s ease backwards; }
+/* Sa marge de défilement : elle paraît à 96 % de sa taille (`sx-parait`), et ramenée à sa mesure d'alors, son pied
+   finissait deux pixels sous le bord du cadre. */
+.sx-etapes li.sx-courante { color: var(--sx-ink); animation: sx-parait 0.45s ease backwards; scroll-margin-bottom: 8px; }
 .sx-etape-dit { display: block; }
 .sx-etape-etat { display: block; margin-top: 2px; font-size: 1.125rem; letter-spacing: 0.06em; }
-.sx-solution-fin { margin: 12px 0 2px; font: 700 1.0625rem/1.3 var(--sx-titre); color: var(--sx-or-clair); }
+.sx-solution-fin { margin: 12px 0 2px; font: 700 1.0625rem/1.3 var(--sx-titre); color: var(--sx-or-clair); scroll-margin-bottom: 14px; }
 
 /* Le mot gagné, qui part se ranger dans la phrase. */
 .sx-mot-vole {

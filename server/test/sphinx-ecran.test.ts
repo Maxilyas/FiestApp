@@ -472,3 +472,17 @@ test('la solution d’un problème s’écrit étape par étape, et dit la répo
   const toutes = blancs(await rendu('components/Sphinx.tsx', 'SolutionDuProbleme', { enigme, etape: 2 }))
   assert.match(toutes, /Réponse : sept traversées/)
 })
+
+test('l’étape dite reste dans le cadre, la réponse avec la dernière — redite quand la boîte grandit', () => {
+  // La dernière réplique, plus longue, relevait le bas du cadre après le défilement : la réponse finissait 36 px sous
+  // son bord en 360 × 640 (le 26 novembre 2026). Ce qui se voit se mesure au navigateur (`rendu-sphinx.ts`, `etapeCachee`).
+  const source = lire('client/src/components/Sphinx.tsx')
+  const montrer = /const montrerLEtape = \(\) => \{([\s\S]*?)\n {2}\}/.exec(source)?.[1] ?? ''
+  assert.match(montrer, /querySelector\('\.sx-solution-fin'\) \?\? r\?\.querySelector\('\.sx-courante'\)/, 'la réponse d’abord, sinon l’étape')
+  assert.match(montrer, /scrollIntoView\?\.\(\{ block: 'nearest' \}\)/)
+  const boite = /const o = new ResizeObserver\(\(\) => \{([\s\S]*?)\}\)/.exec(source)?.[1] ?? ''
+  assert.match(boite, /--sx-boite-h[\s\S]*montrerLEtape\(\)/, 'la boîte mesurée, puis l’étape redite')
+  assert.match(source, /useLayoutEffect\(montrerLEtape, \[vue, etape\]\)/)
+  // Elle paraît à 96 % de sa taille : sa marge de défilement garde son pied dans le cadre une fois à sa mesure.
+  assert.match(lire('client/src/components/sphinx.css'), /\.sx-etapes li\.sx-courante \{[^}]*scroll-margin-bottom: \d+px/)
+})
