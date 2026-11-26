@@ -12,6 +12,7 @@ import {
   partDeLaCategorie,
 } from './consigneCampagne'
 import { IndexDesFaits, indexSansBloquer, motifDuMemeFait } from './memeFait'
+import { motifSansSonUnivers, universSansSonNom } from './universNommes'
 import { enTranches, laisserPasserLaSalle, rendreLaMain } from './tourniquet'
 import { LECTURES_GARDEES_MS, LecturesGardees, type LectureDansUnLot } from './lecturesGardees'
 import { preparationDe } from './preparees'
@@ -8496,6 +8497,10 @@ export class CampagneStore {
         ...(nouvelle && { explication: '', valeur: null, date: null }),
       })
       if ('refus' in lu) throw new Error(`Correction refusée : ${lu.refus}`)
+      // Une question d'univers corrigée le nomme, comme une neuve : le juge ne
+      // le demande qu'aux entrées sans identifiant (`core/universNommes.ts`).
+      const univers = universSansSonNom(lu.question)
+      if (univers) throw new Error(`Correction refusée : ${motifSansSonUnivers(univers)}`)
       // Un intitulé neuf n'est celui d'aucune autre question jouable : ni de
       // la base, ni de la réserve du quiz du jour, ni d'un quiz livré.
       if (lu.question.empreinte !== avant.empreinte) {

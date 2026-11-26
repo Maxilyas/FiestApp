@@ -1,10 +1,10 @@
 ---
 paths:
-  - "server/src/core/{baseCampagne,consigneCampagne,memeFait,inventaires,faces}.ts"
+  - "server/src/core/{baseCampagne,consigneCampagne,memeFait,inventaires,faces,universNommes}.ts"
   - "server/scripts/{base-campagne,generer-campagne,lots-campagne,faits-wikidata}.ts"
   - "server/content/campagne/**"
   - "client/src/components/{AdminCampagne,QgSignalements}.tsx"
-  - "server/test/{campagne-base,base-preparee,campagne-routine,campagne-signalements,meme-fait,faces,generer-campagne,faits-wikidata,reponses-soufflees,inventaires}.test.ts"
+  - "server/test/{campagne-base,base-preparee,campagne-routine,campagne-signalements,meme-fait,faces,generer-campagne,faits-wikidata,reponses-soufflees,inventaires,univers-nommes}.test.ts"
   - ".claude/agents/{redacteur-campagne,relecteur-campagne}.md"
   - ".claude/skills/base-campagne/SKILL.md"
 ---
@@ -23,6 +23,37 @@ Pour agrandir la base (un lot, sa relecture, son rangement — ou des milliers d
 
 ## Les pièges
 
+- **Une question d'univers nomme son univers, et le juge ne le demande
+  qu'à ce qui entre** (le 26 novembre 2026, `core/universNommes.ts`,
+  `univers-nommes.test.ts` ; le retour du propriétaire : « on ne sait pas
+  de quelle série on parle »). Hors de son thème — une série de toutes les
+  catégories, le défi, le quiz tout prêt —, l'intitulé est tout ce qu'on en
+  lit : 391 des 2 426 questions d'univers ne nommaient rien, Lost,
+  Stargate et Kaamelott surtout (Game of Thrones et Friends, écrits après la
+  section « CE LOT EN PARTICULIER » du 10 novembre, une seule). Un repère
+  (`REPERES_DES_UNIVERS`) dit l'univers à qui ne le connaît pas : son nom,
+  ses œuvres, ce que tout le monde y rattache (Gandalf, Poudlard, Pikachu) —
+  pas Kanto ni les Goa'uld ; un titre d'œuvre aussi, sauf pour une série,
+  dont les titres sont ceux de ses épisodes ; Kaamelott n'a que son nom, la
+  légende ayant les mêmes personnages et d'autres réponses. Le juge refuse
+  une entrée sans identifiant (`sansId` : un lot, un dépôt de la routine,
+  une décision appliquée), « Corriger » au QG et `corriger` à la main — pas
+  une ligne relue : un dépôt d'avant de la routine sortirait du jeu sans que
+  personne l'ait décidé ; la base livrée, son test la tient. Un univers neuf
+  prend ses repères, ou le test rougit. 377 se sont récrites sous leur
+  identifiant (`univers`, la fiche ; six `relecteur-campagne` sur une
+  mission à part — récrire, pas relire —, 160 000 jetons ;
+  `corriger`), « Dans « Lost », … » ; dix-sept qui ne se gagnaient que par
+  cœur, même nommées — le titre de « l'épisode 12 de la saison 6 » —, sont
+  sorties ; les « Dans quel épisode… » qu'une description laisse deviner
+  sont restées. Ce qu'on en a appris : un correcteur qui met le nom en tête
+  écrit « Dans « Lost », dans quel pays… » — à reprendre à la main, le nom
+  au milieu (« Sayid Jarrah, de « Lost », ») ; il ajoute parfois une année
+  (« le film « Stargate » (1994) ») qui ferme la réponse d'une autre
+  question, une face que `voisines` montre ; et des intitulés nommés de même
+  font paraître les redites que la base gardait sans les voir (Bohort,
+  Juliet Burke) — `voisines` avant et après, toujours. La consigne commune
+  le dit, routine comprise.
 - **Deux faces d'un fait entrent toutes deux, liées, et c'est le tirage qui
   les sépare** (le 12 novembre 2026, le choix du propriétaire ;
   `core/faces.ts`, `retours/2026-11-12/acte-i-du-filet.md`). Une réponse

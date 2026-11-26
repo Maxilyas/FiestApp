@@ -543,6 +543,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/inventaires.test.ts` — les inventaires de la danse, de la santé, de la langue française, de l'anglais, de l'espagnol, de l'équitation et de la plongée : la consigne qui les donne, la commande famille par famille, la couverture et ce qui reste sans question.
 - `server/test/faits-wikidata.test.ts` — les faits de Wikidata, sans réseau.
 - `server/test/reponses-soufflees.test.ts` — les réponses soufflées par leur racine.
+- `server/test/univers-nommes.test.ts` — une question d'univers nomme son univers (`server/src/core/universNommes.ts`) : une neuve qui ne le nomme pas se refuse, un repère, un titre d'œuvre ou la réponse elle-même suffisent, jamais le titre d'un épisode ; la base livrée n'en garde aucune, chaque univers du catalogue a ses repères, et une ligne relue ne se juge pas.
 
 ### Les sentiers du savoir et les parcours de thème
 

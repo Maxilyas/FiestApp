@@ -233,9 +233,18 @@ import { sansAccent } from '../../shared/homonymes'
  * de l'équitation (le choix du propriétaire : « enlever des questions sur les
  * courses dans le thème équitation ») : 25 retirées, 28 769 — le plancher n'a
  * pas baissé pour autant, un lot d'équitation sans courses les a remplacées
- * le même jour : 30 écrites, 30 rangées, 28 799.
+ * le même jour : 30 écrites, 30 rangées, 28 799. Le 26 novembre 2026, les
+ * questions d'univers ont nommé leur univers (`core/universNommes.ts`), et
+ * dix-sept qui ne se gagnaient que par cœur, même nommées, sont sorties : le
+ * titre d'un épisode donné par son seul numéro ou sa date — « l'épisode 12
+ * de la saison 6 » de Lost, le premier épisode d'un livre de Kaamelott — et
+ * la chanson d'un épisode de Stargate Atlantis. Les « Dans quel épisode… »
+ * restent, que la description d'un épisode laisse deviner. Nommées, deux
+ * redites que la base gardait se sont vues (`voisines`) — Bohort qui
+ * organise les fêtes, la spécialité de Juliet Burke — : une de chaque
+ * paire sortie, 28 780.
  */
-const AU_MOINS = 28799
+const AU_MOINS = 28780
 
 const { questions, refusees } = lireLaBase()
 

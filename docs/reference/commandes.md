@@ -174,6 +174,8 @@ Les sous-commandes de `base-campagne.ts` :
 | `racines` | Les questions dont l'intitulé souffle la bonne réponse par sa racine, à relire |
 | `stats` | La base par catégorie, sous-thème et difficulté |
 | `retirer <id> …` | Retire des questions de la base, par identifiant — et leur nom des faces qui les nommaient |
+| `univers` | Les questions d'un univers qui ne le nomment pas dans leur intitulé, en fiche de relecture, l'univers sous chacune : à récrire, puis `corriger` |
+| `corriger <corrections.json>` | Corrige des questions de la base sous leur identifiant — leur intitulé, leur anecdote, leur explication ou leur difficulté, jamais une réponse : `[{ "id", "texte"?, "anecdote"?, "explication"?, "difficulte"? }]`, chacune repassée au juge, qui demande aussi qu'une question d'univers le nomme ; un intitulé déjà pris est refusé — un refus, et rien ne s'écrit. À suivre d'un `voisines` |
 | `reclasser <reclassements.json>` | Change la catégorie, le sous-thème ou les étiquettes de questions de la base, sous leur identifiant : `[{ "id", "categorie"?, "sousTheme"?, "etiquettes"?, "ajouter"? }]`, chacune repassée au juge — un refus, et rien ne s'écrit |
 | `inventaire <thème>` | L'inventaire d'un thème en clair, à relire : chaque famille, ce qu'une commande de six cents questions lui donnerait, et ses sujets |
 | `couverture <thème> [<lot.json> …]` | Les sujets de l'inventaire qu'aucune question du thème n'aborde encore, ou une seule — la base, et les lots nommés |
