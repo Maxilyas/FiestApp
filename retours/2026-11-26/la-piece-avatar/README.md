@@ -241,6 +241,29 @@ lieu de 367) ; et un geste à découvrir — la tranche et les points le
 suggèrent, et la première visite peut faire frémir la carte une fois vers la
 gauche. Le tiroir reste sur la planche, pour comparer.
 
+### Le look, pas le palmarès
+
+Le propriétaire, devant le paquet : « Mais du coup, c'est la carte entière
+pas uniquement l'avatar ? », puis : « tu penses qu'il faut tout ou juste
+l'avatar qui change ? » La première maquette du paquet ne changeait que
+l'avatar — et l'on glissait une carte entière pour qu'un petit rond change.
+Une tenue, c'est **le look : l'avatar et ses calques, et le fond de la
+carte**. **Le titre et la vitrine restent les siens**, d'une tenue à
+l'autre.
+
+- **Le fond fait le geste.** Glisser une carte et n'en voir changer que
+  l'avatar, c'est un geste trop grand pour ce qu'il fait ; avec le fond, la
+  carte entière change d'ambiance — le Kraken sous ses méduses, le Dragon
+  dans son antre. Et le fond s'achète pour aller avec un avatar : c'est de
+  l'habillage.
+- **Le titre et la vitrine disent ce qu'elle a fait**, pas comment elle
+  s'habille. Ils bougent avec ses trophées : gardés dans chaque tenue, il
+  faudrait refaire ses six tenues à chaque haut fait, ou une vieille tenue
+  ressortirait la vitrine d'il y a trois mois. C'est la même personne dans
+  une autre tenue : son nom, son titre, son palmarès la suivent.
+- **Le thème et la gerbe** ne sont pas sur la carte (« Toi seul ») : ils
+  restent hors des tenues.
+
 ### Les quatre réponses
 
 1. **La ligue et le motif dans un même calque « Bordure ».** À l'œil, c'est
@@ -265,16 +288,17 @@ gauche. Le tiroir reste sur la planche, pour comparer.
 4. **Les tenues, en paquet, dès maintenant.**
    - **Six au plus** (un choix de produit) : assez pour la soirée, les
      duels, une fête, sans devenir une seconde collection.
-   - **« Garder » retient tout l'avatar** — l'avatar, sa version, sa
-     finition, sa bordure et son motif, son sceau —, sous le nom de son
+   - **« Garder » retient le look** — l'avatar, sa version, sa finition,
+     sa bordure et son motif, son sceau, et le fond —, sous le nom de son
      avatar (« Le Kraken »), qu'on renomme dans la liste.
    - **Une tenue s'essaie comme le reste** : rien n'est porté avant
      « Porter ».
    - **Une pièce qui n'est plus à elle** — un légendaire repris avec une
      soirée retirée — se porte sans elle : le serveur valide chaque champ
      comme aujourd'hui (`PUT /api/joueur/moi`), et la tenue garde le reste.
-   - **Seulement ce qui se voit de l'avatar** : ni le titre, ni la vitrine,
-     ni le fond, ni le thème — eux ont leur pièce.
+   - **Ni le titre ni la vitrine**, qui la suivent d'une tenue à l'autre ;
+     ni le thème ni la gerbe, qui ne sont pas sur la carte (plus haut, « Le
+     look, pas le palmarès »).
    - **Sans tenue gardée**, ni tranche ni point : le cintre seul, qui ouvre
      la liste vide et son « Garder ce que je porte ».
 
@@ -291,8 +315,10 @@ gauche. Le tiroir reste sur la planche, pour comparer.
   cintre seul, et sa bordure qui lui dit comment l'ouvrir — la phrase
   d'aujourd'hui, sans son petit titre : le calque le dit déjà.
 - **Les tenues** (`planche-final-tenues.jpg`) : au repos ; le doigt qui
-  glisse « Hiver » vers la droite, « La mer » dessous ; « La mer » devant,
-  son nom sur la carte et « Porter » ; la liste du cintre.
+  glisse « Hiver » (la Chouette sur sa nuit) vers la droite, « La mer »
+  dessous ; « La mer » devant — le Kraken sur ses abysses, son nom sur la
+  carte, son titre et sa vitrine toujours les siens, « Porter » ; la liste
+  du cintre, chaque tenue sur son fond.
 - **Les tailles** (`planche-final-tailles.jpg`) : un grand téléphone
   (412 × 915), la place de cinq rangées d'avatars ; l'Ivoire.
 - **Le tiroir** (`planche-final-tiroir.jpg`) : la première version, pour
@@ -306,8 +332,8 @@ réglage en grille ; les règles de l'essai ne bougent pas), la carte de
 qui la glisse — celui de la carte d'un joueur, `CarteJoueur.tsx`), la
 feuille « Sa version » de `Loge.tsx` (partie), la liste des tenues (une
 `Feuille`), `essaiDemande` (le calque qu'un lien demande), le bloc « La
-loge » de `styles.css`. Le serveur : `profile_tenues` (le profil, le nom, ce
-qu'elle porte en JSON), deux routes — garder, retirer ou renommer —, la
+loge » de `styles.css`. Le serveur : `profile_tenues` (le profil, le nom, son
+look en JSON), deux routes — garder, retirer ou renommer —, la
 documentation de la table et des routes. Les épreuves : celles qui comptent
 les pastilles et lisent la pièce (`style.test.ts`, `un-seul-avatar.test.ts`,
 `loge.test.ts`, `nouveautes.test.ts`), une de plus pour les tenues ; et

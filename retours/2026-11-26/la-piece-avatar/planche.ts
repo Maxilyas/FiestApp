@@ -429,13 +429,36 @@ const LANGUETTE = `<button type="button" class="mq-languette" aria-label="Mes te
 // et un point par tenue. Le doigt glisse la carte : la tenue suivante vient
 // devant, à l'essai. Le cintre ouvre la liste, où l'on garde, renomme, retire.
 
-/** Les tenues de Léa : la première est celle qu'elle porte. */
+/**
+ * Les tenues de Léa : la première est celle qu'elle porte. Une tenue, c'est le look, pas le palmarès : l'avatar et ses
+ * calques, et le fond de la carte — ce qui habille. Le titre et la vitrine disent ce qu'elle a fait : ils la suivent
+ * d'une tenue à l'autre (la question du propriétaire, le même jour : « Mais du coup, c'est la carte entière pas
+ * uniquement l'avatar ? », puis « tu penses qu'il faut tout ou juste l'avatar qui change ? »). Le fond compte : sans
+ * lui, glisser une carte entière ne changerait qu'un petit rond.
+ */
+type Vitrine = { key: string; emoji: string; title: string }[]
 const TENUES_FINALES: { nom: string; t: Tenue & { eclat?: any }; essai?: Partial<typeof LEA>; porte?: boolean }[] = [
   { nom: 'Soirée', t: {}, porte: true },
-  { nom: 'Duels', t: { legendaire: 'lg:dragon', finition: 'or', bordure: { ...PORTEE, motif: 'ecailles' }, sceau: false, eclat: false }, essai: { legendaire: 'lg:dragon', finition: 'or', finitionChoisie: 'or', motifChoisi: 'ecailles', sceauMasque: true } },
-  { nom: 'La mer', t: { legendaire: 'lg:kraken', finition: 'abysses', bordure: { ligue: 'argent', crans: 12, motif: 'vagues' }, sceau: false, eclat: false }, essai: { legendaire: 'lg:kraken', finition: 'abysses', finitionChoisie: 'abysses', bordureChoisie: 'argent', motifChoisi: 'vagues', sceauMasque: true } },
-  { nom: 'Hiver', t: { legendaire: 'lg:chouette', finition: 'argent', bordure: { ligue: 'or', crans: 12, motif: 'flocons' }, sceau: false, eclat: false }, essai: { legendaire: 'lg:chouette', finition: 'argent', finitionChoisie: 'argent', motifChoisi: 'flocons', sceauMasque: true } },
-  { nom: 'Le Lion', t: { legendaire: 'lg:lion', finition: 'or', bordure: { ligue: 'or', crans: 12, motif: 'rayons' }, sceau: false, eclat: false } },
+  {
+    nom: 'Duels',
+    t: { legendaire: 'lg:dragon', finition: 'or', bordure: { ...PORTEE, motif: 'ecailles' }, sceau: false, eclat: false },
+    essai: { legendaire: 'lg:dragon', finition: 'or', finitionChoisie: 'or', motifChoisi: 'ecailles', sceauMasque: true, fond: 'dragon' },
+  },
+  {
+    nom: 'La mer',
+    t: { legendaire: 'lg:kraken', finition: 'abysses', bordure: { ligue: 'argent', crans: 12, motif: 'vagues' }, sceau: false, eclat: false },
+    essai: { legendaire: 'lg:kraken', finition: 'abysses', finitionChoisie: 'abysses', bordureChoisie: 'argent', motifChoisi: 'vagues', sceauMasque: true, fond: 'abysses' },
+  },
+  {
+    nom: 'Hiver',
+    t: { legendaire: 'lg:chouette', finition: 'argent', bordure: { ligue: 'or', crans: 12, motif: 'flocons' }, sceau: false, eclat: false },
+    essai: { legendaire: 'lg:chouette', finition: 'argent', finitionChoisie: 'argent', motifChoisi: 'flocons', sceauMasque: true, fond: 'nuit' },
+  },
+  {
+    nom: 'Le Lion',
+    t: { legendaire: 'lg:lion', finition: 'or', bordure: { ligue: 'or', crans: 12, motif: 'rayons' }, sceau: false, eclat: false },
+    essai: { legendaire: 'lg:lion', finition: 'or', finitionChoisie: 'or', motifChoisi: 'rayons', sceauMasque: true, fond: 'triomphe' },
+  },
 ]
 /** Le cintre et un point par tenue, au coin de la carte : la montrée s'allonge en or, la portée garde son anneau. */
 function lesPoints(montree: number | null, n = TENUES_FINALES.length): string {
@@ -444,11 +467,13 @@ function lesPoints(montree: number | null, n = TENUES_FINALES.length): string {
 }
 type ModeDeLaCarte = 'paquet' | 'tiroir' | 'nue'
 /** La carte de la loge, sans « Version rare » (son calque l'a reprise) : en paquet, avec la languette du tiroir, ou nue. */
-function carteFinale(essai: Partial<typeof LEA> = {}, mode: ModeDeLaCarte = 'paquet', laTenue?: number | null): string {
+function carteFinale(essai: Partial<typeof LEA> = {}, mode: ModeDeLaCarte = 'paquet', laTenue?: number | null, saVitrine: Vitrine = VITRINE): string {
   const apercu = Object.keys(essai).length > 0
   // Un calque à l'essai : la carte ne montre plus aucune tenue gardée, aucun point ne s'allume.
   const tenue = laTenue === undefined ? (apercu ? null : 0) : laTenue
-  let html = rendre(h(CarteDeLaLoge, { vu: { ...LEA_FINALE, ...essai }, vitrine: VITRINE, apercu, essaye: { avatar: apercu }, version: null, onOuvrir() {} }))
+  // Ce qui change sur la carte a le pointillé de l'essai : l'avatar, le titre, la vitrine.
+  const essaye = { avatar: apercu, titre: essai.titre !== undefined, vitrine: saVitrine !== VITRINE }
+  let html = rendre(h(CarteDeLaLoge, { vu: { ...LEA_FINALE, ...essai }, vitrine: saVitrine, apercu, essaye, version: null, onOuvrir() {} }))
   if (mode === 'tiroir') return html.replace(/<\/div>$/, `${LANGUETTE}</div>`)
   if (mode === 'nue') return html
   // Une tenue gardée montrée : son nom à la place d'« Aperçu ».
@@ -593,7 +618,7 @@ const finalMer = () => {
         },
         neufs: ['bordure'],
       }) + rendre(h(MesAvatars, { ...PROPS_FINALES, essai: { legendaire: mer.legendaire } })),
-    bas: barre('La mer', 'Avatar · Finition · Bordure · Sceau'),
+    bas: barre('La mer', 'Avatar · Finition · Bordure · Fond'),
   })
 }
 
@@ -601,7 +626,7 @@ const finalMer = () => {
 const finalListe = () => {
   const rangees = TENUES_FINALES.map(
     (x, i) =>
-      `<li class="mq-rangee-tenue${i === 0 ? ' portee' : ''}"><button type="button" class="mq-rangee-porter"><span class="mq-rangee-dessin mq-sujet">${av(x.t)}</span><span class="mq-rangee-nom"><b>${x.nom}</b>${i === 0 ? '<small>Portée</small>' : ''}</span></button><button type="button" class="mq-rangee-geste" aria-label="Renommer ${x.nom}">${icone('edit')}</button><button type="button" class="mq-rangee-geste" aria-label="Retirer ${x.nom}">${icone('trash')}</button></li>`,
+      `<li class="mq-rangee-tenue carte-fond fond-${x.essai?.fond ?? LEA_FINALE.fond}${i === 0 ? ' portee' : ''}"><button type="button" class="mq-rangee-porter"><span class="mq-rangee-dessin mq-sujet">${av(x.t)}</span><span class="mq-rangee-nom"><b>${x.nom}</b></span>${i === 0 ? '<small class="mq-rangee-portee">Portée</small>' : ''}</button><button type="button" class="mq-rangee-geste" aria-label="Renommer ${x.nom}">${icone('edit')}</button><button type="button" class="mq-rangee-geste" aria-label="Retirer ${x.nom}">${icone('trash')}</button></li>`,
   ).join('')
   const feuille = `<div class="mq-voile"><div class="carte-feuille mq-feuille"><header class="carte-barre"><b class="feuille-titre">Mes tenues</b><button type="button" class="carte-fermer">${icone('x')}Fermer</button></header><div class="carte-corps"><ul class="mq-liste-tenues">${rangees}</ul></div><footer class="carte-pied mq-pied mq-pied-tenues"><span class="muted small">5 sur 6</span><button type="button" class="btn btn-primary">${icone('plus')}Garder ce que je porte</button></footer></div></div>`
   return ecranFinal({ panneau: railFinal('avatar', { neufs: ['bordure'] }) + rendre(h(MesAvatars, PROPS_FINALES)), dessus: feuille })
@@ -707,12 +732,12 @@ const SECTIONS: Section[] = [
   {
     id: 'final-tenues',
     titre: 'Le rendu final · les tenues en paquet de cartes',
-    dit: 'Les tenues sont des cartes : la tranche des autres dépasse derrière celle de la loge, un point par tenue à son coin. Le doigt glisse la carte, la tenue suivante vient devant, à l’essai. Le cintre ouvre la liste.',
+    dit: 'Les tenues sont des cartes : le look change — l’avatar et ses calques, le fond —, le palmarès reste — le titre, la vitrine. La tranche des autres dépasse derrière celle de la loge, un point par tenue à son coin. Le doigt glisse la carte, la tenue suivante vient devant, à l’essai. Le cintre ouvre la liste.',
     ecrans: [
       { nom: 'final-paquet', titre: 'Au repos', dit: 'Le cintre et cinq points, la tenue portée en or', corps: finalAvatar },
       { nom: 'final-glisse', titre: 'Le doigt glisse la carte', dit: '« Hiver » s’en va, « La mer » est dessous', corps: finalGlisse },
-      { nom: 'final-mer', titre: '« La mer » devant', dit: 'Son nom sur la carte ; « Porter » la garde', corps: finalMer },
-      { nom: 'final-liste', titre: 'Le cintre : la liste', dit: 'Garder, renommer, retirer — la carte au-dessus', corps: finalListe },
+      { nom: 'final-mer', titre: '« La mer » devant', dit: 'Son avatar et son fond ; son titre et sa vitrine restent les siens', corps: finalMer },
+      { nom: 'final-liste', titre: 'Le cintre : la liste', dit: 'Chaque tenue sur son fond ; garder, renommer, retirer', corps: finalListe },
     ],
   },
   {

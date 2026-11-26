@@ -200,3 +200,13 @@ body.mq-planche { margin: 0; padding: 26px 30px 50px; width: 1280px; box-sizing:
 .mq-pied-tenues .btn .icon { width: 16px; height: 16px; }
 /* Dans la rangée de l'avatar (`.loge-carte-haut`), à son coin bas droit. */
 .loge-carte-haut > .mq-points { right: 0; bottom: 0; }
+/* Une rangée de la liste est une petite carte : son fond, son titre, sa vitrine. */
+.mq-rangee-tenue.carte-fond { overflow: hidden; border-color: rgba(255, 255, 255, 0.16); }
+.mq-rangee-tenue.carte-fond.portee { border-color: var(--accent); }
+.mq-rangee-tenue .mq-rangee-porter { position: relative; color: #f3ece2; }
+.mq-rangee-titre { font-family: var(--serif); font-style: italic; font-size: 0.85rem; color: #e6c47c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mq-rangee-vitrine { font-size: 0.8rem; letter-spacing: 2px; line-height: 1.2; }
+.mq-rangee-portee { position: absolute; top: 6px; right: 2px; font-size: var(--t-label); font-weight: 700; color: #e6c47c; }
+.mq-rangee-tenue .mq-rangee-geste { color: #cdbfae; }
+.mq-liste-tenues { gap: 8px; }
+.mq-rangee-tenue { min-height: 76px; }
