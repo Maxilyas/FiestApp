@@ -1,4 +1,4 @@
-import { useId, useRef, type CSSProperties, type PointerEvent } from 'react'
+import { useId, useMemo, useRef, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
 import type { Finition } from '../../../shared/profil'
 import { legendaire as legendaireDe } from '../../../shared/legendaires'
 import { inscrireDessin } from './medaillons'
@@ -198,27 +198,92 @@ function Pellicule({ eclate, matiere }: { eclate: boolean; matiere: boolean }) {
 }
 
 /**
- * Une image peinte dans sa matière : sa lumière devient la matière, du sombre
- * au clair (`tablesDeLaMatiere`). Un SVG à la place de l'`<img>`, posé au même
- * endroit : un filtre SVG ne se pose que sur du SVG, partout.
+ * Ceux qui ondulent sous l'eau, en grand (`ONDULANTS`, le 27 novembre 2026 :
+ * l'effet D de la page des médaillons vivants, validé par le propriétaire —
+ * les créatures marines offertes) : une vague douce passe sur leur peinture,
+ * le disque et ce qui en sort ensemble. Un filtre SVG, comme les matières
+ * (jamais un `filter` CSS sur du HTML, que Safari ne tient pas partout) : une
+ * carte de vagues de 32 pixels qui se répète sans raccord (`VAGUES`, des sinus
+ * à périodes entières, R pour l'écart horizontal, G pour le vertical), posée en
+ * tuiles (`feTile`) et qui glisse d'une période par boucle (SMIL), puis
+ * `feDisplacementMap`. Ni WebGL ni image de plus : la vraie 3D et le relief
+ * ont été écartés, et une carte de vagues générée par la page aurait demandé
+ * un canevas. Seulement en grand, jamais dans une liste, et rien si le système
+ * demande moins de mouvement.
  */
-function EnMatiere({ src, matiere, id, className }: { src: string; matiere: Matiere; id: string; className?: string }) {
-  const [r, g, b] = tablesDeLaMatiere(matiere)
+const ONDULANTS: ReadonlySet<string> = new Set(['lg:jormungandr', 'lg:baleine', 'lg:drakkar'])
+const VAGUES = 'data:image/png;base64,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'
+/** Une période de la vague, en pour cent du médaillon ; son écart le plus grand ; le temps d'une boucle. */
+const PERIODE_DE_LA_VAGUE = 38
+const AMPLITUDE_DE_LA_VAGUE = 0.55
+const DUREE_DE_LA_VAGUE = '8s'
+/** Où se pose chaque calque, en pour cent du médaillon (son début, sa taille) : le disque (`inset: 5%`) et ce qui en sort (`.lg-debord`). */
+type Cadre = readonly [number, number]
+const CADRE_DU_DISQUE: Cadre = [5, 90]
+const CADRE_DU_DEBORD: Cadre = [-13, 126]
+
+/**
+ * Le filtre d'une image peinte : sa vague (`onde`, dans le repère de son
+ * calque), puis sa matière — sa lumière devient la matière, du sombre au
+ * clair (`tablesDeLaMatiere`). La tuile de la vague part de l'origine du
+ * médaillon, à la même échelle dans les deux calques : à la lisière du disque,
+ * ce qui en sort continue la même vague, sans raccord.
+ */
+function Filtre({ id, cadre, onde, matiere }: { id: string; cadre: Cadre; onde: boolean; matiere: Matiere | null }) {
+  const [debut, taille] = cadre
+  const k = 100 / taille
+  const tuile = PERIODE_DE_LA_VAGUE * k
+  const depart = ((-debut * k) % tuile) - tuile
+  const tables = matiere ? tablesDeLaMatiere(matiere) : null
+  return (
+    <filter id={id} x="-2" y="-2" width="104" height="104" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+      {onde && (
+        <>
+          <feImage href={VAGUES} x={depart} y={depart} width={tuile} height={tuile} preserveAspectRatio="none" result="vague">
+            <animate attributeName="x" from={depart} to={depart + tuile} dur={DUREE_DE_LA_VAGUE} repeatCount="indefinite" />
+            <animate attributeName="y" from={depart} to={depart + tuile} dur={DUREE_DE_LA_VAGUE} repeatCount="indefinite" />
+          </feImage>
+          <feTile in="vague" result="vagues" />
+          <feDisplacementMap in="SourceGraphic" in2="vagues" scale={2 * AMPLITUDE_DE_LA_VAGUE * k} xChannelSelector="R" yChannelSelector="G" result="ondule" />
+        </>
+      )}
+      {tables && (
+        <>
+          <feColorMatrix in={onde ? 'ondule' : 'SourceGraphic'} type="matrix" values={MATRICE_DE_LA_LUMIERE} />
+          <feComponentTransfer>
+            <feFuncR type="table" tableValues={tables[0]} />
+            <feFuncG type="table" tableValues={tables[1]} />
+            <feFuncB type="table" tableValues={tables[2]} />
+          </feComponentTransfer>
+        </>
+      )}
+    </filter>
+  )
+}
+
+/**
+ * Une image peinte sous un filtre — sa matière, sa vague : un SVG à la place
+ * de l'`<img>`, posé au même endroit (un filtre SVG ne se pose que sur du SVG,
+ * partout). `defs` porte les filtres : ceux du disque et de ce qui en sort
+ * vivent dans le même SVG, celui du disque — une seule horloge pour leurs
+ * vagues, qui restent en phase.
+ */
+function ImageFiltree({ src, filtre, defs, className }: { src: string; filtre: string; defs?: ReactNode; className?: string }) {
   return (
     <svg className={className} viewBox="0 0 100 100" aria-hidden="true">
-      <defs>
-        <filter id={id} x="0" y="0" width="100" height="100" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-          <feColorMatrix type="matrix" values={MATRICE_DE_LA_LUMIERE} />
-          <feComponentTransfer>
-            <feFuncR type="table" tableValues={r} />
-            <feFuncG type="table" tableValues={g} />
-            <feFuncB type="table" tableValues={b} />
-          </feComponentTransfer>
-        </filter>
-      </defs>
-      <image href={src} x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice" filter={`url(#${id})`} />
+      {defs && <defs>{defs}</defs>}
+      <image href={src} x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice" filter={`url(#${filtre})`} />
     </svg>
   )
+}
+
+/** Le système demande-t-il moins de mouvement ? Lu une fois par médaillon. */
+function moinsDeMouvement(): boolean {
+  try {
+    return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+  } catch {
+    return false
+  }
 }
 
 /** Le médaillon d'un avatar légendaire, à la taille du texte qui l'entoure (1 em). */
@@ -231,6 +296,9 @@ export function Legendaire({ cle, verrouille, finition, eclat, grand, className 
   const eclate = !!eclat && !verrouille
   const matiere = eclate && typeof eclat === 'string' ? eclat : null
   const cercle = !!finition && !verrouille
+  const calme = useMemo(moinsDeMouvement, [])
+  // En grand seulement, là où il se prend en main : dans une liste, sur un podium, il ne bouge pas.
+  const onde = !!grand && !verrouille && ONDULANTS.has(cle) && !calme
   const fond = (eclate ? FONDS_ECLAT : FONDS)[cle]
   if (!l || !images || !fond) return null
   // Pégase sort tout entier de son cercle, ordinaire comme éclaté (`artPerso`, livré pour lui seul) ; les autres ne
@@ -243,7 +311,7 @@ export function Legendaire({ cle, verrouille, finition, eclat, grand, className 
   // numérotent chacune depuis zéro, et le premier dégradé d'un nom gagne.
   // Sans eux, l'Argent d'une planche prenait l'Or posé avant lui, et
   // l'éclaté le disque de l'ordinaire.
-  const etat = (eclate ? 'e' : 'n') + (matiere ? 'm' + matiere : '') + (cercle ? 'c' + finition : '')
+  const etat = (eclate ? 'e' : 'n') + (matiere ? 'm' + matiere : '') + (cercle ? 'c' + finition : '') + (onde ? 'o' : '')
   const base = `${cle.replace(':', '-')}-${etat}${brut.replace(/[^a-zA-Z0-9_-]/g, '')}`
   const id = (nom: string) => `${base}-${nom}`
   const bord = l.ton === 'ombre' ? OMBRE : OR
@@ -302,6 +370,8 @@ export function Legendaire({ cle, verrouille, finition, eclat, grand, className 
     : {}
 
   const art = eclate ? images.rare[taille] : images.art[taille]
+  // Une matière, une vague : la peinture passe par un filtre SVG, le disque et ce qui en sort par le même.
+  const filtre = !!matiere || onde
   // Verrouillé, la silhouette : sa forme, en or, sur la nuit.
   const silhouette = { WebkitMaskImage: `url(${images.perso})`, maskImage: `url(${images.perso})` } as CSSProperties
   return (
@@ -347,8 +417,19 @@ export function Legendaire({ cle, verrouille, finition, eclat, grand, className 
             <span className="lg-silhouette" style={silhouette} />
           ) : (
             <>
-              {matiere ? (
-                <EnMatiere className="lg-art" src={art} matiere={matiere} id={id('matiere')} />
+              {filtre ? (
+                <ImageFiltree
+                  className="lg-art"
+                  src={art}
+                  filtre={id('filtre')}
+                  defs={
+                    <>
+                      <Filtre id={id('filtre')} cadre={CADRE_DU_DISQUE} onde={onde} matiere={matiere} />
+                      {/* Sa vague : celui de ce qui en sort vit ici aussi, sous la même horloge. */}
+                      {debord && onde && <Filtre id={id('filtre-debord')} cadre={CADRE_DU_DEBORD} onde matiere={matiere} />}
+                    </>
+                  }
+                />
               ) : (
                 <img className="lg-art" src={art} alt="" decoding="async" draggable={false} />
               )}
@@ -360,8 +441,10 @@ export function Legendaire({ cle, verrouille, finition, eclat, grand, className 
           // La créature détourée donne sa forme au cadre (`--lg-forme`) : la
           // pellicule, posée par-dessus, ne se voit que sur elle.
           <span className="lg-debord" style={{ '--lg-forme': `url(${debord[taille]})` } as CSSProperties}>
-            {matiere ? (
-              <EnMatiere src={debord[taille]} matiere={matiere} id={id('matiere-debord')} />
+            {onde ? (
+              <ImageFiltree src={debord[taille]} filtre={id('filtre-debord')} />
+            ) : matiere ? (
+              <ImageFiltree src={debord[taille]} filtre={id('filtre-debord')} defs={<Filtre id={id('filtre-debord')} cadre={CADRE_DU_DEBORD} onde={false} matiere={matiere} />} />
             ) : (
               <img src={debord[taille]} alt="" decoding="async" draggable={false} />
             )}
