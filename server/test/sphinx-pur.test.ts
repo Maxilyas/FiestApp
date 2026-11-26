@@ -10,8 +10,14 @@ import { fileURLToPath } from 'node:url'
 import {
   CHANCE_D_UNE_VISITE,
   ENIGMES_DEJA_VUES_DU_PROPRIETAIRE,
+  JOURS_DU_RYTHME,
   MOTS_NEUFS_PAR_JOUR,
+  MOTS_NEUFS_PAR_JOUR_MAX,
+  chanceDuMotNeuf,
+  divinDuSouffle,
   ORDRE_DU_SPHINX,
+  PART_DES_PROBLEMES,
+  POIDS_DES_PROBLEMES,
   VISITES_FACILES,
   appliquerLeGeste,
   choisirLEnigme,
@@ -22,7 +28,10 @@ import {
   jugerLaReponse,
   joursJoues,
   laSuivanteSurgit,
+  lireLaReponse,
+  lireUnProbleme,
   motsDeLaLegende,
+  nombreTape,
   motsEgaux,
   normaliser,
   phraseVue,
@@ -36,7 +45,8 @@ import type { LigneDuSphinx } from '../src/auth/profiles'
 import { legendeDe } from '../src/core/divins'
 import { DIVINS } from '../../shared/divins'
 import { AUCUNE_ACTIVITE, type ActiviteDuJour } from '../../shared/missions'
-import { ESSAIS_DU_SPHINX, JOURS_DE_L_HABITUE, QUI_A_DES_MOTS_MONTRES } from '../../shared/sphinx'
+import { ESSAIS_DU_SPHINX, JOURS_DE_L_HABITUE, QUI_A_DES_MOTS_MONTRES, essaisDe } from '../../shared/sphinx'
+import { PASSEUR, PASSEUR_A_CHOISIR } from './passeur'
 import { jourAvant } from '../../shared/jour'
 import { hasardDe } from '../../shared/missions'
 
@@ -81,8 +91,8 @@ test('le Sphinx juge sur les réponses acceptées, et une réponse proche brûle
   }
 })
 
-test('la réserve : quatre-vingt-six pièces, sans les traces du test à l’aveugle, chacune sa source', () => {
-  const toutes = enigmesDuSphinx()
+test('la réserve : quatre-vingt-six pièces en vers, sans les traces du test à l’aveugle, chacune sa source', () => {
+  const toutes = enigmesDuSphinx().filter(e => e.sorte !== 'probleme')
   assert.equal(toutes.length, 86)
   assert.equal(new Set(toutes.map(e => e.numero)).size, 86, 'un numéro chacune')
   assert.deepEqual(
@@ -104,6 +114,38 @@ test('la réserve : quatre-vingt-six pièces, sans les traces du test à l’ave
   // Le test à l'aveugle reste dans `retours/` : ni les réponses des joueurs simulés, ni le verdict de la relecture.
   const brut = readFileSync(fileURLToPath(new URL('../content/sphinx/enigmes.json', import.meta.url)), 'utf8')
   assert.doesNotMatch(brut, /"(aveugle|raison|retenue|lot)"\s*:/)
+})
+
+test('la réserve des problèmes : soixante-deux, chacun lu par le serveur, sa réponse juste, sa solution pas à pas, sans les traces du test à l’aveugle', () => {
+  const brut = readFileSync(fileURLToPath(new URL('../content/sphinx/problemes.json', import.meta.url)), 'utf8')
+  const fichier = (JSON.parse(brut) as { problemes: { numero: string; reponse: { sorte: string; valeur?: number; bonne?: number } }[] }).problemes
+  const problemes = enigmesDuSphinx().filter(e => e.sorte === 'probleme')
+  // Un problème mal formé se tairait sans un mot (`lesProblemes`) : chacun du fichier doit être dans la réserve.
+  assert.equal(fichier.length, 62)
+  // Les trente-six du 25 novembre 2026, puis vingt-six redoutables le lendemain (« des riddles durs ») : un tiers de la
+  // réserve est difficile, que `POIDS_DES_PROBLEMES` fait venir un problème sur trois.
+  const parDifficulte = problemes.reduce<Record<string, number>>((m, e) => ((m[e.difficulte] = (m[e.difficulte] ?? 0) + 1), m), {})
+  assert.deepEqual(parDifficulte, { facile: 26, moyenne: 15, difficile: 21 })
+  assert.equal(problemes.length, fichier.length, 'chacun se lit')
+  assert.equal(new Set([...problemes.map(e => e.numero), ...enigmesDuSphinx().map(e => e.numero)]).size, enigmesDuSphinx().length, 'un numéro chacun, à part des énigmes')
+  const sortes = { nombre: 0, choix: 0 }
+  for (const e of problemes) {
+    const p = e.probleme!
+    assert.match(e.numero, /^p\d+$/, e.numero)
+    assert.ok(['facile', 'moyenne', 'difficile'].includes(e.difficulte), e.numero)
+    assert.match(p.titre, /^(Le |La |Les |L[’'])/, `n° ${e.numero} : son titre a son article, que « Le problème du… » reprend`)
+    assert.ok(e.solution && p.explication.length > 0 && p.source.texte, e.numero)
+    sortes[p.reponse.sorte]++
+    // Sa réponse, telle que le joueur la donne — le nombre au clavier, la place de la carte —, est juste.
+    const r = fichier.find(x => x.numero === e.numero)!.reponse
+    const lue = lireLaReponse(e, String(r.sorte === 'nombre' ? r.valeur : r.bonne))
+    assert.ok('lue' in lue && jugerLaReponse(e, lue.lue) === 'juste', `n° ${e.numero}`)
+  }
+  // Les deux formes de réponse, chaque problème la sienne (le choix du propriétaire du 25 novembre 2026).
+  assert.ok(sortes.nombre > 0 && sortes.choix > 0, JSON.stringify(sortes))
+  // Le passage à l'aveugle reste dans `retours/` ; et le passeur, que tout le monde connaît, n'est qu'au banc.
+  assert.doesNotMatch(brut, /"(aveugle|raison|retenu|difficulte_estimee)"\s*:/)
+  assert.ok(!problemes.some(e => e.numero === PASSEUR.numero || e.numero === PASSEUR_A_CHOISIR.numero))
 })
 
 // ── L'habitué ─────────────────────────────────────────────────────────────
@@ -307,8 +349,8 @@ test('le mot soufflé : d’abord un que personne n’a encore, sinon un qu’il
 })
 
 // Le choix du propriétaire du 25 novembre 2026, « un mot neuf par jour » : à quinze habitués, la première phrase tombait
-// en trois jours. Le mot neuf du jour parti, le Sphinx souffle un mot que d'autres ont déjà trouvé et qu'il n'a pas.
-test('le mot neuf du jour parti, un mot déjà trouvé qu’il n’a pas ; s’il les a tous, un neuf quand même', () => {
+// en trois jours. Pas de mot neuf pour lui cette fois, le Sphinx souffle un mot que d'autres ont déjà trouvé et qu'il n'a pas.
+test('pas de mot neuf cette fois, un mot déjà trouvé qu’il n’a pas ; s’il les a tous, un neuf quand même', () => {
   const caches = [0, 1, 3, 4, 8]
   const pris = new Set<number>()
   for (let g = 0; g < 200; g++) pris.add(choisirLeMot(caches, new Set([0]), new Set([0, 1, 3]), hasardDe(`e${g}`), { neufPermis: false })!)
@@ -319,6 +361,78 @@ test('le mot neuf du jour parti, un mot déjà trouvé qu’il n’a pas ; s’i
   // Permis, rien ne change : d'abord un que personne n'a.
   assert.equal(choisirLeMot(caches, new Set([0]), new Set([0, 1, 3, 4]), hasardDe('g'), { neufPermis: true }), 8)
   assert.equal(MOTS_NEUFS_PAR_JOUR, 1)
+})
+
+// Le choix du propriétaire du 26 novembre 2026 : le premier résolu du jour emportait le mot neuf — « ça tombe toujours sur
+// celui qui se lève le plus tôt ». La même chance pour chaque énigme résolue, réglée sur leur rythme.
+test('la chance du mot neuf : un par jour en moyenne, sur le rythme des derniers jours — la même à toute heure', () => {
+  const H = 3_600_000
+  const J = 24 * H
+  assert.deepEqual([MOTS_NEUFS_PAR_JOUR_MAX, JOURS_DU_RYTHME], [2, 7])
+  // Rien encore de soufflé : toute la chance.
+  assert.equal(chanceDuMotNeuf([], null, 100 * J), 1)
+  // Cinq énigmes résolues par jour sur sept jours : une chance sur cinq ; une par jour, ou moins : toute la chance.
+  const parJour = (n: number, jours: number, fin: number) => Array.from({ length: n * jours }, (_, i) => fin - Math.floor(i / n) * J - (i % n) * H - H)
+  assert.equal(chanceDuMotNeuf(parJour(5, 7, 100 * J), 0, 100 * J), 1 / 5)
+  assert.equal(chanceDuMotNeuf(parJour(1, 7, 100 * J), 0, 100 * J), 1)
+  // Ce qui a plus de sept jours ne compte plus.
+  assert.equal(chanceDuMotNeuf([...parJour(5, 7, 100 * J), ...parJour(20, 7, 93 * J)], 0, 100 * J), 1 / 5)
+  // Un serveur de deux jours mesure son rythme sur deux jours : six énigmes, trois par jour.
+  assert.equal(chanceDuMotNeuf(parJour(3, 2, 100 * J), 98 * J, 100 * J), 1 / 3)
+
+  // Cinq habitués résolvent chaque jour, de 7 h à 22 h, deux mille jours durant — sur cent, le hasard seul écartait les
+  // parts du simple au triple —, sous la règle du serveur (`Sphinx.geste`) : la chance du moment, deux mots neufs par jour
+  // au plus, le tirage sur la graine de la visite, les huit derniers jours gardés.
+  const heures = [7, 10, 13, 18, 22]
+  let resolues: number[] = []
+  let debut: number | null = null
+  const parRang = heures.map(() => 0)
+  let neufs = 0
+  const DUREE = 2000
+  for (let jour = 0; jour < DUREE; jour++) {
+    let duJour = 0
+    resolues = resolues.filter(t => t > jour * J - (JOURS_DU_RYTHME + 1) * J)
+    heures.forEach((h, rang) => {
+      const t = jour * J + h * H
+      const permis = duJour < MOTS_NEUFS_PAR_JOUR_MAX && hasardDe(`joueur${rang}|${jour}|neuf`)() < chanceDuMotNeuf(resolues, debut, t)
+      if (permis) {
+        duJour++
+        if (jour >= JOURS_DU_RYTHME) {
+          parRang[rang]++
+          neufs++
+        }
+        debut ??= t
+      }
+      resolues.push(t)
+    })
+  }
+  const jours = DUREE - JOURS_DU_RYTHME
+  assert.ok(neufs / jours > 0.85 && neufs / jours < 1.15, `un mot neuf par jour, à peu près : ${(neufs / jours).toFixed(2)}`)
+  // Celui de 7 h n'en a plus tous les jours — avant, il les avait tous : chacun en reçoit sa part. Le plafond seul en ôte
+  // un peu aux derniers du jour (deux déjà tombés, le troisième n'a plus sa chance) : cinq sur six de la part du premier.
+  assert.ok(parRang[0] / neufs < 0.3, `la part du premier levé : ${parRang.join(', ')}`)
+  assert.ok(Math.min(...parRang) / Math.max(...parRang) > 0.7, `la part de chacun, de 7 h à 22 h : ${parRang.join(', ')}`)
+})
+
+test('le souffle : la phrase qu’il finit, sinon le Divin du moment, sinon la plus ancienne des retrouvées qui lui manque', () => {
+  const rien = () => false
+  // D'office, le Divin du moment.
+  assert.deepEqual(divinDuSouffle({ moment: 'm', retrouvees: ['a', 'b'], fil: null, connait: rien }), { divin: 'm', pourquoi: 'moment' })
+  // Il a choisi de finir une phrase retrouvée : elle passe devant.
+  assert.deepEqual(divinDuSouffle({ moment: 'm', retrouvees: ['a', 'b'], fil: 'b', connait: rien }), { divin: 'b', pourquoi: 'choisie' })
+  // Finie — ou lue, ou son Divin porté (`connait`) — : le Sphinx revient de lui-même au Divin du moment.
+  assert.deepEqual(divinDuSouffle({ moment: 'm', retrouvees: ['a', 'b'], fil: 'b', connait: c => c === 'b' }), { divin: 'm', pourquoi: 'moment' })
+  // Un fil vers une phrase pas encore retrouvée — le Divin du moment, ou un suivant — ne vaut rien.
+  assert.deepEqual(divinDuSouffle({ moment: 'm', retrouvees: ['a'], fil: 'z', connait: rien }), { divin: 'm', pourquoi: 'moment' })
+  // Il porte le Divin du moment : la plus ancienne des retrouvées qu'il ne connaît pas, dans l'ordre du Sphinx.
+  assert.deepEqual(divinDuSouffle({ moment: 'm', retrouvees: ['a', 'b'], fil: null, connait: c => c === 'm' || c === 'a' }), {
+    divin: 'b',
+    pourquoi: 'plus-ancienne',
+  })
+  // Toutes retrouvées : de même.
+  assert.deepEqual(divinDuSouffle({ moment: null, retrouvees: ['a', 'b'], fil: null, connait: rien }), { divin: 'a', pourquoi: 'plus-ancienne' })
+  // Il les connaît toutes : plus rien à lui souffler.
+  assert.equal(divinDuSouffle({ moment: null, retrouvees: ['a', 'b'], fil: 'a', connait: () => true }), null)
 })
 
 test('le Divin du moment : le premier de l’ordre dont tous n’ont pas trouvé chaque mot caché ; reconstituée, sa phrase passe au suivant', () => {
@@ -439,4 +553,111 @@ test('la suivante ne surgit que s’il a joué celle d’avant — une réponse 
   assert.equal(laSuivanteSurgit(uneVisite('2026-09-20', 'perdue', { essais: 3 })), true)
   // Une visite d'avant laissée sans une réponse jusqu'à minuit, sous la règle d'avant : il ne l'a pas jouée.
   assert.equal(laSuivanteSurgit(uneVisite('2026-09-20', 'proposee')), false)
+})
+
+// ── Les problèmes ─────────────────────────────────────────────────────────
+
+// Le souhait du propriétaire du 25 novembre 2026, sur les « Can you solve this
+// riddle? » de TED-Ed : une visite sur cinq, un problème — une petite histoire,
+// une réponse fermée, un nombre ou un choix, sans indice —, puis sa solution
+// pas à pas. Le banc pose celui de la maquette, le passeur (`passeur.ts`).
+
+test('un problème se lit champ par champ : une réponse lisible, une bonne proposition dans la liste, une solution pas à pas', () => {
+  const bon = {
+    titre: 'Le passeur',
+    recit: ['Un paragraphe.'],
+    question: 'Combien ?',
+    reponse: { sorte: 'nombre', valeur: 7 },
+    explication: [{ dit: 'D’abord ceci.', etat: '🐐 | 🐺' }],
+    source: { texte: 'Problème traditionnel' },
+  }
+  assert.deepEqual(lireUnProbleme(bon)?.reponse, { sorte: 'nombre', valeur: 7 })
+  const choix = { ...bon, reponse: { sorte: 'choix', propositions: [{ texte: 'A' }, { texte: 'B', emoji: '🐐' }], bonne: 1 } }
+  assert.deepEqual(lireUnProbleme(choix)?.reponse, { sorte: 'choix', propositions: [{ texte: 'A' }, { texte: 'B', emoji: '🐐' }], bonne: 1 })
+  // Ce qui ne se pose pas : une bonne proposition hors de la liste, une seule proposition, une réponse illisible, rien à expliquer, sans source.
+  for (const casse of [
+    { ...choix, reponse: { ...choix.reponse, bonne: 2 } },
+    { ...choix, reponse: { ...choix.reponse, propositions: [{ texte: 'A' }], bonne: 0 } },
+    { ...bon, reponse: { sorte: 'nombre', valeur: 'sept' } },
+    { ...bon, explication: [] },
+    { ...bon, recit: [] },
+    { ...bon, source: {} },
+  ]) {
+    assert.equal(lireUnProbleme(casse), null)
+  }
+})
+
+test('la réponse d’un problème : un nombre en chiffres ou en lettres, ou la place d’une proposition ; illisible, redemandée sans coûter d’essai', () => {
+  assert.deepEqual([nombreTape('7'), nombreTape(' 7 '), nombreTape('sept'), nombreTape('Sept !'), nombreTape('1 000'), nombreTape('dix-sept'), nombreTape('une')], [7, 7, 7, 7, 1000, 17, 1])
+  assert.equal(nombreTape('beaucoup'), null)
+  assert.deepEqual(lireLaReponse(PASSEUR, 'sept'), { lue: '7' })
+  assert.ok('refus' in lireLaReponse(PASSEUR, 'la chèvre'))
+  assert.deepEqual(lireLaReponse(PASSEUR_A_CHOISIR, '1'), { lue: '1' })
+  for (const hors of ['3', '-1', 'la chèvre', '']) assert.ok('refus' in lireLaReponse(PASSEUR_A_CHOISIR, hors), `« ${hors} »`)
+  assert.deepEqual([jugerLaReponse(PASSEUR, '7'), jugerLaReponse(PASSEUR, '6'), jugerLaReponse(PASSEUR_A_CHOISIR, '1'), jugerLaReponse(PASSEUR_A_CHOISIR, '0')], ['juste', 'faux', 'juste', 'faux'])
+})
+
+test('un problème à nombre se joue en trois essais, un problème à choisir d’un seul toucher ; rien n’y brûle', () => {
+  assert.deepEqual([essaisDe(PASSEUR), essaisDe(PASSEUR_A_CHOISIR), essaisDe(enigme('32'))], [ESSAIS_DU_SPHINX, 1, ESSAIS_DU_SPHINX])
+  let ligne = { etat: 'proposee' as const, essais: 0, reponses: [] as string[] }
+  const geste = (e: Enigme, reponse: string): any => {
+    const r = appliquerLeGeste(ligne, 'repondre', reponse, e)
+    if (!('refus' in r)) ligne = { ...ligne, ...r.apres } as typeof ligne
+    return r
+  }
+  assert.equal(geste(PASSEUR, 'beaucoup').statut, 400, 'illisible : pas un essai de moins')
+  assert.equal(ligne.essais, 0)
+  assert.equal(geste(PASSEUR, '5').verdict, 'faux')
+  const redite = geste(PASSEUR, 'cinq')
+  assert.deepEqual([redite.verdict, redite.dejaDite, ligne.essais], ['faux', true, 1], 'le même nombre, en lettres : pas un second essai')
+  assert.equal(geste(PASSEUR, '6').verdict, 'faux')
+  assert.deepEqual([geste(PASSEUR, '7').verdict, ligne.etat], ['juste', 'resolue'])
+  // À choisir : une mauvaise proposition, et c'est fini.
+  ligne = { etat: 'proposee', essais: 0, reponses: [] }
+  assert.deepEqual([geste(PASSEUR_A_CHOISIR, '0').verdict, ligne.etat, ligne.essais], ['perdu', 'perdue', 1])
+  ligne = { etat: 'proposee', essais: 0, reponses: [] }
+  assert.deepEqual([geste(PASSEUR_A_CHOISIR, '1').verdict, ligne.etat], ['juste', 'resolue'])
+})
+
+test('une visite sur cinq pose un problème, tant qu’il en reste ; une réserve sans problème garde ses tirages d’avant', () => {
+  assert.equal(PART_DES_PROBLEMES, 1 / 5)
+  const enVers = enigmesDuSphinx().slice(0, 40)
+  const problemes = Array.from({ length: 20 }, (_, i): Enigme => ({ ...PASSEUR, numero: `p${i}`, difficulte: (['facile', 'moyenne', 'difficile'] as const)[i % 3] }))
+  let tires = 0
+  const n = 4000
+  for (let i = 0; i < n; i++) if (choisirLEnigme([...enVers, ...problemes], new Set(), VISITES_FACILES, hasardDe(`p|${i}`))?.sorte === 'probleme') tires++
+  assert.ok(tires / n > 0.17 && tires / n < 0.23, `${tires} problèmes sur ${n} visites`)
+  // Plus d'énigme à voir : un problème toujours ; plus de problème : une énigme toujours.
+  assert.equal(choisirLEnigme([...enVers, ...problemes], new Set(enVers.map(e => e.numero)), 5, hasardDe('x'))?.sorte, 'probleme')
+  assert.notEqual(choisirLEnigme([...enVers, ...problemes], new Set(problemes.map(e => e.numero)), 5, hasardDe('x'))?.sorte, 'probleme')
+  // Une réserve dont tous les problèmes sont vus tire exactement comme une réserve sans problème : le hasard ne sert qu'à choisir.
+  for (let i = 0; i < 50; i++) {
+    const avant = choisirLEnigme(enVers, new Set(), i % 6, hasardDe(`q|${i}`))
+    const apres = choisirLEnigme([...enVers, ...problemes], new Set(problemes.map(e => e.numero)), i % 6, hasardDe(`q|${i}`))
+    assert.equal(apres?.numero, avant?.numero)
+  }
+})
+
+// Le choix du propriétaire du 26 novembre 2026, « des riddles durs », et qu'ils viennent assez souvent : les problèmes ont
+// leurs poids — un tiers de chaque difficulté —, les énigmes en vers gardent les leurs, une difficile sur cinq.
+test('un problème sur trois est redoutable, passé ses premières visites ; les énigmes en vers gardent une difficile sur cinq', () => {
+  assert.deepEqual(POIDS_DES_PROBLEMES, { facile: 1, moyenne: 1, difficile: 1 })
+  const trois = (sorte: 'probleme' | 'enigme') =>
+    Array.from({ length: 30 }, (_, i): Enigme => ({
+      ...(sorte === 'probleme' ? PASSEUR : enigme('32')),
+      numero: `${sorte}${i}`,
+      difficulte: (['facile', 'moyenne', 'difficile'] as const)[i % 3],
+    }))
+  const partDesDifficiles = (reserve: Enigme[]) => {
+    let dures = 0
+    const n = 3000
+    for (let i = 0; i < n; i++) if (choisirLEnigme(reserve, new Set(), VISITES_FACILES, hasardDe(`d|${i}`))?.difficulte === 'difficile') dures++
+    return dures / n
+  }
+  const problemes = partDesDifficiles(trois('probleme'))
+  assert.ok(problemes > 0.3 && problemes < 0.37, `problèmes : ${problemes.toFixed(3)} de redoutables`)
+  const enVers = partDesDifficiles(trois('enigme'))
+  assert.ok(enVers > 0.17 && enVers < 0.23, `énigmes en vers : ${enVers.toFixed(3)} de difficiles`)
+  // Ses premières visites, un problème facile quand même.
+  for (let i = 0; i < 50; i++) assert.equal(choisirLEnigme(trois('probleme'), new Set(), VISITES_FACILES - 1, hasardDe(`f|${i}`))?.difficulte, 'facile')
 })

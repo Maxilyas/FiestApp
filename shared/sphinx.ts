@@ -128,16 +128,72 @@ export interface InscriptionDuSphinx {
   phrase: PhraseDuSphinx
 }
 
+/**
+ * Ce que le Sphinx pose : une énigme ou une charade de 1858, en vers, ou —
+ * une visite sur cinq — un problème (le souhait du propriétaire du
+ * 25 novembre 2026, sur les « Can you solve this riddle? » de TED-Ed : une
+ * petite histoire, une question à réponse fermée, puis la solution pas à pas).
+ */
+export type SorteDePiece = 'enigme' | 'charade' | 'probleme'
+
+/**
+ * Comment un problème se répond : un nombre, tapé, en trois essais ; ou un
+ * choix entre trois à cinq propositions, d'un seul toucher — à trois essais,
+ * on les essaierait toutes.
+ */
+export type ReponseDUnProbleme = { sorte: 'nombre' } | { sorte: 'choix'; propositions: { texte: string; emoji?: string }[] }
+
+/** Un problème, tel que la page le reçoit : son récit et sa question, jamais sa réponse ni sa solution avant la fin. */
+export interface ProblemeDuSphinx {
+  /** « Le passeur » : la page dit « Le problème du passeur ». */
+  titre: string
+  /** Quelques paragraphes courts, qui paraissent un à un. */
+  recit: string[]
+  question: string
+  /** Une règle de comptage, en une phrase (« un aller compte pour une traversée, un retour aussi »). */
+  aide?: string
+  /** Une ligne d'emojis qui montre la situation — jamais la solution. */
+  figure?: string
+  reponse: ReponseDUnProbleme
+  /** D'où il vient : un livre du domaine public, raconté avec nos mots. */
+  source: { texte: string; lien?: string }
+}
+
+/** Une étape de la solution d'un problème : ce que dit le Sphinx, et ce qu'elle montre (une ligne d'emojis, des nombres). */
+export interface EtapeDeLaSolution {
+  dit: string
+  etat?: string
+}
+
 /** Une énigme, telle que la page la reçoit : sa réponse seulement une fois la visite close. */
 export interface EnigmeDuSphinx {
   numero: string
-  sorte: 'enigme' | 'charade'
+  sorte: SorteDePiece
+  /** Les vers d'une énigme ou d'une charade ; un problème n'en a pas. */
   vers: string[]
   source: { recueil: string; page: string; facSimile: string }
-  /** La solution du livre, une fois la visite close. */
+  /** Un problème : son récit, sa question et comment s'y répond. */
+  probleme?: ProblemeDuSphinx
+  /**
+   * Un problème difficile — mesuré à l'aveugle : le joueur ordinaire s'y
+   * trompait — : le Sphinx l'annonce redoutable, et qu'on a des jours pour y
+   * réfléchir (le choix du propriétaire du 26 novembre 2026). Rien de sa
+   * réponse : sa difficulté seule.
+   */
+  redoutable?: true
+  /** La solution du livre, une fois la visite close — d'un problème, sa réponse dite en mots. */
   solution?: string
   /** Une charade : comment la clé du livre la découpe (« Cher-cher »), une fois la visite close. */
   cle?: string
+  /** Un problème à choisir : la bonne proposition, une fois la visite close. */
+  bonne?: number
+  /** Un problème : sa solution pas à pas, une fois la visite close. */
+  explication?: EtapeDeLaSolution[]
+}
+
+/** Les essais d'une pièce : trois, sauf un problème à choisir, qui se joue d'un seul toucher. */
+export function essaisDe(piece: { probleme?: { reponse: ReponseDUnProbleme } }): number {
+  return piece.probleme?.reponse.sorte === 'choix' ? 1 : ESSAIS_DU_SPHINX
 }
 
 /** La visite du jour. */
@@ -176,12 +232,38 @@ export interface SphinxOuvert {
    * jusqu'à son navigateur.
    */
   reconstituees: PhraseDuSphinx[]
+  /**
+   * La phrase dont le Sphinx lui souffle les mots quand ce n'est pas celle du
+   * Divin du moment : une phrase que tous ont retrouvée et qu'il finit à son
+   * rythme (le choix du propriétaire du 26 novembre 2026). `choisie`, il l'a
+   * demandé — « Revenir au Divin du moment » le défait ; sinon le Sphinx n'a
+   * rien d'autre à lui souffler (il porte le Divin du moment, ou toutes les
+   * phrases sont retrouvées) et finit avec lui la plus ancienne.
+   */
+  aFinir?: PhraseAFinir
+}
+
+/** La phrase retrouvée qu'il finit avec le Sphinx, et s'il l'a choisie. */
+export interface PhraseAFinir {
+  divin: { key: string; nom: string }
+  choisie: boolean
 }
 
 /** « La phrase est retrouvée : la lire » (`POST /api/joueur/sphinx/phrase`, `{ divin }`) : la phrase entière, à lui pour de bon. */
 export interface PhraseLueDuSphinx {
   accuse: true
   phrase: PhraseDuSphinx
+}
+
+/**
+ * « La finir avec le Sphinx » (`POST /api/joueur/sphinx/finir`, `{ divin }`) :
+ * ses énigmes suivantes lui soufflent les mots qu'il n'a pas d'une phrase que
+ * tous ont retrouvée ; `{ divin: null }`, il revient au Divin du moment. Rend
+ * ce que le Sphinx lui soufflera désormais.
+ */
+export interface PhraseAFinirDuSphinx {
+  accuse: true
+  aFinir: PhraseAFinir | null
 }
 
 /** Ce qu'un geste rend : son accusé, son verdict, et la visite d'après. */
@@ -194,8 +276,15 @@ export interface VerdictDuSphinx {
   dejaDite?: true
   /** Le mot gagné n'était encore à personne. */
   motNeuf?: boolean
-  /** Le mot neuf du jour était déjà parti (un par jour, à tout le serveur) : il a reçu un mot que d'autres avaient trouvé. */
-  neufDuJourParti?: true
+  /**
+   * Le mot neuf n'est pas tombé sur lui : sur le Divin du moment, chaque énigme
+   * résolue a la même chance de le souffler, un par jour en moyenne (le choix
+   * du propriétaire du 26 novembre 2026) — il a reçu un mot que d'autres
+   * avaient trouvé.
+   */
+  pasLeMotNeuf?: true
+  /** Son mot était le dernier qui manquait à tous : avec lui, la phrase est retrouvée. */
+  retrouvee?: true
   visite: VisiteDuSphinx
   phrase: PhraseDuSphinx | null
 }

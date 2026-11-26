@@ -190,7 +190,9 @@ test('la page du Sphinx lit les visites de tous d’un seul aller-retour, en com
   const premiere = await mesurer(() => lire<{ jours: unknown[]; enigmes: unknown[] }>('/api/admin/sphinx'))
   assert.ok(premiere.allersRetours <= 2, `les mots de tous, une fois, puis la page d’un lot — ${premiere.allersRetours}`)
   const sphinx = compte.lignes.filter(l => /\bprofile_sphinx\b/.test(l.sql))
-  assert.ok(sphinx.length <= 6, `${sphinx.length} lectures`)
+  // Les mots de tous en trois lectures d'un lot — leurs places, leurs trouveurs, et depuis le 26 novembre 2026 les énigmes
+  // résolues de huit jours, le rythme que suit la chance du mot neuf —, puis la page en quatre.
+  assert.ok(sphinx.length <= 7, `${sphinx.length} lectures`)
   // Des comptes, déjà faits : jamais les soixante visites, une à une.
   for (const l of sphinx) assert.ok(l.lignes < VISITES / 2, `${l.lignes} lignes à décoder (${l.sql.slice(0, 80)}…)`)
   const suivante = await mesurer(() => lire('/api/admin/sphinx'))

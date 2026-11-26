@@ -11,7 +11,7 @@
 // nommé.
 
 import { jourAvant } from './jour'
-import type { EtatDeLaVisite } from './sphinx'
+import type { EtatDeLaVisite, SorteDePiece } from './sphinx'
 
 /** Les jours que la page montre, aujourd'hui compris. */
 export const JOURS_DU_SPHINX_AU_QG = 30
@@ -37,9 +37,11 @@ export type VisitesDUnJour = { jour: string } & Record<EtatDeLaVisite, number>
 /** Une énigme de la réserve, telle que la page la montre : ses vers, ses comptes — jamais sa réponse. */
 export interface EnigmeAuQg {
   numero: string
-  sorte: 'enigme' | 'charade'
+  sorte: SorteDePiece
+  /** Un problème : son titre (« Le passeur ») ; une énigme se nomme par son numéro. */
+  titre?: string
   difficulte: 'facile' | 'moyenne' | 'difficile'
-  /** Ses vers : la page ne les montre qu'au toucher de sa ligne. */
+  /** Ses vers — d'un problème, son récit et sa question : la page ne les montre qu'au toucher de sa ligne. */
   vers: string[]
   /** Les visites qui l'ont posée, de tout temps, et ce qu'elles sont devenues. */
   vues: number

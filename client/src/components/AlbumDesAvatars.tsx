@@ -206,6 +206,8 @@ const LeSphinxDeLAlbum = createContext<{
   venu: PourLAlbum | null
   /** « La phrase est retrouvée : la lire », confirmé : la phrase entière arrive, ses mots se retournent. */
   devoiler: (cle: string) => void
+  /** « La finir avec le Sphinx » : ses prochains mots viendront de cette phrase ; `null`, « Revenir au Divin du moment ». */
+  finir: (cle: string | null) => void
   /** La phrase qu'il vient de choisir de lire, et les places qui s'y retournent. */
   devoilee: { cle: string; places: number[] } | null
   /** Le geste refusé — la page fermée entre-temps, le réseau —, dit sous lui. */
@@ -225,14 +227,17 @@ const LeSphinxDeLAlbum = createContext<{
  * devenir ; d'une phrase que tous ont reconstituée, la phrase entière, sous
  * son voile — s'il l'a choisie (la décision du 24 novembre 2026 : elle ne
  * s'impose plus) ; sinon ses mots en or, la forme du reste, le compte, et
- * « La phrase est retrouvée : la lire ». Rien d'autre : ni règle, ni mot qu'il
- * n'a pas (invariant 21).
+ * deux gestes : « La phrase est retrouvée : la lire », ou « La finir avec le
+ * Sphinx », mot à mot (le choix du propriétaire du 26 novembre 2026) — celle
+ * qu'il finit le dit, et propose de revenir au Divin du moment. Rien d'autre :
+ * ni règle, ni mot qu'il n'a pas (invariant 21).
  */
 function SaPhrase({
   cle,
   sphinx,
   retourne,
   devoiler,
+  finir,
   devoilee,
   refus,
   inscrire,
@@ -243,6 +248,7 @@ function SaPhrase({
   sphinx: SphinxOuvert
   retourne?: number
   devoiler?: (cle: string) => void
+  finir?: (cle: string | null) => void
   devoilee?: { cle: string; places: number[] } | null
   refus?: { cle: string; motif: string } | null
   inscrire?: (cle: string, place: number, mot: string) => Promise<IssueDUneInscription>
@@ -304,14 +310,32 @@ function SaPhrase({
       </div>
     )
   }
+  // Celle dont le Sphinx lui souffle les mots : il l'a choisie — il peut revenir au Divin du moment —, ou c'est la plus
+  // ancienne qui lui manque, quand le Divin du moment n'a rien à lui souffler.
+  const laSienne = sphinx.aFinir?.divin.key === cle ? sphinx.aFinir : null
   return (
     <div className="album-phrase">
-      <span className="label album-etiquette">Sa phrase, retrouvée par tous</span>
+      <span className="label album-etiquette">{laSienne ? 'Sa phrase, que tu finis' : 'Sa phrase, retrouvée par tous'}</span>
       {/* Pas encore lue : il peut aussi y inscrire, un à un, les mots qu'on lui a dits — à son rythme. */}
       {phraseAInscrire(retrouvee)}
       {devoiler && (
         <button type="button" className="btn btn-primary album-phrase-lire" onClick={() => devoiler(cle)}>
           La phrase est retrouvée : la lire
+        </button>
+      )}
+      {finir && laSienne && (
+        <>
+          <p className="small muted album-phrase-suite">À chaque visite, le Sphinx te souffle un mot qui te manque.</p>
+          {laSienne.choisie && sphinx.phrase && (
+            <button type="button" className="btn btn-ghost album-phrase-finir" onClick={() => finir(null)}>
+              Revenir au Divin du moment
+            </button>
+          )}
+        </>
+      )}
+      {finir && !laSienne && (
+        <button type="button" className="btn album-phrase-finir" onClick={() => finir(cle)}>
+          La finir avec le Sphinx
         </button>
       )}
       {refus?.cle === cle && (
@@ -411,6 +435,7 @@ export function FicheDeLAvatar({
           sphinx={sphinx}
           retourne={retourne}
           devoiler={duSphinx?.devoiler}
+          finir={duSphinx?.finir}
           devoilee={duSphinx?.devoilee}
           refus={duSphinx?.refus}
           inscrire={duSphinx?.inscrire}
@@ -541,6 +566,24 @@ export function AlbumDesAvatars({
       }
     })()
   }
+  // « La finir avec le Sphinx » (le choix du propriétaire du 26 novembre 2026) : ses prochains mots viendront de cette
+  // phrase retrouvée ; « Revenir au Divin du moment » (`null`) le défait. Rien ne se perd : pas de confirmation. Un refus se
+  // dit sous la phrase, comme pour la lire.
+  const finir = (cle: string | null) => {
+    void (async () => {
+      try {
+        const { aFinir } = await api.joueur.finirLaPhraseDuSphinx(cle)
+        setSphinx(s => {
+          if (!s) return s
+          const { aFinir: _avant, ...reste } = s
+          return aFinir ? { ...reste, aFinir } : reste
+        })
+        setRefusDuSphinx(null)
+      } catch (e) {
+        setRefusDuSphinx({ cle: cle ?? sphinx?.aFinir?.divin.key ?? '', motif: motifDe(e) })
+      }
+    })()
+  }
   // Un mot qu'on lui a dit, inscrit sur un trait : juste, la phrase d'après prend la place de celle d'avant — le Divin du
   // moment ou une phrase retrouvée — et le mot s'y retourne ; faux, le champ le dit. Un refus (plus d'erreur permise, la page
   // fermée entre-temps, le réseau) se dit sous le champ, tel quel.
@@ -609,7 +652,7 @@ export function AlbumDesAvatars({
       </p>
       {/* Ce que le Sphinx dit des Divins, jusqu'à leurs fiches. */}
       {carte}
-      <LeSphinxDeLAlbum.Provider value={sphinx ? { sphinx, venu: venuDuSphinx, devoiler, devoilee, refus: refusDuSphinx, inscrire, inscrit, ouvrirLaCarte } : null}>
+      <LeSphinxDeLAlbum.Provider value={sphinx ? { sphinx, venu: venuDuSphinx, devoiler, finir, devoilee, refus: refusDuSphinx, inscrire, inscrit, ouvrirLaCarte } : null}>
         <div
           className={'album-avatars' + (choisie.rarete === 'divin' ? ' album-divins' : '')}
           role="tabpanel"

@@ -12,6 +12,7 @@ import { ProfileStore } from '../src/auth/profiles'
 import { legendeDe } from '../src/core/divins'
 import { ENIGMES_DEJA_VUES_DU_PROPRIETAIRE, ORDRE_DU_SPHINX, enigmesDuSphinx, motsDeLaLegende, type Enigme } from '../src/core/sphinx'
 import { jourAvant } from '../../shared/jour'
+import { PASSEUR, PASSEUR_A_CHOISIR } from './passeur'
 
 ProfileStore.tirageEclat = () => false
 
@@ -67,10 +68,19 @@ const geste = (banc: Banc, cookie: string, corps: unknown) => ecrire(banc.url, '
 const ouvrir = async (banc: Banc, admin: string, etat = 'ouverte') =>
   assert.equal((await ecrire(banc.url, '/api/admin/maintenance/pages/sphinx', { etat }, admin, 'PUT')).status, 200)
 
+/**
+ * La réserve de ces épreuves : les énigmes en vers seules. Elles répondent par
+ * les réponses acceptées du livre, et une visite sur cinq, sur la vraie
+ * réserve, poserait un problème — tiré par l'identifiant de chaque profil,
+ * neuf à chaque banc : l'épreuve rougirait une fois sur cinq. Les problèmes ont
+ * les leurs, sur le passeur (`passeur.ts`).
+ */
+const EN_VERS = enigmesDuSphinx().filter(e => e.sorte !== 'probleme')
+
 async function avecBanc(debut: number, reglages: Parameters<typeof demarrer>[0], scenario: (banc: Banc, horloge: { t: number }) => Promise<void>) {
   const horloge = { t: debut }
   // Le Sphinx passe chaque jour qu'il le peut : la chance d'une visite est à part.
-  const banc = await demarrer({ horlogeDuJour: () => horloge.t, tirageDuSphinx: () => 0, ...reglages })
+  const banc = await demarrer({ horlogeDuJour: () => horloge.t, tirageDuSphinx: () => 0, enigmesDuSphinx: EN_VERS, ...reglages })
   try {
     await scenario(banc, horloge)
   } finally {
@@ -292,7 +302,7 @@ test('une visite d’avant, restée ouverte sous la règle de minuit, attend enc
     const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐯')
     joue(banc, 'lea', jours(20, 26))
     joue(banc, 'tom', jours(20, 26))
-    const [facile, autre, troisieme] = enigmesDuSphinx().filter(e => e.difficulte === 'facile')
+    const [facile, autre, troisieme] = EN_VERS.filter(e => e.difficulte === 'facile')
     const poser = (login: string, jour: string, enigme: string, etat: string, ecoutee: number | null) =>
       base(banc, db =>
         db
@@ -482,8 +492,9 @@ test('le mot gagné : d’abord un que personne n’a ; une énigme vue ne revie
     await ouvrir(banc, admin)
     const cleo = await inscrireProfil(banc.url, 'cleo', 'Cléo', '🐙')
     const dede = await inscrireProfil(banc.url, 'dede', 'Dédé', '🐸')
+    const eve = await inscrireProfil(banc.url, 'eve', 'Ève', '🐨')
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
-    for (const qui of ['cleo', 'dede', 'lea']) joue(banc, qui, jours(14, 28))
+    for (const qui of ['cleo', 'dede', 'eve', 'lea']) joue(banc, qui, jours(14, 28))
     const vues: string[] = []
     const sesMots = new Set<number>()
     for (let jour = 20; jour <= 27; jour++) {
@@ -506,15 +517,23 @@ test('le mot gagné : d’abord un que personne n’a ; une énigme vue ne revie
     }
     assert.equal(new Set(vues).size, vues.length, `une énigme vue ne revient jamais : ${vues.join(', ')}`)
 
-    // Dédé résout la sienne le même jour : un seul mot neuf par jour pour tout le serveur (le choix du propriétaire du
-    // 25 novembre 2026), et Cléo a eu celui du jour. Dédé repart avec un des siens, et le Sphinx dit pourquoi.
+    // Dédé résout la sienne le même jour, après Cléo : le premier du jour n'emporte plus le mot neuf (le choix du
+    // propriétaire du 26 novembre 2026, « ça tombe toujours sur celui qui se lève le plus tôt »). Chaque énigme résolue a
+    // la même chance — une par jour jusqu'ici, elle est entière : un second mot neuf.
     const deDede = (await leSphinx(banc, dede)).visite
     const sonMot = (await geste(banc, dede, { geste: 'repondre', reponse: enigmeDe(deDede.enigme.numero).solution })).corps
-    assert.deepEqual([sonMot.verdict, sonMot.motNeuf, sonMot.neufDuJourParti], ['juste', false, true])
-    assert.ok(sesMots.has(sonMot.visite.mot.index), 'un mot déjà trouvé, qu’il n’avait pas')
-    // Léa voit combien ils en ont trouvé ensemble, jamais lesquels : rien de neuf aujourd'hui.
+    assert.deepEqual([sonMot.verdict, sonMot.motNeuf, sonMot.pasLeMotNeuf], ['juste', true, undefined])
+    assert.ok(!sesMots.has(sonMot.visite.mot.index), 'un mot que personne n’avait')
+    // Ève, la troisième : deux mots neufs par jour au plus (`MOTS_NEUFS_PAR_JOUR_MAX`). Elle repart avec un mot que
+    // d'autres avaient, et le Sphinx dit pourquoi.
+    const deTous = new Set([...sesMots, sonMot.visite.mot.index])
+    const dEve = (await leSphinx(banc, eve)).visite
+    const sonMotAElle = (await geste(banc, eve, { geste: 'repondre', reponse: enigmeDe(dEve.enigme.numero).solution })).corps
+    assert.deepEqual([sonMotAElle.verdict, sonMotAElle.motNeuf, sonMotAElle.pasLeMotNeuf], ['juste', false, true])
+    assert.ok(deTous.has(sonMotAElle.visite.mot.index), 'un mot déjà trouvé, qu’elle n’avait pas')
+    // Léa voit combien ils en ont trouvé ensemble, jamais lesquels.
     const deLea = await leSphinx(banc, lea)
-    assert.equal(deLea.phrase.parTous, sesMots.size)
+    assert.equal(deLea.phrase.parTous, deTous.size)
     assert.equal(deLea.phrase.siens, 0)
     rienQueSesMots(deLea, DIVIN_DU_MOMENT, new Set(), 'Léa')
     // Le chat clôt la sienne sans rien lui donner.
@@ -522,18 +541,11 @@ test('le mot gagné : d’abord un que personne n’a ; une énigme vue ne revie
     assert.deepEqual([chat.verdict, chat.visite.etat, chat.visite.mot], ['abandon', 'abandonnee', undefined])
     assert.ok(chat.visite.enigme.solution)
 
-    // Le lendemain, le premier qui résout reçoit le mot neuf du jour.
-    horloge.t = midi(28)
-    const demain = (await leSphinx(banc, dede)).visite
-    const neuf = (await geste(banc, dede, { geste: 'repondre', reponse: enigmeDe(demain.enigme.numero).solution })).corps
-    assert.deepEqual([neuf.verdict, neuf.motNeuf, neuf.neufDuJourParti], ['juste', true, undefined])
-    assert.ok(!sesMots.has(neuf.visite.mot.index))
-
-    // Cléo supprimée : ses lignes partent avec elle, et ses mots du compte de tous — restent les deux de Dédé.
+    // Cléo supprimée : ses lignes partent avec elle, et ses mots du compte de tous — restent ceux de Dédé et d'Ève.
     const idDeCleo = idDe(banc, 'cleo')
     assert.equal((await ecrire(banc.url, `/api/admin/profils/${idDeCleo}`, undefined, admin, 'DELETE')).status, 200)
     assert.equal(base(banc, db => (db.prepare('SELECT COUNT(*) AS n FROM profile_sphinx WHERE profile_id = ?').get(idDeCleo) as { n: number }).n), 0)
-    assert.equal((await leSphinx(banc, lea)).phrase.parTous, 2)
+    assert.equal((await leSphinx(banc, lea)).phrase.parTous, new Set([sonMot.visite.mot.index, sonMotAElle.visite.mot.index]).size)
   }))
 
 test('une phrase reconstituée par tous ne s’impose à personne — chacun la lit s’il le choisit —, et le Divin du moment passe au suivant', () =>
@@ -604,6 +616,89 @@ test('une phrase reconstituée par tous ne s’impose à personne — chacun la 
     assert.equal((await ecrire(banc.url, '/api/joueur/sphinx/phrase', { divin: DIVIN_DU_MOMENT }, bob)).status, 423)
   }))
 
+// Le choix du propriétaire du 26 novembre 2026 : « que les gens puissent finir tout seuls par dévoiler l'énigme en ayant
+// tous les mots […] avoir le choix de continuer à avoir des mots sur un Divin même si ceux-ci ont déjà été découverts ».
+test('une phrase retrouvée par tous, chacun peut la finir avec le Sphinx, mot à mot — ou revenir au Divin du moment', () =>
+  avecBanc(midi(20), {}, async (banc, horloge) => {
+    const admin = await connexionAnimateur(banc.url)
+    await ouvrir(banc, admin)
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
+    const ana = await inscrireProfil(banc.url, 'ana', 'Ana', '🐸')
+    for (const qui of ['lea', 'ana']) joue(banc, qui, jours(14, 28))
+    const caches = motsDeLaLegende(legendeDe(DIVIN_DU_MOMENT)!).flatMap((m, i) => (m.cache ? [i] : []))
+    const SUIVANT = ORDRE_DU_SPHINX[1]
+    // Bob a retrouvé à lui seul toute la phrase du premier Divin ; Léa en avait trouvé chaque mot, sauf deux.
+    const poser = (login: string, lesquels: readonly number[]) =>
+      base(banc, db =>
+        lesquels.forEach((mot, i) =>
+          db
+            .prepare(`INSERT INTO profile_sphinx (profile_id, jour, enigme, divin, etat, essais, mot, proposee_le) VALUES (?, ?, ?, ?, 'resolue', 1, ?, 1)`)
+            .run(idDe(banc, login), jourAvant('2026-08-01', i), `x${login}${i}`, DIVIN_DU_MOMENT, mot),
+        ),
+      )
+    poser('bob', caches)
+    poser('lea', caches.slice(2))
+    // Ana porte le Divin du moment, le suivant : elle en connaît la légende.
+    base(banc, db =>
+      db
+        .prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, ?, '#essai', '', '✨', 'Divin', 1)`)
+        .run(idDe(banc, 'ana'), SUIVANT),
+    )
+    await banc.redemarrer()
+    const finir = (cookie: string, divin: unknown) =>
+      ecrire(banc.url, '/api/joueur/sphinx/finir', { divin }, cookie).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
+
+    const avant = await leSphinx(banc, lea)
+    assert.deepEqual([avant.phrase.divin.key, avant.aFinir, avant.visite.divin.key], [SUIVANT, undefined, SUIVANT], 'd’office, le Divin du moment')
+    // Une phrase qui attend encore des mots, un Divin inconnu, une phrase qu'on connaît déjà entière : refusés.
+    assert.equal((await finir(lea, SUIVANT)).status, 409)
+    assert.equal((await finir(lea, 'dv:personne')).status, 400)
+    assert.equal((await finir(bob, DIVIN_DU_MOMENT)).status, 409)
+
+    // Léa choisit de la finir : sa visite en cours, posée pour le Divin du moment, lui en soufflera un mot.
+    const choisie = await finir(lea, DIVIN_DU_MOMENT)
+    assert.deepEqual([choisie.status, choisie.corps.aFinir], [200, { divin: { key: DIVIN_DU_MOMENT, nom: avant.reconstituees[0].divin.nom }, choisie: true }])
+    const ouverte = await leSphinx(banc, lea)
+    assert.deepEqual(
+      [ouverte.aFinir.divin.key, ouverte.visite.divin.key, ouverte.visite.phrase.divin.key, ouverte.phrase.divin.key],
+      [DIVIN_DU_MOMENT, DIVIN_DU_MOMENT, DIVIN_DU_MOMENT, SUIVANT],
+    )
+    const premier = (await geste(banc, lea, { geste: 'repondre', reponse: enigmeDe(ouverte.visite.enigme.numero).solution })).corps
+    // Un mot qu'elle n'avait pas, que d'autres avaient : ni neuf, ni « pas le mot neuf » — celui-là se joue au Divin du moment.
+    assert.deepEqual([premier.verdict, premier.motNeuf, premier.pasLeMotNeuf, premier.retrouvee], ['juste', false, undefined, undefined])
+    assert.ok(caches.slice(0, 2).includes(premier.visite.mot.index), 'un des deux qui lui manquaient')
+    assert.deepEqual([premier.visite.phrase.siens, 'legende' in premier.visite.phrase], [caches.length - 1, false])
+    rienQueSesMots(premier, DIVIN_DU_MOMENT, new Set([...caches.slice(2), premier.visite.mot.index]), 'son mot de la suite')
+    assert.equal(premier.phrase.divin.key, SUIVANT, 'la chasse commune n’a pas bougé')
+
+    // Elle revient au Divin du moment : la visite du lendemain en vient.
+    const revenue = await finir(lea, null)
+    assert.deepEqual([revenue.status, revenue.corps.aFinir], [200, null])
+    horloge.t = midi(21)
+    assert.equal((await leSphinx(banc, lea)).visite.divin.key, SUIVANT)
+    // Puis elle la choisit de nouveau, et trouve le dernier mot : elle l'a finie elle-même, la voici entière.
+    assert.equal((await finir(lea, DIVIN_DU_MOMENT)).status, 200)
+    const reprise = (await leSphinx(banc, lea)).visite
+    assert.equal(reprise.divin.key, DIVIN_DU_MOMENT)
+    const dernier = (await geste(banc, lea, { geste: 'repondre', reponse: enigmeDe(reprise.enigme.numero).solution })).corps
+    assert.equal(dernier.verdict, 'juste')
+    assert.equal(dernier.visite.phrase.legende, legendeDe(DIVIN_DU_MOMENT))
+    // Le Sphinx revient de lui-même au Divin du moment, et une phrase finie ne se choisit plus.
+    const finie = await leSphinx(banc, lea)
+    assert.deepEqual([finie.aFinir, finie.reconstituees[0].legende === legendeDe(DIVIN_DU_MOMENT)], [undefined, true])
+    assert.equal((await finir(lea, DIVIN_DU_MOMENT)).status, 409)
+    horloge.t = midi(22)
+    assert.equal((await leSphinx(banc, lea)).visite.divin.key, SUIVANT)
+
+    // Ana porte le Divin du moment : il n'a rien à lui en souffler, et finit avec elle la plus ancienne qui lui manque.
+    const dAna = await leSphinx(banc, ana)
+    assert.deepEqual([dAna.aFinir, dAna.visite.divin.key], [{ divin: { key: DIVIN_DU_MOMENT, nom: avant.reconstituees[0].divin.nom }, choisie: false }, DIVIN_DU_MOMENT])
+    // Sa porte se ferme avec la page.
+    await ouvrir(banc, admin, 'maintenance')
+    assert.equal((await finir(lea, null)).status, 423)
+  }))
+
 test('qui porte le Divin, ou en a trouvé chaque mot, voit sa phrase retrouvée sans geste', () =>
   avecBanc(midi(26), {}, async banc => {
     await ouvrir(banc, await connexionAnimateur(banc.url))
@@ -665,3 +760,77 @@ test('les énigmes que le propriétaire a déjà vues comptent pour vues sur le 
     assert.ok(!('sphinx' in (await missions(banc, proprio))))
   })
 })
+
+// ── Les problèmes ─────────────────────────────────────────────────────────
+
+// Une visite sur cinq, un problème (le souhait du propriétaire du 25 novembre
+// 2026) : sa réponse et sa solution pas à pas ne partent qu'une fois la visite
+// close, comme la solution d'une énigme. Le banc ne pose que le passeur, que
+// tout le monde connaît (`passeur.ts`).
+test('un problème à nombre : son récit et sa question partent, jamais sa réponse ; trois essais ; résolu, sa solution pas à pas et son mot', () =>
+  avecBanc(midi(26), { enigmesDuSphinx: [PASSEUR] }, async banc => {
+    await ouvrir(banc, await connexionAnimateur(banc.url))
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    joue(banc, 'lea', jours(20, 26))
+    assert.equal((await missions(banc, lea)).sphinx, 'attend')
+    const v = (await leSphinx(banc, lea)).visite
+    assert.deepEqual([v.enigme.sorte, v.enigme.numero, v.essaisRestants, v.enigme.vers], ['probleme', PASSEUR.numero, 3, []])
+    assert.deepEqual(v.enigme.probleme, {
+      titre: PASSEUR.probleme!.titre,
+      recit: PASSEUR.probleme!.recit,
+      question: PASSEUR.probleme!.question,
+      aide: PASSEUR.probleme!.aide,
+      figure: PASSEUR.probleme!.figure,
+      reponse: { sorte: 'nombre' },
+      source: PASSEUR.probleme!.source,
+    })
+    // Ni sa valeur, ni sa solution, ni son explication avant la fin.
+    const avant = JSON.stringify(v)
+    for (const champ of ['valeur', 'solution', 'explication', 'bonne', 'acceptees']) assert.ok(!avant.includes(`"${champ}"`), `« ${champ} » avant la fin`)
+    assert.equal(v.enigme.source.recueil, PASSEUR.probleme!.source.texte, 'sa source à lui, pas le recueil de 1858')
+    assert.equal(v.enigme.redoutable, undefined, 'facile : rien de redoutable')
+
+    // Un mot n'est pas un nombre : redemandé, sans coûter d'essai.
+    const illisible = await geste(banc, lea, { geste: 'repondre', reponse: 'beaucoup' })
+    assert.deepEqual([illisible.status, illisible.corps.error], [400, 'Écris un nombre : en chiffres, comme 12.'])
+    const faux = await geste(banc, lea, { geste: 'repondre', reponse: '5' })
+    assert.deepEqual([faux.corps.verdict, faux.corps.visite.essaisRestants], ['faux', 2])
+    assert.equal(faux.corps.visite.enigme.explication, undefined, 'toujours rien avant la fin')
+    const redit = await geste(banc, lea, { geste: 'repondre', reponse: 'cinq' })
+    assert.deepEqual([redit.corps.dejaDite, redit.corps.visite.essaisRestants], [true, 2])
+    const juste = await geste(banc, lea, { geste: 'repondre', reponse: 'sept' })
+    assert.deepEqual([juste.corps.verdict, juste.corps.visite.etat], ['juste', 'resolue'])
+    assert.equal(juste.corps.visite.enigme.solution, PASSEUR.solution)
+    assert.deepEqual(juste.corps.visite.enigme.explication, PASSEUR.probleme!.explication)
+    assert.ok(juste.corps.visite.mot, 'résolu, il souffle son mot comme une énigme')
+  }))
+
+// « Des riddles durs » (le choix du propriétaire du 26 novembre 2026) : la visite dit qu'un problème difficile est
+// redoutable — sa difficulté, rien de sa réponse —, et le Sphinx l'annonce (`sphinx-ecran.test.ts`).
+test('un problème difficile se dit redoutable dans sa visite, sans rien de sa réponse', () =>
+  avecBanc(midi(26), { enigmesDuSphinx: [{ ...PASSEUR, difficulte: 'difficile' }] }, async banc => {
+    await ouvrir(banc, await connexionAnimateur(banc.url))
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    joue(banc, 'lea', jours(20, 26))
+    const v = (await leSphinx(banc, lea)).visite
+    assert.deepEqual([v.enigme.numero, v.enigme.redoutable], [PASSEUR.numero, true])
+    for (const champ of ['valeur', 'solution', 'explication', 'bonne']) assert.ok(!JSON.stringify(v).includes(`"${champ}"`), `« ${champ} » avant la fin`)
+  }))
+
+test('un problème à choisir se joue d’un seul toucher : une mauvaise proposition le perd, et sa solution part avec la bonne', () =>
+  avecBanc(midi(26), { enigmesDuSphinx: [PASSEUR_A_CHOISIR] }, async banc => {
+    await ouvrir(banc, await connexionAnimateur(banc.url))
+    const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐯')
+    joue(banc, 'tom', jours(20, 26))
+    const v = (await leSphinx(banc, tom)).visite
+    assert.equal(v.essaisRestants, 1)
+    assert.deepEqual(v.enigme.probleme.reponse, { sorte: 'choix', propositions: [{ texte: 'Le loup', emoji: '🐺' }, { texte: 'La chèvre', emoji: '🐐' }, { texte: 'Le chou', emoji: '🥬' }] })
+    assert.equal(v.enigme.bonne, undefined)
+    // Une place hors de la liste ne se joue pas.
+    assert.equal((await geste(banc, tom, { geste: 'repondre', reponse: '3' })).status, 400)
+    const perdu = await geste(banc, tom, { geste: 'repondre', reponse: '0' })
+    assert.deepEqual([perdu.corps.verdict, perdu.corps.visite.etat, perdu.corps.visite.essaisRestants], ['perdu', 'perdue', 0])
+    assert.deepEqual([perdu.corps.visite.enigme.bonne, perdu.corps.visite.enigme.solution], [1, PASSEUR_A_CHOISIR.solution])
+    assert.equal(perdu.corps.visite.enigme.explication.length, PASSEUR.probleme!.explication.length, 'perdu, il voit quand même la solution')
+    assert.equal(perdu.corps.visite.mot, undefined)
+  }))

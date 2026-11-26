@@ -59,8 +59,12 @@ const CLASSE_DE_L_ISSUE: Record<(typeof ISSUES_DES_VISITES)[number], string> = {
 
 const NOM_DE_LA_DIFFICULTE: Record<EnigmeAuQg['difficulte'], string> = { facile: 'Facile', moyenne: 'Moyenne', difficile: 'Difficile' }
 const RANG_DE_LA_DIFFICULTE: Record<EnigmeAuQg['difficulte'], number> = { facile: 0, moyenne: 1, difficile: 2 }
-const nomDeLaSorte = (e: Pick<EnigmeAuQg, 'sorte'>) => (e.sorte === 'charade' ? 'Charade' : 'Énigme')
-const titreDe = (e: Pick<EnigmeAuQg, 'sorte' | 'numero'>) => `${e.sorte === 'charade' ? 'La charade' : 'L’énigme'} n° ${e.numero}`
+const nomDeLaSorte = (e: Pick<EnigmeAuQg, 'sorte'>) => (e.sorte === 'charade' ? 'Charade' : e.sorte === 'probleme' ? 'Problème' : 'Énigme')
+/** Une énigme se nomme par son numéro dans le livre ; un problème, une visite sur cinq, par son titre. */
+const titreDe = (e: Pick<EnigmeAuQg, 'sorte' | 'numero' | 'titre'>) =>
+  e.sorte === 'probleme' ? `Le problème « ${e.titre ?? e.numero} »` : `${e.sorte === 'charade' ? 'La charade' : 'L’énigme'} n° ${e.numero}`
+/** Le pronom qui la reprend : « la » énigme, « le » problème. */
+const laOuLe = (e: Pick<EnigmeAuQg, 'sorte'>) => (e.sorte === 'probleme' ? 'le' : 'la')
 
 export function SphinxAuQg({
   page,
@@ -308,7 +312,7 @@ function EnigmeParEnigme({ page, ouvrir }: { page: PageDuSphinxAuQg; ouvrir: (e:
                 <th scope="row">
                   <button type="button" className="qg-jouee" aria-haspopup="dialog" onClick={() => ouvrir(e)}>
                     <span className="qg-jouee-texte">
-                      {`n° ${e.numero}`}
+                      {e.sorte === 'probleme' ? e.titre ?? e.numero : `n° ${e.numero}`}
                       {e.aToi && <span className="etiquette qg-sphinx-a-toi">{e.aToi === 'en-cours' ? 'la tienne, en cours' : 'vue'}</span>}
                     </span>
                     <span className="qg-jouee-sous">{`${nomDeLaSorte(e)} · ${NOM_DE_LA_DIFFICULTE[e.difficulte].toLowerCase()} · ${formatNumber(e.resolues)} résolue${e.resolues > 1 ? 's' : ''}, ${formatNumber(e.perdues)} perdue${e.perdues > 1 ? 's' : ''}, ${formatNumber(e.chat)} au chat`}</span>
@@ -350,8 +354,8 @@ function FeuilleDeLEnigme({ e, profil, onFermer, apresUnGeste }: { e: EnigmeAuQg
     const oui = await confirmDialog({
       title: 'Voir la réponse ?',
       message: deja
-        ? `Tu connais déjà ${titreDe(e).toLowerCase()} : la lire ne te coûte rien.`
-        : `Ce geste retire ${titreDe(e).toLowerCase()} de tes propres visites : le Sphinx ne te la proposera jamais, et tu ne pourras plus la chercher toi-même.`,
+        ? `Tu connais déjà ${titreDe(e).replace(/^L/, 'l')} : ${laOuLe(e) === 'le' ? 'sa réponse' : 'la lire'} ne te coûte rien.`
+        : `Ce geste retire ${titreDe(e).replace(/^L/, 'l')} de tes propres visites : le Sphinx ne te ${laOuLe(e)} proposera jamais, et tu ne pourras plus ${laOuLe(e)} chercher toi-même.`,
       confirmLabel: 'Voir la réponse',
       cancelLabel: 'Ne pas la voir',
       prudent: !deja,

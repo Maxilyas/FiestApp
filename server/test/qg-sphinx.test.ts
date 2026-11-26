@@ -17,6 +17,7 @@ import { legendeDe } from '../src/core/divins'
 import { ENIGMES_DEJA_VUES_DU_PROPRIETAIRE, ORDRE_DU_SPHINX, enigmesDuSphinx, motsDeLaLegende, normaliser, type Enigme } from '../src/core/sphinx'
 import { JOURS_DU_SPHINX_AU_QG, type PageDuSphinxAuQg, type ReponseDuSphinxAuQg } from '../../shared/qgSphinx'
 import type { EtatDeLaMaintenance } from '../../shared/maintenance'
+import { PASSEUR, PASSEUR_A_CHOISIR } from './passeur'
 
 ProfileStore.tirageEclat = () => false
 
@@ -59,9 +60,16 @@ const laPage = async (banc: Banc, admin: string): Promise<PageDuSphinxAuQg> => {
 }
 const voirLaReponse = (banc: Banc, admin: string, numero: string) => faire(banc, admin, `/api/admin/sphinx/enigmes/${numero}/reponse`)
 
+/**
+ * La réserve de ces épreuves : les énigmes en vers seules — elles répondent
+ * par la solution du livre, et un problème, qu'un profil sur cinq tirerait sur
+ * la vraie réserve, n'en a pas. Le problème a son épreuve, sur le passeur.
+ */
+const EN_VERS = enigmesDuSphinx().filter(e => e.sorte !== 'probleme')
+
 async function avecBanc(debut: number, reglages: Parameters<typeof demarrer>[0], scenario: (banc: Banc, horloge: { t: number }) => Promise<void>) {
   const horloge = { t: debut }
-  const banc = await demarrer({ horlogeDuJour: () => horloge.t, tirageDuSphinx: () => 0, ...reglages })
+  const banc = await demarrer({ horlogeDuJour: () => horloge.t, tirageDuSphinx: () => 0, enigmesDuSphinx: EN_VERS, ...reglages })
   try {
     await scenario(banc, horloge)
   } finally {
@@ -111,7 +119,7 @@ function rienDeSecret(page: unknown, enigmes: readonly Enigme[], ou: string) {
 }
 
 test('la page du Sphinx au QG compte tout et ne dit rien : ni une réponse, ni un mot caché, ni la forme d’une phrase', () => {
-  const reserve = enigmesDuSphinx()
+  const reserve = EN_VERS
   return avecBanc(midi(26), {}, async banc => {
     const admin = await connexionAnimateur(banc.url)
     assert.equal((await ecrire(banc.url, '/api/admin/maintenance/pages/sphinx', { etat: 'ouverte' }, admin, 'PUT')).status, 200)
@@ -264,6 +272,31 @@ test('« Voir la réponse » la rend, la range pour vue sur le profil de l’adm
   })
 })
 
+// Une visite sur cinq, un problème (le 25 novembre 2026) : la page le nomme par son titre et montre son énoncé au toucher,
+// comme les vers d'une énigme — jamais sa réponse, que seul « Voir la réponse » donne.
+test('un problème au QG : son titre, son énoncé au toucher, jamais sa réponse ; « Voir la réponse » dit le nombre ou la bonne proposition', () => {
+  const reserve = [...ENIGMES_DEJA_VUES_DU_PROPRIETAIRE.map(enigmeDe), PASSEUR, PASSEUR_A_CHOISIR]
+  return avecBanc(midi(26), { enigmesDuSphinx: reserve }, async banc => {
+    const admin = await connexionAnimateur(banc.url)
+    assert.equal((await ecrire(banc.url, '/api/admin/maintenance/pages/sphinx', { etat: 'ouverte' }, admin, 'PUT')).status, 200)
+    await inscrireProfil(banc.url, 'proprio', 'Antoine', '🦉')
+    base(banc, db => db.prepare(`UPDATE accounts SET profile_id = ? WHERE role = 'admin'`).run(idDe(banc, 'proprio')))
+    await banc.redemarrer()
+    const admin2 = await connexionAnimateur(banc.url)
+    const page = await laPage(banc, admin2)
+    rienDeSecret(page, reserve, 'la page')
+    const ligne = page.enigmes.find(e => e.numero === PASSEUR.numero)!
+    assert.deepEqual([ligne.sorte, ligne.titre, ligne.difficulte], ['probleme', PASSEUR.probleme!.titre, PASSEUR.difficulte])
+    assert.ok(ligne.vers.includes(PASSEUR.probleme!.question), 'son énoncé, montré au toucher')
+    const aChoisir = page.enigmes.find(e => e.numero === PASSEUR_A_CHOISIR.numero)!
+    assert.ok(aChoisir.vers.includes('— La chèvre') && aChoisir.vers.includes('— Le loup'), 'ses propositions, sans dire la bonne')
+    const nombre = (await voirLaReponse(banc, admin2, PASSEUR.numero)).corps as ReponseDuSphinxAuQg
+    assert.deepEqual([nombre.solution, nombre.acceptees, nombre.presque], [PASSEUR.solution, ['7'], []])
+    const choix = (await voirLaReponse(banc, admin2, PASSEUR_A_CHOISIR.numero)).corps as ReponseDuSphinxAuQg
+    assert.deepEqual([choix.solution, choix.acceptees], [PASSEUR_A_CHOISIR.solution, ['La chèvre']])
+  })
+})
+
 test('la page et son geste ne s’ouvrent qu’à l’administrateur : ni un animateur, ni un joueur, ni sa télé', () =>
   avecBanc(midi(26), {}, async banc => {
     const admin = await connexionAnimateur(banc.url)
@@ -279,7 +312,7 @@ test('la page et son geste ne s’ouvrent qu’à l’administrateur : ni un ani
       assert.equal(page.status, statut, `${qui} : la page`)
       const geste = await voirLaReponse(banc, cookie, '32')
       assert.equal(geste.status, statut, `${qui} : le geste`)
-      rienDeSecret([page.corps, geste.corps], enigmesDuSphinx(), qui)
+      rienDeSecret([page.corps, geste.corps], EN_VERS, qui)
     }
     assert.equal(base(banc, db => (db.prepare(`SELECT COUNT(*) AS n FROM profile_sphinx`).get() as { n: number }).n), 0, 'rien ne s’est écrit')
   }))

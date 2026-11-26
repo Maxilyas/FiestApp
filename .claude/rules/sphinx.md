@@ -3,8 +3,9 @@ paths:
   - "shared/{sphinx,qgSphinx}.ts"
   - "server/src/{sphinx,sphinxDuQg}.ts"
   - "server/src/core/sphinx.ts"
-  - "server/content/sphinx/enigmes.json"
+  - "server/content/sphinx/{enigmes,problemes}.json"
   - "server/test/{sphinx-pur,sphinx-accueil,sphinx-ecran,sphinx-annonce,qg-sphinx}.test.ts"
+  - "server/test/passeur.ts"
   - "client/src/sphinx.ts"
   - "client/src/components/{Sphinx,PhraseDuDivin,QgSphinx}.tsx"
   - "client/src/components/sphinx.css"
@@ -32,6 +33,7 @@ chacun la lit s'il le choisit, et l'accueil l'annonce une fois (plus bas).
 ## Les fichiers
 
 - `server/content/sphinx/enigmes.json` — la réserve : les 86 pièces retenues (55 énigmes, 31 charades), sans les traces du test à l'aveugle, chacune ses vers, sa solution (la clé du livre ; `cle`, son découpage pour une charade), ses réponses acceptées et celles qui brûlent (sans accents ni article), sa difficulté mesurée à l'aveugle, sa page et le lien de son fac-similé. **Serveur seulement** : jamais lue par `shared/` ni `client/` — ni importée, ni citée par son chemin (`divins.test.ts`). Une pièce de plus se relit à l'aveugle d'abord (le `README.md` du dossier dit comment)
+- `server/content/sphinx/problemes.json` — les soixante-deux problèmes retenus (trente et un à un nombre, trente et un à un choix ; vingt et un redoutables ; leur passage à l'aveugle et les quatre écartés, `retours/2026-11-25/le-probleme-du-sphinx/` — `problemes-candidats.json`, puis `problemes-redoutables-candidats.json`), une visite sur cinq. Un redoutable se mesure par trois joueurs à l'aveugle : le fort le démontre, l'ordinaire, qui raisonne deux ou trois minutes, ne départage rien — les joueurs simulés reconnaissent les casse-tête classiques —, et c'est le pressé, une phrase de réflexion au plus, qui doit s'y tromper (le souhait du propriétaire du 25 novembre 2026, sur les « Can you solve this riddle? » de TED-Ed ; la maquette, `retours/2026-11-25/le-probleme-du-sphinx/`) : chacun son numéro (`p…`), son titre — avec son article, « Le passeur » : la page dit « Le problème du passeur » (`nomDuProbleme`) —, son récit, sa question, ce qui la précise (`aide`), sa figure, sa réponse — un nombre (`valeur`) ou un choix (`propositions`, `bonne`) —, sa solution en mots, sa solution pas à pas (`explication`, `dit` et `etat`), sa source (un livre du domaine public, raconté avec nos mots), sa difficulté mesurée à l'aveugle. **Serveur seulement**, comme les énigmes ; lu champ par champ (`lireUnProbleme`) : un problème mal formé ne se pose pas, un fichier absent n'en pose aucun. Le banc pose le passeur de la maquette (`server/test/passeur.ts`, ses deux formes), que tout le monde connaît : les épreuves et les photos le montrent sans rien gâcher — jamais dans la réserve livrée
 - `shared/sphinx.ts` — ce que la page reçoit, sans un secret : les types (`LeSphinx`, `VisiteDuSphinx`, `PhraseDuSphinx`, `VerdictDuSphinx`), les gestes, les états, et les barèmes que la page dira (`JOURS_DE_L_HABITUE`, `FENETRE_DE_L_HABITUE`, `ESSAIS_DU_SPHINX`)
 - `server/src/core/sphinx.ts` — tout ce qui se décide : les dérivations pures d'abord — la réponse lue (`normaliser`, `jugerLaReponse`), l'habitué (`joursJoues`, sur `ActiviteDuJour.joue`, `shared/missions.ts`), la visite (`tirageDeLaVisite`, la graine `profil|jour`), l'énigme (`choisirLEnigme`), la phrase (`motsDeLaLegende`, `estUnNombre`, `phraseVue`), le mot (`choisirLeMot`), le Divin du moment (`ORDRE_DU_SPHINX`, `divinDuMoment`, `phrasesReconstituees`), le verdict (`appliquerLeGeste`) — puis la classe `Sphinx` : les mots de tous en mémoire (`pret`, `oublier`), la décision que lisent ses missions et sa route (`decider`, `poser`), `lire`, `geste`, une écriture à la fois par profil (`unALaFois`), et les énigmes que le propriétaire connaissait (`compterLesVuesDuProprietaire`, au démarrage)
 - `server/src/sphinx.ts` — `GET` et `POST /api/joueur/sphinx`, pour les profils ; `sphinxFermePour`, que la ligne des missions lit aussi
@@ -76,16 +78,41 @@ chacun la lit s'il le choisit, et l'accueil l'annonce une fois (plus bas).
 - **Le mot se tire au verdict, jamais avant** (`choisirLeMot`, sa graine
   `profil|jour|mot`) : d'abord un que personne n'a ; deux joueurs qui
   résolvent ensemble le dernier inconnu reçoivent l'un ce mot, l'autre un mot
-  déjà trouvé. **Un seul mot neuf par jour, à tout le serveur**
-  (`MOTS_NEUFS_PAR_JOUR`, le choix du propriétaire du 25 novembre 2026) :
-  compté sur le premier instant de chaque mot, en mémoire (`premiers`,
-  `motsNeufsDuJour`) — parti, `neufPermis: false`, un mot déjà trouvé qu'il
-  n'a pas, et s'il les a tous, un neuf quand même ; le verdict le dit
-  (`neufDuJourParti`), la visite aussi (`DIT.neufParti`). Rien ne s'écrit à
+  déjà trouvé. **Un mot neuf par jour en moyenne, la même chance pour chaque
+  énigme résolue sur le Divin du moment, à toute heure** (`MOTS_NEUFS_PAR_JOUR`,
+  le choix du propriétaire du 25 novembre 2026 ; `chanceDuMotNeuf`, celui du 26
+  — le premier résolu du jour l'emportait, « ça tombe toujours sur celui qui
+  se lève le plus tôt ») : un sur les énigmes résolues par jour, à leur rythme
+  des derniers jours (`JOURS_DU_RYTHME`, `resolues` : lues avec les mots de
+  tous, tenues en mémoire — une énigme d'une phrase déjà retrouvée n'y compte
+  pas), deux au plus par jour (`MOTS_NEUFS_PAR_JOUR_MAX`, compté sur le premier
+  instant de chaque mot, `premiers`, `motsNeufsDuJour`), tiré sur la graine
+  `profil|jour|neuf` ; pas cette fois, `neufPermis: false`, un mot déjà trouvé
+  qu'il n'a pas, et s'il les a tous, un neuf quand même ; le verdict le dit
+  (`pasLeMotNeuf`), la visite aussi (`DIT.pasLeNeuf`). Rien ne s'écrit à
   côté : deux serveurs d'une mise en ligne, ou deux joueurs au même instant,
-  peuvent en souffler un de plus ce jour-là.
+  peuvent en souffler un de plus ce jour-là. `sphinx-pur.test.ts` rejoue deux
+  mille jours à cinq habitués de 7 h à 22 h : changer la règle se mesure là.
+- **D'où le Sphinx souffle : une seule règle, `divinDuSouffle`** (le choix du
+  propriétaire du 26 novembre 2026 : « que les gens puissent finir tout
+  seuls ») — la phrase retrouvée qu'il a choisi de finir (sa ligne à part
+  `fil`, `sonFil`), sinon le Divin du moment, sinon la plus ancienne des
+  retrouvées qu'il ne connaît pas (il porte le Divin du moment, ou toutes sont
+  retrouvées) ; connaître une phrase : en porter le Divin, l'avoir lue, ou en
+  savoir chaque mot. `decider`, `divinVise` et `vue` (`aFinir`) la lisent :
+  un lecteur de plus du Divin d'une visite passe par `souffle`, jamais par
+  `divinDuMoment` seul — il oublierait la phrase qu'on finit. Le verdict dit
+  quand son mot était le dernier qui manquait à tous (`retrouvee`) : une
+  phrase qu'on finit est retrouvée elle aussi, et la visite, qui le devinait
+  de `apres.reconstituee`, aurait crié « tous ensemble, vous l'avez
+  reconstituée ! » à chaque mot de la suite.
 - **Le banc fixe le tirage** (`tirageDuSphinx`, `QuizServerOptions`) et peut
-  poser sa réserve (`enigmesDuSphinx`) ; sa page démarre « bientôt » sur
+  poser sa réserve (`enigmesDuSphinx`) — ce qu'il fait d'office dans
+  `sphinx-accueil.test.ts` et `qg-sphinx.test.ts` : les énigmes en vers seules
+  (`EN_VERS`). Le tirage ne fixe que la venue ; la pièce se tire sur
+  l'identifiant du profil, neuf à chaque banc, et sur la vraie réserve une
+  épreuve qui répond par `acceptees[0]` tombait une fois sur cinq sur un
+  problème, qui n'en a pas. Une épreuve de plus sur un problème pose le passeur ; sa page démarre « bientôt » sur
   chaque base neuve : une épreuve l'ouvre (`PUT
   /api/admin/maintenance/pages/sphinx`) ou fait de son profil un testeur.
 - **Un Divin de plus prend sa place dans `ORDRE_DU_SPHINX`**
@@ -188,6 +215,7 @@ chacun la lit s'il le choisit, et l'accueil l'annonce une fois (plus bas).
   d'heure : `sphinx-ecran.test.ts` cherche « minuit » dans `Sphinx.tsx`.
   La présentation retenue sur le téléphone se nomme par le jour de la visite
   (`dejaPresente(v.jour)`) : rouverte un autre jour, elle va droit au but.
+- **Une visite sur cinq, un problème** (`PART_DES_PROBLEMES`, la décision « Une visite sur cinq, un problème façon TED-Ed ») : `choisirLEnigme` tire la sorte d'abord — et seulement s'il y a un choix à faire, un problème et une énigme à voir : une réserve sans problème garde ses tirages d'avant, au hasard près (`sphinx-pur.test.ts`) —, puis la difficulté, à ses poids : ceux d'un problème à lui, un tiers chacune (`POIDS_DES_PROBLEMES`, « des riddles durs », le 26 novembre 2026), ceux d'une énigme en vers, une difficile sur cinq. Un problème difficile se dit `redoutable` dans sa visite — sa difficulté, rien de sa réponse —, et le Sphinx l'annonce (`DIT.ecouteRedoutable`). **Rien de sa réponse ne part avant la fin** : `problemeVu` ôte le nombre et la bonne carte, et `visiteDe` n'ajoute `solution`, `explication` et `bonne` qu'une fois la visite close (`sphinx-accueil.test.ts` cherche ces champs dans la visite ouverte). **Une réponse se lit selon sa pièce** (`lireLaReponse`) : une énigme par `normaliser` ; un nombre par `nombreTape` — `lireNombre`, la convention du dépôt, puis les petits nombres en lettres —, gardé en chiffres dans `reponses` (« cinq » redit « 5 ») ; un choix par sa place. Illisible, un refus en 400, sans essai perdu ; rien n'y brûle. **Les essais d'une pièce** passent par `essaisDe` (`shared/sphinx.ts`), au serveur comme à la page : trois, un seul pour un problème à choisir — `ESSAIS_DU_SPHINX` seul ne dit plus le compte. **L'écran** (`ParcheminDuProbleme`, `SolutionDuProbleme`) : le récit paragraphe par paragraphe, puis la page descend jusqu'à la question ; un nombre au clavier des chiffres (`inputMode="numeric"`, jamais de focus d'office), des cartes d'un seul toucher ; pas d'indice — le choix du propriétaire, et `sphinx-ecran.test.ts` le garde. Sa solution se joue toujours après une défaite, se propose après le mot d'une victoire (`laSolutionSIlVeut`, après ce que le Sphinx dit du mot : la récompense d'abord), étape par étape (`expliquer`, la vue `solution`). Ses répliques disent « mon problème » (`laPiece`). Au QG, son titre, son énoncé au toucher (`enonceDe`) et, derrière « Voir la réponse », le nombre ou la bonne carte (`accepteesAuQg`). Plus long qu'une énigme, il défile dans le haut sur un petit téléphone : `rendu-sphinx.ts` juge ce qui sort de l'écran sur la part visible du cadre qui défile (les cas `probleme` et `probleme-choix`). **L'étape dite reste dans le cadre, et à la dernière, la réponse sous elle** (`montrerLEtape`) — redite chaque fois que la boîte change de hauteur : la dernière réplique, plus longue, relevait le bas du cadre après coup, et la réponse finissait 36 px dessous en 360 × 640 (le 26 novembre 2026, sur le passeur comme sur les vrais problèmes) ; `rendu-sphinx.ts` le mesure à chaque photo de la solution (`etapeCachee`).
 - **La solution se dit entre guillemets** (`laSolution`) : la clé du livre
   s'écrit sans article, avec une majuscule, et nue dans la phrase du Sphinx
   elle se lisait de travers. Une charade y ajoute son découpage.

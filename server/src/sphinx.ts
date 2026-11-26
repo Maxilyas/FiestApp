@@ -8,7 +8,7 @@ import { readPlayerToken } from './auth/http'
 import { quiEstCe } from './maintenance'
 
 export interface DepsDesRoutesDuSphinx {
-  sphinx: Pick<Sphinx, 'lire' | 'geste' | 'lirePhrase' | 'annoncerLaPhrase' | 'inscrire'>
+  sphinx: Pick<Sphinx, 'lire' | 'geste' | 'lirePhrase' | 'finir' | 'annoncerLaPhrase' | 'inscrire'>
   profiles: ProfileStore
   auth: AuthStore
   maintenance: Maintenance
@@ -82,6 +82,21 @@ export function mountSphinx(app: Express, deps: DepsDesRoutesDuSphinx) {
       const profil = await profilDe(req, res)
       if (!profil) return
       const issue = await deps.sphinx.lirePhrase(profil.id, req.body)
+      if ('refus' in issue) res.status(issue.refus).json({ error: issue.error })
+      else res.json(issue)
+    }),
+  )
+
+  // « La finir avec le Sphinx » (`{ divin }`, ou `{ divin: null }` pour revenir au Divin du moment) — le choix du
+  // propriétaire du 26 novembre 2026 : une phrase retrouvée par tous, chacun peut la finir lui-même, mot à mot. Une phrase
+  // pas encore retrouvée, ou qu'il connaît déjà, se refuse (409). Sa porte se ferme avec la page (`PORTES_DES_PAGES.sphinx`).
+  app.post(
+    '/api/joueur/sphinx/finir',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      const issue = await deps.sphinx.finir(profil.id, req.body)
       if ('refus' in issue) res.status(issue.refus).json({ error: issue.error })
       else res.json(issue)
     }),

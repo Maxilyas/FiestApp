@@ -8,7 +8,7 @@ import { Icon } from './Icon'
 import { IMAGES } from './legendaires-peints'
 import { CompteDeLaPhrase, PhraseDuDivin, placesDevoilees } from './PhraseDuDivin'
 import { DIVINS } from '../../../shared/divins'
-import type { EnigmeDuSphinx, GesteDuSphinx, PhraseDuSphinx, SphinxOuvert, VerdictDuSphinx, VisiteDuSphinx as LaVisite } from '../../../shared/sphinx'
+import { essaisDe, type EnigmeDuSphinx, type GesteDuSphinx, type PhraseDuSphinx, type SorteDePiece, type SphinxOuvert, type VerdictDuSphinx, type VisiteDuSphinx as LaVisite } from '../../../shared/sphinx'
 
 // Le Sphinx de l'accueil, côté écran (l'étape 2 du plan du 24 novembre 2026,
 // `retours/2026-11-24/le-sphinx/plan.md` ; la maquette validée par le
@@ -36,6 +36,9 @@ const NOMBRES = ['zéro', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept'
 
 /** Un nombre que le Sphinx dit : en lettres jusqu'à vingt, comme on parle. */
 const enLettres = (n: number) => NOMBRES[n] ?? String(n)
+
+/** Ce que le Sphinx pose, dit dans ses répliques : « mon énigme », « mon problème » — une charade se dit énigme. */
+const laPiece = (sorte: SorteDePiece) => (sorte === 'probleme' ? 'problème' : 'énigme')
 
 /**
  * « du *Séraphin* », « de l’*Ange Déchu* », « d’*Osiris* », « de *Chronos* » :
@@ -65,12 +68,29 @@ const DIT = {
   rares: 'Ce sont les avatars les plus rares de FiestApp. Ils ne s’achètent pas, et aucun coffre ne les donne.',
   exploit: 'Un Divin descend sur celui qui accomplit un exploit bien précis… mais personne ne sait lequel.',
   moment: (nom: string) => `En ce moment, tous les habitués cherchent le secret ${deLui(nom)}. Il est caché dans une phrase.`,
-  proposer: 'Chacun en reçoit des mots différents. Résous mon énigme, et je t’en souffle un.',
-  revoila: 'Te revoilà. Mon énigme t’attendait.',
+  proposer: (sorte: SorteDePiece) => `Chacun en reçoit des mots différents. Résous mon ${laPiece(sorte)}, et je t’en souffle un.`,
+  // Une phrase que tous ont retrouvée, qu'il finit avec le Sphinx (le choix du propriétaire du 26 novembre 2026) : celle
+  // qu'il a choisie, ou — il porte le Divin du moment, toutes sont retrouvées — la plus ancienne qui lui manque.
+  suite: (nom: string, choisie: boolean) =>
+    choisie
+      ? `Tous les habitués ont retrouvé la phrase ${deLui(nom)}… et toi, tu as choisi de la finir avec moi, mot à mot.`
+      : `Tous les habitués ont retrouvé la phrase ${deLui(nom)}, mais il t’en manque des mots. Finissons-la, toi et moi.`,
+  proposerLaSuite: (sorte: SorteDePiece) => `Résous mon ${laPiece(sorte)}, et je t’en souffle un que tu n’as pas.`,
+  revoila: (sorte: SorteDePiece) => `Te revoilà. Mon ${laPiece(sorte)} t’attendait.`,
   // Une énigme attend sa fin, de jour en jour (le choix du propriétaire du 25 novembre 2026) : il ne promet plus d'heure.
   plusTard: 'Comme tu voudras. Je reste là : touche-moi quand tu voudras l’entendre.',
-  plusTardEnigme: 'Prends ton temps. Mon énigme t’attendra, et tes essais aussi.',
+  plusTardEnigme: (sorte: SorteDePiece) => `Prends ton temps. Mon ${laPiece(sorte)} t’attendra, et tes essais aussi.`,
   ecoute: 'Celle-ci a été écrite en *1858*. Écoute bien…',
+  // Une visite sur cinq, un problème (le souhait du propriétaire du 25 novembre 2026, sur les « Can you solve this
+  // riddle? » de TED-Ed) : une petite histoire, une réponse fermée, puis la solution pas à pas — sans indice.
+  ecouteProbleme: 'Cette fois, un *problème*. Lis bien… et prends ton temps.',
+  // Un problème difficile (le choix du propriétaire du 26 novembre 2026, « des riddles durs ») : il attend sa fin de jour en
+  // jour, et le Sphinx le dit — on peut y réfléchir des jours, ou en parler à un ami.
+  ecouteRedoutable: 'Cette fois, un problème *redoutable*. Prends des jours s’il le faut : il t’attendra.',
+  unNombre: (essais: number) => `Écris un nombre en haut. ${essais >= 3 ? 'Tu as trois essais.' : essais === 2 ? 'Il te reste deux essais.' : 'Il te reste un seul essai.'}`,
+  aChoisir: 'Choisis en haut. Un seul essai : réfléchis bien.',
+  voirLaSolution: 'Tu veux voir comment on le résout ?',
+  regarde: 'Regarde comment on le résout.',
   quiSuisJe: (sorte: EnigmeDuSphinx['sorte'], essais: number) =>
     `${sorte === 'charade' ? 'Quel est mon tout ?' : 'Qui suis-je ?'} Écris ta réponse en haut. ${essais >= 3 ? 'Tu as trois essais.' : essais === 2 ? 'Il te reste deux essais.' : 'Il te reste un seul essai.'}`,
   brule: 'Tu brûles… mais ce n’est pas ça. Cet essai ne compte pas.',
@@ -80,8 +100,13 @@ const DIT = {
   voici: (nom: string) => `Voici un mot de la phrase ${deLui(nom)}.`,
   neuf: 'Et celui-là, *personne ne l’avait encore*.',
   dejaTrouve: 'Celui-là, d’autres habitués l’avaient déjà. Il est à toi maintenant.',
-  // Un mot neuf par jour, à tout le serveur (le choix du propriétaire du 25 novembre 2026) : il le dit, sans reproche.
-  neufParti: 'Je ne souffle qu’un mot neuf par jour, et celui d’aujourd’hui est parti. Celui-là, d’autres l’avaient : il est à toi.',
+  // Un mot neuf par jour, en moyenne, et au hasard — la même chance pour chacun, à toute heure (le choix du propriétaire
+  // du 26 novembre 2026 : le premier levé l'emportait). Il le dit, sans reproche.
+  pasLeNeuf: 'Pas de mot neuf cette fois : je n’en souffle qu’un par jour, à peu près, et au hasard. Celui-là, d’autres l’avaient : il est à toi.',
+  resteAFinir: (reste: number) =>
+    `Encore ${enLettres(reste)} mot${reste > 1 ? 's' : ''}, et tu l’auras finie toi-même. Je t’en soufflerai un autre à ma prochaine visite.`,
+  finie: (nom: string) => `Avec ce mot, tu as retrouvé toi-même chaque mot de la phrase ${deLui(nom)} !`,
+  finieAlbum: 'Elle t’attend dans ton album, entière. La prochaine fois, je te parlerai du Divin du moment.',
   autres: (n: number) =>
     n > 0
       ? // « Comparez vos mots » ne disait pas où les mettre (le premier retour de la production, le 24 novembre 2026).
@@ -90,7 +115,8 @@ const DIT = {
   album: 'Ta phrase t’attend dans ton album. Quand vous l’aurez reconstituée, je vous parlerai d’un autre Divin.',
   entiere: (nom: string) => `Avec ce mot, la phrase ${deLui(nom)} est entière : tous ensemble, vous l’avez *reconstituée* !`,
   entiereAlbum: 'Elle t’attend dans ton album. Je vous parlerai bientôt d’un autre Divin.',
-  laLire: 'Tu veux la lire en entier ? Chacun la lit quand il veut… ou jamais.',
+  laLire: 'Tu veux la lire en entier ? Ou la finir avec moi, un mot à chaque visite ? Chacun choisit… quand il veut.',
+  laFinir: 'Entendu. À chaque visite, je te soufflerai un mot qui te manque, jusqu’au dernier.',
   laVoici: 'La voici. Je vous parlerai bientôt d’un autre Divin.',
   plusTardDansLAlbum: 'Comme tu voudras. Elle t’attend dans ton album, le jour où tu voudras la lire.',
   perdu: (solution: string) => `Le sable se referme. C’était ${solution}.`,
@@ -360,8 +386,10 @@ export function ParcheminDeLEnigme({
   valeur,
   faux,
   montre = true,
+  choisie = null,
   onValeur,
   onRepondre,
+  onChoisir,
   onChat,
   onPlusTard,
   refChamp,
@@ -372,14 +400,35 @@ export function ParcheminDeLEnigme({
   valeur: string
   faux: boolean
   montre?: boolean
+  /** Un problème à choisir : la proposition touchée, le temps que le Sphinx juge — puis marquée juste ou fausse. */
+  choisie?: number | null
   onValeur: (v: string) => void
   onRepondre: () => void
+  onChoisir?: (place: number) => void
   onChat: () => void
   onPlusTard: () => void
   refChamp?: Ref<HTMLInputElement>
 }) {
+  if (enigme.probleme) {
+    return (
+      <ParcheminDuProbleme
+        enigme={enigme}
+        essaisRestants={essaisRestants}
+        paragraphesMontres={versMontres}
+        valeur={valeur}
+        faux={faux}
+        montre={montre}
+        choisie={choisie}
+        onValeur={onValeur}
+        onRepondre={onRepondre}
+        onChoisir={onChoisir}
+        onChat={onChat}
+        onPlusTard={onPlusTard}
+        refChamp={refChamp}
+      />
+    )
+  }
   const source = laSource(enigme.source.recueil)
-  const perdus = Math.max(0, 3 - essaisRestants)
   const soumettre = (e: FormEvent) => {
     e.preventDefault()
     onRepondre()
@@ -388,11 +437,7 @@ export function ParcheminDeLEnigme({
     <section className={'sx-parchemin' + (montre ? ' sx-montre' : '')} aria-label="L’énigme du Sphinx">
       <div className="sx-parchemin-tete">
         <p className="sx-sourcil">{`${enigme.sorte === 'charade' ? 'La charade' : 'L’énigme'} n° ${enigme.numero}`}</p>
-        <span className="sx-essais" role="img" aria-label={`${essaisRestants} essai${essaisRestants > 1 ? 's' : ''} restant${essaisRestants > 1 ? 's' : ''}`}>
-          {[0, 1, 2].map(i => (
-            <i key={i} className={i < perdus ? 'sx-perdu' : undefined} />
-          ))}
-        </span>
+        <EssaisDuSphinx total={essaisDe(enigme)} restants={essaisRestants} />
       </div>
       <p className="sx-vers">
         {enigme.vers.map((v, i) => (
@@ -435,6 +480,194 @@ export function ParcheminDeLEnigme({
           Je donne ma langue au chat
         </button>
       </div>
+    </section>
+  )
+}
+
+/** Ses essais en losanges d'or, qui s'éteignent un à un : trois, un seul pour un problème à choisir. */
+function EssaisDuSphinx({ total, restants }: { total: number; restants: number }) {
+  const perdus = Math.max(0, total - restants)
+  return (
+    <span className="sx-essais" role="img" aria-label={`${restants} essai${restants > 1 ? 's' : ''} restant${restants > 1 ? 's' : ''}`}>
+      {Array.from({ length: total }, (_, i) => (
+        <i key={i} className={i < perdus ? 'sx-perdu' : undefined} />
+      ))}
+    </span>
+  )
+}
+
+/**
+ * Le titre d'un problème, dit comme le Sphinx le dit : « Le passeur » devient
+ * « Le problème du passeur », « La balance », « Le problème de la balance » ;
+ * un titre sans article, « Problème : … ».
+ */
+export function nomDuProbleme(titre: string): string {
+  return /^(Le |La |Les |L[’'])/.test(titre) ? `Le problème ${deLui(titre).replace(/\*/g, '')}` : `Problème : ${titre}`
+}
+
+/**
+ * Un problème, en haut : son titre, ses essais, sa figure, son récit qui paraît
+ * paragraphe par paragraphe, sa question et ce qui la précise, puis la réponse
+ * — un nombre au clavier des chiffres (`inputMode`), ou une proposition d'un
+ * seul toucher —, sa source, « Plus tard » et la langue au chat. Plus long
+ * qu'une énigme en vers : le haut défile, et la visite y descend jusqu'à la
+ * question une fois le récit lu. Pas d'indice (le choix du propriétaire du
+ * 25 novembre 2026).
+ */
+export function ParcheminDuProbleme({
+  enigme,
+  essaisRestants,
+  paragraphesMontres,
+  valeur,
+  faux,
+  montre = true,
+  choisie = null,
+  onValeur,
+  onRepondre,
+  onChoisir,
+  onChat,
+  onPlusTard,
+  refChamp,
+}: {
+  enigme: EnigmeDuSphinx
+  essaisRestants: number
+  paragraphesMontres: number
+  valeur: string
+  faux: boolean
+  montre?: boolean
+  choisie?: number | null
+  onValeur: (v: string) => void
+  onRepondre: () => void
+  onChoisir?: (place: number) => void
+  onChat: () => void
+  onPlusTard: () => void
+  refChamp?: Ref<HTMLInputElement>
+}) {
+  const p = enigme.probleme!
+  const soumettre = (e: FormEvent) => {
+    e.preventDefault()
+    onRepondre()
+  }
+  return (
+    <section className={'sx-parchemin sx-probleme' + (montre ? ' sx-montre' : '')} aria-label="Le problème du Sphinx">
+      <div className="sx-parchemin-tete">
+        <p className="sx-sourcil">{nomDuProbleme(p.titre)}</p>
+        <EssaisDuSphinx total={essaisDe(enigme)} restants={essaisRestants} />
+      </div>
+      {p.figure && (
+        <p className="sx-figure" aria-hidden="true">
+          {p.figure}
+        </p>
+      )}
+      <div className="sx-recit">
+        {p.recit.map((r, i) => (
+          <p key={i} className={i < paragraphesMontres ? 'sx-la' : undefined}>
+            {espacesFines(r)}
+          </p>
+        ))}
+      </div>
+      <p className="sx-question">
+        {espacesFines(p.question)}
+        {p.aide && <small>{espacesFines(p.aide)}</small>}
+      </p>
+      {p.reponse.sorte === 'nombre' ? (
+        <form className={'sx-reponse' + (faux ? ' sx-faux' : '')} onSubmit={soumettre} autoComplete="off">
+          <label className="sr-only" htmlFor="sx-reponse">
+            Ta réponse : un nombre
+          </label>
+          <input
+            id="sx-reponse"
+            ref={refChamp}
+            value={valeur}
+            onChange={e => onValeur(e.target.value)}
+            placeholder="Un nombre"
+            inputMode="numeric"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="done"
+            maxLength={20}
+          />
+          <button type="submit">Répondre</button>
+        </form>
+      ) : (
+        <div className="sx-propositions" role="group" aria-label="Ta réponse : un seul toucher">
+          {p.reponse.propositions.map((q, i) => (
+            <button
+              key={i}
+              type="button"
+              className={choisie === i ? (faux ? 'sx-faux' : 'sx-choisie') : enigme.bonne === i ? 'sx-bonne' : undefined}
+              disabled={choisie !== null || enigme.bonne !== undefined}
+              aria-pressed={choisie === i}
+              onClick={() => onChoisir?.(i)}
+            >
+              {q.emoji && <span aria-hidden="true">{q.emoji}</span>}
+              {espacesFines(q.texte)}
+            </button>
+          ))}
+        </div>
+      )}
+      <p className="sx-source">
+        {espacesFines(enigme.source.recueil)} · raconté par le Sphinx
+        {enigme.source.facSimile && (
+          <>
+            {' · '}
+            <a href={enigme.source.facSimile} target="_blank" rel="noopener noreferrer">
+              le texte d’origine
+            </a>
+          </>
+        )}
+      </p>
+      <div className="sx-issues">
+        <button type="button" className="sx-plus-tard" onClick={onPlusTard}>
+          Plus tard
+        </button>
+        <button type="button" className="sx-chat" onClick={onChat}>
+          Je donne ma langue au chat
+        </button>
+      </div>
+    </section>
+  )
+}
+
+/**
+ * La solution d'un problème, pas à pas — que le joueur l'ait trouvé ou non :
+ * c'est le meilleur moment des vidéos qui l'ont inspiré. Le Sphinx dit chaque
+ * étape dans sa boîte ; au-dessus, elles restent écrites l'une sous l'autre,
+ * chacune ce qu'elle montre (`etat`), la dernière en or.
+ */
+export function SolutionDuProbleme({ enigme, etape, montre = true }: { enigme: EnigmeDuSphinx; etape: number; montre?: boolean }) {
+  const etapes = enigme.explication ?? []
+  const faites = Math.min(etape, etapes.length)
+  return (
+    <section className={'sx-parchemin sx-solution' + (montre ? ' sx-montre' : '')} aria-label="La solution du problème">
+      <div className="sx-parchemin-tete">
+        <p className="sx-sourcil">La solution</p>
+        <p className="sx-solution-compte">{`${faites} sur ${etapes.length}`}</p>
+      </div>
+      {enigme.probleme?.figure && (
+        <p className="sx-figure" aria-hidden="true">
+          {enigme.probleme.figure}
+        </p>
+      )}
+      <span className="sx-traits" aria-hidden="true">
+        {etapes.map((_, i) => (
+          <i key={i} className={i < faites ? 'sx-faite' : undefined} />
+        ))}
+      </span>
+      <ol className="sx-etapes">
+        {etapes.slice(0, faites).map((e, i) => (
+          <li key={i} className={i === faites - 1 ? 'sx-courante' : undefined}>
+            <span className="sx-etape-dit">{espacesFines(e.dit.replace(/\*/g, ''))}</span>
+            {e.etat && (
+              <span className="sx-etape-etat" aria-hidden="true">
+                {e.etat}
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
+      {enigme.solution && faites === etapes.length && <p className="sx-solution-fin">{espacesFines(`Réponse : ${enigme.solution}`)}</p>}
     </section>
   )
 }
@@ -596,7 +829,7 @@ class Abandon extends Error {}
 /** Ce que la visite rend à l'accueil en partant : épinglé jusqu'à la fin de son énigme, close pour aujourd'hui, ou rien à montrer. */
 export type IssueDeLaVisite = 'epingle' | 'close' | 'rien'
 
-type Vue = 'rien' | 'vitrine' | 'focus' | 'enigme'
+type Vue = 'rien' | 'vitrine' | 'focus' | 'enigme' | 'solution'
 
 /** Ce que la scène porte : assombrie, en énigme (le Sphinx rétréci), secouée, glorieuse. */
 interface EtatDeLaScene {
@@ -660,6 +893,9 @@ function SceneDuSphinx({
   const [valeur, setValeur] = useState('')
   const [faux, setFaux] = useState(false)
   const [motVole, setMotVole] = useState<string | null>(null)
+  /** Un problème à choisir : la proposition touchée. Sa solution : les étapes déjà dites. */
+  const [choisie, setChoisie] = useState<number | null>(null)
+  const [etape, setEtape] = useState(0)
 
   const racine = useRef<HTMLDivElement>(null)
   const refBoite = useRef<HTMLDivElement>(null)
@@ -687,6 +923,21 @@ function SceneDuSphinx({
   visiteVue.current = visite
   const sable = useRef<ReturnType<typeof leSable> | null>(null)
   const image = useRef<HTMLImageElement | null>(null)
+  const vueCourante = useRef(vue)
+  vueCourante.current = vue
+
+  /**
+   * La solution d'un problème : l'étape que le Sphinx dit reste sous les yeux,
+   * les précédentes au-dessus — et à la dernière, la réponse avec elle. Redit
+   * quand la boîte grandit : sa réplique la plus longue, la dernière étape,
+   * relevait le bas du cadre après coup, et la réponse finissait sous son bord
+   * (le rendu des vrais problèmes du 26 novembre 2026, en 360 × 640).
+   */
+  const montrerLEtape = () => {
+    if (vueCourante.current !== 'solution') return
+    const r = racine.current
+    ;(r?.querySelector('.sx-solution-fin') ?? r?.querySelector('.sx-courante'))?.scrollIntoView?.({ block: 'nearest' })
+  }
 
   /**
    * Le Divin du moment tient au-dessus du Sphinx : quand sa phrase est longue
@@ -717,6 +968,7 @@ function SceneDuSphinx({
     const o = new ResizeObserver(() => {
       r.style.setProperty('--sx-boite-h', `${b.offsetHeight}px`)
       ajusterLeVoile()
+      montrerLEtape()
     })
     o.observe(b)
     // Et ce qu'il montre : une police arrivée après coup — sous moins de mouvement, rien ne l'attend — change sa hauteur.
@@ -725,11 +977,17 @@ function SceneDuSphinx({
     return () => o.disconnect()
   }, [])
   // Le menu ouvert laisse un peu plus d'air au-dessus de lui (sa feuille) : le voile se remesure aussi.
-  useLayoutEffect(ajusterLeVoile, [phrase, vue, menu])
+  // Le menu se mesure d'abord : plus haut que le Sphinx (trois choix), il relève le bas du cadre (`--sx-menu-h`).
+  useLayoutEffect(() => {
+    const choix = racine.current?.querySelector<HTMLElement>('.sx-choix')
+    racine.current?.style.setProperty('--sx-menu-h', `${choix?.offsetHeight ?? 0}px`)
+    ajusterLeVoile()
+  }, [phrase, vue, menu])
   // Ce que le haut montre de neuf se lit depuis son début : l'énigme défilée laissait le Divin du moment défilé d'autant.
   useLayoutEffect(() => {
     if (haut.current) haut.current.scrollTop = 0
   }, [vue])
+  useLayoutEffect(montrerLEtape, [vue, etape])
 
   // Modale : le reste de la page inerte, le focus dans la scène, Échap la remet à plus tard.
   const fuir = () => {
@@ -881,21 +1139,26 @@ function SceneDuSphinx({
       // Remise à plus tard : écrit pendant qu'il le dit ; déjà épinglée, rien à écrire.
       const deja = visiteVue.current?.etat === 'plus-tard'
       const [ecrit] = await Promise.all([deja ? Promise.resolve(true) : envoyer(moi, 'plus-tard').then(v => !!v), dire(moi, DIT.plusTard)])
-      if (!ecrit) return proposer(moi, DIT.proposer)
+      if (!ecrit) return proposer(moi, DIT.proposer(visiteVue.current?.enigme.sorte ?? 'enigme'))
       await partir(moi)
       onPartir('epingle')
       return
     }
     const v = await envoyer(moi, 'ecouter')
-    if (!v) return proposer(moi, DIT.proposer)
+    if (!v) return proposer(moi, DIT.proposer(visiteVue.current?.enigme.sorte ?? 'enigme'))
     return enigme(moi, v.visite)
   }
 
-  /** L'énigme : en haut de l'écran, ses vers un à un, puis l'issue — juste, perdue, la langue au chat, ou plus tard. */
+  /**
+   * L'énigme : en haut de l'écran, ses vers un à un — d'un problème, son récit paragraphe par paragraphe, puis la page
+   * descend jusqu'à sa question —, puis l'issue : juste, perdue, la langue au chat, ou plus tard.
+   */
   const enigme = async (moi: number, v: LaVisite) => {
+    const probleme = v.enigme.probleme
     repondu.current = false
     setFaux(false)
     setValeur('')
+    setChoisie(null)
     setVersMontres(0)
     setScene(s => ({ ...s, enigme: true }))
     setVue('enigme')
@@ -905,9 +1168,10 @@ function SceneDuSphinx({
         r(i)
       }
     })
-    const ecrite = ecrire(moi, DIT.ecoute).catch(() => {})
-    for (let i = 1; i <= v.enigme.vers.length; i++) {
-      await attendre(moi, calme ? 0 : 650)
+    const ecrite = ecrire(moi, !probleme ? DIT.ecoute : v.enigme.redoutable ? DIT.ecouteRedoutable : DIT.ecouteProbleme).catch(() => {})
+    const morceaux = probleme ? probleme.recit.length : v.enigme.vers.length
+    for (let i = 1; i <= morceaux; i++) {
+      await attendre(moi, calme ? 0 : probleme ? 1100 : 650)
       // L'énigme a déjà son issue (`issue.current` rendu à null) : plus tard ou la langue au chat touchés pendant les
       // vers ne laissent pas les suivants paraître, puis la réplique s'écrire, avant que le Sphinx réponde.
       if (!issue.current) break
@@ -915,7 +1179,11 @@ function SceneDuSphinx({
     }
     if (issue.current) {
       await ecrite
-      if (!repondu.current) await ecrire(moi, DIT.quiSuisJe(v.enigme.sorte, v.essaisRestants)).catch(() => {})
+      // Le récit lu, la page descend jusqu'à la réponse : sur un petit téléphone, le Sphinx disait « en haut » d'un champ
+      // encore caché sous l'histoire (la maquette du 25 novembre 2026).
+      if (probleme) racine.current?.querySelector('.sx-probleme .sx-question')?.scrollIntoView?.({ block: 'start', behavior: calme ? 'auto' : 'smooth' })
+      const consigne = !probleme ? DIT.quiSuisJe(v.enigme.sorte, v.essaisRestants) : probleme.reponse.sorte === 'choix' ? DIT.aChoisir : DIT.unNombre(v.essaisRestants)
+      if (!repondu.current) await ecrire(moi, consigne).catch(() => {})
     }
     const fin = await attendue
     verifier(moi)
@@ -928,7 +1196,7 @@ function SceneDuSphinx({
   const remettre = async (moi: number) => {
     setScene(s => ({ ...s, enigme: false }))
     setVue('focus')
-    await dire(moi, DIT.plusTardEnigme)
+    await dire(moi, DIT.plusTardEnigme(visiteVue.current?.enigme.sorte ?? 'enigme'))
     await partir(moi)
     onPartir('epingle')
   }
@@ -986,16 +1254,41 @@ function SceneDuSphinx({
       setPhrase(apres)
       setVue('focus')
     }
-    const entiere = apres.reconstituee || (v.phrase !== null && v.phrase.divin.key !== apres.divin.key)
+    // Un problème : sa solution pas à pas, s'il veut la voir — il l'a trouvé, peut-être autrement. Après son mot et ce
+    // que le Sphinx en dit, comme dans la maquette : la récompense d'abord.
+    const laSolutionSIlVeut = async () => {
+      if (!lui.enigme.explication?.length) return
+      const voir = await demander(moi, DIT.voirLaSolution, [
+        ['oui', 'Montre-moi'],
+        ['non', 'Pas besoin'],
+      ])
+      if (voir === 'oui') await expliquer(moi, lui.enigme)
+    }
+    // Son mot était le dernier qui manquait à tous (le serveur le dit : `retrouvee`) ; sinon, une phrase déjà retrouvée,
+    // c'est qu'il la finit avec le Sphinx (le choix du propriétaire du 26 novembre 2026).
+    const entiere = v.retrouvee === true
+    const surLaSuite = !entiere && apres.reconstituee
+    if (entiere) await laSolutionSIlVeut()
     if (entiere && apres.aDevoiler) {
-      // Son mot était le dernier qui manquait à tous : la phrase ne s'impose pas (la décision du 24 novembre 2026). Le
-      // Sphinx le dit, et lui laisse le choix — maintenant, ou plus tard dans l'album.
+      // La phrase ne s'impose pas (la décision du 24 novembre 2026). Le Sphinx le dit, et lui laisse le choix : la lire
+      // maintenant, la finir avec lui mot à mot, ou plus tard dans l'album.
       await dire(moi, DIT.entiere(nom))
       const choix = await demander(moi, DIT.laLire, [
         ['lire', 'La lire'],
+        ['finir', 'La finir avec toi'],
         ['plus-tard', 'Pas maintenant'],
       ])
-      if (choix === 'lire') {
+      if (choix === 'finir') {
+        try {
+          await api.joueur.finirLaPhraseDuSphinx(lui.divin.key)
+          verifier(moi)
+          await dire(moi, DIT.laFinir)
+        } catch (e) {
+          if (e instanceof Abandon) throw e
+          await dire(moi, DIT.sansReseau((e as Error).message.replace(/[.\s]+$/, '')))
+          await dire(moi, DIT.plusTardDansLAlbum)
+        }
+      } else if (choix === 'lire') {
         try {
           const { phrase: toute } = await api.joueur.lirePhraseDuSphinx(lui.divin.key)
           verifier(moi)
@@ -1013,8 +1306,15 @@ function SceneDuSphinx({
     } else if (entiere) {
       await dire(moi, DIT.entiere(nom))
       await dire(moi, DIT.entiereAlbum)
+    } else if (surLaSuite) {
+      // Ce qui lui manque encore, trouvé ou appris : rien, il l'a finie lui-même — elle est entière sous ses yeux.
+      const reste = Math.max(0, apres.aTrouver - apres.siens - (apres.appris ?? 0))
+      if (mot) await dire(moi, reste === 0 ? DIT.finie(nom) : DIT.resteAFinir(reste))
+      await laSolutionSIlVeut()
+      if (reste === 0) await dire(moi, DIT.finieAlbum)
     } else {
-      if (mot) await dire(moi, neuf ? DIT.neuf : v.neufDuJourParti ? DIT.neufParti : DIT.dejaTrouve)
+      if (mot) await dire(moi, neuf ? DIT.neuf : v.pasLeMotNeuf ? DIT.pasLeNeuf : DIT.dejaTrouve)
+      await laSolutionSIlVeut()
       await dire(moi, DIT.autres(Math.max(0, apres.parTous - apres.siens)))
       await dire(moi, DIT.album)
     }
@@ -1025,12 +1325,32 @@ function SceneDuSphinx({
     window.location.assign('/profil#collection-avatars-divin')
   }
 
+  /**
+   * La solution d'un problème, pas à pas : le Sphinx dit chaque étape dans sa boîte, et elles s'écrivent au-dessus de
+   * lui l'une sous l'autre. Le haut s'agrandit comme pour l'énigme ; au bout, le Divin du moment revient.
+   */
+  const expliquer = async (moi: number, e: EnigmeDuSphinx, intro?: string) => {
+    const etapes = e.explication ?? []
+    setEtape(0)
+    setScene(s => ({ ...s, enigme: true }))
+    setVue('solution')
+    if (intro) await dire(moi, intro)
+    for (let i = 0; i < etapes.length; i++) {
+      setEtape(i + 1)
+      await dire(moi, etapes[i].dit)
+    }
+    setScene(s => ({ ...s, enigme: false }))
+    setVue('focus')
+  }
+
   const defaite = async (moi: number, fin: Issue) => {
     setScene(s => ({ ...s, enigme: false }))
     setPhrase(fin.verdict.visite.phrase)
     setVue('focus')
     const solution = laSolution(fin.verdict.visite.enigme)
     await dire(moi, fin.quoi === 'abandon' ? DIT.chat(solution) : DIT.perdu(solution))
+    // Un problème : sa solution pas à pas, toujours — perdu ou abandonné, on veut savoir comment.
+    if (fin.verdict.visite.enigme.explication?.length) await expliquer(moi, fin.verdict.visite.enigme, DIT.regarde)
     await dire(moi, DIT.autreJour)
     await partir(moi)
     onPartir('close')
@@ -1095,6 +1415,40 @@ function SceneDuSphinx({
     }
   }
 
+  /** Un problème à choisir : la proposition touchée part au serveur, et un seul toucher suffit — juste ou perdu. */
+  const choisir = async (place: number) => {
+    const moi = tour.current
+    if (occupe.current || !issue.current || choisie !== null) return
+    occupe.current = true
+    repondu.current = true
+    setChoisie(place)
+    try {
+      const v = await envoyer(moi, 'repondre', String(place))
+      if (!v) {
+        // Le réseau ou un refus, dits dans la boîte : la proposition se rend, rien n'est joué.
+        setChoisie(null)
+        return
+      }
+      if (v.verdict === 'juste') {
+        sons.juste()
+        issue.current?.({ quoi: 'juste', verdict: v })
+      } else {
+        sons.faux()
+        vibrer(80)
+        setFaux(true)
+        if (!calme) {
+          setScene(s => ({ ...s, non: true }))
+          window.setTimeout(() => setScene(s => ({ ...s, non: false })), 520)
+        }
+        issue.current?.({ quoi: 'perdu', verdict: v })
+      }
+    } catch (e) {
+      if (!(e instanceof Abandon)) throw e
+    } finally {
+      occupe.current = false
+    }
+  }
+
   /** « Plus tard », l'énigme ouverte : écrit au serveur d'abord — un refus ou le réseau perdu se disent, et l'énigme reste. */
   const plusTard = async () => {
     const moi = tour.current
@@ -1152,7 +1506,7 @@ function SceneDuSphinx({
       if (v.etat === 'proposee') void api.joueur.gesteDuSphinx('surgir').catch(() => {})
       if (presente) {
         setVue('focus')
-        return proposer(moi, DIT.revoila)
+        return proposer(moi, DIT.revoila(v.enigme.sorte))
       }
       await dire(moi, DIT.psst(prenom))
       await dire(moi, DIT.jeSuis)
@@ -1166,9 +1520,11 @@ function SceneDuSphinx({
       await dire(moi, DIT.rares)
       await dire(moi, DIT.exploit)
       setVue('focus')
-      await dire(moi, DIT.moment(v.divin.nom))
+      // Une phrase retrouvée qu'il finit avec lui : le Sphinx en parle, pas du Divin du moment.
+      const suite = donnees.aFinir?.divin.key === v.divin.key ? donnees.aFinir : null
+      await dire(moi, suite ? DIT.suite(v.divin.nom, suite.choisie) : DIT.moment(v.divin.nom))
       retenirLaPresentation(v.jour)
-      return proposer(moi, DIT.proposer)
+      return proposer(moi, suite ? DIT.proposerLaSuite(v.enigme.sorte) : DIT.proposer(v.enigme.sorte))
     }
     jouer().catch(e => {
       if (!(e instanceof Abandon)) throw e
@@ -1239,7 +1595,9 @@ function SceneDuSphinx({
               <div className="sx-grand">
                 <Divin cle={phrase.divin.key} verrouille />
               </div>
-              <p className="sx-sourcil sx-moment">Le Divin du moment</p>
+              {/* Une phrase que tous ont retrouvée — qu'il finit avec le Sphinx, ou que son mot vient de compléter — ne se
+                  dit plus « du moment » : le Sphinx est passé au suivant. */}
+              <p className="sx-sourcil sx-moment">{phrase.reconstituee ? 'Retrouvée par tous' : 'Le Divin du moment'}</p>
               <h2>{phrase.divin.nom}</h2>
               <PhraseDuDivin phrase={phrase} retourne={retourne} />
               <CompteDeLaPhrase phrase={phrase} />
@@ -1253,13 +1611,16 @@ function SceneDuSphinx({
               valeur={valeur}
               faux={faux}
               montre={vue === 'enigme'}
+              choisie={choisie}
               onValeur={setValeur}
               onRepondre={() => void repondre()}
+              onChoisir={place => void choisir(place)}
               onChat={() => void langueAuChat()}
               onPlusTard={() => void plusTard()}
               refChamp={champ}
             />
           )}
+          {v?.enigme.probleme && <SolutionDuProbleme enigme={v.enigme} etape={etape} montre={vue === 'solution'} />}
           <div ref={vole} className={'sx-mot-vole' + (motVole ? ' sx-montre' : '')} aria-hidden="true">
             {motVole}
           </div>

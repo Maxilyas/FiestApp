@@ -13,23 +13,29 @@ import { minuitDe } from '../../../shared/qg'
 import { JOURS_DU_SPHINX_AU_QG, visitesParJour, type PageDuSphinxAuQg, type ReponseDuSphinxAuQg } from '../../../shared/qgSphinx'
 import { nomsAffiches } from '../../../shared/homonymes'
 import type { AnnonceDeLAdministrateur } from '../../../shared/profil'
+import { lireNombre } from '../../../shared/nombres'
 import {
   ERREURS_D_INSCRIPTION_PAR_JOUR,
-  ESSAIS_DU_SPHINX,
+  essaisDe,
   FENETRE_DE_L_HABITUE,
   GESTES_DU_SPHINX,
   JOURS_DE_L_HABITUE,
   QUI_A_DES_MOTS_MONTRES,
   VISITE_CLOSE,
   type EnigmeDuSphinx,
+  type EtapeDeLaSolution,
   type EtatDeLaVisite,
   type GesteDuSphinx,
   type InscriptionDuSphinx,
   type QuiADesMots,
   type SphinxOuvert,
   type MotDeLaPhrase,
+  type PhraseAFinir,
+  type PhraseAFinirDuSphinx,
   type PhraseDuSphinx,
   type PhraseLueDuSphinx,
+  type ProblemeDuSphinx,
+  type SorteDePiece,
   type SphinxDesMissions,
   type VerdictDuSphinx,
   type VisiteDuSphinx,
@@ -63,11 +69,26 @@ export const LETTRES_D_UN_PETIT_MOT = 3
 /** Ses premières visites ne posent que des énigmes faciles : on y entre sans se décourager. */
 export const VISITES_FACILES = 3
 /**
+ * Une visite sur cinq pose un problème plutôt qu'une énigme en vers (le choix
+ * du propriétaire du 25 novembre 2026 : « une bonne part, et qu'il y en ait
+ * assez souvent (1/5 ça serait cool) »), tant qu'il lui en reste à voir — et
+ * à défaut d'énigme, un problème toujours.
+ */
+export const PART_DES_PROBLEMES = 1 / 5
+/**
  * Ensuite, une difficulté tirée à ces poids, parmi celles qui lui restent :
  * une difficile une fois sur cinq — le joueur ordinaire s'y trompait avec
  * assurance, au test à l'aveugle.
  */
 export const POIDS_DES_DIFFICULTES = { facile: 2, moyenne: 2, difficile: 1 } as const
+/**
+ * Les problèmes ont les leurs : un tiers de chaque difficulté (le choix du
+ * propriétaire du 26 novembre 2026, « des riddles durs », et qu'ils viennent
+ * assez souvent) — un problème redoutable environ tous les quarante-cinq jours
+ * chez un habitué, quand les poids des énigmes n'en posaient qu'un tous les
+ * deux mois et demi. Ses premières visites restent faciles (`VISITES_FACILES`).
+ */
+export const POIDS_DES_PROBLEMES = { facile: 1, moyenne: 1, difficile: 1 } as const
 /** Une réponse tient en une ligne : au-delà, elle se coupe (`tronquer`). */
 export const REPONSE_MAX = 80
 /** Un mot inscrit sur sa phrase : le plus long d'une légende tient bien en dessous. */
@@ -124,13 +145,25 @@ const CATALOGUE: ReadonlySet<string> = new Set(DIVINS.map(d => d.key))
 
 export type Difficulte = keyof typeof POIDS_DES_DIFFICULTES
 
+/**
+ * Un problème de la réserve, réponse et solution comprises (le souhait du
+ * propriétaire du 25 novembre 2026, sur les « Can you solve this riddle? » de
+ * TED-Ed) : tiré d'un livre du domaine public, raconté avec nos mots, une
+ * réponse fermée — un nombre, ou un choix —, et sa solution pas à pas.
+ */
+export interface ProblemeDeLaReserve extends Omit<ProblemeDuSphinx, 'reponse'> {
+  reponse: { sorte: 'nombre'; valeur: number } | { sorte: 'choix'; propositions: { texte: string; emoji?: string }[]; bonne: number }
+  explication: EtapeDeLaSolution[]
+}
+
 /** Une énigme de la réserve, réponses comprises : elle ne quitte jamais le serveur telle quelle. */
 export interface Enigme {
   numero: string
-  sorte: 'enigme' | 'charade'
+  sorte: SorteDePiece
   difficulte: Difficulte
+  /** Ses vers ; un problème n'en a pas. */
   vers: string[]
-  /** La solution de la clé du livre. */
+  /** La solution de la clé du livre ; d'un problème, sa réponse dite en mots (« sept traversées »). */
   solution: string
   /** Une charade : la clé du livre qui la découpe (« Cher-cher »). */
   cle?: string
@@ -141,9 +174,12 @@ export interface Enigme {
   /** La page du livre, et celle du fac-similé sur Wikisource. */
   page: string
   facSimile: string
+  /** Un problème : son récit, sa question, sa réponse et sa solution. */
+  probleme?: ProblemeDeLaReserve
 }
 
 const FICHIER_DES_ENIGMES = path.join(SERVEUR, 'content/sphinx/enigmes.json')
+const FICHIER_DES_PROBLEMES = path.join(SERVEUR, 'content/sphinx/problemes.json')
 
 let reserveLue: { recueil: string; enigmes: Enigme[] } | null = null
 
@@ -179,12 +215,99 @@ function laReserve(): { recueil: string; enigmes: Enigme[] } {
         },
       ]
     })
-    reserveLue = { recueil: texte(brut.recueil), enigmes }
+    reserveLue = { recueil: texte(brut.recueil), enigmes: [...enigmes, ...lesProblemes()] }
   } catch (e) {
     console.error('[sphinx] la réserve des énigmes ne se lit pas :', e)
-    reserveLue = { recueil: '', enigmes: [] }
+    reserveLue = { recueil: '', enigmes: lesProblemes() }
   }
   return reserveLue
+}
+
+/**
+ * Les problèmes de la réserve (`problemes.json`, à côté des énigmes, serveur
+ * seulement : leurs réponses et leurs solutions y sont). Un problème mal
+ * formé — sans réponse lisible, une bonne proposition hors de la liste, sans
+ * solution pas à pas — ne se pose pas ; un fichier absent ou illisible n'en
+ * pose aucun, et les énigmes restent.
+ */
+function lesProblemes(): Enigme[] {
+  let brut: { problemes?: unknown[] }
+  try {
+    if (!fs.existsSync(FICHIER_DES_PROBLEMES)) return []
+    brut = JSON.parse(fs.readFileSync(FICHIER_DES_PROBLEMES, 'utf8')) as { problemes?: unknown[] }
+  } catch (e) {
+    console.error('[sphinx] la réserve des problèmes ne se lit pas :', e)
+    return []
+  }
+  return (brut.problemes ?? []).flatMap((p): Enigme[] => {
+    const probleme = lireUnProbleme(p)
+    const x = p as Record<string, unknown>
+    const difficulte = x.difficulte === 'facile' || x.difficulte === 'moyenne' || x.difficulte === 'difficile' ? x.difficulte : null
+    if (!probleme || !texte(x.numero) || !difficulte || !texte(x.solution)) return []
+    return [
+      { numero: texte(x.numero), sorte: 'probleme', difficulte, vers: [], solution: texte(x.solution), acceptees: [], presque: [], page: '', facSimile: probleme.source.lien ?? '', probleme },
+    ]
+  })
+}
+
+/** Un problème tel que le fichier le dit, vérifié champ par champ ; null s'il ne se pose pas. */
+export function lireUnProbleme(brut: unknown): ProblemeDeLaReserve | null {
+  const x = (brut ?? {}) as Record<string, unknown>
+  const r = (x.reponse ?? {}) as Record<string, unknown>
+  const source = (x.source ?? {}) as Record<string, unknown>
+  let reponse: ProblemeDeLaReserve['reponse'] | null = null
+  if (r.sorte === 'nombre' && typeof r.valeur === 'number' && Number.isFinite(r.valeur)) reponse = { sorte: 'nombre', valeur: r.valeur }
+  if (r.sorte === 'choix' && Array.isArray(r.propositions)) {
+    const propositions = r.propositions.flatMap(q => {
+      const y = (q ?? {}) as Record<string, unknown>
+      return texte(y.texte) ? [{ texte: texte(y.texte), ...(texte(y.emoji) && { emoji: texte(y.emoji) }) }] : []
+    })
+    const bonne = typeof r.bonne === 'number' ? r.bonne : -1
+    if (propositions.length >= 2 && propositions.length === r.propositions.length && Number.isInteger(bonne) && bonne >= 0 && bonne < propositions.length) {
+      reponse = { sorte: 'choix', propositions, bonne }
+    }
+  }
+  const explication = (Array.isArray(x.explication) ? x.explication : []).flatMap(e => {
+    const y = (e ?? {}) as Record<string, unknown>
+    return texte(y.dit) ? [{ dit: texte(y.dit), ...(texte(y.etat) && { etat: texte(y.etat) }) }] : []
+  })
+  const recit = textes(x.recit)
+  if (!reponse || !texte(x.titre) || recit.length === 0 || !texte(x.question) || explication.length === 0 || !texte(source.texte)) return null
+  return {
+    titre: texte(x.titre),
+    recit,
+    question: texte(x.question),
+    ...(texte(x.aide) && { aide: texte(x.aide) }),
+    ...(texte(x.figure) && { figure: texte(x.figure) }),
+    reponse,
+    explication,
+    source: { texte: texte(source.texte), ...(texte(source.lien) && { lien: texte(source.lien) }) },
+  }
+}
+
+/** L'énoncé d'un problème en lignes, tel que le joueur le lit — le QG le montre au toucher de sa ligne, comme des vers. */
+function enonceDe(p: ProblemeDeLaReserve): string[] {
+  return [...p.recit, p.question, ...(p.aide ? [p.aide] : []), ...(p.reponse.sorte === 'choix' ? p.reponse.propositions.map(q => `— ${q.texte}`) : [])]
+}
+
+/** Ce que « Voir la réponse » dit accepté : d'un problème, le nombre attendu ou la bonne proposition. */
+function accepteesAuQg(e: Enigme): string[] {
+  const r = e.probleme?.reponse
+  if (!r) return e.acceptees
+  return r.sorte === 'nombre' ? [String(r.valeur)] : [r.propositions[r.bonne].texte]
+}
+
+/** Ce que la page reçoit d'un problème : tout, sauf sa réponse et sa solution — elles ne partent qu'une fois la visite close. */
+function problemeVu(p: ProblemeDeLaReserve): ProblemeDuSphinx {
+  return {
+    titre: p.titre,
+    recit: p.recit,
+    question: p.question,
+    ...(p.aide && { aide: p.aide }),
+    ...(p.figure && { figure: p.figure }),
+    reponse: p.reponse.sorte === 'nombre' ? { sorte: 'nombre' } : { sorte: 'choix', propositions: p.reponse.propositions },
+    source: p.source,
+  }
 }
 
 /** Les énigmes de la réserve livrée. */
@@ -216,12 +339,53 @@ export function normaliser(brut: string): string {
 /** La même, sans ses blancs : « pente-côte », « pentecôte » et « pente côte » sont une seule réponse. */
 const comparable = (s: string) => normaliser(s).replace(/ /g, '')
 
+/** Les petits nombres écrits en lettres, sans accents : « sept » répond « 7 ». Au-delà de vingt, en chiffres. */
+const EN_LETTRES = ['zero', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix sept', 'dix huit', 'dix neuf', 'vingt']
+
+/**
+ * Un nombre tapé en réponse à un problème : en chiffres, comme on l'écrit en
+ * France (`lireNombre` : « 1 000 », « 2,5 »), ou en lettres jusqu'à vingt,
+ * avec ou sans article (« sept », « une »). Ce qui ne se lit pas : null — la
+ * page le redemande sans coûter d'essai.
+ */
+export function nombreTape(brut: string): number | null {
+  const n = lireNombre(brut.trim())
+  if (n !== null && Number.isFinite(n)) return n
+  const mots = normaliser(brut)
+  const i = mots === 'une' ? 1 : EN_LETTRES.indexOf(mots)
+  return i >= 0 ? i : null
+}
+
+/**
+ * Une réponse telle que le Sphinx la garde et la compare : d'une énigme, lue
+ * sans accents ni article (`normaliser`) ; d'un problème à nombre, le nombre ;
+ * d'un problème à choisir, la place de la proposition touchée. Illisible, un
+ * refus qui dit quoi faire, sans coûter d'essai.
+ */
+export function lireLaReponse(e: Enigme, brut: string): { lue: string } | { refus: string } {
+  const p = e.probleme
+  if (!p) {
+    const lue = normaliser(brut)
+    return lue ? { lue } : { refus: 'Écris ta réponse avant de l’envoyer.' }
+  }
+  if (p.reponse.sorte === 'choix') {
+    const i = /^\d+$/.test(brut.trim()) ? Number(brut.trim()) : -1
+    return i >= 0 && i < p.reponse.propositions.length ? { lue: String(i) } : { refus: 'Le Sphinx ne comprend pas ce choix : recharge la page.' }
+  }
+  const n = nombreTape(brut)
+  return n === null ? { refus: 'Écris un nombre : en chiffres, comme 12.' } : { lue: String(n) }
+}
+
 /**
  * Le verdict d'une réponse : juste — la solution du livre, ou une réponse
  * acceptée, lue de la même façon que celle du joueur —, brûlante (elle ne
- * coûte pas d'essai), ou fausse.
+ * coûte pas d'essai), ou fausse. D'un problème, la réponse lue
+ * (`lireLaReponse`) est le nombre ou la proposition attendus, ou elle est
+ * fausse : rien n'y brûle.
  */
 export function jugerLaReponse(e: Enigme, reponse: string): 'juste' | 'brulant' | 'faux' {
+  const p = e.probleme
+  if (p) return reponse === String(p.reponse.sorte === 'nombre' ? p.reponse.valeur : p.reponse.bonne) ? 'juste' : 'faux'
   const r = comparable(reponse)
   if (!r) return 'faux'
   if (r === comparable(e.solution) || e.acceptees.some(a => comparable(a) === r)) return 'juste'
@@ -244,23 +408,31 @@ export const estHabitue = (jours: number) => jours >= JOURS_DE_L_HABITUE
 export const tirageDeLaVisite = (graine: string): number => hasardDe(graine)()
 
 /**
- * L'énigme d'une visite : jamais une qu'il a vue ; ses premières visites, une
- * facile (sinon la plus douce qui reste) ; ensuite, une difficulté tirée à
- * ses poids parmi celles qui lui restent, puis une énigme de cette
- * difficulté. Plus rien à lui poser : null, et pas de visite.
+ * L'énigme d'une visite : jamais une qu'il a vue ; une fois sur cinq, un
+ * problème plutôt qu'une énigme en vers (`PART_DES_PROBLEMES`) ; ses premières
+ * visites, une facile (sinon la plus douce qui reste) ; ensuite, une
+ * difficulté tirée à ses poids parmi celles qui lui restent, puis une pièce de
+ * cette difficulté. Plus rien à lui poser : null, et pas de visite.
  */
 export function choisirLEnigme(enigmes: readonly Enigme[], vues: ReadonlySet<string>, visitesAvant: number, hasard: () => number): Enigme | null {
-  const restantes = enigmes.filter(e => !vues.has(e.numero))
-  if (restantes.length === 0) return null
+  const pasVues = enigmes.filter(e => !vues.has(e.numero))
+  if (pasVues.length === 0) return null
+  // Un problème une fois sur cinq (`PART_DES_PROBLEMES`), tant qu'il en reste ; sans énigme, un problème toujours. Le
+  // hasard ne se tire que s'il y a un choix à faire : une réserve sans problème garde ses tirages d'avant.
+  const problemes = pasVues.filter(e => e.sorte === 'probleme')
+  const enVers = pasVues.filter(e => e.sorte !== 'probleme')
+  const restantes = problemes.length === 0 ? enVers : enVers.length === 0 ? problemes : hasard() < PART_DES_PROBLEMES ? problemes : enVers
   const par = (d: Difficulte) => restantes.filter(e => e.difficulte === d)
   const difficultes = Object.keys(POIDS_DES_DIFFICULTES) as Difficulte[]
+  // Un problème se tire à ses poids à lui (`POIDS_DES_PROBLEMES`) : les redoutables y viennent plus souvent.
+  const poids = restantes[0]?.sorte === 'probleme' ? POIDS_DES_PROBLEMES : POIDS_DES_DIFFICULTES
   let parmi: Enigme[]
   if (visitesAvant < VISITES_FACILES) {
     parmi = difficultes.map(par).find(es => es.length > 0)!
   } else {
     const classes = difficultes.filter(d => par(d).length > 0)
-    let x = hasard() * classes.reduce((n, d) => n + POIDS_DES_DIFFICULTES[d], 0)
-    const choisie = classes.find(d => (x -= POIDS_DES_DIFFICULTES[d]) < 0) ?? classes[classes.length - 1]
+    let x = hasard() * classes.reduce((n, d) => n + poids[d], 0)
+    const choisie = classes.find(d => (x -= poids[d]) < 0) ?? classes[classes.length - 1]
     parmi = par(choisie)
   }
   return parmi[Math.floor(hasard() * parmi.length)]
@@ -415,20 +587,42 @@ export function quiADesMotsPour(
 
 /**
  * Combien de mots neufs — que personne n'avait — le Sphinx souffle chaque jour,
- * à tout le serveur (le choix du propriétaire du 25 novembre 2026 : « un mot
- * neuf par jour ») : à quinze habitués, la première phrase tombait en trois
- * jours ; ainsi, une phrase de neuf mots en prend neuf, quel que soit le
- * nombre de joueurs. Les autres énigmes résolues du jour soufflent un mot que
- * d'autres ont déjà trouvé : personne ne repart les mains vides, et les mots
- * neufs, rares, s'échangent (les mots inscrits).
+ * en moyenne, à tout le serveur (le choix du propriétaire du 25 novembre
+ * 2026 : « un mot neuf par jour ») : à quinze habitués, la première phrase
+ * tombait en trois jours ; ainsi, une phrase de neuf mots en prend neuf, quel
+ * que soit le nombre de joueurs. Les autres énigmes résolues soufflent un mot
+ * que d'autres ont déjà trouvé : personne ne repart les mains vides, et les
+ * mots neufs, rares, s'échangent (les mots inscrits).
  */
 export const MOTS_NEUFS_PAR_JOUR = 1
+/** Au plus, un jour de chance : au-delà, plus de mot neuf avant demain — une journée heureuse ne dévoile pas une phrase. */
+export const MOTS_NEUFS_PAR_JOUR_MAX = 2
+/** Les jours sur lesquels se mesure le rythme des énigmes résolues, que la chance du mot neuf suit. */
+export const JOURS_DU_RYTHME = 7
+const JOUR_MS = 24 * 3_600_000
+
+/**
+ * La chance qu'une énigme résolue sur le Divin du moment souffle le mot neuf
+ * — la même pour toutes, à toute heure (le choix du propriétaire du
+ * 26 novembre 2026 : le premier résolu du jour l'emportait, et « ça tombe
+ * toujours sur celui qui se lève le plus tôt »). Un mot par jour en moyenne
+ * (`MOTS_NEUFS_PAR_JOUR`) sur les énigmes résolues de ses derniers jours
+ * (`JOURS_DU_RYTHME`, moins s'il est plus jeune — `debut`, son premier mot) :
+ * cinq par jour, une chance sur cinq chacune ; une par jour ou moins, toutes.
+ * Sans rien d'écrit à côté : les énigmes résolues sont ses visites.
+ */
+export function chanceDuMotNeuf(resolues: readonly number[], debut: number | null, maintenant: number): number {
+  if (debut === null) return 1
+  const fenetre = Math.min(JOURS_DU_RYTHME * JOUR_MS, Math.max(JOUR_MS, maintenant - debut))
+  const parJour = resolues.filter(t => t > maintenant - fenetre && t <= maintenant).length / (fenetre / JOUR_MS)
+  return parJour <= MOTS_NEUFS_PAR_JOUR ? 1 : MOTS_NEUFS_PAR_JOUR / parJour
+}
 
 /**
  * Le mot qu'une énigme résolue lui souffle : parmi les mots cachés qu'il n'a
- * pas, d'abord un que personne n'a encore — si le mot neuf du jour n'est pas
- * déjà parti (`neufPermis`) —, sinon un autre, au hasard de sa graine. Le mot
- * neuf du jour parti, un que d'autres ont trouvé ; et s'il les a déjà tous, un
+ * pas, d'abord un que personne n'a encore — si la chance du mot neuf est
+ * tombée sur lui (`neufPermis`) —, sinon un autre, au hasard de sa graine.
+ * Pas cette fois, un que d'autres ont trouvé ; et s'il les a déjà tous, un
  * neuf quand même : le plus assidu ne repart pas les mains vides. Tiré au
  * verdict, pas avant : deux joueurs qui résolvent ensemble le dernier mot
  * inconnu de tous reçoivent l'un ce mot, l'autre un mot déjà trouvé. Il les a
@@ -486,6 +680,42 @@ export function phrasesReconstituees(
   }))
 }
 
+/** D'où le Sphinx lui souffle ses mots : la phrase du Divin du moment, ou une phrase retrouvée qu'il finit. */
+export interface Souffle {
+  divin: string
+  pourquoi: 'moment' | 'choisie' | 'plus-ancienne'
+}
+
+/**
+ * La phrase dont le Sphinx lui soufflera le prochain mot (le choix du
+ * propriétaire du 26 novembre 2026 : « que les gens puissent finir tout seuls
+ * […] avoir le choix de continuer à avoir des mots sur un Divin même si ceux-ci
+ * ont déjà été découverts »). D'abord celle qu'il a choisi de finir (`fil`),
+ * retrouvée par tous et pas encore connue de lui ; sinon celle du Divin du
+ * moment, la chasse commune ; et s'il n'y a rien à lui en souffler — il porte
+ * le Divin du moment, ou toutes les phrases sont retrouvées —, la plus
+ * ancienne des retrouvées qu'il ne connaît pas encore, dans l'ordre du Sphinx :
+ * il ne reste jamais muet tant qu'une phrase lui manque. Connaître une phrase :
+ * en porter le Divin, l'avoir choisie entière (`lue`), ou en savoir chaque mot
+ * caché — trouvé ou appris (`connait`). Rien à souffler : null.
+ */
+export function divinDuSouffle({
+  moment,
+  retrouvees,
+  fil,
+  connait,
+}: {
+  moment: string | null
+  retrouvees: readonly string[]
+  fil: string | null
+  connait: (cle: string) => boolean
+}): Souffle | null {
+  if (fil && retrouvees.includes(fil) && !connait(fil)) return { divin: fil, pourquoi: 'choisie' }
+  if (moment && !connait(moment)) return { divin: moment, pourquoi: 'moment' }
+  const ancienne = retrouvees.find(cle => !connait(cle))
+  return ancienne ? { divin: ancienne, pourquoi: 'plus-ancienne' } : null
+}
+
 // ── Le verdict ──────────────────────────────────────────────────────────────
 
 /** Ce qu'une visite garde d'un geste à l'autre. */
@@ -517,14 +747,16 @@ export function appliquerLeGeste(v: EtatDUneVisite, geste: GesteDuSphinx, repons
   if (geste === 'ecouter') return { apres: { etat: 'proposee', essais: v.essais, reponses } }
   if (geste === 'plus-tard') return { apres: { etat: 'plus-tard', essais: v.essais, reponses } }
   if (geste === 'chat') return { apres: { etat: 'abandonnee', essais: v.essais, reponses }, verdict: 'abandon' }
-  const lue = normaliser(reponse ?? '')
-  if (!lue) return { refus: 'Écris ta réponse avant de l’envoyer.', statut: 400 }
+  const lu = lireLaReponse(e, reponse ?? '')
+  if ('refus' in lu) return { refus: lu.refus, statut: 400 }
+  const { lue } = lu
   const verdict = jugerLaReponse(e, lue)
   if (verdict === 'juste') return { apres: { etat: 'resolue', essais: v.essais + 1, reponses }, verdict }
   if (verdict === 'brulant') return { apres: { etat: 'proposee', essais: v.essais, reponses }, verdict }
   if (reponses.includes(lue)) return { apres: { etat: 'proposee', essais: v.essais, reponses }, verdict: 'faux', dejaDite: true }
   const essais = v.essais + 1
-  return essais >= ESSAIS_DU_SPHINX
+  // Trois essais, un seul pour un problème à choisir (`essaisDe`) : à trois, on essaierait toutes les propositions.
+  return essais >= essaisDe(e)
     ? { apres: { etat: 'perdue', essais, reponses: [...reponses, lue] }, verdict: 'perdu' }
     : { apres: { etat: 'proposee', essais, reponses: [...reponses, lue] }, verdict: 'faux' }
 }
@@ -544,6 +776,7 @@ export interface DepsDuSphinx {
     | 'lecturesDuSphinxAuQg'
     | 'compterUneEnigmePourVue'
     | 'retenirUnePhraseDuSphinx'
+    | 'choisirLaPhraseAFinir'
     | 'inscrireUnMotDuSphinx'
     | 'byId'
   >
@@ -650,6 +883,9 @@ const sesAppris = (lignes: readonly LigneDuSphinx[], divin: string) =>
 /** Ce qu'il connaît d'un Divin : ses mots trouvés et ceux qu'il a appris — le Sphinx ne lui souffle ni les uns ni les autres. */
 const cequIlSait = (lignes: readonly LigneDuSphinx[], divin: string) => new Set([...sesMots(lignes, divin), ...sesAppris(lignes, divin)])
 
+/** La phrase retrouvée qu'il a choisi de finir avec le Sphinx (sa ligne `fil`), ou null. */
+const sonFil = (lignes: readonly LigneDuSphinx[]): string | null => lignes.find(l => l.etat === 'fil')?.divin || null
+
 /** Le jour des erreurs d'inscription d'un jour de Paris : une ligne à part, ses erreurs dans `essais`. */
 const jourDesErreurs = (aujourdhui: string) => `inscrits:${aujourdhui}`
 
@@ -670,6 +906,13 @@ export class Sphinx {
    */
   private premiers = new Map<string, number>()
   private trouveurs = new Map<string, TrouveurDuSphinx[]>()
+  /**
+   * Lues avec eux, tenues de même : les instants des énigmes résolues sur le
+   * Divin du moment de leur temps, ces derniers jours (`JOURS_DU_RYTHME`) — le
+   * rythme que suit la chance du mot neuf (`chanceDuMotNeuf`). Un mot soufflé
+   * d'une phrase déjà retrouvée n'y compte pas : il ne pouvait pas être neuf.
+   */
+  private resolues: number[] = []
   private enLecture: Promise<void> | null = null
   /** Le tour de lecture : un oubli pendant une lecture ne laisse pas celle-ci poser des mots d'avant. */
   private tour = 0
@@ -731,12 +974,22 @@ export class Sphinx {
     if (this.mots) return Promise.resolve()
     if (!this.enLecture) {
       const tour = this.tour
-      this.enLecture = this.deps.profiles.motsDuSphinx().then(
-        ({ mots, premiers, trouveurs }) => {
+      this.enLecture = this.deps.profiles.motsDuSphinx(this.deps.maintenant() - (JOURS_DU_RYTHME + 1) * JOUR_MS).then(
+        ({ mots, premiers, trouveurs, resolues }) => {
           if (tour === this.tour) {
             this.mots = mots
             this.premiers = premiers
             this.trouveurs = trouveurs
+            // Une résolution compte au rythme si sa phrase n'était pas encore retrouvée : jusqu'à l'instant de son dernier mot.
+            const retrouveeLe = (cle: string): number | null => {
+              const caches = cachesDe(this.legende(cle) ?? '')
+              if (caches.length === 0 || !caches.every(i => mots.get(cle)?.has(i))) return null
+              return Math.max(...caches.map(i => premiers.get(`${cle}|${i}`) ?? 0))
+            }
+            this.resolues = resolues.flatMap(r => {
+              const le = retrouveeLe(r.divin)
+              return le === null || r.le <= le ? [r.le] : []
+            })
           }
           this.enLecture = null
         },
@@ -758,12 +1011,19 @@ export class Sphinx {
    * le premier instant de chaque mot trouvé, en mémoire (`premiers`, relu au
    * démarrage, tenu à chaque mot gagné). Deux serveurs d'une mise en ligne
    * peuvent en souffler un de plus le temps qu'elle dure, comme deux joueurs
-   * qui résolvent au même instant : un jour à deux mots neufs, rien de pire.
+   * qui résolvent au même instant : un jour à un mot de plus, rien de pire.
    */
   private motsNeufsDuJour(aujourdhui: string): number {
     let n = 0
     for (const le of this.premiers.values()) if (jourDe(le) === aujourdhui) n++
     return n
+  }
+
+  /** Le premier mot jamais soufflé sur ce serveur : la chance du mot neuf ne mesure pas son rythme sur des jours d'avant lui. */
+  private debut(): number | null {
+    let premier: number | null = null
+    for (const le of this.premiers.values()) if (premier === null || le < premier) premier = le
+    return premier
   }
 
   /** Un profil supprimé emporte ses visites (`ProfileStore.supprimer`) : les mots de tous se relisent. */
@@ -772,16 +1032,34 @@ export class Sphinx {
     this.mots = null
     this.premiers = new Map()
     this.trouveurs = new Map()
+    this.resolues = []
     this.enLecture = null
+  }
+
+  /**
+   * D'où le Sphinx lui souffle ses mots (`divinDuSouffle`), sur ses lignes :
+   * la phrase qu'il a choisi de finir, sinon celle du Divin du moment, sinon la
+   * plus ancienne des retrouvées qu'il ne connaît pas.
+   */
+  private souffle(lignes: readonly LigneDuSphinx[], porte: ReadonlySet<string>): Souffle | null {
+    const mots = this.motsDeTous()
+    const lues = sesPhrasesLues(lignes)
+    return divinDuSouffle({
+      moment: divinDuMoment(mots, undefined, this.legende),
+      retrouvees: phrasesReconstituees(mots, undefined, this.legende).map(r => r.divin.key),
+      fil: sonFil(lignes),
+      connait: cle => porte.has(cle) || lues.has(cle) || cachesDe(this.legende(cle) ?? '').every(i => cequIlSait(lignes, cle).has(i)),
+    })
   }
 
   /**
    * Ce que la lecture des missions — ou celle de sa visite — décide, sur ses
    * visites et ses jours (les mots de tous déjà lus, `pret`). Une visite en
    * cours dit ce qu'elle est, de quelque jour qu'elle date (`visiteEnCours`) ;
-   * sinon, il en faut une, tirée ce jour : un habitué, sa chance, un Divin du
-   * moment qu'il ne porte pas et dont un mot lui manque, une énigme qu'il n'a
-   * pas vue. Elle surgit s'il a joué celle d'avant, sinon elle s'épingle
+   * sinon, il en faut une, tirée ce jour : un habitué, sa chance, une phrase
+   * dont un mot lui manque (`souffle` : celle qu'il finit, le Divin du moment,
+   * ou la plus ancienne des retrouvées), une énigme qu'il n'a pas vue. Elle
+   * surgit s'il a joué celle d'avant, sinon elle s'épingle
    * (`laSuivanteSurgit`) — rien ne l'écrit : chaque lecture le relit.
    */
   decider(profileId: string, aujourdhui: string, activites: ReadonlyMap<string, ActiviteDuJour>, lignes: readonly LigneDuSphinx[]): DecisionDuSphinx {
@@ -799,33 +1077,28 @@ export class Sphinx {
     }
     if (!habitue) return {}
     if ((this.deps.tirage ?? tirageDeLaVisite)(`${profileId}|${aujourdhui}`) >= CHANCE_D_UNE_VISITE) return {}
-    const moment = divinDuMoment(this.motsDeTous(), undefined, this.legende)
-    // Il le porte : il en connaît la légende, le Sphinx n'a rien à lui souffler.
-    if (!moment || this.deps.profiles.divinsOf(profileId).includes(moment)) return {}
-    // Ce qu'il en sait, trouvé ou appris : plus rien à lui souffler, pas de visite.
-    const siens = cequIlSait(lignes, moment)
-    if (cachesDe(this.legende(moment)!).every(i => siens.has(i))) return {}
+    // Une phrase dont un mot lui manque — porter un Divin, c'est en connaître la légende ; rien à lui souffler, pas de visite.
+    const souffle = this.souffle(lignes, new Set(this.deps.profiles.divinsOf(profileId)))
+    if (!souffle) return {}
     const enigme = choisirLEnigme(this.enigmes, new Set(lignes.map(l => l.enigme)), visites.length, hasardDe(`${profileId}|${aujourdhui}|enigme`))
     if (!enigme) return {}
     return {
       champ: laSuivanteSurgit(visites.at(-1)) ? 'attend' : 'epingle',
-      aPoser: { jour: aujourdhui, enigme: enigme.numero, divin: moment, quand: this.deps.maintenant() },
+      aPoser: { jour: aujourdhui, enigme: enigme.numero, divin: souffle.divin, quand: this.deps.maintenant() },
     }
   }
 
   /**
    * Le Divin dont une visite soufflera le mot : close, celui qu'elle a soufflé ;
-   * ouverte, le Divin du moment, s'il lui en reste un mot à apprendre — une
-   * énigme qui a attendu ne souffle pas un mot d'une phrase que tous ont
-   * retrouvée entre-temps (le choix du propriétaire du 25 novembre 2026) ;
-   * sinon celui de sa pose. La page le montre comme elle le soufflera.
+   * ouverte, celui d'où le Sphinx lui souffle ses mots à cet instant
+   * (`souffle`) — une énigme qui a attendu ne souffle pas un mot d'une phrase
+   * que tous ont retrouvée entre-temps (le choix du propriétaire du 25 novembre
+   * 2026), à moins qu'il ait choisi de la finir (celui du 26) ; rien à lui
+   * souffler, celui de sa pose. La page le montre comme elle le soufflera.
    */
   private divinVise(ligne: Visite, lignes: readonly LigneDuSphinx[], porte: ReadonlySet<string>): string {
     if (estClose(ligne)) return ligne.divin
-    const moment = divinDuMoment(this.motsDeTous(), undefined, this.legende)
-    if (!moment || moment === ligne.divin || porte.has(moment)) return ligne.divin
-    const siens = cequIlSait(lignes, moment)
-    return cachesDe(this.legende(moment)!).some(i => !siens.has(i)) ? moment : ligne.divin
+    return this.souffle(lignes, porte)?.divin ?? ligne.divin
   }
 
   /** Pose la visite tirée, une fois ; rend ses visites telles que la base les garde. */
@@ -872,7 +1145,7 @@ export class Sphinx {
     aujourdhui: string,
     lignes: readonly LigneDuSphinx[],
     amis?: ReadonlySet<string>,
-  ): Pick<SphinxOuvert, 'visite' | 'phrase' | 'reconstituees'> {
+  ): Pick<SphinxOuvert, 'visite' | 'phrase' | 'reconstituees' | 'aFinir'> {
     const mots = this.motsDeTous()
     const porte = new Set(this.deps.profiles.divinsOf(profileId))
     const moment = divinDuMoment(mots, undefined, this.legende)
@@ -882,12 +1155,21 @@ export class Sphinx {
       const { liste, autres } = quiADesMotsPour(this.trouveurs.get(phrase.divin.key) ?? [], profileId, amis, this.deps.masque ?? (() => false))
       return { ...phrase, quiADesMots: liste, ...(autres > 0 && { autresQuiEnOnt: autres }) }
     }
+    const aFinir = this.aFinir(lignes, porte)
     return {
       visite: ligne ? this.visiteDe(ligne, lignes, porte) : null,
       phrase: moment ? avecQui(this.phraseDe(moment, lignes, porte)) : null,
       // Chacune telle qu'il la voit (`phraseVue`) : entière seulement s'il l'a choisie — la légende ne part plus à tous.
       reconstituees: phrasesReconstituees(mots, undefined, this.legende).flatMap(r => avecQui(this.phraseDe(r.divin.key, lignes, porte)) ?? []),
+      ...(aFinir && { aFinir }),
     }
+  }
+
+  /** La phrase retrouvée qu'il finit avec le Sphinx, telle que la page la reçoit ; null quand il lui souffle le Divin du moment. */
+  private aFinir(lignes: readonly LigneDuSphinx[], porte: ReadonlySet<string>): PhraseAFinir | null {
+    const souffle = this.souffle(lignes, porte)
+    if (!souffle || souffle.pourquoi === 'moment') return null
+    return { divin: { key: souffle.divin, nom: leDivin(souffle.divin)?.nom ?? '' }, choisie: souffle.pourquoi === 'choisie' }
   }
 
   private phraseDe(cle: string, lignes: readonly LigneDuSphinx[], porte: ReadonlySet<string>): PhraseDuSphinx | null {
@@ -908,12 +1190,21 @@ export class Sphinx {
     const phrase = this.phraseDe(this.divinVise(ligne, lignes, porte), lignes, porte)
     if (!e || !phrase) return null
     const close = estClose(ligne)
+    const p = e.probleme
     const enigme: EnigmeDuSphinx = {
       numero: e.numero,
       sorte: e.sorte,
       vers: e.vers,
-      source: { recueil: laReserve().recueil, page: e.page, facSimile: e.facSimile },
-      ...(close && { solution: e.solution, ...(e.cle && { cle: e.cle }) }),
+      // Un problème dit sa source à lui — un livre du domaine public, raconté avec nos mots —, pas le recueil de 1858.
+      source: p ? { recueil: p.source.texte, page: '', facSimile: p.source.lien ?? '' } : { recueil: laReserve().recueil, page: e.page, facSimile: e.facSimile },
+      ...(p && { probleme: problemeVu(p) }),
+      ...(p && e.difficulte === 'difficile' && { redoutable: true as const }),
+      // La réponse ne part qu'une fois la visite close — d'un problème, avec sa solution pas à pas, et la bonne proposition.
+      ...(close && {
+        solution: e.solution,
+        ...(e.cle && { cle: e.cle }),
+        ...(p && { explication: p.explication, ...(p.reponse.sorte === 'choix' && { bonne: p.reponse.bonne }) }),
+      }),
     }
     const texteDuMot = ligne.mot === null ? undefined : motsDeLaLegende(this.legende(ligne.divin)!)[ligne.mot]?.texte
     return {
@@ -921,7 +1212,7 @@ export class Sphinx {
       etat: ligne.etat,
       divin: phrase.divin,
       enigme,
-      essaisRestants: Math.max(0, ESSAIS_DU_SPHINX - ligne.essais),
+      essaisRestants: Math.max(0, essaisDe(e) - ligne.essais),
       ...(ligne.mot !== null && texteDuMot !== undefined && { mot: { index: ligne.mot, texte: texteDuMot } }),
       phrase,
     }
@@ -952,18 +1243,28 @@ export class Sphinx {
       if ('refus' in issue) return { refus: issue.statut, error: issue.refus }
       let mot: number | null = null
       let motNeuf: boolean | undefined
-      let neufDuJourParti = false
-      // Le Divin du mot : celui du moment, pour une énigme qui a attendu — sa phrase a pu être retrouvée entre-temps.
+      let pasLeMotNeuf = false
+      let retrouvee = false
+      // Le Divin du mot : celui d'où le Sphinx souffle à cet instant — pour une énigme qui a attendu, sa phrase a pu être
+      // retrouvée entre-temps, ou il a choisi d'en finir une autre.
       const divin = issue.apres.etat === 'resolue' ? this.divinVise(ligne, lignes, new Set(this.deps.profiles.divinsOf(profileId))) : ligne.divin
+      const surLeMoment = divin === divinDuMoment(this.motsDeTous(), undefined, this.legende)
       if (issue.apres.etat === 'resolue') {
         const deTous = this.motsDeTous().get(divin) ?? new Set<number>()
         const legende = this.legende(divin)
-        // Un mot neuf par jour, à tout le serveur (`MOTS_NEUFS_PAR_JOUR`) : parti, il reçoit un mot que d'autres ont trouvé.
-        const neufPermis = this.motsNeufsDuJour(aujourdhui) < MOTS_NEUFS_PAR_JOUR
+        // Le mot neuf : la même chance pour chaque énigme résolue sur le Divin du moment, à toute heure — un par jour en
+        // moyenne (`chanceDuMotNeuf`), deux au plus (`MOTS_NEUFS_PAR_JOUR_MAX`). Pas cette fois, un mot que d'autres ont
+        // trouvé. Sur la graine de sa visite : deux serveurs rendent le même verdict.
+        const neufPermis =
+          surLeMoment &&
+          this.motsNeufsDuJour(aujourdhui) < MOTS_NEUFS_PAR_JOUR_MAX &&
+          hasardDe(`${profileId}|${ligne.jour}|neuf`)() < chanceDuMotNeuf(this.resolues, this.debut(), maintenant)
         // Jamais un mot qu'il a déjà appris d'un autre : le Sphinx lui en souffle un qu'il ne connaît pas.
         mot = legende ? choisirLeMot(cachesDe(legende), cequIlSait(lignes, divin), deTous, hasardDe(`${profileId}|${ligne.jour}|mot`), { neufPermis }) : null
         motNeuf = mot !== null && !deTous.has(mot)
-        neufDuJourParti = !neufPermis && mot !== null && !motNeuf
+        pasLeMotNeuf = surLeMoment && mot !== null && !motNeuf
+        // Le dernier qui manquait à tous : avec lui, la phrase est retrouvée.
+        retrouvee = surLeMoment && motNeuf && legende !== null && cachesDe(legende).every(i => i === mot || deTous.has(i))
       }
       const close = estClose({ ...ligne, etat: issue.apres.etat })
       const closeLe = close ? maintenant : null
@@ -981,6 +1282,8 @@ export class Sphinx {
         this.mots.get(divin)!.add(mot)
         const cle = `${divin}|${mot}`
         if (!this.premiers.has(cle)) this.premiers.set(cle, maintenant)
+        // Une énigme de plus au rythme du mot neuf — celles d'une phrase déjà retrouvée n'y comptent pas.
+        if (surLeMoment) this.resolues = [...this.resolues.filter(t => t > maintenant - (JOURS_DU_RYTHME + 1) * JOUR_MS), maintenant]
         // Son premier mot de ce Divin : il rejoint ceux que l'annonce de la phrase retrouvée remerciera, et ceux à qui
         // demander. Un mot de plus : un de plus à son compte (un mot qu'il n'avait pas, `choisirLeMot`).
         const deCeDivin = this.trouveurs.get(divin) ?? []
@@ -1001,7 +1304,8 @@ export class Sphinx {
         ...(issue.verdict && { verdict: issue.verdict }),
         ...(issue.dejaDite && { dejaDite: true as const }),
         ...(motNeuf !== undefined && { motNeuf }),
-        ...(neufDuJourParti && { neufDuJourParti: true as const }),
+        ...(pasLeMotNeuf && { pasLeMotNeuf: true as const }),
+        ...(retrouvee && { retrouvee: true as const }),
         visite: visite!,
         phrase,
       }
@@ -1048,6 +1352,38 @@ export class Sphinx {
       const lignes = await this.deps.profiles.retenirUnePhraseDuSphinx(profileId, cle, 'lue', this.deps.maintenant())
       const phrase = this.phraseDe(cle, lignes, new Set(this.deps.profiles.divinsOf(profileId)))
       return phrase ? { accuse: true, phrase } : { refus: 409, error: 'Cette phrase ne se lit pas : recharge la page.' }
+    })
+  }
+
+  /**
+   * « La finir avec le Sphinx » (`POST /api/joueur/sphinx/finir`, `{ divin }`) :
+   * ses énigmes suivantes lui soufflent les mots qu'il n'a pas d'une phrase que
+   * tous ont retrouvée, jusqu'à la dernière — celle qui attend déjà la sienne
+   * comprise —, puis le Sphinx revient de lui-même au Divin du moment (le choix
+   * du propriétaire du 26 novembre 2026 : « que les gens puissent finir tout
+   * seuls »). `{ divin: null }` : il y revient tout de suite. Une phrase qui
+   * attend encore des mots se refuse — c'est le Divin du moment, ou un suivant
+   * —, comme une phrase qu'il connaît déjà : son Divin porté, lue, ou chaque mot
+   * à lui. Ses mots, tous déjà trouvés, ne comptent pas au mot neuf du jour.
+   */
+  finir(profileId: string, brut: unknown): Promise<PhraseAFinirDuSphinx | RefusDuSphinx> {
+    const corps = (brut ?? {}) as { divin?: unknown }
+    return this.unALaFois(profileId, async (): Promise<PhraseAFinirDuSphinx | RefusDuSphinx> => {
+      await this.pret()
+      const porte = new Set(this.deps.profiles.divinsOf(profileId))
+      const quand = this.deps.maintenant()
+      if (corps.divin === null) {
+        const lignes = await this.deps.profiles.choisirLaPhraseAFinir(profileId, null, quand)
+        return { accuse: true, aFinir: this.aFinir(lignes, porte) }
+      }
+      if (typeof corps.divin !== 'string' || !ORDRE_DU_SPHINX.includes(corps.divin)) return { refus: 400, error: 'Le Sphinx ne connaît pas ce Divin : recharge la page.' }
+      const cle = this.retrouvee(corps.divin)
+      if (!cle) return { refus: 409, error: 'Cette phrase n’est pas encore retrouvée par tous : le Sphinx en souffle déjà les mots.' }
+      // Entière pour lui — son Divin porté, choisie, ou chaque mot à lui (`phraseVue`) : rien à finir.
+      const avant = await this.deps.profiles.visitesDuSphinx(profileId)
+      if (this.phraseDe(cle, avant, porte)?.legende !== undefined) return { refus: 409, error: 'Cette phrase, tu la connais déjà entière.' }
+      const lignes = await this.deps.profiles.choisirLaPhraseAFinir(profileId, cle, quand)
+      return { accuse: true, aFinir: this.aFinir(lignes, porte) }
     })
   }
 
@@ -1199,8 +1535,10 @@ export class Sphinx {
         return {
           numero: e.numero,
           sorte: e.sorte,
+          ...(e.probleme && { titre: e.probleme.titre }),
           difficulte: e.difficulte,
-          vers: e.vers,
+          // D'un problème, ce que le joueur lit : son récit, sa question, ses propositions — jamais sa réponse.
+          vers: e.probleme ? enonceDe(e.probleme) : e.vers,
           vues: [...issues.values()].reduce((n, v) => n + v, 0),
           resolues: issues.get('resolue') ?? 0,
           perdues: issues.get('perdue') ?? 0,
@@ -1237,7 +1575,7 @@ export class Sphinx {
       const { lignes } = await this.deps.profiles.compterUneEnigmePourVue(profileId, numero, this.deps.maintenant())
       // Posée entre-temps par sa ligne des missions, d'un autre onglet : elle reste à lui, sans sa réponse.
       if (laPose(lignes)) return refus
-      return { numero, solution: e.solution, ...(e.cle && { cle: e.cle }), acceptees: e.acceptees, presque: e.presque, deja: avant.some(l => l.enigme === numero) }
+      return { numero, solution: e.solution, ...(e.cle && { cle: e.cle }), acceptees: accepteesAuQg(e), presque: e.presque, deja: avant.some(l => l.enigme === numero) }
     })
   }
 }

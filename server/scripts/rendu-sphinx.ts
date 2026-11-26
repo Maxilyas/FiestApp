@@ -9,7 +9,9 @@
 // puis la langue au chat, trois essais perdus, l'épingle seule quand
 // une soirée attend, l'album d'un non-habitué — et les mots des autres
 // qu'il y inscrit, un faux puis un juste —, une phrase reconstituée par
-// tous, moins de mouvement, l'Ivoire et le texte agrandi à 130 %.
+// tous — son dernier mot et ses trois choix, puis Lise, qui la finit avec le
+// Sphinx, mot à mot —, moins de mouvement, l'Ivoire et le texte agrandi à
+// 130 %.
 //
 //   npm run build -w client
 //   cd server && npx tsx scripts/rendu-sphinx.ts ../export/sphinx
@@ -35,6 +37,7 @@ import { fileURLToPath } from 'node:url'
 import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil } from '../test/banc'
 import { ProfileStore } from '../src/auth/profiles'
 import { enigmesDuSphinx, motsDeLaLegende, ORDRE_DU_SPHINX, type Enigme } from '../src/core/sphinx'
+import { PASSEUR, PASSEUR_A_CHOISIR } from '../test/passeur'
 import { CATEGORIES } from '../../shared/categories'
 import { SOUS_LA_NICHE } from './a-l-ecran'
 
@@ -161,7 +164,11 @@ const MESURES = `(() => {
   const zone = scene || document.querySelector('.accueil') || document.body
   for (const el of zone.querySelectorAll('.sx-boite, .sx-choix, .sx-parchemin, .sx-focus, .sx-vitrine, .sx-mot-vole, .sx-epingle, .sx-sphinx canvas')) {
     if (!visible(el)) continue
-    const r = el.getBoundingClientRect()
+    // Dans le cadre du haut, qui défile, seule sa part visible compte : un problème, plus long qu'une énigme, y défile
+    // sur un petit téléphone, et son haut passé sous le bord du cadre n'est pas hors de l'écran (le 25 novembre 2026).
+    const b = el.getBoundingClientRect()
+    const cadre = el.closest('.sx-haut')?.getBoundingClientRect()
+    const r = cadre ? { left: b.left, right: b.right, top: Math.max(b.top, cadre.top), bottom: Math.min(b.bottom, cadre.bottom) } : b
     if (r.left < -1 || r.right > W + 1 || r.top < -1 || r.bottom > H + 1) dehors.push(nom(el) + ' ' + [r.left, r.top, r.right, r.bottom].map(Math.round).join(','))
   }
   // Ce que montre le haut, contre ce qui le borne : la boîte, ou le menu quand il est ouvert.
@@ -186,6 +193,10 @@ const MESURES = `(() => {
       }
     }
   }
+  // La solution d'un problème : l'étape que le Sphinx dit — à la dernière, la réponse sous elle — dans la part visible du
+  // cadre. La boîte qui grandissait après coup relevait son bas, et la réponse finissait dessous (le 26 novembre 2026).
+  const dite = document.querySelector('.sx-solution.sx-montre .sx-solution-fin') || document.querySelector('.sx-solution.sx-montre .sx-courante')
+  const etapeCachee = dite && cadre ? (r => Math.max(0, Math.round(Math.max(cadre.top - r.top, r.bottom - cadre.bottom))))(dite.getBoundingClientRect()) : 0
   const coupeDansLeHaut = haut && getComputedStyle(haut).overflowY !== 'auto' && haut.scrollHeight > haut.clientHeight + 1 ? 'le haut déborde de ' + (haut.scrollHeight - haut.clientHeight) + ' px' : null
   const defileLeHaut = haut && getComputedStyle(haut).overflowY === 'auto' && haut.scrollHeight > haut.clientHeight + 1 ? haut.scrollHeight - haut.clientHeight : 0
   // Ce qui le fait défiler : ce qui dépasse le bas de son cadre, nommé.
@@ -228,6 +239,7 @@ const MESURES = `(() => {
     dehors,
     sous: [...new Set(sous)],
     coupeDansLeHaut,
+    etapeCachee,
     defileLeHaut,
     quiDepasse,
     enEnigme: !!document.querySelector('.sx-en-enigme'),
@@ -303,6 +315,7 @@ async function photo(page: any, cas: string, quoi: string, [w, h]: Ecran, { surA
     m.dehors.length && `hors de l’écran : ${m.dehors.join(' ; ')}`,
     m.sous.length && `sous la boîte : ${m.sous.join(' ; ')}`,
     m.coupeDansLeHaut,
+    m.etapeCachee > 1 && `l’étape dite passe de ${m.etapeCachee} px hors de son cadre`,
     m.defileLeHaut > 0 && !m.enEnigme && !agrandi && `ce qu’il montre défile de ${m.defileLeHaut} px (${m.quiDepasse.join(', ')})`,
     m.cibles.length && `cibles sous 44 px : ${m.cibles.join(' ; ')}`,
     m.petits.length && `texte sous 11 px : ${m.petits.join(' ; ')}`,
@@ -347,6 +360,12 @@ async function choisir(page: any, cas: string, quoi: string | null, ecran: Ecran
 async function lEnigme(page: any) {
   await page.waitForSelector('.sx-parchemin.sx-montre', { timeout: 30000 })
   await page.waitForFunction(() => (globalThis as any).document.querySelectorAll('.sx-vers span:not(.sx-la)').length === 0, null, { timeout: 30000 })
+  await page.waitForTimeout(2600)
+}
+/** Un problème : son récit entier à l'écran, la page descendue jusqu'à sa question, la consigne écrite. */
+async function leProbleme(page: any) {
+  await page.waitForSelector('.sx-probleme.sx-montre', { timeout: 30000 })
+  await page.waitForFunction(() => (globalThis as any).document.querySelectorAll('.sx-recit p:not(.sx-la)').length === 0, null, { timeout: 30000 })
   await page.waitForTimeout(2600)
 }
 /** Une réponse tapée au doigt, puis « Répondre ». */
@@ -434,10 +453,12 @@ try {
     ['marc', 'Marc', '🐶'],
     ['sofia', 'Sofia', '🐙'],
     ['nina', 'Nina', '🦉'],
+    ['paul', 'Paul', '🐯'],
+    ['ana', 'Ana', '🐨'],
   ]
   for (const [login, nom, avatar] of nouveaux) profils[login] = await inscrireProfil(banc.url, login, nom, avatar)
   for (const k of [1, 2]) await inscrireProfil(banc.url, `figurant${k}`, `Figurant ${k}`, '🐱')
-  for (const login of ['lea', 'leaa', 'tom', 'zoe', 'hugo', 'ines', 'marc', 'sofia']) habitue(login)
+  for (const login of ['lea', 'leaa', 'tom', 'zoe', 'hugo', 'ines', 'marc', 'sofia', 'paul', 'ana']) habitue(login)
   sonLoup('lea')
   sonLoup('tom')
   // Les autres habitués en ont déjà trouvé quatre : la jauge en dit autant, jamais lesquels.
@@ -658,6 +679,51 @@ try {
     }
   }
 
+  // ── Paul : un problème, une visite sur cinq (le 25 novembre 2026) — le passeur de la maquette, que tout le monde
+  // connaît : son récit, un nombre faux, le juste, son mot, puis la solution pas à pas ──
+  if (veut('probleme')) {
+    await banc.redemarrer({ reglages: { enigmesDuSphinx: [PASSEUR] } })
+    const cas = 'probleme'
+    const { ctx, page } = await telephone({ cookie: profils.paul, ecran: PETIT })
+    await accueil(page)
+    for (let i = 0; i < 6; i++) await replique(page, cas, null, PETIT)
+    await choisir(page, cas, null, PETIT, 0)
+    await leProbleme(page)
+    await photo(page, cas, 'le-probleme', PETIT)
+    await repondre(page, '5')
+    await quandIlADit(page, 'Le sable a bougé')
+    await photo(page, cas, 'un-nombre-faux', PETIT)
+    await repondre(page, '7')
+    await quandIlADit(page, 'Exact')
+    await page.waitForFunction(() => !!(globalThis as any).document.querySelector('.sx-focus .phrase-sien'), null, { timeout: 20000 })
+    await replique(page, cas, 'son-mot', PETIT)
+    await choisir(page, cas, 'voir-la-solution', PETIT, 0)
+    const etapes = PASSEUR.probleme!.explication.length
+    for (let i = 1; i <= etapes; i++) await replique(page, cas, i === 1 || i === 4 || i === etapes ? `la-solution-${i}` : null, PETIT)
+    await replique(page, cas, 'apres-la-solution', PETIT)
+    await ctx.close()
+  }
+
+  // ── Ana : le même, à choisir — une mauvaise carte, d'un seul toucher, puis la solution, toujours ──
+  if (veut('probleme-choix')) {
+    await banc.redemarrer({ reglages: { enigmesDuSphinx: [PASSEUR_A_CHOISIR] } })
+    const cas = 'probleme-choix'
+    const { ctx, page } = await telephone({ cookie: profils.ana, ecran: MOYEN })
+    await accueil(page)
+    for (let i = 0; i < 6; i++) await replique(page, cas, null, MOYEN)
+    await choisir(page, cas, null, MOYEN, 0)
+    await leProbleme(page)
+    await photo(page, cas, 'le-probleme', MOYEN)
+    await page.locator('.sx-propositions button').nth(0).tap()
+    await quandIlADit(page, 'Le sable se referme')
+    await photo(page, cas, 'une-mauvaise-carte', MOYEN)
+    await replique(page, cas, null, MOYEN)
+    await replique(page, cas, 'regarde', MOYEN)
+    for (let i = 1; i <= PASSEUR.probleme!.explication.length; i++) await replique(page, cas, i === 2 ? 'la-solution-2' : null, MOYEN)
+    await replique(page, cas, 'un-autre-jour', MOYEN)
+    await ctx.close()
+  }
+
   // ── Une phrase reconstituée par tous : entière sous son voile, et le Sphinx passe au Divin suivant ──
   // Elle ne s'impose plus (la décision du 24 novembre 2026) : Marc trouve le dernier mot, et le Sphinx lui propose de la
   // lire ; Nina la voit annoncée sur son accueil, puis sa fiche, « La phrase est retrouvée : la lire », et ses mots qui se
@@ -679,9 +745,10 @@ try {
     const manquent = caches.filter(i => !trouves.has(i))
     if (manquent.length < 2) throw new Error(`la phrase inventée n’a plus que ${manquent.length} mot(s) à trouver : Marc ne peut pas trouver le dernier`)
     motsDeTous('figurant2', manquent.slice(1))
-    // Le lendemain : un seul mot neuf par jour à tout le serveur (`MOTS_NEUFS_PAR_JOUR`), et Léa a eu celui d'aujourd'hui —
-    // Marc n'aurait reçu qu'un mot déjà trouvé, et la phrase ne se serait pas reconstituée sous ses yeux.
-    horloge.t += 24 * 3_600_000
+    // Huit jours plus tard : les énigmes résolues aujourd'hui hors du rythme que suit la chance du mot neuf
+    // (`chanceDuMotNeuf`, `JOURS_DU_RYTHME`), elle est entière — sans quoi Marc aurait pu ne recevoir qu'un mot déjà
+    // trouvé, et la phrase ne se serait pas reconstituée sous ses yeux.
+    horloge.t += 8 * 24 * 3_600_000
     // Marc, venu pour l'occasion : sa première visite, quoi que les autres cas aient joué aujourd'hui.
     const marc = await inscrireProfil(banc.url, 'marc2', 'Marc', '🐶')
     habitue('marc2')
@@ -730,6 +797,35 @@ try {
         await page.waitForTimeout(1600)
         await photo(page, cas, 'lue', ecran)
       }
+      await ctx.close()
+    }
+
+    // ── Lise la finit avec le Sphinx (le choix du propriétaire du 26 novembre 2026) : choisie depuis l'album, sa visite
+    // parle de la suite plutôt que du Divin du moment, lui en souffle un mot, puis l'album dit la phrase qu'elle finit ──
+    const lise = await inscrireProfil(banc.url, 'lise', 'Lise', '🦋')
+    habitue('lise')
+    await reserve('32')
+    const choisie = await ecrire(banc.url, '/api/joueur/sphinx/finir', { divin: ORDRE_DU_SPHINX[0] }, lise)
+    if (!choisie.ok) throw new Error(`Lise ne peut pas finir la phrase retrouvée (${choisie.status})`)
+    {
+      const cas = 'finir'
+      const { ctx, page } = await telephone({ cookie: lise, ecran: PETIT })
+      await accueil(page)
+      await page.waitForSelector('.sx-boite.sx-boite-la', { timeout: 30000 })
+      for (let i = 0; i < 5; i++) await replique(page, cas, null, PETIT)
+      await replique(page, cas, 'la-suite', PETIT)
+      await choisir(page, cas, null, PETIT, 0)
+      await lEnigme(page)
+      await repondre(page, reponses(enigme('32')).juste)
+      await quandIlADit(page, 'Exact')
+      await page.waitForFunction(() => !!(globalThis as any).document.querySelector('.sx-focus .phrase-sien'), null, { timeout: 15000 })
+      await quandIlADit(page, 'tu l’auras finie toi-même')
+      await replique(page, cas, 'encore-des-mots', PETIT)
+      await page.waitForURL(/\/profil#collection-avatars-divin/, { timeout: 20000 })
+      await page.waitForSelector('.album-phrase-suite', { timeout: 20000 })
+      await page.locator('.album-phrase').scrollIntoViewIfNeeded()
+      await page.waitForTimeout(1600)
+      await photo(page, cas, 'l-album', PETIT)
       await ctx.close()
     }
   }

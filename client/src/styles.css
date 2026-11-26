@@ -13627,6 +13627,10 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .album-phrase-entiere { margin: 0; text-align: center; }
 /* Une phrase retrouvée par tous, pas encore lue : son geste sous la jauge, détaché d'elle (le 24 novembre 2026). */
 .album-phrase .album-phrase-lire { margin-top: 14px; }
+/* Ou la finir avec le Sphinx, mot à mot (le 26 novembre 2026) : un second geste sous le premier ; celle qu'il finit le
+   dit, et propose d'en revenir. */
+.album-phrase .album-phrase-finir { margin-top: 8px; }
+.album-phrase .album-phrase-suite { margin: 14px 0 0; }
 
 /* ── La phrase d'un Divin, mot à mot (le Sphinx de l'accueil, `PhraseDuDivin`) ──
    Un trait par lettre des mots cachés, les petits mots offerts en retrait, ses mots à lui en or sous un filet, puis ce que
