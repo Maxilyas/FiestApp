@@ -461,18 +461,22 @@ test('les indices de l’Épingle à l’écran : le bouton au pied, le dernier 
   const lieu = epingleDe(b, v.id, v.tirage!).lieu
   const [premier, second] = lieu.indices!
   assert.deepEqual([m.indices, m.aDemander, m.enJeu], [[], 2, 3])
-  const lyon = { lat: 45.76, lon: 4.84 }
+  // L'épingle du joueur sur une ville repère que le lieu tiré ne nomme pas : « Ton épingle : Près de Lyon » dit la ville de
+  // l'épingle, pas celle du lieu — le tirage tombé sur le lieu de Lyon (un sur 171), la ligne passait pour une fuite, et
+  // la CI rougissait (le 26 novembre 2026).
+  const ville = [{ nom: 'Lyon', lat: 45.76, lon: 4.84 }, { nom: 'Bordeaux', lat: 44.84, lon: -0.58 }].find(c => c.nom !== lieu.commune)!
+  const epingle = { lat: ville.lat, lon: ville.lon }
   const sousLaQuestion = (html: string) => texte(/<h2 class="quiz-question cab-question[^"]*">(.*?)<\/h2>/.exec(html)![1]).trim()
   const question = texte(m.question.replace(/'/g, '’')).trim()
   const boutons = (html: string) => [...piedDe(html).matchAll(/<button type="button" class="btn( btn-primary btn-big)? cab-([a-z-]+)"/g)].map(x => x[2])
 
   // Un indice demandé : il se colle sous la question, l'épingle se dit toujours au-dessus de la carte, le bouton pour le suivant.
   const avecUn = { ...v, enCours: { ...m, indices: [premier], enJeu: 2, aDemander: 1 } }
-  const un = await laPartie(avecUn, { local: { epingle: lyon } })
+  const un = await laPartie(avecUn, { local: { epingle } })
   assert.equal(sousLaQuestion(un), `${question} Indice : ${telQuIlSeLit(premier).trim()}`)
   assert.match(un, /<span class="cab-indice-colle" aria-live="polite"><svg /)
   const ouEstLEpingle = (html: string) => texte(/<p class="cab-ligne cab-consigne-carte cab-ou-est" aria-live="polite">(.*?)<\/p>/.exec(html)![1]).trim()
-  assert.equal(ouEstLEpingle(un), 'Ton épingle : Près de Lyon')
+  assert.equal(ouEstLEpingle(un), `Ton épingle : Près de ${ville.nom}`)
   assert.deepEqual(boutons(un), ['pas-a-pas', 'demander-un-indice', 'planter'])
   assert.match(piedDe(un), new RegExp(`class="btn cab-demander-un-indice" aria-label="${echapper(motsDesIndicesDeLEpingle(1).nom)}"`))
   assert.ok(!texte(un).includes(telQuIlSeLit(second).trim()), 'le second indice ne se lit nulle part avant sa demande')
@@ -482,11 +486,11 @@ test('les indices de l’Épingle à l’écran : le bouton au pied, le dernier 
   // calculé (« À 170 km à l'ouest de Paris. »), et il ne restait qu'à mener l'une sur l'autre — « il n'y a plus aucune
   // réflexion » (le propriétaire, le 11 novembre 2026). La consigne garde son rôle d'avant : où est l'épingle.
   const avecDeux = { ...v, enCours: { ...m, indices: [premier, second], enJeu: 1, aDemander: 0 } }
-  const deux = await laPartie(avecDeux, { local: { epingle: lyon } })
+  const deux = await laPartie(avecDeux, { local: { epingle } })
   assert.equal(sousLaQuestion(deux), `${question} Indice : ${telQuIlSeLit(second).trim()}`)
   assert.ok(!sousLaQuestion(deux).includes(telQuIlSeLit(premier).trim()), 'le premier a laissé sa place au second')
   assert.deepEqual(boutons(deux), ['pas-a-pas', 'planter'], 'plus d’indice à demander : plus de bouton')
-  assert.equal(ouEstLEpingle(deux), 'Ton épingle : Près de Lyon')
+  assert.equal(ouEstLEpingle(deux), `Ton épingle : Près de ${ville.nom}`)
   const sansEpingle = await laPartie(avecDeux)
   assert.equal(sousLaQuestion(sansEpingle), `${question} Indice : ${telQuIlSeLit(second).trim()}`)
   assert.match(texte(sansEpingle), /Touche la carte de France pour planter ton épingle\./)
@@ -495,7 +499,7 @@ test('les indices de l’Épingle à l’écran : le bouton au pied, le dernier 
   for (const html of [un, deux, sansEpingle]) assert.deepEqual(await ceQuiDitLeLieu(html, lieu), [], 'les indices ne disent rien du lieu')
   // Une manche d'avant les indices — une partie en route à la mise en ligne, une vue gardée : ni bouton, ni rien sous la question.
   const { indices: _i, enJeu: _e, aDemander: _a, ...dAvant } = m
-  const avant = await laPartie({ ...v, enCours: dAvant as EpingleMontree }, { local: { epingle: lyon } })
+  const avant = await laPartie({ ...v, enCours: dAvant as EpingleMontree }, { local: { epingle } })
   assert.deepEqual(boutons(avant), ['pas-a-pas', 'planter'])
   assert.doesNotMatch(avant, /cab-indice-colle|cab-demander-un-indice/)
 
