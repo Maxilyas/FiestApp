@@ -34,6 +34,7 @@ import type { SentiersDAccueil } from './sentiers'
 import type { DefiDAccueil } from './campagne'
 import type { BordureDeLigue, ChoixDeBordure, CleDeLigue, DuelsDAccueil } from './duels'
 import type { VusDeLaLoge } from './piecesDeLaLoge'
+import type { TenueGardee } from './tenues'
 import type { ActiviteDUnJoueur } from './qgActivite'
 import type { EtatDUnSalon } from './qgAnimateurs'
 import type { TraverseeEnRouteAuQg } from './qgCabinet'
@@ -1410,6 +1411,8 @@ export interface PublicProfileDetail extends PublicProfile {
    * du coffre. La loge les propose, la boutique écarte ceux qu'il a.
    */
   motifs?: string[]
+  /** Ses tenues (`shared/tenues.ts`) : le look de chacune et son nom, six au plus. */
+  tenues?: TenueGardee[]
   /** Ses victoires contre Automate, au dé : la loge dit où il en est des Rouages. */
   victoiresAuDe?: number
   /**

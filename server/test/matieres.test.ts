@@ -428,14 +428,14 @@ test('la loge essaie une matière comme le reste : la carte la montre, la barre 
   assert.equal(annonceDuChoix({ eclat: { cle: 'lg:phenix', brille: true, matiere: 'jade' } }), 'Tu portes sa version en jade.')
 })
 
-test('sur la carte de la loge, un avatar taillé ouvre ses versions ; dans la réserve, un avatar éclaté se taille', async () => {
-  const laLoge = (profil: object) =>
-    rendu('components/Loge', 'Loge', { profil: { ...PORTE, ...profil }, piece: 'avatar', onPiece: () => {}, busy: false, enregistrer: async () => true })
-  // Taillé : un bouton qui dit sa version, et ouvre le choix.
-  assert.match(await laLoge({}), /<button type="button" class="loge-version loge-version-choix" aria-haspopup="dialog"><svg[^>]*>.*?<\/svg>Version rare<\/button>/)
-  assert.match(await laLoge({ matieresPortees: { 'lg:phenix': 'jade' } }), /class="loge-version loge-version-choix"[^>]*>.*?Jade<\/button>/)
-  // Sans matière, la bascule d'avant : rare ou d'origine.
-  assert.match(await laLoge({ matieres: {} }), /<button type="button" class="loge-version" aria-pressed="true">/)
+test('dans son calque « Version », un avatar taillé montre ses matières ; dans la réserve, un avatar éclaté se taille', async () => {
+  // Le calque « Version » (le 26 novembre 2026) : d'origine, rare, puis chaque matière taillée — elles s'ouvraient dans une
+  // feuille, que la carte de la loge ouvrait par son bouton « Version rare ».
+  const version = (profil: object) => rendu('components/Apparence', 'MaVersion', { profil: { ...PORTE, ...profil }, essai: {}, essayer: () => {}, busy: false })
+  assert.match(await version({}), /aria-label="Version d’origine">.*aria-label="Version rare">.*aria-label="Taillé en corail">.*aria-label="Taillé en jade">/)
+  assert.match(await version({ matieresPortees: { 'lg:phenix': 'jade' } }), /class="loge-case calque-case selected porte" aria-pressed="true" aria-label="Taillé en jade">/)
+  // Sans matière, sa version rare et celle d'origine seulement.
+  assert.doesNotMatch(await version({ matieres: {} }), /Taillé/)
   // Un Éclat en réserve : dans le choix de la réserve, un avatar éclaté qui peut prendre une matière se taille ;
   // celui qui a ses quatre matières, non.
   const page = (profil: object) =>

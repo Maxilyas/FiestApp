@@ -1,4 +1,4 @@
-import { useRef, type KeyboardEvent, type ReactNode } from 'react'
+import { useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react'
 import { Avatar } from './Avatar'
 import { Niveau } from './Niveau'
 import { Laurier } from './Laurier'
@@ -12,6 +12,7 @@ import { NOM_FINITION, eclatChez, sceauVisible, type PublicProfileDetail } from 
 import { nomDuTitre } from '../../../shared/sentiers'
 import { bordurePortee } from '../../../shared/duels'
 import { PIECES_DE_LA_LOGE, type PieceDeLaLoge } from '../../../shared/piecesDeLaLoge'
+import { laTenuePortee } from '../../../shared/tenues'
 
 // La tête de la loge — sa carte et la rangée des six pièces —, à part de
 // ses panneaux : la page du profil la montre dès qu'elle a le profil, et la
@@ -24,19 +25,45 @@ import { PIECES_DE_LA_LOGE, type PieceDeLaLoge } from '../../../shared/piecesDeL
 const ICONES: Record<PieceDeLaLoge, IconName> = { avatar: 'sparkles', titre: 'star', vitrine: 'award', fond: 'image', theme: 'palette', gerbe: 'zap' }
 
 /**
+ * Ses tenues, sur la carte (le 26 novembre 2026, la maquette
+ * `retours/2026-11-26/la-piece-avatar/` : « Je valide », le propriétaire) :
+ * les tenues sont des cartes. Derrière la sienne, la tranche des autres ; à
+ * son coin, là où « Version rare » se touchait avant d'avoir son calque, un
+ * cintre et un point par tenue — la montrée s'allonge en or, la portée garde
+ * son anneau —, qui ouvre la liste. Le doigt qui glisse la carte montre la
+ * suivante, à l'essai : à gauche la suivante, à droite la précédente, comme la
+ * carte d'un joueur. Un tiroir à droite les avait précédées sur la maquette :
+ * il cachait la moitié de la carte qu'on essaie, et le bord de l'écran est au
+ * « Retour » d'Android.
+ */
+export interface PaquetDeTenues {
+  /** Le nom de chaque tenue, dans l'ordre : un point chacune. */
+  noms: readonly string[]
+  /** Celle qu'il porte (-1 : aucune des siennes). */
+  portee: number
+  /** Celle que la carte montre (-1 : aucune — un calque est à l'essai). */
+  montree: number
+  /** Le cintre : la liste de ses tenues. */
+  onCintre?: () => void
+  /** Le doigt a glissé la carte : la tenue suivante (1) ou la précédente (-1). */
+  onGlisser?: (pas: 1 | -1) => void
+}
+
+/** Au-delà, en pixels, le doigt glisse plutôt qu'il ne touche — et assez pour changer de tenue. */
+const GLISSE = 10
+const ASSEZ_POUR_CHANGER = 48
+/** Ce que la carte suit du doigt qui glisse, en pixels de côté : la tranche de son paquet reste dans la marge de la page. */
+const SUIT_LE_DOIGT = 12
+/** Le clic qui suit un doigt qui a glissé ne touche rien : la carte se serait ouverte en grand. */
+const CLIC_APRES_UN_GLISSE_MS = 400
+
+/**
  * Sa carte, en tête de la loge, telle que la salle la verrait s'il portait
  * l'essai : son fond, son avatar et sa finition, son prénom, son titre, sa
  * vitrine — et, dessous, ce qui lui manque pour le niveau suivant et ses
- * confettis. « Aperçu » dit que rien n'est encore porté. Collée en haut
- * pendant qu'on choisit : c'est elle qui change.
- *
- * L'avatar qu'elle montre a éclaté pour lui ? « Version rare » se touche
- * sur elle, à côté de lui : sa version rare ou celle d'origine s'essaie aussi.
- * Taillé dans une matière (`shared/matieres.ts`), le bouton dit la version
- * montrée et ouvre le choix de toutes (`versions`) : d'origine, rare, et
- * chaque matière qu'il a.
- * Dans une fiche sous la case touchée, elle s'enregistrait d'un toucher ;
- * sous la grille, elle aurait fait sauter les cases sous le doigt.
+ * confettis. « Aperçu » dit que rien n'est encore porté — le nom de la tenue
+ * montrée, quand c'en est une. Collée en haut pendant qu'on choisit : c'est
+ * elle qui change.
  *
  * Touchée ailleurs, elle s'ouvre en grand (`onOuvrir`) : sa carte entière,
  * telle que la salle la verra — le retour d'un joueur du 14 octobre 2026,
@@ -49,8 +76,8 @@ export function CarteDeLaLoge({
   vitrine,
   apercu = false,
   essaye = {},
-  version = null,
-  versions = null,
+  paquet = null,
+  tenueMontree = null,
   onOuvrir,
 }: {
   /** Le profil tel que la carte le montre : ce qu'il porte, l'essai par-dessus (`avecLEssai`). */
@@ -61,19 +88,20 @@ export function CarteDeLaLoge({
   apercu?: boolean
   /** Ce qui est à l'essai, cerclé de pointillés. */
   essaye?: { avatar?: boolean; titre?: boolean; vitrine?: boolean }
-  /** La version de l'avatar montré, s'il a éclaté : rare ou d'origine, et de quoi l'essayer. */
-  version?: { rare: boolean; essayee: boolean; basculer: () => void } | null
-  /** Taillé dans une matière : le nom de la version montrée, et le choix de toutes, à la place de la bascule. */
-  versions?: { nom: string; choisir: () => void } | null
+  /** Ses tenues : la tranche des autres derrière la carte, le cintre et ses points à son coin. */
+  paquet?: PaquetDeTenues | null
+  /** Le nom de la tenue gardée que la carte montre à l'essai, à la place d'« Aperçu ». */
+  tenueMontree?: string | null
   /** Sa carte entière, en grand. */
   onOuvrir?: () => void
 }) {
   const titre = nomDuTitre(vu.titre)
+  const autres = paquet ? paquet.noms.length - (paquet.montree >= 0 ? 1 : 0) : 0
   // Sous un Divin, sa propre lumière ne se dit pas « Mat » : seule une finition qu'il a épinglée se nomme (`finitionSur`).
   const finition = divin(vu.legendaire) && vu.finition === 'mat' ? null : NOM_FINITION[vu.finition]
   return (
-    <div className="loge-collante">
-      <div className={'loge-carte' + (vu.fond ? ` carte-fond fond-${vu.fond}` : '') + (apercu ? ' loge-en-apercu' : '')}>
+    <div className={'loge-collante' + (autres > 0 ? ' loge-paquet' : '')}>
+      <CarteQuiGlisse className={'loge-carte' + (vu.fond ? ` carte-fond fond-${vu.fond}` : '') + (apercu ? ' loge-en-apercu' : '')} onGlisser={paquet?.onGlisser}>
         <div className="loge-carte-haut">
           <span className={'loge-carte-avatar' + (essaye.avatar ? ' loge-essaye' : '')}>
             <Avatar
@@ -109,17 +137,35 @@ export function CarteDeLaLoge({
               <span className="loge-carte-vitrine" />
             )}
           </span>
-          {apercu ? <span className="loge-apercu">Aperçu</span> : finition && <span className="loge-finition">{finition}</span>}
-          {version && versions && (
-            <button type="button" className={'loge-version loge-version-choix' + (version.essayee ? ' loge-essaye' : '')} aria-haspopup="dialog" onClick={versions.choisir}>
-              <Icon name="sparkles" />
-              {versions.nom}
-            </button>
+          {apercu && tenueMontree ? (
+            <span className="loge-apercu loge-apercu-tenue">
+              <Icon name="hanger" />
+              {tenueMontree}
+            </span>
+          ) : apercu ? (
+            <span className="loge-apercu">Aperçu</span>
+          ) : (
+            finition && <span className="loge-finition">{finition}</span>
           )}
-          {version && !versions && (
-            <button type="button" className={'loge-version' + (version.essayee ? ' loge-essaye' : '')} aria-pressed={version.rare} onClick={version.basculer}>
-              <Icon name="sparkles" />
-              Version rare
+          {paquet && (
+            // Un seul bouton, la liste : les points disent où l'on est, le doigt glisse la carte. Chacun un bouton, ils
+            // auraient fait des cibles de 13 px ; la liste les a, chacune sa rangée.
+            <button
+              type="button"
+              className="loge-tenues"
+              aria-haspopup="dialog"
+              aria-label={paquet.noms.length > 0 ? `Mes tenues, ${paquet.noms.length} gardée${paquet.noms.length > 1 ? 's' : ''}` : 'Mes tenues'}
+              onClick={paquet.onCintre}
+            >
+              {/* La pilule se voit sur 30 px ; le bouton se touche sur 44, sans grandir. */}
+              <span className="loge-tenues-pilule" aria-hidden="true">
+                <Icon name="hanger" />
+                {/* Sans tenue, le cintre dit son nom : seul dans son rond, il ne disait pas à quoi il sert (le 26 novembre 2026). */}
+                {paquet.noms.length === 0 && <span className="loge-tenues-mot">Tenues</span>}
+                {paquet.noms.map((nom, i) => (
+                  <i key={i} className={'loge-point' + (i === paquet.montree ? ' montree' : '') + (i === paquet.portee ? ' portee' : '')} />
+                ))}
+              </span>
             </button>
           )}
         </div>
@@ -132,7 +178,21 @@ export function CarteDeLaLoge({
             <span className="sr-only">{apercu ? 'Voir l’aperçu de ma carte en grand' : 'Voir ma carte en grand'}</span>
           </button>
         )}
-      </div>
+      </CarteQuiGlisse>
+    </div>
+  )
+}
+
+/**
+ * La carte elle-même, que le doigt glisse quand elle a des tenues : à part
+ * de `CarteDeLaLoge`, qui reste sans état — on l'appelle telle quelle pour
+ * lire ce qu'elle rend.
+ */
+function CarteQuiGlisse({ className, onGlisser, children }: { className: string; onGlisser?: (pas: 1 | -1) => void; children: ReactNode }) {
+  const glisse = useGlisse(onGlisser)
+  return (
+    <div className={className + (glisse.arrivee ? ` loge-carte-arrive-${glisse.arrivee}` : '')} {...(onGlisser && glisse.gestes)}>
+      {children}
     </div>
   )
 }
@@ -208,11 +268,84 @@ export function LogeEnChemin({
 }) {
   return (
     <div className="loge">
-      <CarteDeLaLoge vu={profil} vitrine={null} onOuvrir={onOuvrir} />
+      <CarteDeLaLoge vu={profil} vitrine={null} paquet={paquetDe(profil)} onOuvrir={onOuvrir} />
       <PiecesDeLaLoge actif={piece} onChoisir={onPiece} neuves={new Set()} />
       <div className="loge-panneau" role="tabpanel" id="loge-panneau" aria-labelledby={`loge-${piece}`}>
         {attente}
       </div>
     </div>
   )
+}
+
+/**
+ * Ses tenues telles que la carte les montre quand rien n'est à l'essai : un
+ * point chacune, celle qu'il porte en or. La loge arrivée y pose ses gestes,
+ * au même endroit — rien ne saute sous le doigt.
+ */
+export function paquetDe(profil: PublicProfileDetail): PaquetDeTenues {
+  const tenues = profil.tenues ?? []
+  const portee = laTenuePortee(tenues, profil)
+  return { noms: tenues.map(t => t.nom), portee, montree: portee }
+}
+
+/**
+ * Le doigt qui glisse la carte de côté (`CarteJoueur` fait de même avec ses
+ * faces) : elle le suit un peu, et lâchée assez loin, change de tenue — puis
+ * entre du côté d'où vient la suivante. Le doigt qui monte ou descend fait
+ * défiler la page ; la souris n'a que le cintre et la liste : un clic glissé
+ * sélectionnerait le texte de la carte.
+ */
+function useGlisse(onGlisser: ((pas: 1 | -1) => void) | undefined) {
+  const depart = useRef<{ id: number; x: number; y: number; tient: boolean } | null>(null)
+  const glisseLe = useRef(0)
+  const [arrivee, setArrivee] = useState<'gauche' | 'droite' | null>(null)
+  const relacher = (el: HTMLElement) => {
+    el.classList.remove('loge-carte-tenue')
+    el.style.removeProperty('--glisse-x')
+  }
+  const gestes = {
+    onPointerDown: (e: PointerEvent<HTMLDivElement>) => {
+      depart.current = e.isPrimary && e.pointerType !== 'mouse' ? { id: e.pointerId, x: e.clientX, y: e.clientY, tient: false } : null
+    },
+    onPointerMove: (e: PointerEvent<HTMLDivElement>) => {
+      const d = depart.current
+      if (!d || d.id !== e.pointerId) return
+      const dx = e.clientX - d.x
+      const dy = e.clientY - d.y
+      if (!d.tient) {
+        if (Math.abs(dy) > GLISSE && Math.abs(dy) >= Math.abs(dx)) {
+          depart.current = null
+          return
+        }
+        if (Math.abs(dx) <= GLISSE) return
+        d.tient = true
+        e.currentTarget.classList.add('loge-carte-tenue')
+      }
+      // Elle le suit un peu, jamais hors de l'écran : douze pixels de côté au plus — la page ne s'élargit pas.
+      e.currentTarget.style.setProperty('--glisse-x', `${Math.round(Math.max(-SUIT_LE_DOIGT, Math.min(SUIT_LE_DOIGT, dx * 0.4)))}px`)
+    },
+    onPointerUp: (e: PointerEvent<HTMLDivElement>) => {
+      const d = depart.current
+      depart.current = null
+      relacher(e.currentTarget)
+      if (!d?.tient || d.id !== e.pointerId) return
+      glisseLe.current = Date.now()
+      const dx = e.clientX - d.x
+      if (Math.abs(dx) < ASSEZ_POUR_CHANGER) return
+      // Vers la gauche, la suivante, qui entre par la droite.
+      setArrivee(dx < 0 ? 'droite' : 'gauche')
+      onGlisser?.(dx < 0 ? 1 : -1)
+    },
+    onPointerCancel: (e: PointerEvent<HTMLDivElement>) => {
+      depart.current = null
+      relacher(e.currentTarget)
+    },
+    onClickCapture: (e: MouseEvent<HTMLDivElement>) => {
+      if (Date.now() - glisseLe.current > CLIC_APRES_UN_GLISSE_MS) return
+      e.stopPropagation()
+      e.preventDefault()
+    },
+    onAnimationEnd: () => setArrivee(null),
+  }
+  return { gestes, arrivee }
 }

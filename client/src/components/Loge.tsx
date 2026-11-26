@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type MutableRefObject } from 'react'
 import { CarteDeLaLoge, PiecesDeLaLoge } from './LogeTete'
-import { MaGerbe, MesAvatars, MesBordures, MesFinitions, MesMotifs, MonFond, MonSceau, MonTitre } from './Apparence'
+import { MaGerbe, MonFond, MonTitre, PieceDeLAvatar } from './Apparence'
 import { MaVitrine } from './Trophees'
 import { MesThemes } from './Boutique'
-import { choixDialog } from './Dialog'
+import { choixDialog, confirmDialog, promptDialog } from './Dialog'
+import { Icon } from './Icon'
 import { Feuille } from './Pieces'
 import { Avatar } from './Avatar'
 import type { ChoixDuProfil, GardeDeLaLoge, PropsDUnePiece } from './choix'
@@ -11,16 +12,21 @@ import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { rendreLeFocus } from '../focus'
 import { essayerTheme, finirLEssai } from '../themeJoueur'
 import { api } from '../api'
-import { brilleChez, eclatChez, type PublicProfileDetail } from '../../../shared/profil'
-import { NOM_DE_LA_MATIERE, matieresOuvertes, type Matiere } from '../../../shared/matieres'
+import { finitionSur, type PublicProfileDetail } from '../../../shared/profil'
+import { bordurePortee } from '../../../shared/duels'
+import type { Matiere } from '../../../shared/matieres'
+import { NOM_D_UNE_TENUE_MAX, TENUES_MAX, laTenuePortee, type LookDUneTenue, type TenueGardee } from '../../../shared/tenues'
 import { compteDesNouveautes, type NouveautesDeLaLoge } from '../../../shared/piecesDeLaLoge'
 import {
   PIECES_DE_LA_LOGE,
   avatarMontre,
   avecLEssai,
+  calqueDOuverture,
+  calquesDe,
   carteAvecLEssai,
   cibleDeLEclat,
   ceQuIlAPorter,
+  essaiDeLaTenue,
   essaiDemande,
   essaiVide,
   essayer as avecUnePiece,
@@ -28,6 +34,7 @@ import {
   nouveautes,
   retenirLesVus,
   vitrineVue,
+  type CalqueDeLAvatar,
   type Essai,
   type LigneDEssai,
   type PieceDeLaLoge,
@@ -129,6 +136,7 @@ export function Loge({
   erreur,
   garde,
   onVus,
+  onTenues,
 }: {
   profil: PublicProfileDetail
   piece: PieceDeLaLoge
@@ -142,6 +150,8 @@ export function Loge({
   garde?: MutableRefObject<GardeDeLaLoge | null>
   /** Ce qu'il vient de voir : la page le garde, et recompte la pastille de « Profil ». */
   onVus?: (vus: VusDeLaLoge) => void
+  /** Ses tenues, gardées, renommées ou retirées : la page les garde dans le profil qu'elle tient. */
+  onTenues?: (tenues: TenueGardee[]) => void
 }) {
   // « Essayer », à la fin d'une partie : ce qu'elle vient d'ouvrir arrive déjà sur la carte.
   const [essai, setEssai] = useState<Essai>(() => essaiDemande(piece, lireLEssaiDemande(), profil))
@@ -150,6 +160,9 @@ export function Loge({
   // pastille d'une pièce, elle, s'éteint dès qu'on l'a regardée.
   const [neufs] = useState(() => nouveautes(ceQuIlAPorter(profil), vusDe(profil)))
   const [regardees, setRegardees] = useState<ReadonlySet<PieceDeLaLoge>>(() => new Set([piece]))
+  // Le calque ouvert de la pièce « Avatar » : celui qu'un lien « Essayer » demande, sinon le premier qui a du neuf,
+  // sinon « Avatar ». La loge le tient : une autre pièce, puis celle-ci, le retrouve.
+  const [calque, setCalque] = useState<CalqueDeLAvatar>(() => calqueDOuverture(essai, neufs.avatar, calquesDe(profil)))
   useEffect(() => {
     setRegardees(r => (r.has(piece) ? r : new Set([...r, piece])))
     // La page rend le profil à jour (`onVus`) : relue, la pièce n'a plus rien de neuf, rien ne repart.
@@ -165,9 +178,14 @@ export function Loge({
   }, [essai.theme, essai.camp, profil.theme, profil.camp])
   useEffect(() => () => finirLEssai(), [])
 
+  // La tenue gardée que la carte montre, si c'est une tenue qu'on essaie (le paquet de cartes). Toucher un calque la
+  // quitte : ce qu'on essaie n'est plus elle.
+  const [tenueMontree, setTenueMontree] = useState<number | null>(null)
   // Un toucher pendant l'enregistrement ne change rien : l'essai qui part est celui qu'on porte.
   const essayer = (morceau: Essai) => {
-    if (!busy) setEssai(e => avecUnePiece(e, morceau, profil))
+    if (busy) return
+    setEssai(e => avecUnePiece(e, morceau, profil))
+    if (Object.keys(morceau).some(k => (DU_LOOK as readonly string[]).includes(k))) setTenueMontree(null)
   }
   /** Porte tout l'essai d'un coup : vrai s'il est porté — ou s'il n'y avait rien à porter. */
   const porter = async (): Promise<boolean> => {
@@ -176,7 +194,54 @@ export function Loge({
     // Le thème essayé — ou son camp — devient le thème porté, sans repasser par l'ancien.
     if (essai.theme !== undefined || essai.camp !== undefined) finirLEssai(true)
     setEssai({})
+    setTenueMontree(null)
     return true
+  }
+
+  // ── Ses tenues ──
+  const tenues = profil.tenues ?? []
+  const portee = laTenuePortee(tenues, profil)
+  // La tenue que la carte montre : celle qu'on vient de glisser, sinon celle qu'il porte, tant que rien n'est à l'essai.
+  const montree = tenueMontree ?? (essaiVide(essai) ? portee : -1)
+  const [listeOuverte, setListeOuverte] = useState(false)
+  const [refusDesTenues, setRefusDesTenues] = useState<string | undefined>()
+  /** Une tenue sur la carte, à l'essai : son look remplace celui de l'essai ; le reste — un titre, un thème — reste. */
+  const montrerTenue = (i: number) => {
+    const t = tenues[i]
+    if (!t || busy) return
+    setEssai(e => ({ ...sansLeLook(e), ...essaiDeLaTenue(t.look, profil) }))
+    setTenueMontree(i)
+  }
+  const glisser = (pas: 1 | -1) => {
+    const n = tenues.length
+    if (n === 0) return
+    const depuis = montree >= 0 ? montree : pas === 1 ? -1 : 0
+    montrerTenue((((depuis + pas) % n) + n) % n)
+  }
+  /** Une réponse des tenues, ou son refus, dit dans la liste. */
+  const tenir = async (appel: () => Promise<{ tenues: TenueGardee[] }>) => {
+    try {
+      onTenues?.((await appel()).tenues)
+      setRefusDesTenues(undefined)
+    } catch (e) {
+      setRefusDesTenues(e instanceof Error ? e.message : 'Impossible pour l’instant — réessaie dans un instant')
+    }
+  }
+  // « Garder ce que je porte » : un essai en cours se porte d'abord — on compose avec les calques, puis on garde.
+  const garder = async () => {
+    if (busy || !(await porter())) return
+    await tenir(() => api.joueur.garderUneTenue())
+  }
+  const renommer = async (t: TenueGardee) => {
+    const nom = await promptDialog({ title: 'Renommer la tenue', input: { value: t.nom, maxLength: NOM_D_UNE_TENUE_MAX }, confirmLabel: 'Renommer' })
+    if (nom === null || !nom.trim() || nom.trim() === t.nom) return
+    await tenir(() => api.joueur.renommerUneTenue(t.id, nom))
+  }
+  const retirer = async (t: TenueGardee) => {
+    if (!(await confirmDialog({ title: `Retirer « ${t.nom} » ?`, message: 'Ce que tu portes ne change pas.', confirmLabel: 'Retirer', danger: true }))) return
+    // La tenue montrée s'en va : la carte garde l'essai, sans son nom.
+    if (tenues[montree]?.id === t.id) setTenueMontree(null)
+    await tenir(() => api.joueur.retirerUneTenue(t.id))
   }
 
   // La page qui quitte la loge le lui demande d'abord — « ← Mon profil », un
@@ -223,8 +288,6 @@ export function Loge({
 
   // Sa carte, touchée : en grand, telle que la salle la verrait s'il portait l'essai.
   const [enGrand, setEnGrand] = useState(false)
-  // Ses versions d'un avatar taillé (`shared/matieres.ts`), dans une feuille : d'origine, rare, chaque matière.
-  const [versionsOuvertes, setVersionsOuvertes] = useState(false)
   const laCarte = useALaDemande(carteJoueur, enGrand)
   const props: PropsDUnePiece = {
     profil,
@@ -246,14 +309,10 @@ export function Loge({
       return true
     },
   }
-  // La carte montre l'essai — et la version de l'avatar montré, s'il a éclaté pour lui.
+  // La carte montre l'essai.
   const vu = avecLEssai(profil, essai)
-  const cible = cibleDeLEclat(avatarMontre(profil, essai), profil.eclats)
-  const rare = cible && profil.eclats.includes(cible) ? brilleChez(vu, cible) : null
-  // Taillé : toutes ses versions se choisissent dans une feuille, au lieu de la bascule.
-  const taillees = rare !== null && cible ? matieresOuvertes(profil.matieres?.[cible] ?? []) : []
-  const montree = cible ? eclatChez(vu, cible) : false
-  const nomDeLaVersion = montree === false ? 'Version d’origine' : montree === true ? 'Version rare' : NOM_DE_LA_MATIERE[montree]
+  // Le nom de la tenue gardée qu'elle montre, à la place d'« Aperçu » — pas celle qu'il porte : elle n'a rien à essayer.
+  const nomMontre = montree >= 0 && montree !== portee ? (tenues[montree]?.nom ?? null) : null
   // Quelque chose de ce que la salle voit est à l'essai : la carte le montre, « Aperçu ».
   const apercu = (['avatar', 'legendaire', 'finition', 'bordure', 'motif', 'titre', 'vitrine', 'fond', 'eclat', 'sceau'] as const).some(k => essai[k] !== undefined)
   return (
@@ -267,21 +326,29 @@ export function Loge({
           titre: essai.titre !== undefined,
           vitrine: essai.vitrine !== undefined,
         }}
-        version={rare !== null && cible ? { rare, essayee: !!essai.eclat, basculer: () => essayer({ eclat: { cle: cible, brille: !rare } }) } : null}
-        versions={taillees.length > 0 ? { nom: nomDeLaVersion, choisir: () => setVersionsOuvertes(true) } : null}
+        paquet={{ noms: tenues.map(t => t.nom), portee, montree, onCintre: () => setListeOuverte(true), onGlisser: glisser }}
+        tenueMontree={nomMontre}
         onOuvrir={() => setEnGrand(true)}
       />
-      {versionsOuvertes && cible && (
-        <VersionsDeLAvatar
-          cle={cible}
-          montre={{ avatar: vu.avatar, legendaire: vu.legendaire ?? undefined }}
+      {listeOuverte && (
+        <ListeDesTenues
+          profil={profil}
+          tenues={tenues}
+          portee={portee}
           montree={montree}
-          taillees={taillees}
-          onChoisir={v => {
-            essayer({ eclat: { cle: cible, brille: v !== false, matiere: typeof v === 'string' ? v : null } })
-            setVersionsOuvertes(false)
+          busy={busy}
+          refus={refusDesTenues}
+          onMontrer={i => {
+            montrerTenue(i)
+            setListeOuverte(false)
           }}
-          onFermer={() => setVersionsOuvertes(false)}
+          onGarder={() => void garder()}
+          onRenommer={t => void renommer(t)}
+          onRetirer={t => void retirer(t)}
+          onFermer={() => {
+            setListeOuverte(false)
+            setRefusDesTenues(undefined)
+          }}
         />
       )}
       {enGrand && laCarte && laCarte !== 'perdu' && (
@@ -313,15 +380,7 @@ export function Loge({
       )}
       <PiecesDeLaLoge actif={piece} onChoisir={onPiece} neuves={new Set(PIECES_DE_LA_LOGE.filter(p => neufs[p.id].length > 0 && !regardees.has(p.id)).map(p => p.id))} />
       <div className="loge-panneau" role="tabpanel" id="loge-panneau" aria-labelledby={`loge-${piece}`}>
-        {piece === 'avatar' && (
-          <>
-            <MesFinitions {...props} />
-            <MesBordures {...props} />
-            <MesMotifs {...props} />
-            <MonSceau {...props} />
-            <MesAvatars {...props} />
-          </>
-        )}
+        {piece === 'avatar' && <PieceDeLAvatar {...props} calque={calque} onCalque={setCalque} />}
         {piece === 'titre' && <MonTitre {...props} />}
         {/* La vitrine seule : « Le reste de ta carte se remplit tout seul. », dessous, est parti le 17 novembre 2026 — « pas
             besoin de mettre du texte à chaque fois, ça doit être compréhensible et intuitif. Ça fait perdre de la place
@@ -335,7 +394,19 @@ export function Loge({
       <p className="sr-only" role="status">
         {lignes.length > 0 ? `À l’essai : ${lignes.map(l => `${l.nom}, ${l.detail}`).join(' ; ')}.` : ''}
       </p>
-      {aUnEssai && <BarreDEssai lignes={lignes} busy={busy} erreur={erreur} onAnnuler={() => setEssai({})} onPorter={() => void porter()} />}
+      {aUnEssai && (
+        <BarreDEssai
+          lignes={lignes}
+          titre={nomMontre ?? undefined}
+          busy={busy}
+          erreur={erreur}
+          onAnnuler={() => {
+            setEssai({})
+            setTenueMontree(null)
+          }}
+          onPorter={() => void porter()}
+        />
+      )}
     </div>
   )
 }
@@ -383,23 +454,26 @@ export function gardeDeLEssai(
  */
 export function BarreDEssai({
   lignes,
+  titre,
   busy,
   erreur,
   onAnnuler,
   onPorter,
 }: {
   lignes: LigneDEssai[]
+  /** Le nom de la tenue gardée qu'on essaie : il dit l'essai, ses pièces dessous. */
+  titre?: string
   busy: boolean
   /** Le refus du serveur, dit là où l'on a touché « Porter » : en bas de la page, il passait sous la barre. */
   erreur?: string
   onAnnuler: () => void
   onPorter: () => void
 }) {
-  const une = lignes.length === 1 ? lignes[0] : null
+  const une = lignes.length === 1 && !titre ? lignes[0] : null
   return (
     <div className="loge-barre">
       <span className="loge-barre-texte">
-        <b>{une ? une.nom : `${lignes.length} changements`}</b>
+        <b>{titre ?? (une ? une.nom : `${lignes.length} changements`)}</b>
         {erreur ? (
           <span className="error small" role="alert">
             {erreur}
@@ -418,47 +492,108 @@ export function BarreDEssai({
   )
 }
 
+/** Les champs de l'essai qu'une tenue remet : le look. */
+const DU_LOOK = ['avatar', 'legendaire', 'finition', 'bordure', 'motif', 'sceau', 'fond', 'eclat'] as const
+
+/** L'essai sans son look : ce qu'une tenue laisse — un titre, une vitrine, un thème, une gerbe. */
+function sansLeLook(essai: Essai): Essai {
+  const reste: Essai = { ...essai }
+  for (const k of DU_LOOK) delete reste[k]
+  return reste
+}
+
+/** Le look d'une tenue, dessiné : son avatar, sa version, sa finition, sa bordure et son motif, son sceau. */
+function AvatarDUneTenue({ look, profil }: { look: LookDUneTenue; profil: PublicProfileDetail }) {
+  const e = look.eclat
+  return (
+    <Avatar
+      avatar={look.avatar}
+      legendaire={look.legendaire ?? undefined}
+      finition={finitionSur(look.legendaire, look.finition, profil.niveau)}
+      eclat={e ? (e.brille ? ((e.matiere as Matiere | null) ?? true) : false) : false}
+      sceau={look.sceau && !!look.legendaire && (profil.scelles ?? []).includes(look.legendaire)}
+      bordure={bordurePortee(look.bordure, profil.bordures, look.motif)}
+    />
+  )
+}
+
 /**
- * Les versions d'un avatar éclaté et taillé (`shared/matieres.ts`), chacune
- * dessinée : d'origine, rare, puis chaque matière qu'il a — l'Opale quand les
- * quatre y sont. Un toucher l'essaie sur la carte, comme le reste de la loge ;
- * « Porter » la garde. Seulement ce qu'il a : les matières à tailler se
- * choisissent avec un Éclat en réserve, sous la grille.
+ * La liste de ses tenues, au cintre de la carte : chacune une petite carte, à
+ * son fond — son avatar, son nom, « Portée » —, qu'un toucher met sur la
+ * carte, à l'essai ; la renommer, la retirer. « Garder ce que je porte » au
+ * pied, un essai en cours compris (il se porte d'abord). Six au plus.
  */
-function VersionsDeLAvatar({
-  montre,
+function ListeDesTenues({
+  profil,
+  tenues,
+  portee,
   montree,
-  taillees,
-  onChoisir,
+  busy,
+  refus,
+  onMontrer,
+  onGarder,
+  onRenommer,
+  onRetirer,
   onFermer,
 }: {
-  cle: string
-  /** L'avatar que la carte montre, pour dessiner chaque version. */
-  montre: { avatar: string; legendaire?: string }
-  /** La version que la carte montre : d'origine (`false`), rare (`true`), ou une matière. */
-  montree: false | true | Matiere
-  taillees: readonly Matiere[]
-  onChoisir: (v: false | true | Matiere) => void
+  profil: PublicProfileDetail
+  tenues: readonly TenueGardee[]
+  portee: number
+  montree: number
+  busy: boolean
+  refus?: string
+  onMontrer: (i: number) => void
+  onGarder: () => void
+  onRenommer: (t: TenueGardee) => void
+  onRetirer: (t: TenueGardee) => void
   onFermer: () => void
 }) {
-  const versions: { v: false | true | Matiere; nom: string }[] = [
-    { v: false, nom: 'D’origine' },
-    { v: true, nom: 'Rare' },
-    ...taillees.map(m => ({ v: m, nom: NOM_DE_LA_MATIERE[m] })),
-  ]
+  const pleine = tenues.length >= TENUES_MAX
   return (
-    <Feuille titre="Sa version" onFermer={onFermer}>
-      <div className="loge-versions" role="group" aria-label="Ses versions">
-        {versions.map(({ v, nom }) => (
-          <button key={String(v)} type="button" className="loge-version-case" aria-pressed={montree === v} onClick={() => onChoisir(v)}>
-            <span className="loge-version-dessin">
-              <Avatar avatar={montre.avatar} legendaire={montre.legendaire} eclat={v} />
+    <Feuille
+      titre="Mes tenues"
+      onFermer={onFermer}
+      pied={
+        <div className="tenues-pied">
+          {refus ? (
+            <span className="error small" role="alert">
+              {refus}
             </span>
-            <span className="loge-version-nom">{nom}</span>
+          ) : (
+            <span className="muted small">{`${tenues.length} sur ${TENUES_MAX}`}</span>
+          )}
+          <button type="button" className="btn btn-primary" aria-disabled={busy || pleine || undefined} onClick={() => !busy && !pleine && onGarder()}>
+            <Icon name="plus" />
+            Garder ce que je porte
           </button>
-        ))}
-      </div>
-      <p className="muted small center">Un toucher l’essaie sur ta carte, « Porter » la garde. Chaque Éclat de plus sur cet avatar en taille une autre.</p>
+        </div>
+      }
+    >
+      {tenues.length === 0 ? (
+        <p className="muted small">Ce que tu portes se garde ici : remets-le d’un geste, en glissant ta carte.</p>
+      ) : (
+        <ul className="tenues-liste">
+          {tenues.map((t, i) => (
+            <li key={t.id} className={'tenue-rangee' + (t.look.fond ? ` carte-fond fond-${t.look.fond}` : '') + (i === montree ? ' montree' : '')}>
+              <button type="button" className="tenue-montrer" aria-pressed={i === montree} onClick={() => onMontrer(i)}>
+                <span className="tenue-dessin" aria-hidden="true">
+                  <AvatarDUneTenue look={t.look} profil={profil} />
+                </span>
+                <span className="tenue-nom">
+                  <b>{t.nom}</b>
+                  {i === portee && <small>Portée</small>}
+                </span>
+              </button>
+              <button type="button" className="tenue-geste" aria-label={`Renommer ${t.nom}`} onClick={() => onRenommer(t)}>
+                <Icon name="edit" />
+              </button>
+              <button type="button" className="tenue-geste" aria-label={`Retirer ${t.nom}`} onClick={() => onRetirer(t)}>
+                <Icon name="trash" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </Feuille>
   )
 }

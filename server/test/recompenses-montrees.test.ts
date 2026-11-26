@@ -298,9 +298,12 @@ test('ce que la salle voit, la page le montre : laurier, légendaire, surnom et 
     source('components/LogeTete.tsx'),
     /<Avatar\s+className="player-avatar big"\s+avatar=\{vu\.avatar\}\s+finition=\{vu\.finition\}\s+eclat=\{eclatChez\(vu, cibleEclat\(vu\.legendaire \?\? undefined, vu\.avatar\)\)\}\s+legendaire=\{vu\.legendaire \?\? undefined\}/,
   )
-  // Sous un Divin, « Auto » lui laisse sa propre lumière : sa pastille le dit, à sa teinte — la phrase qui disait
-  // qu'il ne prenait aucune finition est partie avec la règle (le 22 novembre 2026).
-  assert.match(apparence, /pastille\('auto', 'Auto', 'divin', `Auto : la lumière de \$\{divinPorte\.nom\}`\)/)
+  // Sous un Divin, « Auto » lui laisse sa propre lumière : sa case le dit, et la dessine — chaque case de son calque
+  // porte la finition comme le serveur la lirait (`finitionSur`, depuis les calques du 26 novembre 2026), et le rail
+  // montre sa teinte. La phrase qui disait qu'il ne prenait aucune finition est partie avec la règle (le 22 novembre 2026).
+  assert.match(apparence, /uneCase\('auto', 'Auto', `Auto : la lumière de \$\{divinPorte\.nom\}`\)/)
+  assert.match(apparence, /finition=\{finitionSur\(vu\.legendaire, cle, profil\.niveau\)\}/)
+  assert.match(apparence, /teinte-\$\{divin\(vu\.legendaire\) && vu\.finitionChoisie === 'auto' \? 'divin' : vu\.finition\}/)
   assert.doesNotMatch(apparence, /a sa propre lumière/)
   // La marque « (2) » n'est pas un surnom.
   assert.match(source('components/CarteJoueur.tsx'), /p\.prenom !== partsDuNomAffiche\(carte\.nom\)\.prenom/)

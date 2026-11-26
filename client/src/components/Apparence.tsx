@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { Gemmes } from './Gemmes'
@@ -24,14 +24,15 @@ import { brancheDe, deLaBranche, portrait as portraitDe, type CleDeBranche } fro
 import { compagnonDe, formeDeCompagnon, nomDeLaForme } from '../../../shared/compagnons'
 import { FONDS, FONDS_EN_BOUTIQUE } from '../../../shared/fonds'
 import { AUCUNE_GERBE, GERBES } from '../../../shared/gerbes'
-import { avatarMontre, avatarsNeufs, avecLEssai, bordureNeuve, type Essai } from '../../../shared/loge'
+import { avatarMontre, avatarsNeufs, avecLEssai, bordureNeuve, calquesDe, calquesNeufs, cibleDeLEclat, type CalqueDeLAvatar, type Essai } from '../../../shared/loge'
+import { ongletVise } from './Onglets'
 import { sonAvatar } from '../../../shared/sonAvatar'
 import { GerbeDeJuste } from './Gerbe'
 import { brancheDuMaitre, cleDeMaitre, maitresDe, nomDuTitre } from '../../../shared/sentiers'
 import { moisDuChampion } from '../../../shared/jour'
 import { nomDuTitreDuDefi } from '../../../shared/cabinet/sceaux'
-import { FINITIONS, NOM_FINITION, brilleChez, clesQuiBrillent, eclatChez, meilleureFinition, type Finition, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
-import { NOM_DE_LA_MATIERE, enMatiere, matieresATailler, peutSeTailler, type Matiere, type MatiereTaillee } from '../../../shared/matieres'
+import { FINITIONS, NOM_FINITION, brilleChez, clesQuiBrillent, eclatChez, finitionSur, meilleureFinition, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
+import { NOM_DE_LA_MATIERE, enMatiere, matieresATailler, matieresOuvertes, peutSeTailler, type EclatPorte, type Matiere, type MatiereTaillee } from '../../../shared/matieres'
 import type { PropsDUnePiece } from './choix'
 import { MOTIFS, motif as leMotif } from '../../../shared/motifs'
 
@@ -178,7 +179,9 @@ export function MesAvatars(props: PropsDUnePiece) {
           </button>
         </div>
       )}
-      <Gemmes
+      {/* Une seule page — un nouveau venu, ses emojis offerts — : pas de gemme. « Offerts 24 », seule au milieu de sa
+          rangée, ne choisissait rien et prenait 62 px au-dessus de sa grille (le 26 novembre 2026). */}
+      {pages.length > 1 && <Gemmes
         gemmes={pages.map(p => ({
           id: p.page,
           court: p.page === 'offert' ? 'Offerts' : NOM_COURT_DE_RARETE_D_AVATAR[p.page],
@@ -194,8 +197,11 @@ export function MesAvatars(props: PropsDUnePiece) {
         idDe={p => `loge-gemme-${p}`}
         panneau="loge-page-avatars"
         className="gemmes-loge"
-      />
-      <div className="loge-page-avatars" role="tabpanel" id="loge-page-avatars" aria-labelledby={`loge-gemme-${page.page}`}>
+      />}
+      <div
+        className="loge-page-avatars"
+        {...(pages.length > 1 ? { role: 'tabpanel', id: 'loge-page-avatars', 'aria-labelledby': `loge-gemme-${page.page}` } : { role: 'group', 'aria-label': NOM_DE_LA_PAGE[page.page] })}
+      >
         {choisit && regarde && regarde.restantes && (
           <ApercuDeLaMatiere regarde={{ ...regarde, restantes: regarde.restantes }} tailler={props.tailler} onAutre={() => setRegarde(null)} onTaille={() => setChoisit(false)} />
         )}
@@ -474,10 +480,10 @@ export function PageDAvatars({
 }
 
 /**
- * « +3 », au bout d'une rangée de pastilles : ce qui reste se compte sans se
- * montrer — des finitions et des bordures éteintes, au bout de la rangée, se
- * prenaient pour des siennes (le 13 octobre 2026). Il mène à leur ligne de
- * « Ma collection », qui dit le niveau ou la ligue de chacune.
+ * « +3 », au bout de la rangée des ligues : ce qui reste se compte sans se
+ * montrer — des bordures éteintes, au bout de la rangée, se prenaient pour des
+ * siennes (le 13 octobre 2026). Il mène à leur ligne de « Ma collection », qui
+ * dit la ligue de chacune.
  */
 function PastilleAGagner({ n, nom, href }: { n: number; nom: string; href: string }) {
   if (n <= 0) return null
@@ -491,86 +497,143 @@ function PastilleAGagner({ n, nom, href }: { n: number; nom: string; href: strin
 
 /**
  * Une rangée de pastilles : serrées d'un bord à l'autre quand elles sont
- * nombreuses — huit tiennent en 360 —, alignées à gauche quand elles sont
- * peu, au lieu de s'écarter d'un bord à l'autre. Au-delà de huit — Auto et
- * les douze finitions d'un profil au niveau 50, depuis le 1er novembre
- * 2026 —, sur deux lignes alignées à gauche : la seconde, écartée d'un bord
- * à l'autre, laissait ses quelques pastilles flotter loin les unes des autres.
+ * nombreuses, alignées à gauche quand elles sont peu. Les ligues seules en
+ * gardent une (huit au plus : Auto, Sans et six ligues) ; les autres réglages
+ * sont des grilles, depuis les calques du 26 novembre 2026.
  */
-const rangee = (n: number) => 'loge-finitions-rangee' + (n < 6 ? ' rangee-courte' : n > 8 ? ' rangee-longue' : '')
+const rangee = (n: number) => 'loge-finitions-rangee' + (n < 6 ? ' rangee-courte' : '')
+
+// ── Les calques de la pièce « Avatar » ───────────────────────────────────
+// La maquette validée par le propriétaire le 26 novembre 2026
+// (`retours/2026-11-26/la-piece-avatar/` : « calques + tenues c'est le
+// top ») : la pièce empilait un réglage par rangée — la finition, la
+// bordure, le motif, le sceau —, chacune montrant tout ce qu'il avait ;
+// chez une collectionneuse, vingt-deux motifs sur quatre lignes, et ses
+// avatars 192 px sous le menu (sa demande d'avant : « il ne faut pas
+// afficher toutes les bordures que l'on a mais uniquement celle
+// sélectionnée »). Un rail de calques les remplace, chacun l'aperçu de ce
+// qu'il porte ; un seul calque ouvert, sa grille dessous, des cases comme
+// celles des avatars, l'avatar porté en grand dans chacune.
+
+const NOM_DU_CALQUE: Readonly<Record<CalqueDeLAvatar, string>> = { avatar: 'Avatar', version: 'Version', finition: 'Finition', bordure: 'Bordure', sceau: 'Sceau' }
 
 /**
- * Sa finition, sur une rangée de pastilles (la maquette 3, que le
- * propriétaire a voulue le 12 octobre 2026) : « Auto » — la plus belle qu'il
- * a, que chaque niveau qui en ouvre une nouvelle fait porter d'office —, puis
- * celles qu'il a, chacune sa couleur, et ce qui reste compté au bout (« +3 »),
- * qui mène à leur ligne de « Ma collection », chacune son niveau. Les
- * restantes s'y montraient éteintes, chacune son niveau (le 12 octobre :
- * « il manque les finitions 15, 20, 25 ») ; le lendemain, le propriétaire
- * ne voulait plus y voir que les siennes. Touchée, elle s'essaie sur la
- * carte de la loge. Elle se cachait derrière une ligne qui se dépliait en
- * huit grandes cases, un avatar animé dans chacune.
+ * Une case de calque : l'avatar tel que ce choix l'habillerait, son nom
+ * dessous ; l'étincelle d'« Auto » ou d'« Accordé », ce que l'application
+ * choisit pour lui. Les états de la grille des avatars : montrée, à l'essai,
+ * portée, neuve.
+ */
+function CaseDeCalque({
+  etat,
+  label,
+  nom,
+  dessin,
+  auto = false,
+  teinte,
+  onClick,
+}: {
+  etat: EtatDUneCase
+  label: string
+  nom: string
+  dessin: ReactNode
+  auto?: boolean
+  /** La teinte d'une finition, devant son nom : sur un avatar peint, la lumière de Mat, d'Argent ou d'Or se distinguait mal. */
+  teinte?: string
+  onClick: () => void
+}) {
+  return (
+    <button type="button" className={'loge-case calque-case' + classesDUnAvatar(etat)} aria-pressed={etat.montre} aria-label={label + ceQueDitLaCase(etat, 'porté', 'nouveau')} onClick={onClick}>
+      <span className="calque-dessin" aria-hidden="true">
+        {dessin}
+      </span>
+      <span className="calque-nom" aria-hidden="true">
+        {teinte && <i className={`finition-teinte teinte-${teinte}`} />}
+        {nom}
+      </span>
+      {auto && (
+        <span className="calque-auto" aria-hidden="true">
+          <Icon name="sparkles" />
+        </span>
+      )}
+    </button>
+  )
+}
+
+/** « +3 à gagner », la dernière case d'une grille de calque : elle mène à leur ligne de « Ma collection ». */
+function CaseAGagner({ n, nom, href }: { n: number; nom: string; href: string }) {
+  if (n <= 0) return null
+  return (
+    <a className="loge-case calque-case calque-a-gagner" href={href} aria-label={`${n} ${nom} à gagner : où et comment, dans « Ma collection »`}>
+      <b aria-hidden="true">{`+${n}`}</b>
+      <span className="calque-nom" aria-hidden="true">
+        à gagner
+      </span>
+    </a>
+  )
+}
+
+/**
+ * Sa finition, en grille (le calque « Finition ») : « Auto » — la plus belle
+ * qu'il a, que chaque niveau qui en ouvre une nouvelle fait porter d'office ;
+ * sous un Divin, sa propre lumière —, puis chacune de celles qu'il a, portée
+ * par son avatar — sa lumière se voit, plus qu'une pastille de couleur —, et
+ * ce qui reste compté au bout, vers leur ligne de « Ma collection », chacune
+ * son niveau. Ni sa bordure ni sa gerbe : la finition est le sujet. Touchée,
+ * elle s'essaie sur la carte de la loge.
  */
 export function MesFinitions({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   const vu = avecLEssai(profil, essai)
-  // Sous un Divin, « Auto » lui laisse sa propre lumière (`finitionSur`) : la pastille le dit, à sa teinte.
+  // Sous un Divin, « Auto » lui laisse sa propre lumière (`finitionSur`) : la case le dit, à l'oreille.
   const divinPorte = divin(vu.legendaire)
   const montree = vu.finitionChoisie
   const plusBelle = meilleureFinition(profil.niveau)
   const siennes = FINITIONS.filter(f => profil.ouvertes.includes(f))
   const reste = FINITIONS.length - siennes.length
-  const pastille = (cle: FinitionChoisie, nom: string, teinte: Finition | 'divin', label: string) => {
+  const lAvatar = sonAvatar(vu)
+  const uneCase = (cle: FinitionChoisie, nom: string, label: string) => {
     const montre = montree === cle
     const porte = profil.finitionChoisie === cle
     const neuve = cle !== 'auto' && !!neufs?.has(`finition:${cle}`)
     return (
-      <button
+      <CaseDeCalque
         key={cle}
-        type="button"
-        className={'finition-choix' + classesDUnAvatar({ montre, porte, neuve })}
-        aria-pressed={montre}
-        aria-label={label + ceQueDitLaCase({ montre, porte, neuve }, 'portée', 'nouvelle')}
+        etat={{ montre, porte, neuve }}
+        label={label}
+        nom={nom}
+        auto={cle === 'auto'}
+        teinte={cle !== 'auto' ? cle : divinPorte ? 'divin' : plusBelle}
+        dessin={<Avatar {...lAvatar} finition={finitionSur(vu.legendaire, cle, profil.niveau)} />}
         onClick={() => essayer({ finition: cle })}
-      >
-        <i className={`finition-teinte teinte-${teinte}`} aria-hidden="true">
-          {cle === 'auto' && <Icon name="sparkles" />}
-        </i>
-        <span aria-hidden="true">{nom}</span>
-      </button>
+      />
     )
   }
   return (
-    <div className="loge-finitions">
-      <span className="loge-sous-titre" id="loge-finitions-titre">
-        Finition
-      </span>
-      <div className={rangee(1 + siennes.length + (reste > 0 ? 1 : 0))} role="group" aria-labelledby="loge-finitions-titre">
-        {divinPorte
-          ? pastille('auto', 'Auto', 'divin', `Auto : la lumière de ${divinPorte.nom}`)
-          : pastille('auto', 'Auto', plusBelle, `Auto, toujours la plus belle : ${NOM_FINITION[plusBelle]}`)}
-        {siennes.map(f => pastille(f, NOM_FINITION[f], f, NOM_FINITION[f]))}
-        <PastilleAGagner n={reste} nom={reste > 1 ? 'finitions' : 'finition'} href="#collection-finitions" />
-      </div>
+    <div className="loge-grille calque-grille" role="group" aria-label="Mes finitions">
+      {divinPorte
+        ? uneCase('auto', 'Auto', `Auto : la lumière de ${divinPorte.nom}`)
+        : uneCase('auto', 'Auto', `Auto, toujours la plus belle : ${NOM_FINITION[plusBelle]}`)}
+      {siennes.map(f => uneCase(f, NOM_FINITION[f], NOM_FINITION[f]))}
+      <CaseAGagner n={reste} nom={reste > 1 ? 'finitions' : 'finition'} href="#collection-finitions" />
     </div>
   )
 }
 
 /*
- * Ni la bordure ni le sceau ne disent de phrase sous leur rangée (le 17
+ * Ni la bordure ni le sceau ne disent de phrase sous leur grille (le 17
  * novembre 2026, le propriétaire : « pas besoin de mettre du texte à chaque
  * fois, ça doit être compréhensible et intuitif. Ça fait perdre de la place
- * pour rien », puis « tu peux aussi enlever les deux lignes de texte »). Ce
- * qu'elles racontaient se lit encore dans « Ma collection » : la fiche d'une
- * bordure dit ses crans, celle d'un légendaire son sceau.
+ * pour rien »). Ce qu'elles racontaient se lit encore dans « Ma collection » :
+ * la fiche d'une bordure dit ses crans, celle d'un légendaire son sceau.
  */
 
 /**
- * Sa bordure de ligue, sous sa finition (la maquette des alliages, le 12
- * octobre 2026) : « Auto » — sa plus haute qui a un cran —, « Sans », puis
- * les bordures des ligues qu'il a atteintes en duel, chacune autour de son
- * avatar, dans le métal de sa finition, et ce qui reste compté au bout, qui
- * mène à leur ligne de « Ma collection » — les autres s'y montraient
- * éteintes, chacune sa cote, jusqu'au 13 octobre 2026. Rien n'y bouge.
+ * Sa bordure de ligue, en tête du calque « Bordure » (la maquette des
+ * alliages, le 12 octobre 2026) : « Auto » — sa plus haute qui a un cran —,
+ * « Sans », puis les bordures des ligues qu'il a atteintes en duel, chacune
+ * autour de son avatar, et ce qui reste compté au bout, qui mène à leur ligne
+ * de « Ma collection ». Huit au plus : une rangée de pastilles, sous son petit
+ * titre, « Ligue » — son motif a sa grille dessous. Sans duel classé, comment
+ * l'ouvrir, sur toutes ses lignes.
  */
 export function MesBordures({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   const vu = avecLEssai(profil, essai)
@@ -581,7 +644,6 @@ export function MesBordures({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   if (bordures.length === 0) {
     return (
       <div className="loge-bordures">
-        <span className="loge-sous-titre">Bordure</span>
         <p className="muted small">
           Ton premier duel classé ouvre la bordure de ta ligue ; chaque duel gagné dans la ligue, ou plus haut, y sertit un cran. <a href="/duels">Jouer un duel</a>
         </p>
@@ -615,7 +677,7 @@ export function MesBordures({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   return (
     <div className="loge-bordures">
       <span className="loge-sous-titre" id="loge-bordures-titre">
-        Bordure
+        Ligue
       </span>
       <div className={rangee(2 + bordures.length + (reste > 0 ? 1 : 0)) + ' loge-bordures-rangee'} role="group" aria-labelledby="loge-bordures-titre">
         {pastille('auto', 'Auto', auto, auto ? `Auto, ta plus haute : ${NOM_DE_LA_BORDURE[auto.ligue]}` : 'Auto, ta plus haute dès son premier cran')}
@@ -628,11 +690,14 @@ export function MesBordures({ profil, essai, essayer, neufs }: PropsDUnePiece) {
 }
 
 /**
- * Le motif de sa bordure, sous elle (le 26 novembre 2026, `shared/motifs.ts`) :
- * « Accordée » — d'office, le motif qui va à l'avatar qu'il porte —, puis
- * chacun de ceux qu'il tient, en petit avatar à sa bordure du moment, et ce
- * qui reste compté au bout, vers leur ligne de « Ma collection ». La ligue
- * garde son métal, son insigne et ses crans : seul ce qui pousse change.
+ * Le motif de sa bordure, sous sa ligue (le 26 novembre 2026,
+ * `shared/motifs.ts`), en grille : « Accordé » — d'office, le motif qui va à
+ * l'avatar qu'il porte —, puis chacun de ceux qu'il tient, son avatar à sa
+ * bordure du moment, et ce qui reste compté au bout, vers leur ligne de « Ma
+ * collection ». Sans ses ailes ni sa gerbe : la bordure est le sujet, et les
+ * ailes d'un Phénix éclaté en couvraient le haut — chaque pastille ressemblait
+ * à sa voisine (`.calque-sujet`). La ligue garde son métal, son insigne et ses
+ * crans : seul ce qui pousse change.
  */
 export function MesMotifs({ profil, essai, essayer }: PropsDUnePiece) {
   const vu = avecLEssai(profil, essai)
@@ -643,48 +708,39 @@ export function MesMotifs({ profil, essai, essayer }: PropsDUnePiece) {
   const siens = profil.motifs ?? []
   const montre = vu.motifChoisi ?? null
   const porte = profil.motifChoisi ?? null
-  const pastille = (cle: string | null, nom: string, label: string) => {
-    const estMontre = montre === cle
-    const estPorte = porte === cle
-    return (
-      <button
-        key={cle ?? 'accorde'}
-        type="button"
-        className={'finition-choix bordure-choix' + classesDUnAvatar({ montre: estMontre, porte: estPorte, neuve: false })}
-        aria-pressed={estMontre}
-        aria-label={label + ceQueDitLaCase({ montre: estMontre, porte: estPorte, neuve: false }, 'porté', 'nouveau')}
-        onClick={() => essayer({ motif: cle })}
-      >
-        <span className="bordure-apercu" aria-hidden="true">
-          <Avatar {...sonAvatar(vu)} finition={vu.finition} bordure={cle ? { ...cadre, motif: cle } : { ligue: cadre.ligue, crans: cadre.crans }} />
-        </span>
-        <span aria-hidden="true">{nom}</span>
-      </button>
-    )
-  }
+  const lAvatar = sonAvatar(vu)
+  const uneCase = (cle: string | null, nom: string, label: string) => (
+    <CaseDeCalque
+      key={cle ?? 'accorde'}
+      etat={{ montre: montre === cle, porte: porte === cle }}
+      label={label}
+      nom={nom}
+      auto={cle === null}
+      dessin={<Avatar {...lAvatar} finition={vu.finition} bordure={cle ? { ...cadre, motif: cle } : { ligue: cadre.ligue, crans: cadre.crans }} />}
+      onClick={() => essayer({ motif: cle })}
+    />
+  )
   const reste = MOTIFS.length - siens.length
   return (
-    <div className="loge-bordures loge-motifs">
-      {/* Son titre se dit à l'oreille : à l'œil, la rangée prolonge « Bordure », et sa première pastille dit « Accordé » —
-          montré, il faisait passer les gemmes sous le menu d'une habituée en 360 × 640 (`rendu-loge.ts`). */}
-      <span className="sr-only" id="loge-motifs-titre">
-        Motif de la bordure
+    <div className="loge-motifs">
+      <span className="loge-sous-titre" id="loge-motifs-titre">
+        Motif
       </span>
-      <div className={rangee(1 + siens.length + (reste > 0 ? 1 : 0)) + ' loge-bordures-rangee'} role="group" aria-labelledby="loge-motifs-titre">
-        {pastille(null, 'Accordé', 'Accordé à ton avatar, d’office')}
+      <div className="loge-grille calque-grille calque-sujet" role="group" aria-labelledby="loge-motifs-titre">
+        {uneCase(null, 'Accordé', 'Accordé à ton avatar, d’office')}
         {siens.map(k => {
           const m = leMotif(k)
-          return m ? pastille(k, m.nom.replace(/^(Les|Le|La|L’) ?/, ''), m.nom) : null
+          return m ? uneCase(k, m.nom.replace(/^(Les|Le|La|L’) ?/, ''), m.nom) : null
         })}
-        <PastilleAGagner n={reste} nom={reste > 1 ? 'motifs' : 'motif'} href="#collection-motifs" />
+        <CaseAGagner n={reste} nom={reste > 1 ? 'motifs' : 'motif'} href="#collection-motifs" />
       </div>
     </div>
   )
 }
 
 /**
- * Le sceau de ses légendaires, sous sa bordure : « Montré », d'office, ou
- * « Masqué » — chacun en petit avatar, l'étoile au sommet ou non. Il ne
+ * Le sceau de ses légendaires (le calque « Sceau ») : « Montré », d'office,
+ * ou « Masqué » — chacun son avatar, l'étoile au sommet ou non. Le calque ne
  * paraît qu'à qui a déjà un légendaire scellé : rien à régler avant. Masqué,
  * le sceau reste à lui et compte partout ; seule la salle ne le voit plus,
  * comme la version d'origine d'un avatar éclaté.
@@ -695,37 +751,198 @@ export function MonSceau({ profil, essai, essayer }: PropsDUnePiece) {
   const vu = avecLEssai(profil, essai)
   const montre = !vu.sceauMasque
   const porte = !profil.sceauMasque
-  // L'aperçu : le légendaire montré s'il est scellé, sinon le premier des scellés — l'étoile ne se pose que sur eux.
-  const sur = vu.legendaire && scelles.includes(vu.legendaire) ? vu.legendaire : scelles[0]
-  const pastille = (montrer: boolean, nom: string) => {
-    const choisi = montre === montrer
-    const actuel = porte === montrer
-    return (
-      <button
-        key={nom}
-        type="button"
-        className={'finition-choix bordure-choix' + classesDUnAvatar({ montre: choisi, porte: actuel })}
-        aria-pressed={choisi}
-        aria-label={`Sceau ${nom.toLowerCase()}` + ceQueDitLaCase({ montre: choisi, porte: actuel }, 'porté', 'nouveau')}
-        onClick={() => essayer({ sceau: montrer })}
-      >
-        <span className="bordure-apercu" aria-hidden="true">
-          <Avatar avatar={vu.avatar} legendaire={sur} finition={vu.finition} sceau={montrer} />
-        </span>
-        <span aria-hidden="true">{nom}</span>
-      </button>
-    )
+  const sur = scelleMontre(vu, scelles)
+  const uneCase = (montrer: boolean, nom: string) => (
+    <CaseDeCalque
+      key={nom}
+      etat={{ montre: montre === montrer, porte: porte === montrer }}
+      label={`Sceau ${nom.toLowerCase()}`}
+      nom={nom}
+      dessin={<Avatar avatar={vu.avatar} legendaire={sur} eclat={versionDe(vu, sur)} finition={vu.finition} sceau={montrer} />}
+      onClick={() => essayer({ sceau: montrer })}
+    />
+  )
+  return (
+    <div className="loge-grille calque-grille calque-grille-3" role="group" aria-label="Mon sceau">
+      {uneCase(true, 'Montré')}
+      {uneCase(false, 'Masqué')}
+    </div>
+  )
+}
+
+/** Le légendaire que le sceau montre : celui qu'il porte s'il est scellé, sinon le premier des scellés — l'étoile ne se pose que sur eux. */
+function scelleMontre(vu: PublicProfileDetail, scelles: readonly string[]): string {
+  return vu.legendaire && scelles.includes(vu.legendaire) ? vu.legendaire : scelles[0]
+}
+
+/**
+ * Un légendaire dans la version qu'il en montre — rare, sa matière, ou
+ * d'origine —, essai compris : la carte le porte ainsi. Montré d'origine, le
+ * Phénix orange d'un aperçu, sous un Phénix de glace sur la carte, se lisait
+ * comme un autre avatar (le 26 novembre 2026).
+ */
+function versionDe(vu: PublicProfileDetail, legendaire: string): false | EclatPorte {
+  const cible = cibleDeLEclat({ avatar: vu.avatar, legendaire }, vu.eclats)
+  return cible ? eclatChez(vu, cible) : false
+}
+
+/**
+ * La version de l'avatar montré (le calque « Version », depuis le 26 novembre
+ * 2026 ; « Version rare » se touchait sur la carte, 30 px sous le doigt, et ses
+ * matières s'ouvraient dans une feuille à part) : d'origine, rare, puis chaque
+ * matière qu'il y a taillée — l'Opale quand les quatre y sont. Un avatar qui
+ * n'a pas éclaté n'a que sa version d'origine ; le calque s'éteint alors
+ * (`RailDesCalques`). Les matières à tailler se choisissent avec un Éclat en
+ * réserve, dans la grille des avatars.
+ */
+export function MaVersion({ profil, essai, essayer }: PropsDUnePiece) {
+  const vu = avecLEssai(profil, essai)
+  const montre = avatarMontre(profil, essai)
+  const cible = cibleDeLEclat(montre, profil.eclats)
+  const eclate = !!cible && profil.eclats.includes(cible)
+  const montree = cible ? eclatChez(vu, cible) : false
+  const portee = cible ? eclatChez(profil, cible) : false
+  const versions: { v: false | true | Matiere; nom: string }[] = [
+    { v: false, nom: 'D’origine' },
+    ...(eclate ? [{ v: true as const, nom: 'Rare' }, ...matieresOuvertes(profil.matieres?.[cible!] ?? []).map(m => ({ v: m, nom: NOM_DE_LA_MATIERE[m] }))] : []),
+  ]
+  return (
+    <div className="loge-grille calque-grille calque-grille-3" role="group" aria-label="Sa version">
+      {versions.map(({ v, nom }) => (
+        <CaseDeCalque
+          key={String(v)}
+          etat={{ montre: montree === v, porte: eclate && portee === v }}
+          label={v === false ? 'Version d’origine' : v === true ? 'Version rare' : `Taillé ${enMatiere(v)}`}
+          nom={nom}
+          dessin={<Avatar avatar={montre.avatar} legendaire={montre.legendaire ?? undefined} finition={vu.finition} eclat={v} />}
+          onClick={() => eclate && cible && essayer({ eclat: { cle: cible, brille: v !== false, matiere: typeof v === 'string' ? v : null } })}
+        />
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Le rail des calques, sous la rangée des pièces : chacun l'aperçu de ce
+ * qu'il porte — l'avatar, sa version, la teinte de sa finition, sa bordure et
+ * son motif, son étoile —, l'étincelle de ce que l'application choisit pour
+ * lui, le pointillé de l'essai, le point rouge du neuf. Le rail est le résumé
+ * de la tenue autant que son sélecteur. Un seul arrêt de Tab, les flèches
+ * passent au voisin, comme la rangée des pièces. « Version » s'éteint sur un
+ * avatar qui n'a pas éclaté — il ne disparaît pas : le rail ne saute pas sous
+ * le doigt.
+ */
+export function RailDesCalques({
+  profil,
+  essai,
+  calques,
+  actif,
+  neufs,
+  onChoisir,
+}: {
+  profil: PublicProfileDetail
+  essai: Essai
+  calques: readonly CalqueDeLAvatar[]
+  actif: CalqueDeLAvatar
+  neufs: ReadonlySet<CalqueDeLAvatar>
+  onChoisir: (c: CalqueDeLAvatar) => void
+}) {
+  const liste = useRef<HTMLDivElement>(null)
+  const vu = avecLEssai(profil, essai)
+  const montre = avatarMontre(profil, essai)
+  const cible = cibleDeLEclat(montre, profil.eclats)
+  const eclate = !!cible && profil.eclats.includes(cible)
+  const lAvatar = sonAvatar(vu)
+  const borduree = bordurePortee(vu.bordureChoisie ?? 'auto', profil.bordures, vu.motifChoisi)
+  const scelles = profil.scelles ?? []
+  // Sa version : la gemme de l'Éclat, aux couleurs de la matière qu'il montre — grise, d'origine. L'avatar seul, d'origine,
+  // y était, et la case « Avatar » aussi : le Phénix orange sous le Phénix de glace de la carte se lisait comme un autre.
+  const version = eclate && cible ? eclatChez(vu, cible) : false
+  const apercu: Record<CalqueDeLAvatar, ReactNode> = {
+    // L'avatar tel que la carte le montre, dans sa version : « Avatar » et la carte ne disent pas deux choses.
+    avatar: <Avatar {...lAvatar} />,
+    version: <i className={'loge-gemme-eclat' + (version === false ? ' d-origine' : typeof version === 'string' ? ` av-matiere-${version}` : '')} />,
+    finition: <i className={`finition-teinte teinte-${divin(vu.legendaire) && vu.finitionChoisie === 'auto' ? 'divin' : vu.finition}`} />,
+    bordure: borduree ? <Avatar {...lAvatar} finition={vu.finition} bordure={borduree} /> : <i className="bordure-sans" />,
+    sceau: scelles.length > 0 ? <Avatar avatar={vu.avatar} legendaire={scelleMontre(vu, scelles)} eclat={versionDe(vu, scelleMontre(vu, scelles))} sceau={!vu.sceauMasque} /> : null,
+  }
+  const essaye: Record<CalqueDeLAvatar, boolean> = {
+    avatar: essai.avatar !== undefined || essai.legendaire !== undefined,
+    version: !!essai.eclat,
+    finition: essai.finition !== undefined,
+    bordure: essai.bordure !== undefined || essai.motif !== undefined,
+    sceau: essai.sceau !== undefined,
+  }
+  const auto: Partial<Record<CalqueDeLAvatar, boolean>> = { finition: vu.finitionChoisie === 'auto', bordure: !!borduree && !vu.motifChoisi }
+  const touche = (e: KeyboardEvent, i: number) => {
+    const j = ongletVise(e.key, i, calques.length)
+    if (j === null) return
+    e.preventDefault()
+    onChoisir(calques[j])
+    liste.current?.querySelectorAll<HTMLElement>('[role="tab"]')[j]?.focus()
   }
   return (
-    <div className="loge-bordures">
-      <span className="loge-sous-titre" id="loge-sceau-titre">
-        Sceau
-      </span>
-      <div className={rangee(2) + ' loge-bordures-rangee'} role="group" aria-labelledby="loge-sceau-titre">
-        {pastille(true, 'Montré')}
-        {pastille(false, 'Masqué')}
-      </div>
+    <div ref={liste} className="loge-calques" role="tablist" aria-label="Ce que je règle de mon avatar" style={{ '--calques': calques.length } as CSSProperties}>
+      {calques.map((c, i) => {
+        const eteint = c === 'version' && !eclate
+        return (
+          <button
+            key={c}
+            id={`calque-${c}`}
+            type="button"
+            role="tab"
+            aria-selected={actif === c}
+            aria-controls={actif === c ? 'loge-calque' : undefined}
+            aria-disabled={eteint || undefined}
+            tabIndex={actif === c ? 0 : -1}
+            className={'loge-calque' + (essaye[c] ? ' essaye' : '') + (eteint ? ' eteint' : '')}
+            onClick={() => !eteint && onChoisir(c)}
+            onKeyDown={e => touche(e, i)}
+          >
+            <span className="loge-calque-apercu calque-sujet" aria-hidden="true">
+              {apercu[c]}
+              {/* Une pastille à la fois, au même coin : le neuf d'abord, l'étincelle d'« Auto » une fois vu — l'une sur
+                  l'autre, elles faisaient une tache. */}
+              {auto[c] && !essaye[c] && !neufs.has(c) && (
+                <span className="calque-auto">
+                  <Icon name="sparkles" />
+                </span>
+              )}
+              {neufs.has(c) && <span className="loge-neuf" />}
+            </span>
+            {NOM_DU_CALQUE[c]}
+            {neufs.has(c) && <span className="sr-only">, du nouveau</span>}
+          </button>
+        )
+      })}
     </div>
+  )
+}
+
+/**
+ * La pièce « Avatar » : le rail, puis le calque ouvert. La loge tient le
+ * calque (`Loge.tsx`) : quitter la pièce et y revenir le retrouve.
+ */
+export function PieceDeLAvatar(props: PropsDUnePiece & { calque: CalqueDeLAvatar; onCalque: (c: CalqueDeLAvatar) => void }) {
+  const { profil, essai, neufs, calque, onCalque } = props
+  const calques = calquesDe(profil)
+  const actif = calques.includes(calque) ? calque : 'avatar'
+  return (
+    <>
+      <RailDesCalques profil={profil} essai={essai} calques={calques} actif={actif} neufs={calquesNeufs(neufs ?? [])} onChoisir={onCalque} />
+      <div className="loge-calque-panneau" role="tabpanel" id="loge-calque" aria-labelledby={`calque-${actif}`}>
+        {actif === 'avatar' && <MesAvatars {...props} />}
+        {actif === 'version' && <MaVersion {...props} />}
+        {actif === 'finition' && <MesFinitions {...props} />}
+        {actif === 'bordure' && (
+          <>
+            <MesBordures {...props} />
+            <MesMotifs {...props} />
+          </>
+        )}
+        {actif === 'sceau' && <MonSceau {...props} />}
+      </div>
+    </>
   )
 }
 

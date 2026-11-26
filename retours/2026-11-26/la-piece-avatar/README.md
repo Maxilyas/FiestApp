@@ -1,0 +1,341 @@
+# La pièce « Avatar » de la loge, repensée : des propositions
+
+Le 26 novembre 2026. Le propriétaire, d'abord sur les motifs : « Dans
+l'habillage, je pense qu'il ne faut pas afficher toutes les bordures que l'on
+a mais uniquement celle sélectionnée, car il y en a 29, ça va surcharger la
+page. Par contre ce que j'aimerais c'est pouvoir cliquer sur un bouton et
+choisir la bordure que je possède » ; puis : « Finition / bordure fonctionne
+de la même manière et potentiellement même le choix d'avatars. Tu pourrais me
+faire une maquette innovante qui revoit la façon dont on gère cet onglet ? »
+
+Ce dossier est une maquette : rien de `client/` ne bouge. `planche.ts` monte
+chaque écran avec les vrais composants — la carte de la loge
+(`CarteDeLaLoge`), la rangée des pièces, `Avatar` et ses finitions, ses
+bordures, ses motifs, et pour « Aujourd'hui » les vrais panneaux
+(`MesFinitions`, `MesBordures`, `MesMotifs`, `MonSceau`, `MesAvatars`) — sous
+la vraie feuille de style, dans un cadre de 360 × 640 où les pas de hauteur
+de la loge jouent comme sur un téléphone. Ce qui est neuf vit dans
+`maquette.css`, préfixé `mq-`.
+
+    cd server && npx tsx ../retours/2026-11-26/la-piece-avatar/planche.ts
+
+Les mesures plus bas sont celles de ces cadres (le bas des gemmes, de la
+première rangée d'avatars, le haut du menu à 573 px), que le script imprime.
+
+## Le choix
+
+Le même jour, devant la planche : « Je suis d'accord calques + tenues c'est
+le top. Par contre je mettrais pas les tenues ici, mais plus dans un panneau
+latéral rétractable. Pour les questions c'est quoi tes recommandations ?
+J'aimerais bien voir une maquette du rendu final. » Les réponses et le rendu
+final sont plus bas (« Le rendu final »).
+
+## Le constat
+
+La pièce empile un réglage par rangée — la finition, la bordure, le motif,
+le sceau — et chaque rangée montre **tout** ce qu'on a. Elle tient pour une
+habituée (ses gemmes à 513 px en 360 × 640, `rendu-loge.ts`), pas pour qui
+collectionne : chaque niveau ouvre une finition, chaque ligue une bordure,
+chaque coffre un motif.
+
+Léa, la collectionneuse de la planche — niveau 38, neuf finitions, trois
+bordures serties, vingt-deux motifs, quatre légendaires — : **ses gemmes
+finissent à 765 px, 192 sous le menu, et sa première rangée d'avatars à
+833** ; la page fait 983 px. Ses motifs prennent quatre lignes de pastilles,
+ses finitions deux. Et ce sont les avatars — ce qu'on vient changer le plus
+souvent — qui descendent (`planche-aujourdhui.jpg`).
+
+Relevé en passant, vrai aujourd'hui : **sous un Phénix éclaté, les pastilles
+de motif se ressemblent toutes** — ses ailes et sa gerbe, qui sortent du
+médaillon, couvrent le haut de la bordure, là où le motif se lit. Les grilles
+de la maquette les taisent là où la bordure est le sujet (`.mq-sujet`, comme
+une liste le fait déjà) ; la rangée d'aujourd'hui le mériterait aussi, quelle
+que soit la piste.
+
+## Piste 1 · Les calques (`planche-calques.jpg`)
+
+Sous la rangée des pièces, **un rail de cinq calques** : Avatar, Version,
+Finition, Bordure, Sceau. Chacun montre ce qu'elle porte — l'avatar d'origine,
+sa version rare, la teinte de sa finition, sa bordure avec son motif, son
+étoile —, et une étincelle d'or dit ce que l'application choisit pour elle
+(« Auto », « Accordé »). Le rail est à la fois **le résumé de la tenue** et
+**le sélecteur**.
+
+On touche un calque : **sa grille seule** s'ouvre dessous, la même pour tous —
+des cases comme celles des avatars, l'avatar porté en grand dans chacune, son
+nom dessous, « Auto » ou « Accordé » d'abord, « +N à gagner » au bout.
+« Avatar » d'office : ses gemmes et ses cases, comme aujourd'hui. « Bordure »
+réunit la ligue (six pastilles, une ligne) et le motif (sa grille) : c'est la
+même chose à l'œil, une bordure. Toucher une case l'essaie sur la carte, le
+calque prend le pointillé de l'essai, la barre « Annuler · Porter » prend la
+place du menu — le geste de toute la loge, inchangé.
+
+- Ses gemmes à **367 px** au lieu de 765, sa première rangée à **435** : la
+  place de deux rangées d'avatars au-dessus du menu en 360 × 640, là où
+  l'habituée d'aujourd'hui n'en voit aucune.
+- **Elle ne grandit plus jamais** : trente-deux motifs, douze finitions, ce
+  sont des rangées de plus dans la grille de leur calque, pas des lignes de
+  plus au-dessus des avatars.
+- Rien de neuf à apprendre : la grille est celle des avatars, l'essai celui
+  de la loge. « Version rare », sur la carte, devient un calque (d'origine,
+  rare, chaque matière taillée) : la feuille « Sa version » d'aujourd'hui
+  rejoint la règle commune. Il ne paraît que pour un avatar éclaté, comme
+  le bouton.
+- Ce qu'on perd : on ne voit plus, d'un coup d'œil, les finitions **et** les
+  motifs à la fois. Le rail dit ce qu'on porte ; pour comparer, on change de
+  calque.
+- Le neuf suit le rouge jusqu'à sa case, comme aujourd'hui : le point rouge
+  passe sur le calque qui a du nouveau (la règle de `profil.md`).
+
+## Piste 2 · La fiche de tenue (`planche-fiche.jpg`)
+
+Ce que tu proposais pour les motifs, à chaque réglage : **une tuile par
+réglage** — Finition, Bordure, Motif, Sceau —, qui ne montre que ce qu'elle
+porte (« Orage › », « Or › », « Flammes › », « Montré › »). La toucher ouvre
+**sa feuille** : ce qu'elle a, **rangé par provenance** (les offerts, le brin
+d'une ligue sertie, les duels, la boutique, le trésor, la saison) — la feuille
+a la place de le dire. **La carte reste au-dessus de la feuille, sans voile** :
+l'essai se voit pendant qu'on choisit, et « Porter » est au pied de la
+feuille. Les avatars restent dans la pièce, sous les tuiles.
+
+- Ses gemmes à **388 px**, sa première rangée à **456** : la place de deux
+  rangées d'avatars, comme les calques.
+- Le plus proche de ton idée, et le plus sobre : la pièce ne montre que la
+  tenue, le choix vit ailleurs.
+- La variante (troisième écran) met aussi **l'avatar en fiche** : six cases —
+  Avatar, Version, Finition, Bordure, Motif, Sceau —, chacune sa feuille. La
+  pièce tient alors en 240 px, quoi qu'on ait. Mais l'avatar, ce qu'on change
+  le plus, passe derrière un toucher de plus.
+- Ce qu'elle coûte : **deux gestes de plus** à chaque changement (ouvrir,
+  fermer), et une feuille qui couvre la moitié de l'écran. Comparer deux
+  motifs, c'est toucher, regarder la carte en haut, toucher l'autre — comme
+  les calques, mais dans une boîte.
+
+## Piste 3 · Le miroir (`planche-miroir.jpg`)
+
+La plus neuve. Dans la pièce « Avatar », **la carte se fait miroir** :
+l'avatar en grand sur son fond, et autour de lui six épingles — Version,
+Finition, Avatar, Sceau, Bordure, Motif. On touche une épingle, et **une
+bande défile dessous** : ce qu'elle a, un seul au centre, en grand, essayé à
+mesure qu'on glisse (« Étoiles, 10 sur 23 »). Le cœur du médaillon ouvre ses
+avatars — gemmes et grille, sous le miroir.
+
+- Ce qu'elle fait le mieux : **voir en grand ce qu'on essaie**. Une lumière
+  d'Abysses, un motif de Comètes se jugent à 140 px, pas à 28.
+- Ce qu'elle coûte : le miroir prend 230 px. Ses gemmes finissent à 435 px,
+  sa première rangée d'avatars à 503 — une seule au-dessus du menu —, et la
+  carte, la même dans toutes les autres pièces, change de forme quand on
+  vient sur celle-ci.
+- Glisser un à un dans vingt-trois motifs est plus long que de les voir tous
+  dans une grille : bien pour flâner, moins pour retrouver.
+- À développer : la carte qui se fait miroir est une animation à elle, et
+  le doigt qui glisse sur la bande, un geste qui n'existe nulle part ailleurs
+  dans la loge.
+
+## En plus · Les tenues (`planche-tenues.jpg`)
+
+Avec n'importe quelle piste. Ce qui se règle calque par calque **se garde** :
+une tenue, c'est tout l'avatar — l'avatar, sa version, sa finition, sa
+bordure, son motif, son sceau — sous un nom (« Duels », « La mer »,
+« Hiver »), remis d'un toucher. La rangée se pose au-dessus des calques ;
+« Garder » retient ce qu'elle porte. Une tenue touchée s'essaie comme le
+reste : tout change sur la carte, les calques prennent le pointillé, la barre
+dit « La mer · Avatar · Finition · Bordure · Motif », « Porter » la garde.
+
+Elle coûte une table (`profile_tenues` : le profil, un nom, ce qu'elle
+porte), une route, et une règle : une tenue dont une pièce n'est plus à elle
+— une soirée retirée qui reprend un légendaire — se porte sans elle, comme le
+serveur le fait déjà pour l'avatar. Elle prend 80 px au-dessus du rail : avec
+elle, une seule rangée d'avatars au-dessus du menu en 360 × 640.
+
+## Sous l'Ivoire (`planche-ivoire.jpg`)
+
+Les calques sous le thème clair : le rail, ses étincelles, le pointillé de
+l'essai et les cases se lisent sans retouche.
+
+## Ce que je recommande
+
+**Les calques (piste 1)**, et les tenues plus tard, si l'envie revient.
+
+- Ils règlent le problème pour de bon : la pièce ne grandit plus, et ce qu'on
+  vient changer le plus — l'avatar — remonte de 400 px.
+- Ils ne demandent rien de neuf : la grille des avatars, l'essai, la barre,
+  le point rouge, déjà appris. La fiche ajoute une feuille par réglage, le
+  miroir un geste et une carte qui change de forme.
+- Ils parlent ta langue : pas une phrase, des images. Le rail se lit d'un
+  coup d'œil ; chaque case est l'avatar lui-même, à la taille des cases
+  des avatars, au lieu de pastilles de 28 px.
+- Ils gardent la porte ouverte : les tenues se posent au-dessus du rail sans
+  rien changer, et la grande vue du miroir peut venir plus tard comme un
+  appui long sur une case.
+
+Ce qu'il faudrait trancher avant de l'écrire :
+
+1. **La ligue et le motif dans un même calque « Bordure »** (la planche), ou
+   deux calques — six au rail, plus serrés.
+2. **« Version rare » quitte la carte** pour devenir un calque, ou reste où
+   elle est.
+3. **Le calque retenu** quand on revient : celui qu'on a quitté, ou toujours
+   « Avatar ».
+4. **Les tenues** : maintenant, plus tard, jamais.
+
+Ce que l'écrire toucherait : les panneaux de `Apparence.tsx` (un rail, et
+chaque réglage en grille — `MesFinitions`, `MesBordures`, `MesMotifs`,
+`MonSceau` gardent leurs règles d'essai), la feuille « Sa version » de
+`Loge.tsx`, le bloc « La loge » de `styles.css`, les épreuves qui comptent
+les pastilles (`style.test.ts`, `un-seul-avatar.test.ts`, `loge.test.ts`,
+`nouveautes.test.ts`) et ce que `rendu-loge.ts` doit voir tenir
+(`DOIT_TENIR` : deux rangées d'avatars en 360 × 640 au lieu d'aucune).
+
+## Le rendu final (`planche-final-*.jpg`)
+
+Les calques, et les tenues en paquet de cartes. Léa a ici huit légendaires,
+deux matières taillées dans son Phénix, et les Comètes tout juste sorties de
+son coffre ; Tom vient de créer son profil.
+
+### Le tiroir, puis le paquet
+
+Le premier rendu final posait les tenues dans le tiroir demandé — une
+languette au bord droit de la carte, un panneau de 132 px qui sort à droite
+(`planche-final-tiroir.jpg`). Le propriétaire, devant lui : « Est-ce que tu
+penses que le tiroir est la meilleure solution ? Tu as carte blanche si tu
+trouves pas ça bien esthétiquement ou ergonomiquement parlant. » Regardé à
+l'écran, il ne l'est pas :
+
+- **Il cache ce qu'on essaie.** Sorti, il couvre la moitié droite de la
+  carte — le prénom, le titre, la vitrine — et deux colonnes de la grille ;
+  on juge une tenue sur la moitié d'une carte.
+- **Le bord droit de l'écran est au téléphone.** Sur Android, glisser depuis
+  un bord, c'est « Retour » : le geste qui sort un tiroir quitterait la loge.
+  Il ne s'ouvre donc qu'au toucher de sa languette — 30 px visibles, en haut
+  de l'écran, loin du pouce.
+- **Une icône seule au bord ne se remarque pas** : rien ne dit qu'il y a des
+  tenues derrière elle.
+- **Deux surfaces l'une sur l'autre** — le tiroir, puis la barre « Porter » :
+  l'écran se charge.
+
+**Le paquet** garde ce que le tiroir voulait — rien ne se voit tant qu'on ne
+s'en sert pas — sans ses défauts. **Les tenues sont des cartes** : la carte
+de la loge en est déjà une, que l'on touche pour la voir en grand et dont on
+glisse les faces (« J'aime beaucoup retourner la carte », le 20 octobre).
+
+- **Derrière la carte, la tranche des autres** — deux cartes décalées de
+  4 et 8 px : il y en a d'autres, sans un mot.
+- **À son coin, un cintre et un point par tenue**, là où était « Version
+  rare » : la tenue montrée s'allonge en or, celle qu'elle porte garde son
+  anneau. Rien de plus haut : la place était libre.
+- **Le doigt glisse la carte** — n'importe où sur elle, jamais depuis le bord
+  de l'écran : à gauche la suivante, à droite la précédente, comme la carte
+  d'un joueur. La tenue vient devant, à l'essai : son nom à la place
+  d'« Aperçu », les calques en pointillé, la barre « Porter ». Un toucher
+  ouvre toujours la carte en grand ; chaque point est un bouton (« La mer »),
+  pour qui ne glisse pas.
+- **La carte reste entière** : ce qu'on essaie est ce que la salle verra.
+- **Le cintre ouvre la liste** (« Mes tenues ») : toutes d'un coup d'œil,
+  celle qu'elle porte en tête ; renommer, retirer ; « Garder ce que je
+  porte » au pied — un essai en cours compris : on compose avec les calques,
+  on garde. La feuille s'arrête sous la carte, qui reste nette au-dessus.
+
+Ce qu'il coûte : 8 px sous la carte, pour sa tranche (ses gemmes à 375 px au
+lieu de 367) ; et un geste à découvrir — la tranche et les points le
+suggèrent, et la première visite peut faire frémir la carte une fois vers la
+gauche. Le tiroir reste sur la planche, pour comparer.
+
+### Le look, pas le palmarès
+
+Le propriétaire, devant le paquet : « Mais du coup, c'est la carte entière
+pas uniquement l'avatar ? », puis : « tu penses qu'il faut tout ou juste
+l'avatar qui change ? » La première maquette du paquet ne changeait que
+l'avatar — et l'on glissait une carte entière pour qu'un petit rond change.
+Une tenue, c'est **le look : l'avatar et ses calques, et le fond de la
+carte**. **Le titre et la vitrine restent les siens**, d'une tenue à
+l'autre.
+
+- **Le fond fait le geste.** Glisser une carte et n'en voir changer que
+  l'avatar, c'est un geste trop grand pour ce qu'il fait ; avec le fond, la
+  carte entière change d'ambiance — le Kraken sous ses méduses, le Dragon
+  dans son antre. Et le fond s'achète pour aller avec un avatar : c'est de
+  l'habillage.
+- **Le titre et la vitrine disent ce qu'elle a fait**, pas comment elle
+  s'habille. Ils bougent avec ses trophées : gardés dans chaque tenue, il
+  faudrait refaire ses six tenues à chaque haut fait, ou une vieille tenue
+  ressortirait la vitrine d'il y a trois mois. C'est la même personne dans
+  une autre tenue : son nom, son titre, son palmarès la suivent.
+- **Le thème et la gerbe** ne sont pas sur la carte (« Toi seul ») : ils
+  restent hors des tenues.
+
+### Les quatre réponses
+
+1. **La ligue et le motif dans un même calque « Bordure ».** À l'œil, c'est
+   une seule chose ; la ligue tient sur une ligne (huit choix au plus), le
+   motif a sa grille dessous. Le rail garde cinq calques de 63 px en 360 de
+   large ; à six, chacun n’en aurait plus que 52.
+2. **« Version rare » quitte la carte pour son calque « Version ».** Tout ce
+   qui habille l'avatar est au même endroit, la feuille « Sa version »
+   disparaît (ses matières ont leur grille), et la carte perd sa dernière
+   cible de doigt sous 44 px (30, notée dans `profil.md`). À sa place, le
+   cintre et les points des tenues. Le calque paraît dès qu'elle a un
+   Éclat — il ne saute pas d'un avatar à l'autre : sur un avatar qui n'a
+   pas éclaté, il s'éteint et ne montre que sa version d'origine. « Sceau »
+   de même, dès un légendaire scellé. Un nouveau venu n'a que trois
+   calques.
+3. **La loge s'ouvre sur « Avatar »** — on vient surtout en changer —, sauf
+   quand un calque a du neuf (il s'ouvre sur le premier, comme la loge sur
+   la première pièce qui en a) ou qu'un lien « Essayer » en demande un — un
+   motif de la boutique, du coffre ou de « Ma collection » ouvre « Bordure »,
+   une finition « Finition ». Le temps d'une visite, une pièce quittée puis
+   reprise retrouve le calque où l'on était.
+4. **Les tenues, en paquet, dès maintenant.**
+   - **Six au plus** (un choix de produit) : assez pour la soirée, les
+     duels, une fête, sans devenir une seconde collection.
+   - **« Garder » retient le look** — l'avatar, sa version, sa finition,
+     sa bordure et son motif, son sceau, et le fond —, sous le nom de son
+     avatar (« Le Kraken »), qu'on renomme dans la liste.
+   - **Une tenue s'essaie comme le reste** : rien n'est porté avant
+     « Porter ».
+   - **Une pièce qui n'est plus à elle** — un légendaire repris avec une
+     soirée retirée — se porte sans elle : le serveur valide chaque champ
+     comme aujourd'hui (`PUT /api/joueur/moi`), et la tenue garde le reste.
+   - **Ni le titre ni la vitrine**, qui la suivent d'une tenue à l'autre ;
+     ni le thème ni la gerbe, qui ne sont pas sur la carte (plus haut, « Le
+     look, pas le palmarès »).
+   - **Sans tenue gardée**, ni tranche ni point : le cintre seul, qui ouvre
+     la liste vide et son « Garder ce que je porte ».
+
+### Ce que montre la planche
+
+- **Les calques** (`planche-final-calques.jpg`) : « Avatar » d'office, ses
+  gemmes à 375 px et ses deux rangées de légendaires au-dessus du menu ;
+  « Version » — d'origine, rare, jade, obsidienne ; « Finition », chacune
+  portée par son avatar, les Abysses à l'essai ; « Sceau », montré ou
+  masqué. Le point rouge des Comètes est sur « Bordure » à chaque écran.
+- **La bordure** (`planche-final-bordure.jpg`) : la ligue sur une ligne, les
+  motifs dessous, les Étoiles à l'essai ; défilée jusqu'aux Comètes, la
+  carte collée en haut, son paquet avec elle ; Tom, ses trois calques, son
+  cintre seul, et sa bordure qui lui dit comment l'ouvrir — la phrase
+  d'aujourd'hui, sans son petit titre : le calque le dit déjà.
+- **Les tenues** (`planche-final-tenues.jpg`) : au repos ; le doigt qui
+  glisse « Hiver » (la Chouette sur sa nuit) vers la droite, « La mer »
+  dessous ; « La mer » devant — le Kraken sur ses abysses, son nom sur la
+  carte, son titre et sa vitrine toujours les siens, « Porter » ; la liste
+  du cintre, chaque tenue sur son fond.
+- **Les tailles** (`planche-final-tailles.jpg`) : un grand téléphone
+  (412 × 915), la place de cinq rangées d'avatars ; l'Ivoire.
+- **Le tiroir** (`planche-final-tiroir.jpg`) : la première version, pour
+  comparer.
+
+### Ce que l'écrire toucherait
+
+Le client : la pièce « Avatar » d'`Apparence.tsx` (le rail, et chaque
+réglage en grille ; les règles de l'essai ne bougent pas), la carte de
+`LogeTete.tsx` (sans « Version rare » ; son paquet, ses points et le geste
+qui la glisse — celui de la carte d'un joueur, `CarteJoueur.tsx`), la
+feuille « Sa version » de `Loge.tsx` (partie), la liste des tenues (une
+`Feuille`), `essaiDemande` (le calque qu'un lien demande), le bloc « La
+loge » de `styles.css`. Le serveur : `profile_tenues` (le profil, le nom, son
+look en JSON), deux routes — garder, retirer ou renommer —, la
+documentation de la table et des routes. Les épreuves : celles qui comptent
+les pastilles et lisent la pièce (`style.test.ts`, `un-seul-avatar.test.ts`,
+`loge.test.ts`, `nouveautes.test.ts`), une de plus pour les tenues ; et
+`rendu-loge.ts`, qui devra voir tenir deux rangées d'avatars en 360 × 640
+au lieu d'aucune, et la carte glissée sans que rien ne déborde de côté.

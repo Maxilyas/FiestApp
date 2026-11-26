@@ -10,7 +10,7 @@
 // carte en montre, ce que la barre en dit, et ce qui est nouveau depuis le
 // dernier passage. La page les lit (`Loge.tsx`), les tests aussi.
 
-import { COLLECTION } from './avatars'
+import { AVATARS, COLLECTION } from './avatars'
 import { brancheDe, portrait, portraitsOuverts } from './branches'
 import { compagnonDe, formeDeCompagnon, formesOuvertes } from './compagnons'
 import { vitrineDeLaCarte, type CarteDeJoueur } from './carte'
@@ -20,7 +20,7 @@ import { AUCUNE_GERBE, gerbe } from './gerbes'
 import { cleRangee, hautsFaitsGagnes } from './hautsfaits'
 import { cibleEclat, legendaire } from './legendaires'
 import { NOM_FINITION, clesQuiBrillent, eclatChez, finitionSur, meilleureFinition, sceauVisible, type FinitionChoisie, type PublicProfileDetail } from './profil'
-import { NOM_DE_LA_MATIERE, type Matiere } from './matieres'
+import { NOM_DE_LA_MATIERE, estUneMatiere, matiereOuverte, type Matiere } from './matieres'
 import { recompensesDe } from './proches'
 import { cleDeMaitre, maitresDe, nomDuTitre } from './sentiers'
 import { NOM_DE_RARETE, THEMES, campDuTheme, theme } from './themes'
@@ -28,6 +28,7 @@ import { AUCUNE_PLAQUE } from './plaques'
 import { AUCUNE_BORDURE, CRANS_D_UNE_BORDURE, NOM_DE_LA_BORDURE, bordurePortee, type ChoixDeBordure } from './duels'
 import { motif } from './motifs'
 import { PIECES_DE_LA_LOGE, type PieceDeLaLoge, type VusDeLaLoge } from './piecesDeLaLoge'
+import type { LookDUneTenue } from './tenues'
 
 // Les six pièces vivent à part, sans catalogue : la page du profil montre
 // sa carte et sa rangée avant que ces règles n'arrivent.
@@ -459,4 +460,118 @@ export function avatarsNeufs(neufs: Iterable<string> = []): (cle: string) => boo
 /** Une bordure de ligue neuve : sa ligue vient d'être atteinte, ou elle vient d'être sertie, à son douzième cran. */
 export function bordureNeuve(ligue: string, neufs: ReadonlySet<string> = new Set()): boolean {
   return neufs.has(`bordure:${ligue}`) || neufs.has(`bordure:${ligue}:sertie`)
+}
+
+// ── Les calques de la pièce « Avatar » ───────────────────────────────────
+// La maquette du 26 novembre 2026 (`retours/2026-11-26/la-piece-avatar/`,
+// « calques + tenues c'est le top », le propriétaire) : la pièce empilait un
+// réglage par rangée, chacune montrant tout ce qu'il avait — vingt-deux
+// motifs sur quatre lignes de pastilles chez une collectionneuse, et ses
+// avatars à 192 px sous le menu. Un rail de calques les remplace, chacun son
+// aperçu ; un seul calque ouvert, sa grille dessous.
+
+/** Les calques de l'avatar, dans l'ordre du rail. */
+export type CalqueDeLAvatar = 'avatar' | 'version' | 'finition' | 'bordure' | 'sceau'
+
+/**
+ * Ses calques : l'avatar, la finition et la bordure pour tous ; la version
+ * dès son premier Éclat, le sceau dès son premier légendaire scellé. Ils ne
+ * dépendent que de ce qu'il a, jamais de l'avatar essayé : le rail ne saute
+ * pas sous le doigt — sur un avatar sans Éclat, la version s'éteint.
+ */
+export function calquesDe(profil: Pick<PublicProfileDetail, 'eclats'> & Partial<Pick<PublicProfileDetail, 'scelles'>>): CalqueDeLAvatar[] {
+  return [
+    'avatar',
+    ...(profil.eclats.length > 0 ? (['version'] as const) : []),
+    'finition',
+    'bordure',
+    ...((profil.scelles ?? []).length > 0 ? (['sceau'] as const) : []),
+  ]
+}
+
+/** Le calque d'une pièce de l'essai : où l'on règle ce qu'il change. */
+export function calqueDeLEssai(essai: Essai): CalqueDeLAvatar | null {
+  if (essai.eclat) return 'version'
+  if (essai.finition !== undefined) return 'finition'
+  if (essai.bordure !== undefined || essai.motif !== undefined) return 'bordure'
+  if (essai.sceau !== undefined) return 'sceau'
+  if (essai.avatar !== undefined || essai.legendaire !== undefined) return 'avatar'
+  return null
+}
+
+/**
+ * Les calques qui ont du neuf, parmi les nouveautés de la pièce : une
+ * finition, une bordure ouverte ou sertie ; le reste — un avatar, un Éclat —
+ * se trouve dans la grille des avatars. Le rouge se suit jusqu'à sa case.
+ */
+export function calquesNeufs(neufs: Iterable<string> = []): Set<CalqueDeLAvatar> {
+  const n = new Set<CalqueDeLAvatar>()
+  for (const k of neufs) n.add(k.startsWith('finition:') ? 'finition' : k.startsWith('bordure:') ? 'bordure' : 'avatar')
+  return n
+}
+
+/**
+ * Le calque où la pièce s'ouvre : celui qu'un lien « Essayer » demande (un
+ * motif ouvre « Bordure »), sinon le premier qui a du neuf, sinon « Avatar » —
+ * on vient surtout changer d'avatar.
+ */
+export function calqueDOuverture(essai: Essai, neufs: Iterable<string>, calques: readonly CalqueDeLAvatar[]): CalqueDeLAvatar {
+  const demande = calqueDeLEssai(essai)
+  if (demande && calques.includes(demande)) return demande
+  const n = calquesNeufs(neufs)
+  return calques.find(c => n.has(c)) ?? 'avatar'
+}
+
+// ── Les tenues ───────────────────────────────────────────────────────────
+// Le look, pas le palmarès (`shared/tenues.ts`) : ce qu'une tenue garde, ce
+// qu'elle remet à l'essai, et son nom d'office.
+
+/** Ce qu'il porte, gardé en tenue : l'avatar et ses calques, et le fond de sa carte. */
+export function lookPorte(p: Tenue & Pick<PublicProfileDetail, 'eclats'>): LookDUneTenue {
+  const montre = { avatar: p.avatar, legendaire: p.legendaire ?? null }
+  const cle = cibleDeLEclat(montre, p.eclats)
+  const version = cle && p.eclats.includes(cle) ? eclatChez({ eclats: p.eclats, eclatsEteints: p.eclatsEteints, matieres: p.matieres, matieresPortees: p.matieresPortees }, cle) : null
+  return {
+    avatar: p.avatar,
+    legendaire: p.legendaire ?? null,
+    finition: p.finitionChoisie,
+    bordure: p.bordureChoisie ?? 'auto',
+    motif: p.motifChoisi ?? null,
+    sceau: !p.sceauMasque,
+    fond: p.fond ?? null,
+    eclat: cle && version !== null ? { cle, brille: version !== false, matiere: typeof version === 'string' ? version : null } : null,
+  }
+}
+
+/** Le nom d'office d'une tenue : celui de son avatar (« Le Kraken »), sinon « Ma tenue ». */
+export function nomDUneTenue(look: LookDUneTenue): string {
+  const k = look.legendaire
+  if (!k) return 'Ma tenue'
+  const c = formeDeCompagnon(k)
+  return legendaire(k)?.nom ?? divin(k)?.nom ?? portrait(k)?.nom ?? (c ? compagnonDe(c).nom : 'Ma tenue')
+}
+
+/**
+ * L'essai qui remet une tenue : chaque pièce qu'il a encore — un légendaire
+ * repris avec une soirée retirée, un motif qu'il n'a plus se taisent, et la
+ * tenue se porte sans eux. Le serveur revérifie tout à « Porter »
+ * (`PUT /api/joueur/moi`).
+ */
+export function essaiDeLaTenue(look: LookDUneTenue, profil: PublicProfileDetail): Essai {
+  const a = ceQuIlAPorter(profil).avatar
+  const piece: Essai = { sceau: look.sceau }
+  if (look.legendaire) {
+    if (a.includes(look.legendaire)) piece.legendaire = look.legendaire
+  } else if ((AVATARS as readonly string[]).includes(look.avatar) || a.includes(look.avatar)) piece.avatar = look.avatar
+  if (look.finition === 'auto' || (profil.ouvertes as readonly string[]).includes(look.finition)) piece.finition = look.finition as FinitionChoisie
+  if (look.bordure === 'auto' || look.bordure === AUCUNE_BORDURE || (profil.bordures ?? []).some(b => b.ligue === look.bordure)) piece.bordure = look.bordure as ChoixDeBordure
+  if (look.motif === null || (profil.motifs ?? []).includes(look.motif)) piece.motif = look.motif
+  if (look.fond === null || (profil.fonds ?? []).includes(look.fond)) piece.fond = look.fond
+  let essai = essayer({}, piece, profil)
+  const e = look.eclat
+  if (e && profil.eclats.includes(e.cle)) {
+    const matiere = e.brille && e.matiere && estUneMatiere(e.matiere) && matiereOuverte(profil.matieres?.[e.cle] ?? [], e.matiere) ? e.matiere : null
+    essai = essayer(essai, { eclat: { cle: e.cle, brille: e.brille, matiere } }, profil)
+  }
+  return essai
 }

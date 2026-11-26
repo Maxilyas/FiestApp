@@ -1,3 +1,4 @@
+import type { TenueGardee } from '../../shared/tenues'
 import type {
   AdminDeLaCampagne,
   AmisDeLaFeuille,
@@ -554,6 +555,11 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ motif, porter }),
       }),
+    /** Ses tenues : garder ce qu'il porte (sous ce nom, ou celui de son avatar), renommer, retirer — la liste entière revient. */
+    garderUneTenue: (nom?: string) => req<{ tenues: TenueGardee[] }>('/api/joueur/tenues', { method: 'POST', body: JSON.stringify({ nom }) }),
+    renommerUneTenue: (id: string, nom: string) =>
+      req<{ tenues: TenueGardee[] }>(`/api/joueur/tenues/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify({ nom }) }),
+    retirerUneTenue: (id: string) => req<{ tenues: TenueGardee[] }>(`/api/joueur/tenues/${encodeURIComponent(id)}`, { method: 'DELETE' }),
     /** Acheter un Éclat : il attend en réserve dans la loge. La réserve et le solde reviennent. */
     acheterUnEclat: () =>
       req<{ enReserve: number; confettis: { gagnes: number; depenses: number; solde: number } }>('/api/joueur/eclat', { method: 'POST', body: '{}' }),

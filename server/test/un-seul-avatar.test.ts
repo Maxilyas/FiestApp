@@ -126,9 +126,12 @@ test('dans la loge, chaque bordure entoure ce qu’il porte — un Divin compris
   const sesPastilles = divine.split('finition-choix bordure-choix').slice(1)
   assert.equal(sesPastilles.filter(p => p.includes('av-divin av-bordure')).length, 3, 'le Séraphin dans chaque bordure')
   assert.doesNotMatch(divine, /🦊|av-legendaire|a sa propre lumière/)
-  // Sa finition : « Auto » y est sa propre lumière, à sa teinte, et le dit à l'oreille.
+  // Sa finition : « Auto » y est sa propre lumière, dans sa case — le Séraphin, pas l'emoji —, et le dit à l'oreille ;
+  // sur le rail des calques (le 26 novembre 2026), sa teinte.
   const finitions = await rendu('components/Apparence', 'MesFinitions', { profil: LEA_DIVINE, ...loge })
-  assert.match(finitions, /aria-label="Auto : la lumière de Le Séraphin[^"]*"[^>]*><i class="finition-teinte teinte-divin"/)
+  assert.match(finitions, /aria-label="Auto : la lumière de Le Séraphin"[^>]*><span class="calque-dessin" aria-hidden="true">.*?av-divin/)
+  const rail = await rendu('components/Apparence', 'RailDesCalques', { profil: LEA_DIVINE, essai: {}, calques: ['avatar', 'finition', 'bordure'], actif: 'avatar', neufs: new Set(), onChoisir: () => {} })
+  assert.match(rail, /<i class="finition-teinte teinte-divin"><\/i>/)
   assert.doesNotMatch(finitions, /a sa propre lumière|toujours la plus belle/)
   assert.match(await rendu('components/Apparence', 'MesFinitions', { profil: LEA, ...loge }), /aria-label="Auto, toujours la plus belle : /)
 })

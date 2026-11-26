@@ -468,7 +468,8 @@ try {
       ['ma-carriere', '/profil#carriere', tom, '.piece-tete'],
       ['mon-compagnon-sans', '/profil#compagnon', tom, '.player-shell'],
       ['ma-collection', '/profil#collection', lea, '.collection'],
-      ['la-loge', '/profil#avatar', lea, '.loge-panneau .loge-page-avatars'],
+      // Le rail des calques : la loge s'ouvre sur celui qui a du neuf, pas toujours sur la grille des avatars.
+      ['la-loge', '/profil#avatar', lea, '.loge-panneau .loge-calques'],
       ['boutique', '/boutique', lea, '.grille-themes .article-theme'],
       ['mes-quiz', '/edit', tom, '.menu-barre'],
       ['compte', '/compte', tom, '.menu-barre'],

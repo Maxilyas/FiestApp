@@ -199,6 +199,8 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       ...(duels && { bordures: duels.bordures, victoiresAuDe: duels.victoiresAuDe }),
       // Ses motifs de bordure : ses achats et ses coffres, de mémoire ; ce que ses duels ouvrent, de la lecture d'au-dessus.
       motifs: profiles.motifsTenusDe(rec, duels),
+      // Ses tenues, toujours dites, vides comprises : de sa fiche, sans rien lire de plus.
+      tenues: profiles.tenuesDe(rec),
       ...(vusDeLaLoge !== undefined && { vusDeLaLoge }),
     }
   }
@@ -816,6 +818,40 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       // de n'importe qui, et une veille ne repart plus aux téléphones.
       deps.profilChange(updated.id)
       res.json({ profile: profiles.toPublic(updated) })
+    }),
+  )
+
+  // Ses tenues (`shared/tenues.ts`, le 26 novembre 2026) : garder ce qu'il
+  // porte, renommer, retirer. Chaque réponse rend la liste entière ; porter
+  // une tenue passe par `PUT /api/joueur/moi`, comme tout essai de la loge.
+  app.post(
+    '/api/joueur/tenues',
+    small,
+    wrap(async (req, res) => {
+      noStore(res)
+      const me = await current(req)
+      if (!me) return res.status(401).json({ error: 'Connexion requise' })
+      res.json({ tenues: await profiles.garderUneTenue(me.id, req.body?.nom) })
+    }),
+  )
+  app.put(
+    '/api/joueur/tenues/:id',
+    small,
+    wrap(async (req, res) => {
+      noStore(res)
+      const me = await current(req)
+      if (!me) return res.status(401).json({ error: 'Connexion requise' })
+      res.json({ tenues: await profiles.renommerUneTenue(me.id, req.params.id, req.body?.nom) })
+    }),
+  )
+  app.delete(
+    '/api/joueur/tenues/:id',
+    small,
+    wrap(async (req, res) => {
+      noStore(res)
+      const me = await current(req)
+      if (!me) return res.status(401).json({ error: 'Connexion requise' })
+      res.json({ tenues: await profiles.retirerUneTenue(me.id, req.params.id) })
     }),
   )
 

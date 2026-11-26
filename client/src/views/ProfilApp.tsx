@@ -13,6 +13,7 @@ import { ProfilForm } from '../components/ProfilForm'
 import { tronquer } from '../../../shared/avatars'
 import { pageDeRetour } from '../../../shared/securite'
 import { origineDeLAccueil } from '../../../shared/origines'
+import type { TenueGardee } from '../../../shared/tenues'
 import type { ProfilDAccueil, PublicProfileDetail } from '../../../shared/profil'
 // Le type seul : les règles de la loge viennent avec ses panneaux, à la demande.
 import type { PieceDeLaLoge } from '../../../shared/loge'
@@ -278,6 +279,8 @@ export function ProfilApp() {
   const profilDetaille = profil && 'hautsFaits' in profil ? profil : null
   /** Ce qu'il vient de voir dans sa loge : la page le garde, et ses pastilles se recomptent. */
   const retenirLesVusDeLaLoge = (vus: VusDeLaLoge) => setProfil(p => (p && 'hautsFaits' in p ? { ...p, vusDeLaLoge: vus } : p))
+  // Ses tenues, gardées, renommées, retirées dans la loge : le serveur rend la liste entière, la page la garde.
+  const retenirLesTenues = (tenues: TenueGardee[]) => setProfil(p => (p && 'hautsFaits' in p ? { ...p, tenues } : p))
   useEffect(() => {
     if (profilDetaille && lesPanneaux && lesPanneaux !== 'perdu') lesPanneaux.retenirLesPremiersVus(profilDetaille, retenirLesVusDeLaLoge)
   }, [profilDetaille?.id, lesPanneaux])
@@ -812,7 +815,7 @@ export function ProfilApp() {
           </header>
           {regionDAnnonce}
           {pret ? (
-            <pret.PanneauLoge profil={profil} piece={ecran as PieceDeLaLoge} onPiece={changerDePiece} busy={busy} enregistrer={enregistrer} erreur={erreur} onVus={retenirLesVusDeLaLoge} garde={gardeDeLaLoge} />
+            <pret.PanneauLoge profil={profil} piece={ecran as PieceDeLaLoge} onPiece={changerDePiece} busy={busy} enregistrer={enregistrer} erreur={erreur} onVus={retenirLesVusDeLaLoge} onTenues={retenirLesTenues} garde={gardeDeLaLoge} />
           ) : (
             <LogeEnChemin profil={profil} piece={ecran as PieceDeLaLoge} onPiece={changerDePiece} onOuvrir={ouvrirLaCarte} attente={enChemin} />
           )}

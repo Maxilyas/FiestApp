@@ -195,7 +195,8 @@ import type { ResumeDuCollectionneur } from '../../../shared/collectionneurs'
 import type { ArchiveStore } from '../core/archive'
 import type { CampagneDuProfil, CoteDesDuels } from '../core/campagne'
 import type { ProfileBadge } from '../core/party'
-import type { CeQueLaLogeLit } from '../../../shared/loge'
+import { lookPorte, nomDUneTenue, type CeQueLaLogeLit } from '../../../shared/loge'
+import { NOM_D_UNE_TENUE_MAX, TENUES_MAX, lireLesTenues, memeLook, type TenueGardee } from '../../../shared/tenues'
 import {
   ANNONCES_MONTREES,
   MOTS_MONTRES,
@@ -315,6 +316,13 @@ export interface ProfileRec {
    * plus, comme la version d'origine d'un avatar éclaté.
    */
   sceau: 'cache' | null
+  /**
+   * Ses tenues (`shared/tenues.ts`, le 26 novembre 2026) : du JSON, six au
+   * plus — le look de chacune, gardé tel qu'il le portait, et son nom. Lues à
+   * chaque page du profil (`lireLesTenues`) ; ce qu'une tenue remet se
+   * revérifie quand il la porte, comme tout ce qu'il porte.
+   */
+  tenues: string | null
   /**
    * La plaque de son nom dans les classements (`shared/plaques.ts`) : null,
    * celle du thème qu'il porte, d'office ; `AUCUNE_PLAQUE`, aucune ; sinon la
@@ -1215,6 +1223,13 @@ const annonceDuQg = (r: Row, question: QuestionAuQg | null = null): AnnonceAuQg 
   segment: r.segment == null ? null : (String(r.segment) as SegmentDesAnnonces),
 })
 
+/** Le nom tapé d'une tenue : ses espaces resserrés, borné ; vide, aucun. */
+function nomDeTenue(brut: unknown): string | null {
+  if (typeof brut !== 'string') return null
+  const nom = tronquer(brut.replace(/\s+/g, ' ').trim(), NOM_D_UNE_TENUE_MAX)
+  return nom || null
+}
+
 export class ProfileStore {
   private client: Client
   private profiles = new Map<string, ProfileRec>()
@@ -1969,6 +1984,8 @@ export class ProfileStore {
     await ajouterColonne(this.client, 'profiles', 'bordure', 'TEXT')
     // Le motif de sa bordure, depuis le 26 novembre 2026 : NULL, accordé à son avatar.
     await ajouterColonne(this.client, 'profiles', 'motif', 'TEXT')
+    // Ses tenues, depuis le 26 novembre 2026 : NULL, aucune.
+    await ajouterColonne(this.client, 'profiles', 'tenues', 'TEXT')
     // Le compagnon qu'il installe dans sa niche, parmi ceux qu'il a adoptés.
     await ajouterColonne(this.client, 'profiles', 'niche', 'TEXT')
     // Le sceau de ses légendaires : null, il se montre ; `cache`, il l'a masqué.
@@ -5102,6 +5119,7 @@ export class ProfileStore {
       motif: null,
       niche: null,
       sceau: null,
+      tenues: null,
       plaque: null,
       camp: null,
       envie: null,
@@ -5169,6 +5187,7 @@ export class ProfileStore {
       motif: null,
       niche: null,
       sceau: null,
+      tenues: null,
       plaque: null,
       camp: null,
       envie: null,
@@ -5549,6 +5568,58 @@ export class ProfileStore {
     if (aEclater) await this.depenserUnEclat(id, aEclater)
     if (aTailler) await this.depenserUnEclat(id, cleDeMatiere(aTailler.matiere, aTailler.cle))
     return rec
+  }
+
+  /** Ses tenues, lues de sa fiche. */
+  tenuesDe(p: ProfileRec): TenueGardee[] {
+    return lireLesTenues(p.tenues)
+  }
+
+  /**
+   * Garde ce qu'il porte en tenue (la loge, « Garder ce que je porte ») : le
+   * look de sa fiche, déjà vérifié quand il l'a porté — rien de ce que la page
+   * envoie, sauf son nom. Six au plus ; une tenue qu'il a déjà se refuse en
+   * la nommant.
+   */
+  async garderUneTenue(id: string, nom?: unknown): Promise<TenueGardee[]> {
+    const rec = await this.require(id)
+    const tenues = this.tenuesDe(rec)
+    if (tenues.length >= TENUES_MAX) throw new Error(`${TENUES_MAX} tenues au plus : retires-en une d’abord`)
+    const look = lookPorte({ ...this.toPublic(rec), fond: rec.fond })
+    const deja = tenues.find(t => memeLook(t.look, look))
+    if (deja) throw new Error(`Tu la gardes déjà : « ${deja.nom} »`)
+    tenues.push({ id: randomUUID().slice(0, 8), nom: nomDeTenue(nom) ?? nomDUneTenue(look), look })
+    return this.ecrireLesTenues(rec, tenues)
+  }
+
+  /** Renomme l'une de ses tenues. */
+  async renommerUneTenue(id: string, tenue: unknown, nom: unknown): Promise<TenueGardee[]> {
+    const rec = await this.require(id)
+    const tenues = this.tenuesDe(rec)
+    const t = tenues.find(x => x.id === tenue)
+    if (!t) throw new Error('Cette tenue n’existe plus')
+    const nouveau = nomDeTenue(nom)
+    if (!nouveau) throw new Error('Il faut un nom à ta tenue')
+    t.nom = nouveau
+    return this.ecrireLesTenues(rec, tenues)
+  }
+
+  /** Retire l'une de ses tenues : ce qu'il porte ne bouge pas. */
+  async retirerUneTenue(id: string, tenue: unknown): Promise<TenueGardee[]> {
+    const rec = await this.require(id)
+    const tenues = this.tenuesDe(rec)
+    if (!tenues.some(x => x.id === tenue)) throw new Error('Cette tenue n’existe plus')
+    return this.ecrireLesTenues(
+      rec,
+      tenues.filter(x => x.id !== tenue),
+    )
+  }
+
+  private async ecrireLesTenues(rec: ProfileRec, tenues: TenueGardee[]): Promise<TenueGardee[]> {
+    const json = tenues.length > 0 ? JSON.stringify(tenues) : null
+    await this.client.execute({ sql: 'UPDATE profiles SET tenues = ? WHERE id = ?', args: [json, rec.id] })
+    rec.tenues = json
+    return tenues
   }
 
   async touchSeen(id: string): Promise<void> {
@@ -7829,6 +7900,7 @@ export class ProfileStore {
       motif: choixDeMotif(r.motif),
       niche: typeof r.niche === 'string' && r.niche ? r.niche : null,
       sceau: r.sceau === 'cache' ? 'cache' : null,
+      tenues: typeof r.tenues === 'string' && r.tenues ? r.tenues : null,
       plaque: typeof r.plaque === 'string' && r.plaque ? r.plaque : null,
       camp: campConnu(r.camp) ? r.camp : null,
       envie: typeof r.envie === 'string' && r.envie ? r.envie : null,

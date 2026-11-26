@@ -328,16 +328,15 @@ test('chaque pièce qu’on porte a son panneau dans la loge : sa carte en tête
   assert.doesNotMatch(source('styles.css'), /\.ancre-du-vestiaire/)
 })
 
-test('la loge, sur l’avatar : sa carte collée en tête, ses finitions en pastilles, ses avatars à lui — le reste, dans la collection', async () => {
+test('la loge, sur l’avatar : sa carte collée en tête, le rail de ses calques, ses avatars à lui — le reste, dans la collection', async () => {
   const html = await laLoge('avatar')
   assert.match(html, /^(<link rel="preload"[^>]*\/>)*<div class="loge"><div class="loge-collante"><div class="loge-carte/, 'sa carte en tête : c’est elle qui change')
-  // Ses finitions sur une rangée de pastilles (la maquette 3) : « Auto », celle
-  // qu'il porte d'office ; dépliées en grandes cases, elles repoussaient ses
-  // avatars de plus d'un écran.
-  // Peu de pastilles — sa première finition — s'alignent à gauche (`rangee-courte`).
-  assert.match(html, /<div class="loge-finitions"><span class="loge-sous-titre" id="loge-finitions-titre">Finition<\/span><div class="loge-finitions-rangee rangee-courte" role="group" aria-labelledby="loge-finitions-titre"><button type="button" class="finition-choix selected porte" aria-pressed="true" aria-label="Auto, toujours la plus belle : Argent">/)
-  assert.doesNotMatch(html, /class="finitions"|aria-controls="mes-finitions"/)
-  assert.ok(html.indexOf('loge-finitions') < html.indexOf('gemmes-loge'), 'la finition avant les avatars')
+  // Ses réglages en calques (le 26 novembre 2026, `retours/2026-11-26/la-piece-avatar/`) : le rail d'abord — chacun
+  // l'aperçu de ce qu'il porte —, « Avatar » ouvert d'office. Ses finitions, sur une rangée de pastilles jusque-là (la
+  // maquette 3), ont leur calque ; dépliées en grandes cases sous la carte, elles repoussaient ses avatars d'un écran.
+  assert.match(html, /<div class="loge-calques" role="tablist" aria-label="Ce que je règle de mon avatar"[^>]*><button id="calque-avatar" type="button" role="tab" aria-selected="true" aria-controls="loge-calque" tabindex="0" class="loge-calque">/)
+  assert.doesNotMatch(html, /class="finitions"|aria-controls="mes-finitions"|class="loge-finitions"/)
+  assert.ok(html.indexOf('loge-calques') < html.indexOf('gemmes-loge'), 'le rail avant les avatars')
   // Seulement ce qu'il a : ni cadenas, ni finition ni bordure éteinte (le 13 octobre 2026).
   assert.doesNotMatch(html, /loge-ferme|finition-fermee|bordure-fermee/)
   // Ce qui reste, et où le gagner : un lien vers sa page de l'album, compté.
@@ -394,24 +393,21 @@ test('la loge, sur la gerbe : les siennes seulement, « Aucune » se demande —
   // éteintes, chacune son niveau (le 12 octobre 2026 : « il manque les
   // finitions 15, 20, 25 ») ; le lendemain, le propriétaire ne voulait plus
   // voir dans la loge ce qu'il n'avait pas. Elles se comptent au bout de la
-  // rangée, et mènent à leur ligne de la collection, qui dit le niveau de chacune.
+  // grille, et mènent à leur ligne de la collection, qui dit le niveau de chacune.
   const avatar = await rendu('components/Apparence', 'MesFinitions', { profil: complet, ...loge })
   assert.doesNotMatch(avatar, /finition-fermee|Niv\. \d/)
   assert.match(
     avatar,
-    /<a class="finition-choix pastille-a-gagner" href="#collection-finitions" aria-label="11 finitions à gagner : où et comment, dans « Ma collection »"><i class="finition-teinte teinte-a-gagner" aria-hidden="true">\+11<\/i><span aria-hidden="true">à gagner<\/span><\/a>/,
+    /<a class="loge-case calque-case calque-a-gagner" href="#collection-finitions" aria-label="11 finitions à gagner : où et comment, dans « Ma collection »"><b aria-hidden="true">\+11<\/b><span class="calque-nom" aria-hidden="true">à gagner<\/span><\/a>/,
   )
   const auNiveau12 = await rendu('components/Apparence', 'MesFinitions', { profil: { ...complet, ouvertes: ['mat', 'argent', 'or', 'holo'], finition: 'holo' }, ...loge })
-  assert.equal(auNiveau12.match(/<button type="button" class="finition-choix/g)?.length, 5, 'Auto, et les quatre qu’il a')
-  assert.match(auNiveau12, /aria-label="8 finitions à gagner[^"]*"><i class="finition-teinte teinte-a-gagner" aria-hidden="true">\+8<\/i>/)
+  assert.equal(auNiveau12.match(/<button type="button" class="loge-case calque-case/g)?.length, 5, 'Auto, et les quatre qu’il a')
+  assert.match(auNiveau12, /aria-label="8 finitions à gagner[^"]*"><b aria-hidden="true">\+8<\/b>/)
   const auSommet = await rendu('components/Apparence', 'MesFinitions', { profil: { ...complet, ouvertes: [...FINITIONS], finition: 'constellation' }, ...loge })
-  assert.doesNotMatch(auSommet, /pastille-a-gagner/, 'toutes gagnées : rien à compter')
-  // Huit pastilles se serrent d'un bord à l'autre ; deux ou trois s'alignent à gauche ; au sommet — Auto et les
-  // douze finitions du niveau 50, depuis le 1er novembre 2026 —, elles se rangent en grille.
-  const auVingt = await rendu('components/Apparence', 'MesFinitions', { profil: { ...complet, ouvertes: FINITIONS.slice(0, 6), finition: 'aurore' }, ...loge })
-  assert.match(auVingt, /class="loge-finitions-rangee"/, 'Auto, ses six, et ce qui reste : huit')
-  assert.match(auSommet, /class="loge-finitions-rangee rangee-longue"/)
-  assert.match(avatar, /class="loge-finitions-rangee rangee-courte"/)
+  assert.doesNotMatch(auSommet, /calque-a-gagner/, 'toutes gagnées : rien à compter')
+  // Une grille de calque, quatre par rangée, quel qu'en soit le nombre : en pastilles, elles se serraient, s'alignaient
+  // à gauche ou passaient sur deux lignes selon leur compte — au sommet, Auto et les douze du niveau 50.
+  for (const html of [avatar, auNiveau12, auSommet]) assert.match(html, /<div class="loge-grille calque-grille" role="group" aria-label="Mes finitions">/)
   // Dans la collection, chaque gerbe se touche pour éclater, même à gagner (`AlbumDuStyle`).
   const STYLE = source('components/AlbumDuStyle.tsx')
   assert.match(STYLE, /if \(partie === 'gerbes'\) setEclat\(e => \(\{ cle: o\.cle, n: \(e\?\.n \?\? 0\) \+ 1 \}\)\)/)
