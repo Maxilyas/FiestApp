@@ -234,7 +234,8 @@ async function solo() {
   await patienter(800)
   await page.screenshot({ path: path.join(sortie, '04d-sa-carte.png') })
   await page.keyboard.press('Escape')
-  await aller('/profil#avatar', '.loge-panneau .loge-page-avatars')
+  // Le rail des calques : la loge s'ouvre sur celui qui a du neuf, pas toujours sur la grille des avatars.
+  await aller('/profil#avatar', '.loge-panneau .loge-calques')
   await photo(page, '05-loge')
   // La carte de la loge, collée en haut quand la page défile : la niche repliée à son coin.
   await page.mouse.wheel(0, 360)

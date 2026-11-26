@@ -160,6 +160,8 @@ export function CarteDeLaLoge({
               {/* La pilule se voit sur 30 px ; le bouton se touche sur 44, sans grandir. */}
               <span className="loge-tenues-pilule" aria-hidden="true">
                 <Icon name="hanger" />
+                {/* Sans tenue, le cintre dit son nom : seul dans son rond, il ne disait pas à quoi il sert (le 26 novembre 2026). */}
+                {paquet.noms.length === 0 && <span className="loge-tenues-mot">Tenues</span>}
                 {paquet.noms.map((nom, i) => (
                   <i key={i} className={'loge-point' + (i === paquet.montree ? ' montree' : '') + (i === paquet.portee ? ' portee' : '')} />
                 ))}

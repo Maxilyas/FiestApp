@@ -13,6 +13,7 @@ import { readFileSync } from 'node:fs'
 import React from 'react'
 import { demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { AVATARS } from '../../shared/avatars'
+import { meilleureFinition } from '../../shared/profil'
 import { NOM_D_UNE_TENUE_MAX, TENUES_MAX, laTenuePortee, lireLesTenues, lireUnLook, memeLook, type LookDUneTenue, type TenueGardee } from '../../shared/tenues'
 import { calqueDOuverture, calqueDeLEssai, calquesDe, calquesNeufs, essaiDeLaTenue, lookPorte, nomDUneTenue } from '../../shared/loge'
 
@@ -242,10 +243,12 @@ test('sur la carte de la loge : la tranche des autres tenues, le cintre et un po
     tete,
     /<button type="button" class="loge-tenues" aria-haspopup="dialog" aria-label="Mes tenues, 3 gardées"><span class="loge-tenues-pilule" aria-hidden="true"><svg[^>]*>.*?<\/svg><i class="loge-point montree portee"><\/i><i class="loge-point"><\/i><i class="loge-point"><\/i><\/span><\/button>/,
   )
-  // Sans tenue : le cintre seul, sans tranche derrière la carte.
+  // Sans tenue : le cintre et son nom, sans tranche derrière la carte — seul dans son rond, il ne disait pas à quoi il
+  // sert (le 26 novembre 2026). Une tenue gardée, ses points prennent la place du mot.
   const seul = await rendu('components/LogeTete', 'LogeEnChemin', { profil: { ...LEA, tenues: [] }, piece: 'avatar', onPiece: () => {}, attente: null })
   assert.match(seul, /<div class="loge-collante"><div class="loge-carte/)
-  assert.match(seul, /aria-label="Mes tenues"><span class="loge-tenues-pilule" aria-hidden="true"><svg[^>]*>.*?<\/svg><\/span><\/button>/)
+  assert.match(seul, /aria-label="Mes tenues"><span class="loge-tenues-pilule" aria-hidden="true"><svg[^>]*>.*?<\/svg><span class="loge-tenues-mot">Tenues<\/span><\/span><\/button>/)
+  assert.doesNotMatch(tete, /loge-tenues-mot/)
   // « Version rare » n'est plus sur la carte : son calque l'a reprise.
   assert.doesNotMatch(tete, /loge-version|Version rare/)
 
@@ -270,4 +273,48 @@ test('sur la carte de la loge : la tranche des autres tenues, le cintre et un po
   const CSS = source('styles.css')
   assert.match(CSS, /\.loge-carte \{ touch-action: pan-y pinch-zoom; \}/)
   assert.match(CSS, /@media \(prefers-reduced-motion: reduce\) \{\s*\.loge-carte-tenue \{ transform: none; \}/)
+})
+
+test('le rail dit ce que la carte porte : l’avatar dans sa version, la gemme pour la version, une pastille à la fois — et chaque finition sa teinte', async () => {
+  // Le retour sur l'écran fini (le 26 novembre 2026) : « Avatar » et « Sceau » montraient le Phénix d'origine, orange,
+  // sous le Phénix de glace de la carte — on croyait voir un autre avatar.
+  const rail = (profil: object = {}, essai: object = {}, neufs: string[] = []) =>
+    rendu('components/Apparence', 'RailDesCalques', { profil: { ...LEA, ...profil }, essai, calques: calquesDe({ ...LEA, ...profil }), actif: 'avatar', neufs: new Set(neufs), onChoisir: () => {} })
+  const calque = (html: string, c: string) => html.split(`id="calque-${c}"`)[1].split('</button>')[0]
+  const html = await rail()
+  assert.match(calque(html, 'avatar'), /av-eclat/, 'l’avatar dans sa version rare, comme la carte')
+  assert.match(calque(html, 'sceau'), /av-eclat/, 'le sceau sur le Phénix qu’il montre')
+  // « Version » : la gemme de l'Éclat — l'avatar est déjà à côté. Rare, ses couleurs ; d'origine, grise ; taillée, sa matière.
+  assert.match(calque(html, 'version'), /<i class="loge-gemme-eclat"><\/i>/)
+  assert.match(calque(await rail({ eclatsEteints: ['lg:phenix'] }), 'version'), /<i class="loge-gemme-eclat d-origine"><\/i>/)
+  assert.match(calque(await rail({ matieresPortees: { 'lg:phenix': 'jade' } }), 'version'), /<i class="loge-gemme-eclat av-matiere-jade"><\/i>/)
+  // L'essai d'origine : l'avatar, le sceau et la gemme le suivent.
+  const origine = await rail({}, { eclat: { cle: 'lg:phenix', brille: false, matiere: null } })
+  assert.doesNotMatch(calque(origine, 'avatar'), /av-eclat/)
+  assert.doesNotMatch(calque(origine, 'sceau'), /av-eclat/)
+  assert.match(calque(origine, 'version'), /d-origine/)
+
+  // Une pastille à la fois au coin d'un calque : le neuf d'abord, l'étincelle d'« Auto » une fois vu.
+  assert.match(calque(html, 'bordure'), /class="calque-auto"/)
+  const neuve = calque(await rail({}, {}, ['bordure']), 'bordure')
+  assert.match(neuve, /class="loge-neuf"/)
+  assert.doesNotMatch(neuve, /calque-auto/)
+
+  // La grille du sceau : le Phénix dans sa version, comme le rail.
+  const sceau = await rendu('components/Apparence', 'MonSceau', { profil: LEA, essai: {}, essayer: () => {}, busy: false })
+  assert.equal([...sceau.matchAll(/av-eclat/g)].length, 2, 'Montré et Masqué, le Phénix rare')
+
+  // Chaque finition sa teinte devant son nom : sur un avatar peint, Mat, Argent et Or se ressemblaient. « Auto », celle
+  // de la plus belle.
+  const finitions = await rendu('components/Apparence', 'MesFinitions', { profil: LEA, essai: {}, essayer: () => {}, busy: false })
+  const noms = [...finitions.matchAll(/<span class="calque-nom" aria-hidden="true">(?:<i class="finition-teinte teinte-(\w+)"><\/i>)?([^<]+)<\/span>/g)].map(m => [m[1], m[2]])
+  assert.deepEqual(noms, [
+    [meilleureFinition(LEA.niveau), 'Auto'],
+    ['mat', 'Mat'],
+    ['argent', 'Argent'],
+    ['or', 'Or'],
+    ['holo', 'Holo'],
+    [undefined, 'à gagner'],
+  ])
+  assert.match(source('styles.css'), /\.calque-nom \.finition-teinte \{ display: inline-block;/)
 })

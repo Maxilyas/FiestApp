@@ -84,8 +84,10 @@ try {
   await page.waitForSelector('.identite-ligne .av-bordure')
   await photo('2-profil')
 
-  // La loge : la rangée « Bordure » sous la finition ; une autre essayée sur sa carte.
+  // La loge : la rangée de ses ligues, dans le calque « Bordure » (le 26 novembre 2026) ; une autre essayée sur sa carte.
   await page.goto(`${banc.url}/profil#avatar`)
+  await page.waitForSelector('.loge-panneau .loge-calques')
+  await page.click('#calque-bordure')
   await page.waitForSelector('.loge-bordures .bordure-choix')
   await photo('3-loge')
   await page.locator('.loge-bordures').scrollIntoViewIfNeeded()
@@ -101,8 +103,9 @@ try {
   await page.waitForSelector('.duels-ligne .av-bordure')
   await photo('4-classement')
   await photo('4-classement-pleine', true)
-  // La carte du maître, et son avatar en grand.
-  await page.locator('.duels-ligne', { hasText: 'Tom' }).click()
+  // La carte du maître, et son avatar en grand — sur sa marche du podium depuis le 19 novembre 2026 : les trois premiers
+  // sortent de la liste (`PodiumDuClassement`), et sa ligne, qu'on touchait, n'y est plus.
+  await page.locator('button.pdc-joueur[aria-label*="Tom"], .duels-ligne:has-text("Tom")').first().click()
   await page.waitForSelector('.carte-joueur .carte-avatar-bouton .av-bordure')
   await photo('5-carte')
   await page.click('.carte-avatar-bouton')

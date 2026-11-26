@@ -88,6 +88,14 @@ try {
     await page.screenshot({ path: path.join(sortie, `${nomFichier}.png`), fullPage: pleine })
     console.log(path.join(sortie, `${nomFichier}.png`))
   }
+  // La pièce « Avatar » s'ouvre sur son rail de calques (le 26 novembre 2026), et sur le premier qui a du neuf
+  // (`calqueDOuverture`) : la grille des avatars n'est là que sous « Avatar », touché s'il le faut.
+  const LA_PIECE = '.loge-panneau .loge-calques'
+  const surLAvatar = async () => {
+    await page.waitForSelector(LA_PIECE)
+    if ((await page.getAttribute('#calque-avatar', 'aria-selected')) !== 'true') await page.click('#calque-avatar')
+    await page.waitForSelector('.loge-panneau .loge-page-avatars')
+  }
 
   // La loge en attendant ses panneaux, retenus trois secondes — d'abord, tant
   // que le navigateur ne les a pas en cache : sa carte et ses pièces sont
@@ -100,7 +108,7 @@ try {
   await page.goto(`${banc.url}/profil#avatar`)
   await page.waitForSelector('.loge .loge-carte')
   await photo('2-loge-en-chemin')
-  await page.waitForSelector('.loge-panneau .loge-page-avatars')
+  await page.waitForSelector(LA_PIECE)
   await page.unroute('**/PanneauxDuProfil-*.js')
 
   // Le profil, épuré : soi-même en tête, puis ses quatre boutons.
@@ -118,7 +126,7 @@ try {
 
   // La loge, ouverte de son bouton, sur chaque pièce touchée sur sa rangée — et la collection, de son bouton.
   for (const [i, nom, piece, attente] of [
-    ['2', 'loge avatar', null, '.loge-panneau .loge-page-avatars'],
+    ['2', 'loge avatar', null, LA_PIECE],
     ['3a', 'loge titre', '#loge-titre', '.loge-panneau .loge-titres'],
     ['3b', 'loge vitrine', '#loge-vitrine', '.loge-panneau .loge-medailles'],
     ['3c', 'loge fond', '#loge-fond', '.loge-panneau .loge-vignettes-fonds'],
@@ -130,7 +138,7 @@ try {
     await page.waitForSelector('.profil-boutons .gros-compte')
     await page.click(`.profil-boutons .gros-bouton:has-text("${piece === 'collection' ? 'Ma collection' : 'M’habiller'}")`)
     if (piece && piece !== 'collection') {
-      await page.waitForSelector('.loge-panneau .loge-page-avatars')
+      await page.waitForSelector(LA_PIECE)
       await page.click(piece)
     }
     await page.waitForSelector(attente)
@@ -144,7 +152,7 @@ try {
     ['peucommune', 'peu-commune'],
   ] as const) {
     await page.goto(`${banc.url}/profil#avatar`)
-    await page.waitForSelector('.loge-panneau .loge-page-avatars')
+    await surLAvatar()
     await page.click(`#loge-gemme-${gemme}`)
     await photo(`2-loge-avatar-${nomDeLaPage}`)
     await photo(`2-loge-avatar-${nomDeLaPage}-pleine`, true)
@@ -153,13 +161,16 @@ try {
   // Un essai : un emoji sur la carte, puis un titre — la barre compte deux
   // changements —, puis un thème, qui habille toute la page ; « Porter » garde tout.
   await page.goto(`${banc.url}/profil#avatar`)
-  await page.waitForSelector('.loge-panneau .loge-page-avatars')
-  // Sa version d'origine, essayée sur la carte, puis une finition.
-  await page.click('.loge-version')
-  await page.click('.finition-choix:not(.selected) >> nth=1')
+  await page.waitForSelector(LA_PIECE)
+  // Sa version d'origine, essayée sur la carte — son calque, « Version rare » a quitté la carte —, puis une finition.
+  await page.click('#calque-version')
+  await page.click('.calque-grille .calque-case:not(.selected) >> nth=0')
+  await page.click('#calque-finition')
+  await page.click('.calque-grille .calque-case:not(.selected):not(.calque-a-gagner) >> nth=1')
   await page.waitForSelector('.loge-barre')
   await photo('2b-loge-essai-version-finition')
   await page.click('.loge-barre .btn-ghost')
+  await surLAvatar()
   await page.click('#loge-gemme-offert')
   await page.click('.loge-panneau .loge-grille-emojis .case-avatar >> nth=1')
   await page.waitForSelector('.loge-barre')
@@ -376,7 +387,7 @@ try {
   await photo('10-boutique-compagnon-a-toi', false, 900)
   await page.click('.feuille-boutique .carte-fermer')
   await page.goto(`${banc.url}/profil#avatar`)
-  await page.waitForSelector('.loge-panneau .loge-page-avatars')
+  await surLAvatar()
   // Il porte le loup à sa forme ultime : la loge s'ouvre sur la page légendaire, ses formes d'avant aux leurs.
   await photo('10-loge-loup-ultime')
   await page.click('#loge-gemme-rare')

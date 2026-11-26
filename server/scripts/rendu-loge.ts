@@ -245,12 +245,14 @@ const DOIVENT_TENIR = ['sans-niche', 'debutant', 'avatar', 'commune', 'pieces', 
  *
  * Depuis les calques (le 26 novembre 2026) : un rail d'une ligne à la place des trois réglages empilés, et ses gemmes
  * finissent à 379 px chez l'habituée en 360 × 640 (573 avant) — de quoi lui montrer deux rangées d'avatars sur le petit
- * téléphone, trois en 390 × 664, quatre dès 740 px de haut, cinq en 915 ; un nouveau venu, trois, quatre, puis cinq dès
- * 740. Ses tenues gardées, la tranche du paquet descend tout de 8 px : rien ne change au compte (`tenues`).
+ * téléphone, trois en 390 × 664, quatre dès 740 px de haut, cinq en 915. Ses tenues gardées, la tranche du paquet
+ * descend tout de 8 px : rien ne change au compte (`tenues`). Un nouveau venu n'a qu'une page, ses offerts, et plus de
+ * gemme depuis le même soir (« Offerts 24 », seule, ne choisissait rien) : quatre rangées sur le petit téléphone, ses
+ * cinq dès 664.
  */
 const DOIT_TENIR = (hauteur: number, nom: string, piece: PieceDeLaLoge): number => {
   if (piece !== 'avatar') return 1
-  if (nom === 'debutant') return hauteur >= 740 ? 5 : hauteur >= 664 ? 4 : 3
+  if (nom === 'debutant') return hauteur >= 664 ? 5 : 4
   return hauteur >= 900 ? 5 : hauteur >= 740 ? 4 : hauteur >= 664 ? 3 : 2
 }
 /**

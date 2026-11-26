@@ -4489,9 +4489,11 @@ h3 > .icon {
   z-index: 2;
   pointer-events: none;
 }
-/* Son dessin — que le barème des collectionneurs montre aussi, seul (`.cl-gemme-eclat`) : une seule gemme de l'Éclat. */
+/* Son dessin — que le barème des collectionneurs montre aussi, seul (`.cl-gemme-eclat`), et le calque « Version » de la
+   loge (`.loge-gemme-eclat`) : une seule gemme de l'Éclat. */
 .av-eclat::after,
-.cl-gemme-eclat {
+.cl-gemme-eclat,
+.loge-gemme-eclat {
   background:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3.5 9h17L12 20.5Z' fill='%23000' fill-opacity='0.16'/%3E%3Cpath d='M7 4.5 9.5 9 12 4.5 14.5 9 17 4.5' fill='none' stroke='%231a1020' stroke-opacity='0.45' stroke-width='1.1' stroke-linejoin='round'/%3E%3Cpath d='M7 4.5h10l3.5 4.5L12 20.5 3.5 9Z' fill='none' stroke='%231a1020' stroke-width='2.4' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat,
     linear-gradient(135deg, var(--gemme-1, #f2fdff), var(--gemme-2, #f0c6ff) 50%, var(--gemme-3, #ffe39a));
@@ -10088,6 +10090,10 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-calque-apercu { position: relative; display: grid; place-items: center; width: 40px; height: var(--loge-calque, 30px); font-size: 0.85rem; line-height: 1; }
 .loge-calque-apercu .finition-teinte { width: 22px; height: 22px; }
 .loge-calque-apercu .bordure-sans { width: 20px; height: 20px; }
+/* « Version » : la gemme de l'Éclat, aux couleurs de sa matière (`.av-matiere-*`) ; grise, d'origine. L'avatar y était
+   déjà, dans « Avatar » à côté : la gemme dit ce que ce calque règle. */
+.loge-gemme-eclat { display: block; width: 22px; height: 22px; }
+.loge-gemme-eclat.d-origine { --gemme-1: #ecebe8; --gemme-2: #b3aea7; --gemme-3: #77716a; }
 /* À l'essai : le pointillé de la carte. */
 .loge-calque.essaye .loge-calque-apercu { outline: 1.5px dashed rgba(var(--accent-rgb), 0.85); outline-offset: 1px; border-radius: 10px; }
 .loge-calque-apercu .loge-neuf { top: -2px; right: 0; }
@@ -10102,6 +10108,8 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-case.calque-case .av { font-size: 1.55rem; }
 .calque-nom { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t-label); font-weight: 600; color: var(--muted); }
 .calque-case.selected .calque-nom { color: var(--accent-text-hover); }
+/* La teinte d'une finition, devant son nom : sur un avatar peint, Mat, Argent et Or se ressemblaient. */
+.calque-nom .finition-teinte { display: inline-block; width: 0.8em; height: 0.8em; margin-right: 4px; vertical-align: -0.08em; }
 .calque-case .calque-auto { top: 5px; left: 6px; }
 .calque-a-gagner { border-style: dashed; color: var(--accent-text); }
 .calque-a-gagner b { font-size: 1.1rem; font-variant-numeric: lining-nums tabular-nums; }
@@ -10138,6 +10146,7 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-tenues { position: absolute; right: 0; bottom: -7px; z-index: 2; display: flex; align-items: center; justify-content: flex-end; height: 44px; min-width: 44px; padding: 0; border: 0; background: none; color: var(--accent-text); font: inherit; cursor: pointer; }
 .loge-tenues-pilule { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 10px 0 8px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--bg) 70%, transparent); }
 .loge-tenues .icon { width: 16px; height: 16px; }
+.loge-tenues-mot { font-size: var(--t-label); font-weight: 600; letter-spacing: 0.02em; }
 .loge-point { display: block; width: 6px; height: 6px; border-radius: 99px; background: var(--muted); opacity: 0.6; }
 .loge-point.portee { opacity: 1; box-shadow: 0 0 0 1.5px var(--bg), 0 0 0 2.5px var(--accent); }
 .loge-point.montree { width: 14px; background: var(--accent); opacity: 1; }

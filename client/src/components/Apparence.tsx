@@ -32,7 +32,7 @@ import { brancheDuMaitre, cleDeMaitre, maitresDe, nomDuTitre } from '../../../sh
 import { moisDuChampion } from '../../../shared/jour'
 import { nomDuTitreDuDefi } from '../../../shared/cabinet/sceaux'
 import { FINITIONS, NOM_FINITION, brilleChez, clesQuiBrillent, eclatChez, finitionSur, meilleureFinition, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
-import { NOM_DE_LA_MATIERE, enMatiere, matieresATailler, matieresOuvertes, peutSeTailler, type Matiere, type MatiereTaillee } from '../../../shared/matieres'
+import { NOM_DE_LA_MATIERE, enMatiere, matieresATailler, matieresOuvertes, peutSeTailler, type EclatPorte, type Matiere, type MatiereTaillee } from '../../../shared/matieres'
 import type { PropsDUnePiece } from './choix'
 import { MOTIFS, motif as leMotif } from '../../../shared/motifs'
 
@@ -179,7 +179,9 @@ export function MesAvatars(props: PropsDUnePiece) {
           </button>
         </div>
       )}
-      <Gemmes
+      {/* Une seule page — un nouveau venu, ses emojis offerts — : pas de gemme. « Offerts 24 », seule au milieu de sa
+          rangée, ne choisissait rien et prenait 62 px au-dessus de sa grille (le 26 novembre 2026). */}
+      {pages.length > 1 && <Gemmes
         gemmes={pages.map(p => ({
           id: p.page,
           court: p.page === 'offert' ? 'Offerts' : NOM_COURT_DE_RARETE_D_AVATAR[p.page],
@@ -195,8 +197,11 @@ export function MesAvatars(props: PropsDUnePiece) {
         idDe={p => `loge-gemme-${p}`}
         panneau="loge-page-avatars"
         className="gemmes-loge"
-      />
-      <div className="loge-page-avatars" role="tabpanel" id="loge-page-avatars" aria-labelledby={`loge-gemme-${page.page}`}>
+      />}
+      <div
+        className="loge-page-avatars"
+        {...(pages.length > 1 ? { role: 'tabpanel', id: 'loge-page-avatars', 'aria-labelledby': `loge-gemme-${page.page}` } : { role: 'group', 'aria-label': NOM_DE_LA_PAGE[page.page] })}
+      >
         {choisit && regarde && regarde.restantes && (
           <ApercuDeLaMatiere regarde={{ ...regarde, restantes: regarde.restantes }} tailler={props.tailler} onAutre={() => setRegarde(null)} onTaille={() => setChoisit(false)} />
         )}
@@ -524,6 +529,7 @@ function CaseDeCalque({
   nom,
   dessin,
   auto = false,
+  teinte,
   onClick,
 }: {
   etat: EtatDUneCase
@@ -531,6 +537,8 @@ function CaseDeCalque({
   nom: string
   dessin: ReactNode
   auto?: boolean
+  /** La teinte d'une finition, devant son nom : sur un avatar peint, la lumière de Mat, d'Argent ou d'Or se distinguait mal. */
+  teinte?: string
   onClick: () => void
 }) {
   return (
@@ -539,6 +547,7 @@ function CaseDeCalque({
         {dessin}
       </span>
       <span className="calque-nom" aria-hidden="true">
+        {teinte && <i className={`finition-teinte teinte-${teinte}`} />}
         {nom}
       </span>
       {auto && (
@@ -592,6 +601,7 @@ export function MesFinitions({ profil, essai, essayer, neufs }: PropsDUnePiece) 
         label={label}
         nom={nom}
         auto={cle === 'auto'}
+        teinte={cle !== 'auto' ? cle : divinPorte ? 'divin' : plusBelle}
         dessin={<Avatar {...lAvatar} finition={finitionSur(vu.legendaire, cle, profil.niveau)} />}
         onClick={() => essayer({ finition: cle })}
       />
@@ -741,15 +751,14 @@ export function MonSceau({ profil, essai, essayer }: PropsDUnePiece) {
   const vu = avecLEssai(profil, essai)
   const montre = !vu.sceauMasque
   const porte = !profil.sceauMasque
-  // L'aperçu : le légendaire montré s'il est scellé, sinon le premier des scellés — l'étoile ne se pose que sur eux.
-  const sur = vu.legendaire && scelles.includes(vu.legendaire) ? vu.legendaire : scelles[0]
+  const sur = scelleMontre(vu, scelles)
   const uneCase = (montrer: boolean, nom: string) => (
     <CaseDeCalque
       key={nom}
       etat={{ montre: montre === montrer, porte: porte === montrer }}
       label={`Sceau ${nom.toLowerCase()}`}
       nom={nom}
-      dessin={<Avatar avatar={vu.avatar} legendaire={sur} finition={vu.finition} sceau={montrer} />}
+      dessin={<Avatar avatar={vu.avatar} legendaire={sur} eclat={versionDe(vu, sur)} finition={vu.finition} sceau={montrer} />}
       onClick={() => essayer({ sceau: montrer })}
     />
   )
@@ -759,6 +768,22 @@ export function MonSceau({ profil, essai, essayer }: PropsDUnePiece) {
       {uneCase(false, 'Masqué')}
     </div>
   )
+}
+
+/** Le légendaire que le sceau montre : celui qu'il porte s'il est scellé, sinon le premier des scellés — l'étoile ne se pose que sur eux. */
+function scelleMontre(vu: PublicProfileDetail, scelles: readonly string[]): string {
+  return vu.legendaire && scelles.includes(vu.legendaire) ? vu.legendaire : scelles[0]
+}
+
+/**
+ * Un légendaire dans la version qu'il en montre — rare, sa matière, ou
+ * d'origine —, essai compris : la carte le porte ainsi. Montré d'origine, le
+ * Phénix orange d'un aperçu, sous un Phénix de glace sur la carte, se lisait
+ * comme un autre avatar (le 26 novembre 2026).
+ */
+function versionDe(vu: PublicProfileDetail, legendaire: string): false | EclatPorte {
+  const cible = cibleDeLEclat({ avatar: vu.avatar, legendaire }, vu.eclats)
+  return cible ? eclatChez(vu, cible) : false
 }
 
 /**
@@ -830,13 +855,16 @@ export function RailDesCalques({
   const lAvatar = sonAvatar(vu)
   const borduree = bordurePortee(vu.bordureChoisie ?? 'auto', profil.bordures, vu.motifChoisi)
   const scelles = profil.scelles ?? []
+  // Sa version : la gemme de l'Éclat, aux couleurs de la matière qu'il montre — grise, d'origine. L'avatar seul, d'origine,
+  // y était, et la case « Avatar » aussi : le Phénix orange sous le Phénix de glace de la carte se lisait comme un autre.
+  const version = eclate && cible ? eclatChez(vu, cible) : false
   const apercu: Record<CalqueDeLAvatar, ReactNode> = {
-    // L'avatar seul, d'origine : la créature qu'il porte ; sa version a son calque.
-    avatar: <Avatar avatar={montre.avatar} legendaire={montre.legendaire ?? undefined} eclat={false} />,
-    version: <Avatar {...lAvatar} />,
+    // L'avatar tel que la carte le montre, dans sa version : « Avatar » et la carte ne disent pas deux choses.
+    avatar: <Avatar {...lAvatar} />,
+    version: <i className={'loge-gemme-eclat' + (version === false ? ' d-origine' : typeof version === 'string' ? ` av-matiere-${version}` : '')} />,
     finition: <i className={`finition-teinte teinte-${divin(vu.legendaire) && vu.finitionChoisie === 'auto' ? 'divin' : vu.finition}`} />,
     bordure: borduree ? <Avatar {...lAvatar} finition={vu.finition} bordure={borduree} /> : <i className="bordure-sans" />,
-    sceau: <Avatar avatar={vu.avatar} legendaire={vu.legendaire && scelles.includes(vu.legendaire) ? vu.legendaire : scelles[0]} sceau={!vu.sceauMasque} />,
+    sceau: scelles.length > 0 ? <Avatar avatar={vu.avatar} legendaire={scelleMontre(vu, scelles)} eclat={versionDe(vu, scelleMontre(vu, scelles))} sceau={!vu.sceauMasque} /> : null,
   }
   const essaye: Record<CalqueDeLAvatar, boolean> = {
     avatar: essai.avatar !== undefined || essai.legendaire !== undefined,
@@ -873,7 +901,9 @@ export function RailDesCalques({
           >
             <span className="loge-calque-apercu calque-sujet" aria-hidden="true">
               {apercu[c]}
-              {auto[c] && !essaye[c] && (
+              {/* Une pastille à la fois, au même coin : le neuf d'abord, l'étincelle d'« Auto » une fois vu — l'une sur
+                  l'autre, elles faisaient une tache. */}
+              {auto[c] && !essaye[c] && !neufs.has(c) && (
                 <span className="calque-auto">
                   <Icon name="sparkles" />
                 </span>

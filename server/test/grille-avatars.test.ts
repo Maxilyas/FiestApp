@@ -184,9 +184,15 @@ test('les gemmes de l’album : les offerts, puis chaque rareté où il a quelqu
   assert.equal(await choisie({ ...HABITUE, legendaire: 'cp:loup-jeune', compagnons: [{ compagnon: 'loup', rang: 1 }] }), 'rare')
   assert.equal(await choisie({ ...HABITUE, legendaire: null, avatar: '🐝' }), 'commune')
   assert.equal(await choisie({ ...HABITUE, legendaire: null, avatar: '🐸' }), 'offert')
-  assert.equal(await choisie(DEBUTANT), 'offert')
-  // Le premier jour : les offerts seuls — pas de gemme vide pour dire ce qui existe, l'album le dit.
-  assert.deepEqual((await gemmes(await mes(DEBUTANT))).map(g => g[0]), ['offert'])
+  // Le premier jour, sans gemme (plus bas) : sa page, celle de la grille, reste les offerts.
+  assert.equal((await import(url('components/Apparence.tsx'))).pageDuPorte(DEBUTANT), 'offert')
+  // Le premier jour : les offerts seuls — pas de gemme vide pour dire ce qui existe, l'album le dit ; et pas de gemme du
+  // tout : « Offerts 24 », seule au milieu de sa rangée, ne choisissait rien et prenait 62 px au-dessus de sa grille (le
+  // 26 novembre 2026). Sa grille se nomme alors elle-même, sans onglet qui n'existe pas.
+  const premierJour = await mes(DEBUTANT)
+  assert.deepEqual(await gemmes(premierJour), [])
+  assert.doesNotMatch(premierJour, /gemmes-loge|role="tabpanel"|aria-labelledby="loge-gemme-/)
+  assert.match(premierJour, /<div class="loge-page-avatars" role="group" aria-label="Offerts à tous">/)
   // Les gemmes de l'album, les mêmes, et ses noms courts : on passe de l'un à l'autre sans réapprendre (`petit-ecran.test.ts` : les flèches).
   assert.match(source('components/Apparence.tsx'), /<Gemmes\s/)
   assert.match(source('components/AlbumDesAvatars.tsx'), /<Gemmes\s/)
