@@ -425,6 +425,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/lumieres.test.ts` — la lumière des trois dernières finitions.
 - `server/test/medaillons-peints.test.ts` — légendaires et Divins peints.
 - `server/test/bordures.test.ts` — les bordures de ligue.
+- `server/test/motifs.test.ts` — les motifs des bordures : chaque motif dessiné, « Accordée » qui suit l’avatar, ce qui les ouvre, la boutique et la saison, le coffre, l’achat et ses refus.
 - `server/test/cartes-peintes.test.ts` — les cartes peintes de l'Expédition, sous empreinte et d'un poids qu'un téléphone porte ; l'œuvre peinte, sortie d'elles pour le Cabinet de curiosités, son cadre doré et son chemin sans rien de l'Expédition.
 - `server/test/journal-des-couts.test.ts` — le journal des coûts des chaînes de peinture : chaque image payée comptée au tarif de son modèle, et le budget relu avant la suivante.
 
