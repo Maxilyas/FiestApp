@@ -13399,6 +13399,13 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .article-fond .article-pied { padding: 5px 2px 6px; align-items: center; }
 .article-fond .article-nom { font-size: 0.72rem; text-align: center; }
 .article-fond .article-marque { padding: 3px; }
+/* Une bordure : son avatar entouré du motif, à sa ligue et à ses crans (`RayonDesMotifs`) ; trois par rangée, comme les thèmes. */
+.grille-motifs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (min-width: 520px) {
+  .grille-motifs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.article-bordure { display: grid; place-items: center; height: 86px; font-size: 1.75rem; background: var(--surface-strong); overflow: hidden; }
+.presentoir-bordure { display: grid; place-items: center; aspect-ratio: 1; font-size: 3.2rem; }
 /* Le présentoir : la feuille d'un article, la même pour les quatre rayons.
    Sa barre feuillette le rayon et porte l'étoile de son envie ; son image à
    gauche, ce qu'il est et son prix à droite ; ses gestes au pied, sous le
@@ -18234,6 +18241,9 @@ button.annonce-phrase-ligne { cursor: pointer; }
 }
 .coffre-medaillon { font-size: 10rem; font-size: 46cqh; line-height: 0; }
 .coffre-gerbe { font-size: 3.2rem; font-size: 15cqh; line-height: 1; letter-spacing: 0.06em; filter: drop-shadow(0 0 18px rgba(var(--eclat), 0.7)); }
+/* Un motif de bordure du trésor : son dessin, serti en or, à la taille d'un médaillon — la scène ne connaît pas l'avatar qu'il entourera. */
+.coffre-motif { display: block; width: 10rem; width: 46cqh; aspect-ratio: 1; filter: drop-shadow(0 0 18px rgba(var(--eclat), 0.55)); }
+.coffre-motif img { display: block; width: 100%; height: 100%; }
 .coffre-confettis { display: flex; flex-direction: column; align-items: center; gap: 2px; line-height: 1; }
 .coffre-confettis > span { font-size: 3.4rem; font-size: 16cqh; }
 .coffre-confettis b { font-family: var(--serif); font-size: 3.4rem; font-size: 17cqh; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; color: #fff4d8; text-shadow: 0 0 24px rgba(var(--eclat), 0.8); }

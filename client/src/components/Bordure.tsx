@@ -22,8 +22,9 @@ import { inscrireDessin } from './medaillons'
  * un calque découpé à la forme de son métal (le masque ne tourne pas : c'est
  * l'enfant qui tourne dedans).
  */
-export function Bordure({ ligue, crans }: { ligue: CleDeLigue; crans: number }) {
-  const { cadre, silhouette } = dessinDeBordure(ligue, crans)
+export function Bordure({ ligue, crans, motif = 'feuilles' }: { ligue: CleDeLigue; crans: number; motif?: string }) {
+  // Son motif (`shared/motifs.ts`) : ce qui pousse à chaque victoire ; la ligue garde son métal, son insigne, ses crans.
+  const { cadre, silhouette } = dessinDeBordure(ligue, crans, motif)
   const masque = silhouette ? `url("${silhouette}")` : null
   return (
     <span className={`bo bo-${ligue}${crans >= CRANS_D_UNE_BORDURE ? ' bo-sertie' : ''}`} aria-hidden="true">

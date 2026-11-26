@@ -16,21 +16,27 @@
 import { PRIX_D_UN_COMPAGNON } from './compagnons'
 import type { SorteDEnvie } from './envie'
 import { FONDS_EN_BOUTIQUE, PRIX_D_UN_FOND, type Fond } from './fonds'
+import { MOTIFS, PRIX_D_UN_MOTIF, prixDuMotif, type MotifDeBordure } from './motifs'
 import { THEMES, enBoutique, prixDe, type Theme } from './themes'
 import { formatNumber } from './typographie'
 
-export type Rayon = 'themes' | 'compagnons' | 'fonds' | 'objets'
+export type Rayon = 'themes' | 'compagnons' | 'fonds' | 'bordures' | 'objets'
 
-/** Les quatre rayons, dans l'ordre de la page ; le comptoir se nomme « Objets » sur sa puce, « Le comptoir » en titre. */
+/**
+ * Les rayons, dans l'ordre de la page ; le comptoir se nomme « Objets » sur sa
+ * puce, « Le comptoir » en titre. Les bordures — leurs motifs — depuis le
+ * 26 novembre 2026, avant le comptoir : de l'habit, comme les fonds.
+ */
 export const RAYONS: readonly { id: Rayon; nom: string; titre: string }[] = [
   { id: 'themes', nom: 'Thèmes', titre: 'Thèmes' },
   { id: 'compagnons', nom: 'Compagnons', titre: 'Compagnons' },
   { id: 'fonds', nom: 'Fonds', titre: 'Fonds' },
+  { id: 'bordures', nom: 'Bordures', titre: 'Bordures' },
   { id: 'objets', nom: 'Objets', titre: 'Le comptoir' },
 ]
 
 /** Le rayon d'une sorte d'article. */
-export const RAYON_DE: Readonly<Record<SorteDEnvie, Rayon>> = { theme: 'themes', compagnon: 'compagnons', fond: 'fonds', objet: 'objets' }
+export const RAYON_DE: Readonly<Record<SorteDEnvie, Rayon>> = { theme: 'themes', compagnon: 'compagnons', fond: 'fonds', motif: 'bordures', objet: 'objets' }
 
 /** « 🎊 400 », le prix collé à son confetti. */
 export const enConfettis = (n: number): string => `🎊 ${formatNumber(n)}`
@@ -47,6 +53,16 @@ export function themesEnRayon(possedes: readonly string[], jour: string): Theme[
 /** Les fonds en rayon : les douze des savoirs, moins les siens — gagnés, tirés ou achetés. */
 export function fondsEnRayon(siens: readonly string[]): Fond[] {
   return FONDS_EN_BOUTIQUE.filter(f => !siens.includes(f.key))
+}
+
+/**
+ * Les motifs de bordure en rayon : ceux de la boutique et ceux de saison à
+ * leur fête, moins ceux qu'il tient — achetés, ou ouverts autrement (un motif
+ * de saison par son légendaire). Ceux du coffre, des duels, des ligues
+ * serties n'y sont jamais : « Ma collection » dit où.
+ */
+export function motifsEnRayon(siens: readonly string[], jour: string): MotifDeBordure[] {
+  return MOTIFS.filter(m => prixDuMotif(m, jour) !== null && !siens.includes(m.key))
 }
 
 /**
@@ -72,6 +88,9 @@ export function ligneDesCompagnons(aLui: number): string {
 
 /** Celle des fonds : leur prix, et où ils se voient. */
 export const LIGNE_DES_FONDS = `${formatNumber(PRIX_D_UN_FOND)} chacun · derrière ta carte`
+
+/** Celle des bordures : leur prix, et ce qu'on n'achète pas avec. */
+export const LIGNE_DES_MOTIFS = `${formatNumber(PRIX_D_UN_MOTIF)} chacune · la ligue reste à gagner`
 
 /** Celle du comptoir. */
 export const LIGNE_DU_COMPTOIR = 'ce qui sert en jeu'
@@ -117,7 +136,7 @@ export interface GesteDuPresentoir {
 export const S_ESSAIE: readonly SorteDEnvie[] = ['theme', 'compagnon']
 
 /** « Le porter », pour chaque sorte : un compagnon s'installe dans sa niche, un fond se pose derrière sa carte. */
-const PORTER: Readonly<Record<SorteDEnvie, string>> = { theme: 'Le porter', compagnon: 'L’installer', fond: 'Le poser', objet: 'Le porter' }
+const PORTER: Readonly<Record<SorteDEnvie, string>> = { theme: 'Le porter', compagnon: 'L’installer', fond: 'Le poser', motif: 'Le porter', objet: 'Le porter' }
 
 /**
  * Les gestes au pied du présentoir, pour cette étape — deux au plus, le

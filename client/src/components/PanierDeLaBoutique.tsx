@@ -10,6 +10,7 @@ import { compagnon as leCompagnon } from '../../../shared/compagnons'
 import type { SorteDEnvie } from '../../../shared/envie'
 import { ceQuiManque, totalDuPanier, type LigneDuPanier } from '../../../shared/panier'
 import { enConfettis } from '../../../shared/rayons'
+import { dessinDeBordure } from './dessinDesBordures'
 
 // L'essai de la boutique (`shared/panier.ts`) : ce qu'on essaie — un thème
 // sur toute la page, un compagnon dans sa niche — attend dans une barre, juste
@@ -38,6 +39,8 @@ export function VignetteDeLArticle({ article }: { article: { sorte: SorteDEnvie;
     return <span className="panier-vignette">{image && <img src={image} alt="" width={180} height={225} decoding="async" />}</span>
   }
   if (article.sorte === 'fond') return <span className={`panier-vignette carte-fond fond-${article.cle}`} />
+  // Un motif ne s'essaie pas à la boutique — son présentoir le montre autour de l'avatar — : sa vignette, son dessin serti en or.
+  if (article.sorte === 'motif') return <span className="panier-vignette panier-vignette-objet"><img src={dessinDeBordure('or', 12, article.cle).cadre} alt="" decoding="async" /></span>
   if (article.sorte === 'objet') {
     const objet = OBJETS.find(o => o.cle === article.cle)
     return <span className={`panier-vignette panier-vignette-objet objet-dessin objet-${article.cle}`}>{objet?.dessin()}</span>

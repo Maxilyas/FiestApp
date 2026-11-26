@@ -196,7 +196,9 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       ecussons: ecussonsDe(detail.categories),
       ...(boutique && { boutique }),
       ...(sentiers && { sentiers }),
-      ...(duels && { bordures: duels.bordures }),
+      ...(duels && { bordures: duels.bordures, victoiresAuDe: duels.victoiresAuDe }),
+      // Ses motifs de bordure : ses achats et ses coffres, de mémoire ; ce que ses duels ouvrent, de la lecture d'au-dessus.
+      motifs: profiles.motifsTenusDe(rec, duels),
       ...(vusDeLaLoge !== undefined && { vusDeLaLoge }),
     }
   }
@@ -803,6 +805,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         eclatDeReserve: req.body?.eclatDeReserve,
         matiereDeReserve: req.body?.matiereDeReserve,
         bordure: req.body?.bordure,
+        motif: req.body?.motif,
         niche: req.body?.niche,
         sceau: req.body?.sceau,
         plaque: req.body?.plaque,
@@ -893,6 +896,21 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       const achete = await profiles.acheterFond(me.id, req.body?.fond, jour, { porter: req.body?.porter !== false })
       const [boutique, fonds] = await Promise.all([profiles.boutiqueDe(achete, jour), profiles.fondsAJour(achete)])
       res.json({ profile: profiles.toPublic(achete), boutique, ...fonds })
+    }),
+  )
+
+  // Un motif de bordure (`shared/motifs.ts`, le 26 novembre 2026), comme un fond : acheté, porté d'office — sauf `porter: false`.
+  app.post(
+    '/api/joueur/motifs',
+    small,
+    wrap(async (req, res) => {
+      noStore(res)
+      const me = await current(req)
+      if (!me) return res.status(401).json({ error: 'Connexion requise' })
+      const jour = jourDe(deps.maintenant())
+      const achete = await profiles.acheterMotif(me.id, req.body?.motif, jour, { porter: req.body?.porter !== false })
+      const [boutique, motifs] = await Promise.all([profiles.boutiqueDe(achete, jour), profiles.motifsAJour(achete)])
+      res.json({ profile: profiles.toPublic(achete), boutique, ...motifs })
     }),
   )
 

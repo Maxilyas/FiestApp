@@ -82,7 +82,7 @@ export function CarteDeLaLoge({
               finition={vu.finition}
               eclat={eclatChez(vu, cibleEclat(vu.legendaire ?? undefined, vu.avatar))}
               legendaire={vu.legendaire ?? undefined} sceau={sceauVisible(vu)}
-              bordure={bordurePortee(vu.bordureChoisie ?? 'auto', vu.bordures)}
+              bordure={bordurePortee(vu.bordureChoisie ?? 'auto', vu.bordures, vu.motifChoisi)}
             />
           </span>
           <span className="loge-carte-texte">

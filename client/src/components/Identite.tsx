@@ -13,7 +13,7 @@ import { bordurePortee } from '../../../shared/duels'
  * sa plus haute qui a un cran.
  */
 function saBordure(profil: ProfilDAccueil & Pick<PublicProfileDetail, 'bordures'>) {
-  return bordurePortee(profil.bordureChoisie ?? 'auto', profil.bordures ?? profil.duels?.bordures)
+  return bordurePortee(profil.bordureChoisie ?? 'auto', profil.bordures ?? profil.duels?.bordures, profil.motifChoisi)
 }
 
 /**

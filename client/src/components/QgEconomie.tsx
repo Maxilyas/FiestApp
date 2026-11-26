@@ -35,6 +35,7 @@ const MOTS_DES_ACHATS: Record<DepenseDeConfettis, [string, string]> = {
   themes: ['thème', 'thèmes'],
   compagnons: ['compagnon', 'compagnons'],
   fonds: ['fond de carte', 'fonds de carte'],
+  motifs: ['motif de bordure', 'motifs de bordure'],
   vies: ['achat de vies', 'achats de vies'],
   sabliers: ['sablier', 'sabliers'],
   eclats: ['Éclat', 'Éclats'],

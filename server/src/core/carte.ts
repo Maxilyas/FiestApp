@@ -63,7 +63,7 @@ export async function carteDuProfil(
   const titre = profiles.titrePorte(profil)
   const fond = profiles.fondPorte(profil, carriere.jour, maitresDe(paliers).length)
   // La bordure de ligue autour de son avatar, lue avec sa cote.
-  const bordure = duels ? bordurePortee(profil.bordure, duels.bordures) : null
+  const bordure = duels ? bordurePortee(profil.bordure, duels.bordures, profil.motif) : null
   // Le compagnon de sa niche, tel qu'elle le montre — sa forme, ses
   // ornements — et avec son nom (le propriétaire, le 19 octobre 2026 : « Le
   // compagnon sur la carte doit avoir son nom ») : la carte se lit quand on

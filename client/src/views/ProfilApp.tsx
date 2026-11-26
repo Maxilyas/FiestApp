@@ -476,6 +476,22 @@ export function ProfilApp() {
   }
 
   /** Acheter un fond des savoirs : le serveur rend ses fonds relus, le nouveau compris — la loge le propose sans recharger. */
+  const acheterMotif = async (cle: string, porter: boolean): Promise<string | null> => {
+    if (enregistrement.current) return null
+    enregistrement.current = true
+    setBusy(true)
+    setAnnonce('')
+    try {
+      const { profile, boutique, motifChoisi, motifs } = await api.joueur.acheterMotif(cle, porter)
+      setProfil(p => (p ? { ...p, ...profile, boutique, motifChoisi, motifs } : p))
+      return null
+    } catch (e) {
+      return motifDe(e)
+    } finally {
+      enregistrement.current = false
+      setBusy(false)
+    }
+  }
   const acheterFond = async (cle: string, porter: boolean): Promise<string | null> => {
     if (enregistrement.current) return null
     enregistrement.current = true
@@ -739,6 +755,7 @@ export function ProfilApp() {
             acheter={acheter}
             acheterCompagnon={acheterCompagnon}
             acheterFond={acheterFond}
+            acheterMotif={acheterMotif}
             onSolde={solde =>
               setProfil(p =>
                 p?.boutique ? { ...p, boutique: { ...p.boutique, confettis: { ...p.boutique.confettis, solde, depenses: p.boutique.confettis.gagnes - solde } } } : p,

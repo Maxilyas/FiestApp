@@ -905,6 +905,11 @@ export interface PublicProfile {
    * qui viennent de ses duels. Absente d'un serveur d'avant.
    */
   bordureChoisie?: ChoixDeBordure
+  /**
+   * Le motif de sa bordure qu'il a choisi (`shared/motifs.ts`) ; null ou
+   * absent : accordé à l'avatar qu'il porte (`motifAccorde`), d'office.
+   */
+  motifChoisi?: string | null
   xp: number
   niveau: number
   /** Ce qui est acquis dans le niveau courant, et ce qu'il y faut. */
@@ -1399,6 +1404,14 @@ export interface PublicProfileDetail extends PublicProfile {
    * serveur d'avant, ou si la base s'est tue.
    */
   bordures?: BordureDeLigue[]
+  /**
+   * Les motifs de bordure qu'il tient (`motifsTenus`, `shared/motifs.ts`) :
+   * offerts, prêtés par ses bordures serties, gagnés en duel, achetés, tirés
+   * du coffre. La loge les propose, la boutique écarte ceux qu'il a.
+   */
+  motifs?: string[]
+  /** Ses victoires contre Automate, au dé : la loge dit où il en est des Rouages. */
+  victoiresAuDe?: number
   /**
    * Ce qu'il a déjà vu dans sa loge (`profile_loge_vus`) : ce qu'il a et qui
    * n'y est pas porte la pastille rouge. null s'il n'y est jamais passé ;

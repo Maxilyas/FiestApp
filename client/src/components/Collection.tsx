@@ -41,6 +41,7 @@ const LIGNES: Record<PartieDeLaCollection, { emoji: string; nom: string; detail:
   gerbes: { emoji: '🎉', nom: 'Gerbes', detail: 'Ce qui éclate', suite: [' à chaque bonne réponse'], couleur: '#ff9f5a' },
   finitions: { emoji: '✨', nom: 'Finitions', detail: 'Le cercle de ton avatar', suite: [', au fil des niveaux'], couleur: '#ffd36e' },
   bordures: { emoji: '⚔️', nom: 'Bordures de ligue', detail: 'Autour de ton avatar', suite: [', une par ligue de duel'], couleur: '#7dd3c0' },
+  motifs: { emoji: '🌿', nom: 'Motifs de bordure', detail: 'Ce qui pousse', suite: [' à chaque victoire'], couleur: '#9fd6a0' },
 }
 
 const NOM_DE_FAMILLE: Record<FamilleDeLaCollection, string> = { avatars: 'Avatars', trophees: 'Trophées', style: 'Style' }
@@ -274,6 +275,12 @@ export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
       <>
         <AlbumDuStyle partie="bordures" profil={profil} />
         <OuLePorter ecran="avatar" nom="Mon avatar" quoi="Elle se choisit dans" />
+      </>
+    ),
+    motifs: (
+      <>
+        <AlbumDuStyle partie="motifs" profil={profil} />
+        <OuLePorter ecran="avatar" nom="Mon avatar" quoi="Il se choisit dans" />
       </>
     ),
   }

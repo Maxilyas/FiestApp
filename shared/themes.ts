@@ -329,10 +329,14 @@ export function retourEnBoutique(t: Theme): string | null {
 export function enBoutique(t: Theme, jour: string): boolean {
   // Un thème qui se gagne n'est jamais en boutique.
   if (t.gagne) return false
-  if (!t.saison) return true
+  return !t.saison || dansSaPeriode(t.saison, jour)
+}
+
+/** Ce jour (de Paris) tombe dans la période, bornes comprises — une période peut enjamber le Nouvel An. Les motifs de saison la lisent aussi (`shared/motifs.ts`). */
+export function dansSaPeriode(p: PeriodeDeBoutique, jour: string): boolean {
   const quand = Number(jour.slice(5, 7)) * 100 + Number(jour.slice(8, 10))
-  const debut = t.saison.debut[0] * 100 + t.saison.debut[1]
-  const fin = t.saison.fin[0] * 100 + t.saison.fin[1]
+  const debut = p.debut[0] * 100 + p.debut[1]
+  const fin = p.fin[0] * 100 + p.fin[1]
   return debut <= fin ? quand >= debut && quand <= fin : quand >= debut || quand <= fin
 }
 

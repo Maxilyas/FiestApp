@@ -33,6 +33,7 @@ import { nomDuTitreDuDefi } from '../../../shared/cabinet/sceaux'
 import { FINITIONS, NOM_FINITION, brilleChez, clesQuiBrillent, eclatChez, meilleureFinition, type Finition, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
 import { NOM_DE_LA_MATIERE, enMatiere, matieresATailler, peutSeTailler, type Matiere, type MatiereTaillee } from '../../../shared/matieres'
 import type { PropsDUnePiece } from './choix'
+import { MOTIFS, motif as leMotif } from '../../../shared/motifs'
 
 // Les pièces de la loge (« M'habiller », au profil), chacune dans son
 // panneau : son avatar — rangé par rareté, comme l'album de « Ma
@@ -604,7 +605,7 @@ export function MesBordures({ profil, essai, essayer, neufs }: PropsDUnePiece) {
       >
         <span className="bordure-apercu" aria-hidden="true">
           {/* Autour de ce qu'il porte, un légendaire ou un Divin compris : l'emoji d'en dessous s'y montrait (le 14 octobre 2026). */}
-          {bordure ? <Avatar {...sonAvatar(vu)} finition={finition} bordure={bordure} /> : <i className="bordure-sans" />}
+          {bordure ? <Avatar {...sonAvatar(vu)} finition={finition} bordure={vu.motifChoisi ? { ...bordure, motif: vu.motifChoisi } : bordure} /> : <i className="bordure-sans" />}
         </span>
         <span aria-hidden="true">{nom}</span>
       </button>
@@ -621,6 +622,59 @@ export function MesBordures({ profil, essai, essayer, neufs }: PropsDUnePiece) {
         {pastille(AUCUNE_BORDURE, 'Sans', null, 'Sans bordure')}
         {bordures.map(b => pastille(b.ligue, ligueParCle(b.ligue).court, b, `${NOM_DE_LA_BORDURE[b.ligue]}, ${ligueParCle(b.ligue).nom.toLowerCase()}`))}
         <PastilleAGagner n={reste} nom={reste > 1 ? 'bordures' : 'bordure'} href="#collection-bordures" />
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Le motif de sa bordure, sous elle (le 26 novembre 2026, `shared/motifs.ts`) :
+ * « Accordée » — d'office, le motif qui va à l'avatar qu'il porte —, puis
+ * chacun de ceux qu'il tient, en petit avatar à sa bordure du moment, et ce
+ * qui reste compté au bout, vers leur ligne de « Ma collection ». La ligue
+ * garde son métal, son insigne et ses crans : seul ce qui pousse change.
+ */
+export function MesMotifs({ profil, essai, essayer }: PropsDUnePiece) {
+  const vu = avecLEssai(profil, essai)
+  const bordures = profil.bordures ?? []
+  // Sa bordure du moment, celle de l'essai comprise ; sans bordure portée, sa plus haute, pour voir le motif.
+  const cadre = bordurePortee(vu.bordureChoisie ?? 'auto', bordures) ?? bordurePortee('auto', bordures) ?? bordures[bordures.length - 1]
+  if (!cadre) return null
+  const siens = profil.motifs ?? []
+  const montre = vu.motifChoisi ?? null
+  const porte = profil.motifChoisi ?? null
+  const pastille = (cle: string | null, nom: string, label: string) => {
+    const estMontre = montre === cle
+    const estPorte = porte === cle
+    return (
+      <button
+        key={cle ?? 'accorde'}
+        type="button"
+        className={'finition-choix bordure-choix' + classesDUnAvatar({ montre: estMontre, porte: estPorte, neuve: false })}
+        aria-pressed={estMontre}
+        aria-label={label + ceQueDitLaCase({ montre: estMontre, porte: estPorte, neuve: false }, 'porté', 'nouveau')}
+        onClick={() => essayer({ motif: cle })}
+      >
+        <span className="bordure-apercu" aria-hidden="true">
+          <Avatar {...sonAvatar(vu)} finition={vu.finition} bordure={cle ? { ...cadre, motif: cle } : { ligue: cadre.ligue, crans: cadre.crans }} />
+        </span>
+        <span aria-hidden="true">{nom}</span>
+      </button>
+    )
+  }
+  const reste = MOTIFS.length - siens.length
+  return (
+    <div className="loge-bordures loge-motifs">
+      <span className="loge-sous-titre" id="loge-motifs-titre">
+        Motif
+      </span>
+      <div className={rangee(1 + siens.length + (reste > 0 ? 1 : 0)) + ' loge-bordures-rangee'} role="group" aria-labelledby="loge-motifs-titre">
+        {pastille(null, 'Accordé', 'Accordé à ton avatar, d’office')}
+        {siens.map(k => {
+          const m = leMotif(k)
+          return m ? pastille(k, m.nom.replace(/^(Les|Le|La|L’) ?/, ''), m.nom) : null
+        })}
+        <PastilleAGagner n={reste} nom={reste > 1 ? 'motifs' : 'motif'} href="#collection-motifs" />
       </div>
     </div>
   )

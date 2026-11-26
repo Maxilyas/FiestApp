@@ -25,9 +25,10 @@ import { seuilDeLEtape } from './trophees'
 import { maitresDe } from './sentiers'
 import { saison } from './saisons'
 import { formatNumber } from './typographie'
+import { MOTIFS, PRIX_D_UN_MOTIF, avanceeVersLeMotif, regleDuMotif, type VoieDuMotif } from './motifs'
 
 /** Les lignes du style qui se montrent en album ; les thèmes ont le leur. */
-export type PartieDuStyle = 'fonds' | 'gerbes' | 'finitions' | 'bordures'
+export type PartieDuStyle = 'fonds' | 'gerbes' | 'finitions' | 'bordures' | 'motifs'
 
 /** Où il se gagne — ou s'achète : l'icône de son étape, et l'écran où aller. */
 export type LieuDuStyle = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'duels' | 'niveau' | 'profil' | 'coffre' | 'boutique' | 'fete' | 'cabinet'
@@ -60,7 +61,7 @@ export interface ObjetDuStyle {
 /** Ce que le style lit d'un profil. */
 export type ProfilDuStyle = Pick<
   PublicProfileDetail,
-  'niveau' | 'hautsFaits' | 'sentiers' | 'fonds' | 'fond' | 'gerbes' | 'gerbe' | 'ouvertes' | 'finition' | 'bordures' | 'bordureChoisie' | 'boutique'
+  'niveau' | 'hautsFaits' | 'sentiers' | 'fonds' | 'fond' | 'gerbes' | 'gerbe' | 'ouvertes' | 'finition' | 'bordures' | 'bordureChoisie' | 'motifChoisi' | 'motifs' | 'victoiresAuDe' | 'boutique'
 >
 
 const OU: Record<LieuDuStyle, string> = {
@@ -221,7 +222,7 @@ function finitions(p: ProfilDuStyle): ObjetDuStyle[] {
 
 function bordures(p: ProfilDuStyle): ObjetDuStyle[] {
   const siennes = p.bordures ?? []
-  const portee = bordurePortee(p.bordureChoisie ?? 'auto', siennes)
+  const portee = bordurePortee(p.bordureChoisie ?? 'auto', siennes, p.motifChoisi)
   return LIGUES.map(l => {
     const b = siennes.find(x => x.ligue === l.cle)
     const crans = Math.min(CRANS_D_UNE_BORDURE, b?.crans ?? 0)
@@ -241,7 +242,44 @@ function bordures(p: ProfilDuStyle): ObjetDuStyle[] {
   })
 }
 
-const PARTIES: Record<PartieDuStyle, (p: ProfilDuStyle) => ObjetDuStyle[]> = { fonds, gerbes, finitions, bordures }
+/** Où chaque voie d'un motif mène, et ce que son étape dit en tête. */
+const LIEU_DU_MOTIF: Record<VoieDuMotif['sorte'], [LieuDuStyle, string]> = {
+  offert: ['profil', 'Offert à tous'],
+  feuille: ['duels', 'Aux duels : une bordure sertie'],
+  duel: ['duels', 'Aux duels'],
+  boutique: ['boutique', 'À la boutique'],
+  saison: ['fete', 'À sa fête'],
+  coffre: ['coffre', 'Au coffre de la semaine'],
+}
+
+/**
+ * Les motifs de bordure (`shared/motifs.ts`, le 26 novembre 2026) : ce qui
+ * pousse à chaque victoire autour de son avatar. Offerts, prêtés par une
+ * bordure sertie, gagnés en duel, achetés, tirés du coffre — la fiche dit
+ * comment, et où il en est quand il y a de quoi compter.
+ */
+function motifs(p: ProfilDuStyle): ObjetDuStyle[] {
+  const siens = p.motifs ?? []
+  const ouvre = { bordures: p.bordures, victoiresAuDe: p.victoiresAuDe }
+  return MOTIFS.map(m => {
+    const v = m.voie
+    const [lieu, titre] = LIEU_DU_MOTIF[v.sorte]
+    const aLui = siens.includes(m.key)
+    const avancee = avanceeVersLeMotif(m, ouvre)
+    const court = aLui ? (v.sorte === 'offert' ? 'offert' : 'à toi') : v.sorte === 'boutique' ? `${formatNumber(PRIX_D_UN_MOTIF)} 🎊` : v.sorte === 'saison' ? 'saison' : v.sorte === 'coffre' ? 'coffre' : (avancee ?? 'duels')
+    return {
+      cle: m.key,
+      nom: m.nom,
+      aLui,
+      porte: (p.motifChoisi ?? null) === m.key,
+      court,
+      etape: { lieu, titre, regle: regleDuMotif(m), progres: null },
+      ...(v.sorte === 'coffre' && { rarete: v.rarete }),
+    }
+  })
+}
+
+const PARTIES: Record<PartieDuStyle, (p: ProfilDuStyle) => ObjetDuStyle[]> = { fonds, gerbes, finitions, bordures, motifs }
 
 /** Les objets d'une ligne du style, dans l'ordre du catalogue : à lui ou non, porté ou non, et comment l'avoir. */
 export function objetsDuStyle(partie: PartieDuStyle, p: ProfilDuStyle): ObjetDuStyle[] {

@@ -6,6 +6,7 @@ import { legendaire as legendaireDe } from '../../../shared/legendaires'
 import { divin as divinDe } from '../../../shared/divins'
 import { portrait as portraitDe } from '../../../shared/branches'
 import { formeDeCompagnon } from '../../../shared/compagnons'
+import { motifAccorde } from '../../../shared/motifAccorde'
 import { MATRICE_DE_LA_LUMIERE, enMatiere, tablesDeLaMatiere, type Matiere } from '../../../shared/matieres'
 import { dessinDuCompagnon, dessinDuPortrait, lumineuse, sortesDe, sortesDesAvatars, useDessins } from './medaillons'
 
@@ -179,7 +180,8 @@ export function Avatar({ avatar, finition, eclat, legendaire, className, grand, 
       {/* Avant la bordure : elle passe devant ses rayons, qui sortent entre ses feuilles. */}
       {gloire && Gloire && divin && <Gloire cle={divin} finition={finition} />}
       {/* Derrière l'avatar : le débord d'un médaillon passe par-dessus elle. */}
-      {cadre && Bordure && <Bordure ligue={cadre.ligue} crans={cadre.crans} />}
+      {/* Son motif : celui qu'il a choisi, sinon celui qui va à ce qu'il porte (`motifAccorde`, le 26 novembre 2026). */}
+      {cadre && Bordure && <Bordure ligue={cadre.ligue} crans={cadre.crans} motif={cadre.motif ?? motifAccorde(legendaire ?? avatar)} />}
       <span className="av-emoji">
         {divin && Divin ? (
           <Divin cle={divin} grand={grand} finition={finition} />

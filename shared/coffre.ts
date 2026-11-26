@@ -69,6 +69,8 @@ export type ObjetDuTresor =
   | { sorte: 'gerbe'; cle: string }
   | { sorte: 'theme'; cle: string }
   | { sorte: 'compagnon'; cle: string }
+  /** Un motif de bordure du trésor (`MOTIFS_DU_TRESOR`, `shared/motifs.ts`), depuis le 26 novembre 2026 : il ne se vend pas. */
+  | { sorte: 'motif'; cle: string }
 
 /** La sorte d'un objet du coffre, pour la phrase : « Fond de carte », « Thème ». */
 export const NOM_DE_LA_SORTE: Readonly<Record<ObjetDuTresor['sorte'], string>> = {
@@ -77,6 +79,7 @@ export const NOM_DE_LA_SORTE: Readonly<Record<ObjetDuTresor['sorte'], string>> =
   gerbe: 'Gerbe',
   theme: 'Thème',
   compagnon: 'Compagnon',
+  motif: 'Motif de bordure',
 }
 
 /** La clé d'un objet, telle que `profile_coffres.objet` la garde : « fond:dragon », « confettis ». */
@@ -88,8 +91,9 @@ export function cleDeLObjet(o: ObjetDuTresor): string {
 export function lireLObjet(cle: unknown, confettis: number): ObjetDuTresor | null {
   if (cle === 'confettis') return confettis > 0 ? { sorte: 'confettis', confettis } : null
   if (typeof cle !== 'string') return null
-  const m = /^(fond|gerbe|theme|compagnon):([\w-]+)$/.exec(cle)
-  return m ? { sorte: m[1] as 'fond' | 'gerbe' | 'theme' | 'compagnon', cle: m[2] } : null
+  // Chaque sorte s'y lit : une clé gardée qui ne se lirait plus ferait retirer son coffre à sa réouverture.
+  const m = /^(fond|gerbe|theme|compagnon|motif):([\w-]+)$/.exec(cle)
+  return m ? { sorte: m[1] as 'fond' | 'gerbe' | 'theme' | 'compagnon' | 'motif', cle: m[2] } : null
 }
 
 /**

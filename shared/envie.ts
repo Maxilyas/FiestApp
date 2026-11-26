@@ -20,8 +20,9 @@ import { PRIX_D_UN_SABLIER } from './jour'
 import { PRIX_D_UN_ECLAT } from './profil'
 import { PRIX_D_UNE_VIE } from './sentiers'
 import { enBoutique, prixDe, theme } from './themes'
+import { PRIX_D_UN_MOTIF, PRIX_D_UN_MOTIF_DE_SAISON, motif, prixDuMotif, saisonDuMotif } from './motifs'
 
-export type SorteDEnvie = 'theme' | 'compagnon' | 'fond' | 'objet'
+export type SorteDEnvie = 'theme' | 'compagnon' | 'fond' | 'motif' | 'objet'
 
 /** Ce qu'il vise : la sorte de l'article, et sa clé dans son catalogue. */
 export interface Envie {
@@ -29,7 +30,7 @@ export interface Envie {
   cle: string
 }
 
-const SORTES: readonly SorteDEnvie[] = ['theme', 'compagnon', 'fond', 'objet']
+const SORTES: readonly SorteDEnvie[] = ['theme', 'compagnon', 'fond', 'motif', 'objet']
 
 /** Les objets du comptoir et leur prix : ils se rachètent, on n'en « a » jamais assez pour ne plus en vouloir. */
 export const PRIX_DES_OBJETS: Readonly<Record<string, number>> = { vie: PRIX_D_UNE_VIE, sablier: PRIX_D_UN_SABLIER, eclat: PRIX_D_UN_ECLAT }
@@ -63,6 +64,11 @@ export function prixDeLEnvie(e: Envie): number | null {
   }
   if (e.sorte === 'compagnon') return COMPAGNONS_DE_LA_BOUTIQUE.some(c => c.key === e.cle) ? PRIX_D_UN_COMPAGNON : null
   if (e.sorte === 'fond') return FONDS_EN_BOUTIQUE.some(f => f.key === e.cle) ? PRIX_D_UN_FOND : null
+  if (e.sorte === 'motif') {
+    // Un motif de saison garde son prix hors de sa fête, comme un thème : `refusDeLEnvie` dit qu'il n'est pas en boutique.
+    const m = motif(e.cle)
+    return m?.voie.sorte === 'boutique' ? PRIX_D_UN_MOTIF : m?.voie.sorte === 'saison' ? PRIX_D_UN_MOTIF_DE_SAISON : null
+  }
   // Par `Object.hasOwn` : « constructor » a la forme d'une clé, et lu tel quel son « prix » était une fonction — l'envie tenait.
   return Object.hasOwn(PRIX_DES_OBJETS, e.cle) ? PRIX_DES_OBJETS[e.cle] : null
 }
@@ -72,6 +78,8 @@ export interface CeQuIlADeLaBoutique {
   themes: readonly string[]
   compagnons: readonly string[]
   fonds: readonly string[]
+  /** Ses motifs de bordure achetés, ou tenus d'ailleurs — un motif de saison ouvert par son légendaire ne se désire plus. */
+  motifs?: readonly string[]
 }
 
 /**
@@ -92,6 +100,18 @@ export function refusDeLEnvie(e: Envie, a: CeQuIlADeLaBoutique, jour: string): s
   }
   if (e.sorte === 'compagnon') return a.compagnons.includes(e.cle) ? 'Ce compagnon est déjà à toi.' : null
   if (e.sorte === 'fond') return a.fonds.includes(e.cle) ? 'Ce fond est déjà à toi.' : null
+  if (e.sorte === 'motif') {
+    const m = motif(e.cle)!
+    // « Le Houx est », « Les Cœurs sont » : le nom d'un motif porte son nombre.
+    const un = !m.nom.startsWith('Les ')
+    if ((a.motifs ?? []).includes(e.cle)) return `${m.nom} ${un ? 'est' : 'sont'} déjà à toi.`
+    const s = saisonDuMotif(m)
+    if (s && prixDuMotif(m, jour) === null) {
+      const periode = s.periode.periode
+      return `${m.nom} ${un ? 'n’est' : 'ne sont'} en boutique ${/^[aeiouy]/i.test(periode) ? 'qu’' : 'que '}${periode} : choisis-en un autre.`
+    }
+    return null
+  }
   return null
 }
 

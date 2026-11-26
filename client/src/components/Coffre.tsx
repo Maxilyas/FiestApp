@@ -24,6 +24,8 @@ import { compagnon } from '../../../shared/compagnons'
 import { ALLURE_PAR_DEFAUT, gerbe as gerbeDuCatalogue } from '../../../shared/gerbes'
 import { duMois, jourEnToutesLettres } from '../../../shared/jour'
 import { nomDeLObjet, phraseDeLObjet, tirerLeCoffre } from '../../../shared/tresor'
+import { CRANS_D_UNE_BORDURE } from '../../../shared/duels'
+import { dessinDeBordure } from './dessinDesBordures'
 
 // L'ouverture du coffre de la semaine (le souhait du propriétaire du 14
 // octobre 2026 : « une animation ultra stylée, d'un coffre qui s'ouvre […] et
@@ -200,6 +202,13 @@ function ObjetMontre({ objet, compte }: { objet: ObjetDuTresor; compte: number }
     case 'gerbe':
       // Une seule taille de police pour ses trois particules : chaque taille d'un emoji se met en forme à part (règle `css.md`).
       return <span className="coffre-gerbe">{gerbeDuCatalogue(objet.cle)?.particules.slice(0, 3).join('') ?? '🎉'}</span>
+    case 'motif':
+      // Le motif seul, serti en ligue d'or : la scène ne connaît pas l'avatar qu'il entourera, la loge le montre.
+      return (
+        <span className="coffre-motif">
+          <img src={dessinDeBordure('or', CRANS_D_UNE_BORDURE, objet.cle).cadre} alt="" decoding="async" />
+        </span>
+      )
     case 'confettis':
       return (
         <span className="coffre-confettis">
@@ -223,6 +232,8 @@ function gesteDeLObjet(o: ObjetDuTresor): { href: string; libelle: string } {
       const forme = premiereForme(o.cle)
       return forme ? { href: `/profil?essayer=${encodeURIComponent(forme.key)}#avatar`, libelle: 'L’essayer' } : { href: '/profil#avatar', libelle: 'Le voir' }
     }
+    case 'motif':
+      return { href: `/profil?essayer=${encodeURIComponent(`motif:${o.cle}`)}#avatar`, libelle: 'L’essayer autour de mon avatar' }
     case 'confettis':
       return { href: '/boutique', libelle: 'Voir la boutique' }
   }
@@ -231,7 +242,7 @@ function gesteDeLObjet(o: ObjetDuTresor): { href: string; libelle: string } {
 /** Ce que l'objet est, sous son nom : le trésor ne se vend nulle part, la boutique l'offre. */
 function sorteDeLObjet(o: ObjetDuTresor): string | null {
   if (o.sorte === 'confettis') return null
-  if (o.sorte === 'fond' || o.sorte === 'gerbe') return `${NOM_DE_LA_SORTE[o.sorte]} du trésor`
+  if (o.sorte === 'fond' || o.sorte === 'gerbe' || o.sorte === 'motif') return `${NOM_DE_LA_SORTE[o.sorte]} du trésor`
   return `${NOM_DE_LA_SORTE[o.sorte]} · offert`
 }
 
@@ -446,7 +457,7 @@ export function SceneDuCoffre({
                   </li>
                 ))}
               </ul>
-              <p className="coffre-promesse">{espacesFines('Jamais ce que tu as déjà. Ses fonds de carte et ses gerbes du trésor ne se trouvent nulle part ailleurs.')}</p>
+              <p className="coffre-promesse">{espacesFines('Jamais ce que tu as déjà. Ses fonds de carte, ses gerbes et ses motifs de bordure du trésor ne se trouvent nulle part ailleurs.')}</p>
               {erreur && (
                 <p className="error" role="alert">
                   {erreur}

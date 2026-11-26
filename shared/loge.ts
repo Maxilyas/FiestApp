@@ -26,6 +26,7 @@ import { cleDeMaitre, maitresDe, nomDuTitre } from './sentiers'
 import { NOM_DE_RARETE, THEMES, campDuTheme, theme } from './themes'
 import { AUCUNE_PLAQUE } from './plaques'
 import { AUCUNE_BORDURE, CRANS_D_UNE_BORDURE, NOM_DE_LA_BORDURE, bordurePortee, type ChoixDeBordure } from './duels'
+import { motif } from './motifs'
 import { PIECES_DE_LA_LOGE, type PieceDeLaLoge, type VusDeLaLoge } from './piecesDeLaLoge'
 
 // Les six pièces vivent à part, sans catalogue : la page du profil montre
@@ -59,6 +60,8 @@ export interface Essai {
   eclat?: { cle: string; brille: boolean; matiere?: Matiere | null }
   /** La bordure de ligue : `auto`, `aucune`, ou celle d'une ligue atteinte. */
   bordure?: ChoixDeBordure
+  /** Le motif de sa bordure (`shared/motifs.ts`) : la clé d'un motif qu'il tient, ou null — accordé à son avatar. */
+  motif?: string | null
   /** Le sceau de ses légendaires : montré (`true`, d'office) ou masqué. */
   sceau?: boolean
   /** La plaque de son nom aux classements (`shared/plaques.ts`) : `auto` — celle de son thème —, `aucune`, ou la clé d'un thème à lui. */
@@ -72,7 +75,7 @@ export interface Essai {
  * qu'il a éteints : la version qu'il montre de chacun.
  */
 export type Tenue = Pick<PublicProfileDetail, 'avatar' | 'legendaire' | 'finitionChoisie' | 'titre' | 'vitrineChoisie' | 'fond' | 'theme' | 'gerbe' | 'bordureChoisie'> &
-  Partial<Pick<PublicProfileDetail, 'eclats' | 'eclatsEteints' | 'matieres' | 'matieresPortees' | 'scelles' | 'sceauMasque' | 'plaqueChoisie' | 'camp'>>
+  Partial<Pick<PublicProfileDetail, 'eclats' | 'eclatsEteints' | 'matieres' | 'matieresPortees' | 'scelles' | 'sceauMasque' | 'plaqueChoisie' | 'camp' | 'motifChoisi'>>
 
 /** L'avatar que la carte montre : l'emoji essayé ôte le légendaire, comme au serveur. */
 export function avatarMontre(porte: Pick<Tenue, 'avatar' | 'legendaire'>, essai: Essai): { avatar: string; legendaire: string | null } {
@@ -116,6 +119,7 @@ export function essayer(essai: Essai, piece: Essai, porte: Tenue): Essai {
   if (suivant.legendaire !== undefined && suivant.legendaire === (porte.legendaire ?? null)) delete suivant.legendaire
   if (suivant.finition !== undefined && suivant.finition === porte.finitionChoisie) delete suivant.finition
   if (suivant.bordure !== undefined && suivant.bordure === (porte.bordureChoisie ?? 'auto')) delete suivant.bordure
+  if (suivant.motif !== undefined && suivant.motif === (porte.motifChoisi ?? null)) delete suivant.motif
   if (suivant.sceau !== undefined && suivant.sceau === !porte.sceauMasque) delete suivant.sceau
   if (suivant.titre !== undefined && suivant.titre === (porte.titre ?? null)) delete suivant.titre
   if (suivant.vitrine !== undefined && memeVitrine(suivant.vitrine, porte.vitrineChoisie ?? null)) delete suivant.vitrine
@@ -161,6 +165,8 @@ export function essaiDemande(piece: PieceDeLaLoge, cle: string | null, profil: P
   if (piece === 'fond' && a.fond.includes(cle)) return essayer({}, { fond: cle }, profil)
   if (piece === 'gerbe' && a.gerbe.includes(cle)) return essayer({}, { gerbe: cle }, profil)
   if (piece === 'theme' && a.theme.includes(cle)) return essayer({}, { theme: cle }, profil)
+  // Un motif de bordure qu'il tient (`motif:vagues`) : le coffre, la boutique, la collection y mènent.
+  if (piece === 'avatar' && cle.startsWith('motif:') && (profil.motifs ?? []).includes(cle.slice('motif:'.length))) return essayer({}, { motif: cle.slice('motif:'.length) }, profil)
   // L'avatar : ses clés sont celles de ses nouveautés — `finition:or`, `bordure:or`, un emoji, un médaillon.
   if (piece !== 'avatar' || !a.avatar.includes(cle)) return {}
   if (cle.startsWith('finition:')) return essayer({}, { finition: cle.slice('finition:'.length) as FinitionChoisie }, profil)
@@ -190,6 +196,7 @@ export function avecLEssai<P extends Tenue & Pick<PublicProfileDetail, 'finition
   // essayé garde sa lumière en `auto` ; l'emoji qu'on reprend retrouve la plus belle.
   if (essai.avatar !== undefined || essai.legendaire !== undefined || essai.finition !== undefined) vu.finition = finitionSur(vu.legendaire, vu.finitionChoisie, profil.niveau)
   if (essai.bordure !== undefined) vu.bordureChoisie = essai.bordure
+  if (essai.motif !== undefined) vu.motifChoisi = essai.motif
   if (essai.sceau !== undefined) vu.sceauMasque = !essai.sceau
   if (essai.titre !== undefined) vu.titre = essai.titre
   if (essai.vitrine !== undefined) vu.vitrineChoisie = essai.vitrine
@@ -235,9 +242,9 @@ export function carteAvecLEssai(
 ): CarteDeJoueur {
   const vu = avecLEssai(profil, essai)
   const retouchee: CarteDeJoueur = { ...carte }
-  if (essai.avatar !== undefined || essai.legendaire !== undefined || essai.finition !== undefined || essai.bordure !== undefined || essai.eclat || essai.sceau !== undefined) {
+  if (essai.avatar !== undefined || essai.legendaire !== undefined || essai.finition !== undefined || essai.bordure !== undefined || essai.motif !== undefined || essai.eclat || essai.sceau !== undefined) {
     const legendaire = vu.legendaire ?? undefined
-    const bordure = bordurePortee(vu.bordureChoisie ?? 'auto', vu.bordures)
+    const bordure = bordurePortee(vu.bordureChoisie ?? 'auto', vu.bordures, vu.motifChoisi)
     retouchee.avatar = vu.avatar
     retouchee.finition = vu.finition
     // Absents plutôt que faux, comme le serveur les envoie (`distinctions`).
@@ -327,6 +334,7 @@ export function lignesDeLEssai(essai: Essai, profil: Pick<PublicProfileDetail, '
       detail: 'Bordure',
     })
   }
+  if (essai.motif !== undefined) lignes.push({ piece: 'avatar', nom: essai.motif ? (motif(essai.motif)?.nom ?? essai.motif) : 'Accordée à l’avatar', detail: 'Motif' })
   if (essai.titre !== undefined) {
     const t = nomDuTitre(essai.titre)
     lignes.push({ piece: 'titre', nom: t ? `« ${t} »` : 'Sans titre', detail: 'Titre' })

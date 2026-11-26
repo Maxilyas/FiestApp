@@ -15,6 +15,7 @@ import { GERBES } from './gerbes'
 import { FINITIONS, type PublicProfileDetail } from './profil'
 import { LIGUES } from './duels'
 import { compteDuCarnet } from './timbres'
+import { MOTIFS } from './motifs'
 
 /**
  * Les trois familles, dans l'ordre de la page : deux albums — les avatars,
@@ -30,7 +31,7 @@ export type FamilleDeLaCollection = 'avatars' | 'trophees' | 'style'
  * (`shared/timbres.ts`), le style en cinq — les thèmes, puis ce que range
  * `shared/style.ts`.
  */
-export type PartieDeLaCollection = 'avatars' | 'trophees' | 'timbres' | 'themes' | 'fonds' | 'gerbes' | 'finitions' | 'bordures'
+export type PartieDeLaCollection = 'avatars' | 'trophees' | 'timbres' | 'themes' | 'fonds' | 'gerbes' | 'finitions' | 'bordures' | 'motifs'
 
 export interface Compte {
   acquis: number
@@ -47,7 +48,7 @@ export interface FamilleDuCompte extends Compte {
 }
 
 /** Ce que le compte lit d'un profil : sa page au complet, ou ce qu'il en faut. */
-export type ProfilDeLaCollection = Pick<PublicProfileDetail, 'niveau' | 'legendaires' | 'divins' | 'ouvertes' | 'fonds' | 'gerbes' | 'boutique' | 'sentiers' | 'carnet'> &
+export type ProfilDeLaCollection = Pick<PublicProfileDetail, 'niveau' | 'legendaires' | 'divins' | 'ouvertes' | 'fonds' | 'gerbes' | 'motifs' | 'boutique' | 'sentiers' | 'carnet'> &
   ProfilDeLAlbumDesTrophees
 
 const somme = (parties: LigneDuCompte[]): Compte => ({
@@ -89,6 +90,8 @@ export function compteDeLaCollection(p: ProfilDeLaCollection): { familles: Famil
     // loge les proposait, la collection ne les rangeait nulle part. Le
     // serveur les tait jusqu'au premier duel classé : zéro, pas absentes.
     { partie: 'bordures', acquis: (p.bordures ?? []).length, total: LIGUES.length },
+    // Les motifs de bordure (le 26 novembre 2026) : un serveur d'avant ne les dit pas, pas de ligne.
+    ...(p.motifs ? [{ partie: 'motifs' as const, acquis: p.motifs.length, total: MOTIFS.length }] : []),
   ]
   const familles: FamilleDuCompte[] = [
     { famille: 'avatars', ...somme(avatars), parties: avatars },

@@ -21,7 +21,9 @@ import type { EssaiDeLaBoutique } from '../../../shared/panier'
 import { plaqueAvecSonCamp, plaqueDuTheme } from '../../../shared/plaques'
 import type { PublicProfileDetail } from '../../../shared/profil'
 import { enConfettis, gestesDuPresentoir, rangDansLeRayon, voisinDansLeRayon, type EtapeDuPresentoir, type EtatDeLArticle, type GesteDuPresentoir } from '../../../shared/rayons'
-import { avatarQuiEclate } from '../../../shared/sonAvatar'
+import { avatarQuiEclate, sonAvatar } from '../../../shared/sonAvatar'
+import { motif as leMotif, prixDuMotif, saisonDuMotif } from '../../../shared/motifs'
+import { bordurePortee, type BordureDeLigue } from '../../../shared/duels'
 import { NOM_DE_RARETE, prixDe, theme as leTheme } from '../../../shared/themes'
 
 // Le présentoir de la boutique (la refonte du 10 novembre 2026, la maquette
@@ -85,6 +87,7 @@ export function Presentoir({
   acheter,
   acheterCompagnon,
   acheterFond,
+  acheterMotif,
   enregistrer,
   onPorte,
   onFermer,
@@ -107,6 +110,7 @@ export function Presentoir({
   acheter: (cle: string, porter: boolean) => Promise<string | null>
   acheterCompagnon: (cle: string, installer: boolean) => Promise<string | null>
   acheterFond: (cle: string, porter: boolean) => Promise<string | null>
+  acheterMotif?: (cle: string, porter: boolean) => Promise<string | null>
   /** Porte ce qu'il vient d'acheter : vrai s'il a pris. Absent d'une page qui ne sait pas l'enregistrer : elle ne propose rien. */
   enregistrer?: (patch: ChoixDuProfil) => Promise<boolean> | void
   /** Porté : l'essai qui le montrait devient le sien. */
@@ -144,15 +148,21 @@ export function Presentoir({
   const t = ouvert.sorte === 'theme' ? leTheme(ouvert.cle) : undefined
   const c = ouvert.sorte === 'compagnon' ? leCompagnon(ouvert.cle) : undefined
   const f = ouvert.sorte === 'fond' ? leFond(ouvert.cle) : undefined
+  const m = ouvert.sorte === 'motif' ? leMotif(ouvert.cle) : undefined
   const o = ouvert.sorte === 'objet' ? OBJETS.find(x => x.cle === ouvert.cle) : undefined
   const etatDuT = t ? etatDuTheme(t, profil.theme ?? 'velours', new Set(boutique.possedes), solde, boutique.jour) : null
   const sien = c ? boutique.compagnons?.find(a => a.compagnon === c.key) : undefined
   const etatDuF = f ? etatDuFond(f, profil.fond ?? null, new Set(profil.fonds ?? []), solde) : null
   const maximum = o ? comptoir.maximum(o) : 1
   const nombre = Math.max(1, Math.min(ici.nombre, maximum))
-  const nom = t?.nom ?? c?.nom ?? f?.nom ?? o?.nom
+  const nom = t?.nom ?? c?.nom ?? f?.nom ?? m?.nom ?? o?.nom
   if (!nom) return null
-  const aLUnite = t ? prixDe(t) : c ? PRIX_D_UN_COMPAGNON : f ? PRIX_D_UN_FOND : (o?.prix ?? 0)
+  const prixDuM = m ? prixDuMotif(m, boutique.jour) : null
+  const aLUnite = t ? prixDe(t) : c ? PRIX_D_UN_COMPAGNON : f ? PRIX_D_UN_FOND : m ? (prixDuM ?? 0) : (o?.prix ?? 0)
+  // Un motif de bordure : à lui (acheté, gagné, tiré), fermé hors de sa fête, à vendre ou trop cher.
+  const etatDuM: EtatDeLArticle | null = m ? ((profil.motifs ?? []).includes(m.key) ? 'a-toi' : prixDuM === null ? 'ferme' : solde >= prixDuM ? 'a-vendre' : 'trop-cher') : null
+  /** Sa bordure, sous ce motif : celle qu'il porte — sans bordure encore, l'aperçu d'un bronze serti. */
+  const saBordure = (cle: string): BordureDeLigue => bordurePortee(profil.bordureChoisie ?? 'auto', profil.bordures, cle) ?? { ligue: 'bronze', crans: 12, motif: cle }
   const prix = aLUnite * nombre
   const etat: EtatDeLArticle = t
     ? etatDuT === 'a-vendre' || etatDuT === 'trop-cher'
@@ -170,7 +180,9 @@ export function Presentoir({
         ? etatDuF === 'a-vendre' || etatDuF === 'trop-cher'
           ? etatDuF
           : 'a-toi'
-        : maximum < 1
+        : etatDuM
+          ? etatDuM
+          : maximum < 1
           ? 'ferme'
           : solde >= aLUnite
             ? 'a-vendre'
@@ -225,6 +237,7 @@ export function Presentoir({
       if (t) return acheter(t.key, false)
       if (c) return acheterCompagnon(c.key, installe)
       if (f) return acheterFond(f.key, false)
+      if (m) return acheterMotif ? acheterMotif(m.key, false) : 'Recharge la page pour acheter ce motif.'
       try {
         await comptoir.acheter(o!, nombre)
         return null
@@ -240,7 +253,7 @@ export function Presentoir({
   const porter = async () => {
     if (!enregistrer) return
     const porte = await attendre(async () => {
-      const pris = await enregistrer(t ? { theme: t.key } : c ? { niche: c.key } : { fond: f!.key })
+      const pris = await enregistrer(t ? { theme: t.key } : c ? { niche: c.key } : m ? { motif: m.key } : { fond: f!.key })
       return pris === false ? 'Ça n’a pas pris. Réessaie, ou porte-le depuis ta loge.' : null
     })
     if (!porte) return
@@ -312,15 +325,35 @@ export function Presentoir({
             <SaCarte f={f} profil={profil} />
           </span>
         )}
+        {m && (
+          <span className="presentoir-image presentoir-bordure">
+            <Avatar {...sonAvatar(profil)} finition={profil.finition} bordure={saBordure(m.key)} className="av-sujet" />
+          </span>
+        )}
         {o && <span className={`presentoir-image presentoir-objet objet-dessin objet-${o.cle}`}>{o.dessin()}</span>}
         {/* Feuilleté par ses flèches, le présentoir reste la même fenêtre : le lecteur d'écran n'entendrait rien du suivant. */}
         <div className="presentoir-texte" aria-live="polite">
           <span className="presentoir-sorte">
             {t && <i className="article-gemme" aria-hidden="true" />}
-            {t ? `Thème · ${NOM_DE_RARETE[t.rarete]}${fin && enVente ? ` · ${fin}` : ''}` : f ? `Fond de carte · ${f.savoir}` : o!.pour}
+            {t
+              ? `Thème · ${NOM_DE_RARETE[t.rarete]}${fin && enVente ? ` · ${fin}` : ''}`
+              : f
+                ? `Fond de carte · ${f.savoir}`
+                : m
+                  ? `Motif de bordure${saisonDuMotif(m) ? ` · ${saisonDuMotif(m)!.periode.periode}` : ''}`
+                  : o!.pour}
           </span>
           <h3 className="presentoir-nom">{nom}</h3>
-          <p>{t ? t.humeur : f ? espacesFines('Le décor de ta carte, quand quelqu’un touche ton nom.') : o!.dit}</p>
+          <p>
+            {t
+              ? t.humeur
+              : f
+                ? espacesFines('Le décor de ta carte, quand quelqu’un touche ton nom.')
+                : m
+                  ? espacesFines(`${m.dit.charAt(0).toUpperCase()}${m.dit.slice(1)}. Il se dessine au métal de ta ligue, et ne pousse qu’à chaque victoire.`)
+                  : o!.dit}
+          </p>
+          {m && !profil.bordures?.length && <p className="muted small">{espacesFines('Tu le verras autour de ton avatar dès ton premier duel classé.')}</p>}
           {possede && <p className="presentoir-possede">{`Tu en as : ${possede.long}`}</p>}
           {enVente && <LePrix prix={prix} solde={solde} />}
           {etatDuT === 'porte' && <ALui>{`${nom} habille tes pages.`}</ALui>}
@@ -328,6 +361,15 @@ export function Presentoir({
             <ALui>
               {'À toi : '}
               <a className="link-inline" href="/profil#theme">
+                le porter
+              </a>
+              {' quand tu veux.'}
+            </ALui>
+          )}
+          {m && etatDuM === 'a-toi' && (
+            <ALui>
+              {'À toi : '}
+              <a className="link-inline" href={`/profil?essayer=${encodeURIComponent(`motif:${m.key}`)}#avatar`}>
                 le porter
               </a>
               {' quand tu veux.'}
