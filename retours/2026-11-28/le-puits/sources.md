@@ -32,24 +32,42 @@ Lus d'ici, par leur miroir sur GitHub (Projet Gutenberg) ou sur Wikisource.
 | **H. E. Dudeney, *The Canterbury Puzzles***, 1907 | **114 énigmes** racontées par les pèlerins de Chaucer | Les mêmes, avec un récit déjà fait |
 | **Lewis Carroll, *Symbolic Logic***, 1896 | Une soixantaine de **sorites** : des prémisses saugrenues, une conclusion à tirer | Les sorites |
 | **Lewis Carroll, *A Tangled Tale***, 1885 · ***The Game of Logic***, 1886 | Dix « nœuds » racontés ; des syllogismes sur un damier | Problèmes, déductions |
-| **Édouard Lucas, *Récréations mathématiques***, 4 tomes, 1882-1894 | Les traversées, les ponts, les labyrinthes, les reines, le solitaire, le baguenaudier, le taquin, les dominos, les marelles. Les quatre fac-similés sont sur Wikisource en français ; 58 pages du tome 1 et 15 du tome 3 y sont transcrites | Grenouilles, solitaire, taquin, échiquier, labyrinthes |
 | ***Un million d'énigmes, charades et logogriphes***, 1858 | 719 pièces en vers — la source des visites du Sphinx | Reste aux visites |
 | ***Le Sphinx au foyer*** (Wikisource) | Énigmes, charades, homonymes, **mots carrés**, **mots en triangle**, proverbes, sonnets-portraits, avec leurs explications | Les jeux de lettres, en français et d'époque |
 | ***Le livre des jeux d'esprit*** (Wikisource) | Énigmes, charades, logogriphes | Les jeux de lettres |
 | ***Les Enfantines du bon pays de France*** · *Le Folk-lore de l'Île-Maurice* (Wikisource) | Devinettes populaires ; sirandanes | Devinettes |
 
-## Le domaine public, à aller chercher
+## Le domaine public, par Internet Archive
 
-Repérés, mais leurs numérisations (Internet Archive, Gallica) ne répondent pas
-depuis cet environnement.
+Le propriétaire a ouvert l'accès le jour même (« Je peux te rajouter des
+liens ») : un environnement « FiestApp » qui autorise Internet Archive, les
+Wikisource et Wikibooks, Stanford et Lichess. Les textes complets de ces
+recueils ont alors été lus — une reconnaissance de caractères, à relire avant
+de citer.
 
-- **Alcuin d'York**, *Propositiones ad acuendos juvenes*, vers 800 : 53 problèmes, dont les trois premières traversées de rivière connues.
-- **Bachet de Méziriac**, *Problèmes plaisants et délectables*, 1612 : pesées, partages de vin, maris jaloux, la course à cent.
-- **Jacques Ozanam**, *Récréations mathématiques et physiques*, 1694.
-- **Sam Loyd**, *Cyclopedia of 5000 Puzzles, Tricks and Conundrums*, 1914 : le plus gros recueil illustré ; Donald Knuth en tient un index des énigmes mathématiques.
-- **W. W. Rouse Ball**, *Mathematical Recreations and Essays*, 1892 · **« Professor Hoffmann »**, *Puzzles Old and New*, 1893 · **W. F. White**, *A Scrap-Book of Elementary Mathematics*, 1908 · **Sophus Tromholt**, *Streichholzspiele*, 1889 (les jeux d'allumettes).
-- **Eugène Rolland**, *Devinettes ou énigmes populaires de la France*, 1877.
-- Une douzaine de recueils anglais de devinettes et de jeux de mots sur le Projet Gutenberg (*Conundrums, Riddles and Puzzles*, *The Book of Riddles*, *Merry's Book of Puzzles*…) : ils jouent sur l'anglais, et ne se traduisent pas.
+| Le recueil | Ce qu'il contient |
+|---|---|
+| **Édouard Lucas, *Récréations mathématiques***, les quatre tomes, **en français** | Tome I : les traversées en bateau, les ponts et les îles, les labyrinthes, les huit reines, le solitaire, la numération binaire, le baguenaudier, le taquin. Tome II : qui perd gagne, les dominos, les marelles, le parquet, les casse-tête (**le jeu des grenouilles**, les manœuvres de gare, les huit jetons, la croix de perles, les religieuses…), les demoiselles, le jeu d'Hamilton. Tome III : le calcul sur les doigts, le jeu du caméléon, le jeu militaire, la patte d'oie et le fer à cheval, le jeu américain, l'étoile nationale. Tome IV : le calendrier perpétuel, l'arithmétique en boules et en bâtons, les mérelles, les carrés magiques de Fermat, la géométrie des réseaux et des régions |
+| **Sam Loyd, *Cyclopedia of 5000 Puzzles, Tricks and Conundrums***, 1914 | Le plus gros recueil illustré. Donald Knuth en tient l'index : environ **400 énigmes mathématiques**, page par page |
+| **Bachet de Méziriac, *Problèmes plaisants et délectables***, 1612 (édition de 1884) | Vingt-trois problèmes et leurs suites : deviner un nombre pensé, les pesées, les partages de vin, les maris jaloux, la course à cent |
+| **Eugène Rolland, *Devinettes ou énigmes populaires de la France***, 1877 | Près de **600 devinettes** de tradition orale, en français |
+| **« Professor Hoffmann », *Puzzles Old and New***, 1893 | Par chapitres : adresse et patience, casse-tête à secret, arithmétique, mots et lettres, **jetons**, **allumettes**, fil de fer, divers |
+| **Émile Fourrey, *Récréations arithmétiques***, 1899, en français | Curiosités des nombres, nombres pensés, problèmes anciens, problèmes curieux ou amusants, carrés magiques |
+
+Repérés là aussi, pas encore lus : **Jacques Ozanam**, *Récréations
+mathématiques et physiques* (1694 et rééditions) ; **W. W. Rouse Ball**,
+*Mathematical Recreations and Essays* ; **Dudeney**, *Puzzles and Curious
+Problems* (1931) ; **Tom Tit**, *La Science amusante* ; **Canel**, *Recherches
+sur les jeux d'esprit* (1867) ; une douzaine de recueils anglais de devinettes
+(*Conundrums, Riddles and Puzzles*, *The Book of Riddles*, *Merry's Book of
+Puzzles*…), qui jouent sur l'anglais et ne se traduisent pas.
+
+Deux sites refusent les robots même autorisés : Gallica et le Projet
+Gutenberg. Rien n'y manque — leurs livres sont aussi sur Internet Archive, ou
+sur le miroir de Gutenberg chez GitHub. **Alcuin d'York** (vers 800, 53
+problèmes, les trois premières traversées de rivière) et **Sophus Tromholt**
+(*Streichholzspiele*, 1889, les jeux d'allumettes) n'ont pas été trouvés en
+texte.
 
 ## Les licences libres : des générateurs et des bases
 
@@ -61,7 +79,7 @@ depuis cet environnement.
 | **fogleman/rush** | MIT | Toutes les positions intéressantes du jeu des voitures qui glissent |
 | **Microban**, David W. Skinner | Redistribution permise | 155 petits niveaux de Sokoban |
 | **OpenLexicon (Lexique)** | Libre | Une liste de mots français : le dictionnaire qui manque aux mots en échelle et aux anagrammes |
-| **Wikibooks, « Puzzles »** · **Wikipédia** | CC BY-SA | Des énigmes classiques par familles, et la description de chaque famille |
+| **Wikibooks, « Puzzles »** · **Wikipédia** | CC BY-SA | 229 pages : logique (52), arithmétique (23), pensée latérale (21), géométrie (14), physique (12), suites de gestes (11), statistiques (10), décisions (9), échecs (7)… — en anglais, à raconter en français, en citant la source |
 
 ## Les idées seulement
 

@@ -151,7 +151,20 @@
     },
   })
 
-  const COUPLES = [['A', '#f3dea6'], ['B', '#6f97c4'], ['C', '#e06c6c']]
+  // Des couples jaloux : chacun sa lettre et sa couleur, pour qu'on voie d'un coup d'œil qui est à qui.
+  const TEINTES = { A: '#f3dea6', B: '#6f97c4', C: '#e06c6c', D: '#8fc48a', E: '#c79ad6' }
+  const couples = lettres => ({
+    passagers: [...lettres].flatMap(l => [
+      { cle: 'mari' + l, signe: '🤴', nom: 'Le mari ' + l, marque: l, teinte: TEINTES[l] },
+      { cle: 'femme' + l, signe: '👸', nom: 'L’épouse ' + l, marque: l.toLowerCase(), teinte: TEINTES[l] },
+    ]),
+    danger: g => {
+      for (const l of lettres) {
+        if (g.includes('femme' + l) && !g.includes('mari' + l) && g.some(c => c.startsWith('mari'))) return `Le mari ${l} est jaloux : sa femme est restée avec un autre.`
+      }
+      return null
+    },
+  })
   P.fiche({
     id: 'couples-jaloux', moule: 'traversee', niveau: 4,
     titre: 'Les trois maris jaloux',
@@ -162,17 +175,20 @@
       'Aucun mari ne souffre que sa femme reste avec un autre homme s’il n’est pas là, sur une rive comme dans la barque.',
     ],
     regle: 'Une épouse ne reste jamais avec un autre mari sans le sien.',
-    places: 2, aBord: true,
-    passagers: COUPLES.flatMap(([l, teinte]) => [
-      { cle: 'mari' + l, signe: '🤴', nom: 'Le mari ' + l, marque: l, teinte },
-      { cle: 'femme' + l, signe: '👸', nom: 'L’épouse ' + l, marque: l.toLowerCase(), teinte },
-    ]),
-    danger: g => {
-      for (const [l] of COUPLES) {
-        if (g.includes('femme' + l) && !g.includes('mari' + l) && g.some(c => c.startsWith('mari'))) return `Le mari ${l} est jaloux : sa femme est restée avec un autre.`
-      }
-      return null
-    },
+    places: 2, aBord: true, ...couples('ABC'),
+  })
+  // Dudeney donne onze traversées : le parcours les retrouve.
+  P.fiche({
+    id: 'dudeney-375', moule: 'traversee', niveau: 5,
+    titre: 'Les cinq maris jaloux',
+    source: 'H. E. Dudeney, Amusements in Mathematics, n° 375, 1917',
+    recit: [
+      'Une crue. Cinq couples cernés par l’eau, et une barque qui porte trois personnes.',
+      'Chaque mari est si jaloux qu’il ne souffre pas sa femme auprès d’un autre homme, dans la barque ou sur une rive, s’il n’y est pas lui-même.',
+      'Mène-les tous au sec, au plus vite.',
+    ],
+    regle: 'Trois dans la barque. Une épouse ne reste jamais avec un autre mari sans le sien.',
+    places: 3, aBord: true, ...couples('ABCDE'),
   })
 
   P.fiche({
