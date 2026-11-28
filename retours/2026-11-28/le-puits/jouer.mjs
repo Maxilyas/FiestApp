@@ -51,12 +51,14 @@ await p.locator('.retour').click(); await p.waitForTimeout(400); await finir()
 await p.locator('.porte-atelier').first().click(); await p.waitForTimeout(500); await finir(); await photo('atelier')
 
 // Chaque énigme écrite, puis une tirée de chaque moule qui en tire.
+// Une preuve ou une lettre se lit : ses prémisses, ses indices peuvent défiler. Un plateau qu'on manipule, jamais.
+const tient = socle => !['preuve', 'lettre'].includes(socle)
 const fiches = await p.evaluate(() => window.maquette.fiches())
 let jouees = 0
 for (const f of fiches) {
   await p.evaluate(id => window.maquette.ouvrir(id), f.id)
   await p.waitForTimeout(350); await finir()
-  await photo(`${f.moule}-${f.id}`, { plateau: true })
+  await photo(`${f.moule}-${f.id}`, { plateau: tient(f.socle) })
   if (!f.solution) continue
   await p.evaluate(() => window.maquette.resoudre())
   await p.waitForTimeout(1300)
@@ -65,12 +67,12 @@ for (const f of fiches) {
   else jouees++
   await finir()
 }
-const tireurs = await p.evaluate(() => Object.values(P.moules).filter(m => m.tirer).map(m => m.cle))
+const tireurs = await p.evaluate(() => Object.values(P.moules).filter(m => m.tirer).map(m => ({ cle: m.cle, socle: m.socle })))
 for (const moule of tireurs) {
   for (const niveau of [1, 3, 5]) {
-    await p.evaluate(([m, v]) => window.maquette.tirer(m, v, 4242 + v), [moule, niveau])
+    await p.evaluate(([m, v]) => window.maquette.tirer(m, v, 4242 + v), [moule.cle, niveau])
     await p.waitForTimeout(350); await finir()
-    await photo(`${moule}-tiree-${niveau}`, { plateau: true })
+    await photo(`${moule.cle}-tiree-${niveau}`, { plateau: tient(moule.socle) })
   }
 }
 
