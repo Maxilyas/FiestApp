@@ -1,0 +1,1418 @@
+<title>La Pyramide du Sphinx</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,500&family=Figtree:wght@400;500;600;700&family=Pixelify+Sans:wght@400;500;600&display=swap">
+<style>
+/* La maquette est un téléphone. En haut, ce que le Sphinx montre : l'étage et
+   ses salles en pyramide, puis la salle où l'on entre. En bas, sa boîte de
+   dialogue, lui couché dessus — la boîte et les couleurs de sa visite sur
+   l'accueil (retours/2026-11-24/le-sphinx/). Un seul habit, la nuit et l'or :
+   la page ne suit pas le thème clair du lecteur. */
+:root {
+  color-scheme: dark;
+  --nuit: #0d0908;
+  --bg: #1a1412;
+  --pierre: #2b211b;
+  --pierre-sombre: #1d1613;
+  --ink: #f3ece2;
+  --muted: #a89b8a;
+  --or: #d9b56a;
+  --or-clair: #f3dea6;
+  --lapis: #6f97c4;
+  --boite: #16100e;
+  --faux: #e06c6c;
+  --sable: 241, 206, 120;
+  --f-titre: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  --f-texte: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-pixel: 'Pixelify Sans', 'Courier New', ui-monospace, monospace;
+  --boite-h: 150px;
+  --perche: 58px;
+  --gl: max(16px, env(safe-area-inset-left, 0px));
+  --gr: max(16px, env(safe-area-inset-right, 0px));
+}
+
+html { height: 100%; box-sizing: border-box; }
+*, *::before, *::after { box-sizing: inherit; }
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--nuit);
+  color: var(--ink);
+  font-family: var(--f-texte);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+/* Un `display` posé plus bas ne doit jamais rouvrir ce qu'on a caché. */
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--or-clair); outline-offset: 2px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Le téléphone : tout l'écran sur un téléphone, un cadre ailleurs. */
+.scene {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 120% 46% at 50% 0, #2b211b, transparent 70%),
+    radial-gradient(ellipse 90% 60% at 50% 100%, rgba(60, 40, 12, 0.4), transparent 70%),
+    var(--bg);
+}
+@media (min-width: 520px) {
+  .scene {
+    width: min(390px, calc((100dvh - 40px) * 390 / 844));
+    height: auto;
+    aspect-ratio: 390 / 844;
+    border-radius: 34px;
+    box-shadow: 0 0 0 10px #050303, 0 0 0 11px #2b211b, 0 30px 80px rgba(0, 0, 0, 0.7);
+  }
+}
+.frisson { animation: frisson 0.42s steps(6) 1; }
+@keyframes frisson {
+  0%, 100% { translate: 0 0; }
+  20% { translate: -3px 1px; }
+  40% { translate: 3px -1px; }
+  60% { translate: -2px -1px; }
+  80% { translate: 2px 1px; }
+}
+
+/* Ce que le Sphinx montre, au-dessus de lui : plus haut que son cadre, ça défile. */
+.haut {
+  position: absolute;
+  left: var(--gl);
+  right: var(--gr);
+  top: 10px;
+  bottom: calc(16px + var(--boite-h) + var(--perche));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  z-index: 5;
+}
+.haut::-webkit-scrollbar { display: none; }
+.haut.centre { align-content: center; }
+.grand { --perche: 106px; }
+.vue { animation: paraitre 0.4s ease both; }
+@keyframes paraitre { from { opacity: 0; translate: 0 6px; } }
+
+/* La boîte de dialogue : un cadre de jeu d'autrefois, celui de la visite. */
+.boite {
+  position: absolute;
+  left: var(--gl);
+  right: var(--gr);
+  bottom: 16px;
+  min-height: 136px;
+  padding: 20px 18px 22px;
+  background: linear-gradient(180deg, rgba(217, 181, 106, 0.07), transparent 40%), var(--boite);
+  border: 3px solid var(--or);
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 3px var(--boite), inset 0 0 0 4px rgba(217, 181, 106, 0.5), 0 0 0 2px #050303, 0 14px 34px rgba(0, 0, 0, 0.65);
+  z-index: 7;
+  translate: 0 140%;
+  visibility: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.boite.la { translate: 0 0; visibility: visible; transition: translate 0.36s steps(6); }
+.coin { position: absolute; width: 7px; height: 7px; background: var(--or-clair); box-shadow: 0 0 0 2px #050303; }
+.coin:nth-child(1) { top: -5px; left: -5px; }
+.coin:nth-child(2) { top: -5px; right: -5px; }
+.coin:nth-child(3) { bottom: -5px; left: -5px; }
+.coin:nth-child(4) { bottom: -5px; right: -5px; }
+.nom {
+  position: absolute;
+  top: -15px;
+  right: 18px;
+  padding: 5px 10px 4px;
+  background: var(--or);
+  color: #1a1412;
+  font: 600 12px/1 var(--f-pixel);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  box-shadow: 0 0 0 2px #050303;
+}
+/* Le haut-parleur : muet tant qu'on ne l'a pas touché. */
+.son {
+  position: absolute;
+  top: -24px;
+  right: 104px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+}
+.son span { display: grid; place-items: center; width: 24px; height: 20px; background: var(--boite); box-shadow: 0 0 0 2px var(--or), 0 0 0 4px #050303; }
+.son[aria-pressed="true"] { color: var(--or-clair); }
+.texte { font: 500 17px/1.5 var(--f-pixel); min-height: 4.5em; margin: 0; text-wrap: pretty; }
+/* Sans ligature ni crénage : « fini » s'y lisait « Ani ». */
+.texte, .choix button, .nom, .dires b, .tablette, .molette output b { font-variant-ligatures: none; font-kerning: none; font-feature-settings: 'liga' 0, 'kern' 0; }
+.texte .c { visibility: hidden; }
+.texte .c.v { visibility: visible; }
+.texte em { font-style: normal; color: var(--or-clair); }
+.suite {
+  position: absolute;
+  right: 14px;
+  bottom: 10px;
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 9px solid var(--or);
+  opacity: 0;
+}
+.attend .suite { opacity: 1; animation: suite 0.8s steps(2) infinite; }
+@keyframes suite { 50% { translate: 0 3px; } }
+
+/* Le petit menu qui s'ouvre au-dessus de la boîte. */
+.choix {
+  position: absolute;
+  right: var(--gr);
+  bottom: calc(16px + var(--boite-h) + 14px);
+  display: grid;
+  padding: 8px 10px;
+  background: var(--boite);
+  border: 3px solid var(--or);
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 3px var(--boite), inset 0 0 0 4px rgba(217, 181, 106, 0.5), 0 0 0 2px #050303, 0 10px 24px rgba(0, 0, 0, 0.6);
+  z-index: 9;
+}
+.choix button { position: relative; min-height: 44px; padding: 6px 10px 6px 26px; background: none; border: 0; text-align: left; font: 500 17px/1.2 var(--f-pixel); }
+.choix button::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  translate: 0 -50%;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-left: 8px solid var(--or);
+  opacity: 0;
+}
+.choix button:is(:hover, :focus-visible, .vise)::before { opacity: 1; }
+.choix button:focus-visible { outline: none; color: var(--or-clair); }
+
+/* Le Sphinx, couché sur sa boîte comme sur son socle : petit quand on joue, grand quand il parle. */
+.sphinx {
+  position: absolute;
+  left: calc(var(--gl) - 8px);
+  bottom: calc(16px + var(--boite-h) - 12px);
+  width: 178px;
+  aspect-ratio: 256 / 172;
+  z-index: 8;
+  pointer-events: none;
+  transform-origin: 22% 100%;
+  scale: 0.58;
+  transition: scale 0.5s ease;
+  filter: drop-shadow(0 0 16px rgba(var(--sable), 0.35));
+}
+.grand .sphinx { scale: 1; }
+.sphinx canvas { position: relative; width: 100%; height: 100%; display: block; }
+.rayons {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 300px;
+  height: 300px;
+  margin: -150px 0 0 -150px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(var(--sable), 0.26) 0deg 5deg, transparent 5deg 15deg);
+  -webkit-mask-image: radial-gradient(circle, #000 12%, transparent 66%);
+  mask-image: radial-gradient(circle, #000 12%, transparent 66%);
+  opacity: 0;
+  scale: 0.6;
+  transition: opacity 0.8s ease, scale 0.8s ease;
+  animation: tourne 40s linear infinite;
+}
+.glorieux .rayons { opacity: 1; scale: 1; }
+@keyframes tourne { to { rotate: 360deg; } }
+.non .sphinx { animation: non 0.5s steps(5) 1; }
+@keyframes non {
+  20% { translate: -6px 0; }
+  40% { translate: 6px 0; }
+  60% { translate: -4px 0; }
+  80% { translate: 4px 0; }
+}
+.flash {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 40%, rgba(255, 244, 214, 0.95), rgba(var(--sable), 0.4) 35%, transparent 70%);
+  opacity: 0;
+}
+.flash.part { animation: flash 0.55s ease-out 1; }
+@keyframes flash { 12% { opacity: 1; } 100% { opacity: 0; } }
+
+/* Ce qui s'écrit au-dessus : les mêmes sourcils et le même parchemin que la visite. */
+.sourcil { font: 600 11px/1 var(--f-texte); letter-spacing: 0.22em; text-transform: uppercase; color: var(--or); margin: 0; }
+.losange { width: 9px; height: 9px; rotate: 45deg; background: var(--or); box-shadow: 0 0 8px rgba(var(--sable), 0.6); flex: none; }
+.losange.perdu, .losange.vide { background: #3a2e26; box-shadow: none; }
+.losange.de-sable { background: #7d6a4c; box-shadow: none; }
+
+/* L'étage : six salles en pyramide, une, deux, trois, et la porte à sa base. */
+.carte { display: grid; gap: 9px; justify-items: center; text-align: center; padding-top: 4px; }
+.carte h1 { font: 600 27px/1.05 var(--f-titre); color: var(--or-clair); margin: 6px 0 0; text-wrap: balance; }
+.compte { display: flex; gap: 7px; align-items: center; justify-content: center; margin: 0; font-size: 12px; color: var(--muted); }
+.compte b { color: var(--or-clair); font-weight: 600; }
+.compte .losanges { display: flex; gap: 5px; margin-right: 4px; }
+.pyramide { position: relative; display: grid; gap: 7px; width: 100%; padding-top: 2px; }
+.pyramide::before {
+  content: "";
+  position: absolute;
+  inset: -6px -4px 0;
+  background: linear-gradient(180deg, rgba(217, 181, 106, 0.16), rgba(217, 181, 106, 0.03));
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  pointer-events: none;
+}
+.rang { position: relative; display: flex; justify-content: center; gap: 7px; }
+.salle {
+  width: calc((100% - 14px) / 3);
+  min-height: 74px;
+  padding: 7px 4px 6px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 3px;
+  background: linear-gradient(180deg, var(--pierre), var(--pierre-sombre));
+  border: 1px solid rgba(217, 181, 106, 0.38);
+  border-radius: 5px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 6px 14px rgba(0, 0, 0, 0.4);
+  color: var(--muted);
+  transition: translate 0.15s ease, border-color 0.2s ease;
+}
+.salle:active { translate: 0 1px; }
+.salle svg { color: var(--or); opacity: 0.8; }
+.salle .n { font: 600 12px/1.15 var(--f-texte); color: var(--ink); }
+.salle .e { font: 500 10.5px/12px var(--f-texte); color: var(--muted); }
+.salle.ouverte { border-color: var(--or); animation: veille 2.4s ease-in-out infinite; }
+@keyframes veille { 50% { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 0 3px rgba(217, 181, 106, 0.16), 0 6px 14px rgba(0, 0, 0, 0.4); } }
+.salle.or { border-color: var(--or); background: linear-gradient(180deg, #4a3a22, #2a1f14); }
+.salle.or svg { color: var(--or-clair); opacity: 1; filter: drop-shadow(0 0 6px rgba(var(--sable), 0.7)); }
+.salle.or .e, .salle.sable .e { font: 600 16px/12px var(--f-titre); letter-spacing: 0.02em; }
+.salle.or .e { color: var(--or-clair); }
+.salle.sable { border-style: dashed; border-color: rgba(168, 155, 138, 0.4); }
+.salle.sable svg { color: var(--muted); opacity: 0.5; }
+.salle.sable .n { color: var(--muted); }
+.salle.sable .e { font-style: italic; }
+.porte {
+  position: relative;
+  width: calc((100% - 14px) * 2 / 3 + 7px);
+  min-height: 54px;
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: left;
+  background: linear-gradient(180deg, #241b17, #120d0b);
+  border: 1px solid rgba(217, 181, 106, 0.38);
+  border-radius: 5px 5px 0 0;
+  border-bottom: 3px solid rgba(217, 181, 106, 0.38);
+  color: var(--muted);
+}
+.porte svg { color: var(--or); opacity: 0.7; flex: none; }
+.porte .n { display: block; font: 600 12.5px/1.2 var(--f-texte); color: var(--ink); }
+.porte .e { display: block; font: 500 10.5px/1.2 var(--f-texte); }
+.porte.ecoute { border-color: var(--or); animation: veille 2.4s ease-in-out infinite; }
+.porte.ecoute svg, .porte.franchie svg { color: var(--or-clair); opacity: 1; filter: drop-shadow(0 0 6px rgba(var(--sable), 0.7)); }
+.porte.franchie { border-color: var(--or); background: linear-gradient(180deg, #4a3a22, #2a1f14); }
+.lien { min-height: 40px; padding: 0 10px; background: none; border: 0; color: var(--muted); font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
+.bouton {
+  min-height: 46px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--or);
+  color: #1a1412;
+  font: 700 15px var(--f-texte);
+}
+.bouton[disabled] { background: #3a2e26; color: #7d7064; cursor: default; }
+
+/* Une salle : le parchemin de l'énigme, en haut — le clavier du téléphone monte par le bas. */
+.parchemin {
+  padding: 15px 16px 8px;
+  background: linear-gradient(180deg, var(--pierre), var(--pierre-sombre));
+  border: 1px solid rgba(217, 181, 106, 0.45);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.tete { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
+.essais { display: flex; gap: 5px; }
+.vers { margin: 0; font: italic 500 19px/1.3 var(--f-titre); color: var(--ink); }
+.vers span { display: block; opacity: 0; translate: 0 4px; transition: opacity 0.6s ease, translate 0.6s ease; }
+.vers span.la { opacity: 1; translate: 0 0; }
+.note { font-size: 11px; line-height: 1.4; color: var(--muted); margin: 9px 0 11px; }
+.titre { font: 600 22px/1.1 var(--f-titre); color: var(--or-clair); margin: 0 0 6px; text-wrap: balance; }
+.figure { font-size: 18px; letter-spacing: 0.2em; margin: 0 0 6px; }
+.recit { margin: 0 0 6px; font-size: 14px; line-height: 1.4; opacity: 0; translate: 0 4px; transition: opacity 0.5s ease, translate 0.5s ease; }
+.recit.la { opacity: 1; translate: 0 0; }
+.question { margin: 2px 0 4px; font: 600 15px/1.4 var(--f-texte); color: var(--or-clair); }
+.reponse { display: flex; gap: 8px; }
+.reponse input {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  min-height: 46px;
+  padding: 0 14px;
+  font: 500 16px var(--f-texte);
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(217, 181, 106, 0.4);
+  border-radius: 10px;
+}
+.reponse input::placeholder { color: #7d7064; }
+.reponse.faux input { border-color: var(--faux); animation: frisson 0.42s steps(6) 1; }
+.issues { display: flex; justify-content: center; flex-wrap: wrap; gap: 0 6px; margin-top: 2px; }
+
+/* Les menteurs : ce que chacun dit, puis qui l'on accuse. */
+.dires { display: grid; gap: 6px; margin: 0 0 10px; padding: 0; list-style: none; }
+.dires li { display: grid; grid-template-columns: 68px minmax(0, 1fr); gap: 8px; align-items: baseline; padding: 6px 10px; background: rgba(0, 0, 0, 0.25); border-left: 3px solid var(--or); border-radius: 2px 8px 8px 2px; font-size: 13.5px; line-height: 1.35; }
+.dires b { font: 600 13px/1.2 var(--f-pixel); color: var(--or-clair); }
+.accuses { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.accuses button { min-height: 46px; padding: 0 4px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(217, 181, 106, 0.5); border-radius: 10px; font: 600 14px var(--f-texte); color: var(--ink); }
+.accuses button:active { background: rgba(217, 181, 106, 0.2); }
+
+/* Le code : la tablette gravée, la molette, ce qu'on y lit. */
+.tablette { margin: 0 0 10px; padding: 10px 12px; background: #120d0b; border: 1px solid rgba(217, 181, 106, 0.3); border-radius: 6px; font: 500 15px/1.5 var(--f-pixel); letter-spacing: 0.08em; color: var(--muted); overflow-wrap: anywhere; }
+.tablette.lue { color: var(--or-clair); border-color: var(--or); }
+.molette { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 0 0 10px; }
+.molette button { width: 46px; height: 46px; padding: 0; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(217, 181, 106, 0.5); border-radius: 50%; font: 600 22px/1 var(--f-pixel); color: var(--or-clair); }
+.molette output { min-width: 122px; text-align: center; font: 500 13px/1.2 var(--f-texte); color: var(--muted); }
+.molette output b { display: block; font: 600 26px/1 var(--f-pixel); color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* Les dalles : dix dalles, des stèles de deux — les miennes d'or, celles du Sphinx de lapis. */
+.regle { margin: 0 0 6px; font-size: 13.5px; line-height: 1.45; }
+.plateau { position: relative; display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 3px; margin: 14px 0 8px; padding: 6px 0; touch-action: manipulation; cursor: pointer; }
+.dalle { grid-row: 1; aspect-ratio: 1 / 1.7; background: #3a2e26; border-radius: 3px; box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+.stele { grid-row: 1; margin: -4px 0; border-radius: 5px; z-index: 1; animation: pose 0.28s steps(4) both; }
+@keyframes pose { from { translate: 0 -14px; opacity: 0; } }
+.stele.moi { background: linear-gradient(180deg, var(--or-clair), var(--or)); box-shadow: 0 0 12px rgba(var(--sable), 0.5), inset 0 -4px 0 rgba(0, 0, 0, 0.2); }
+.stele.lui { background: linear-gradient(180deg, #8fb1d8, #46699a); box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.25); }
+.stele.vise { background: none; border: 2px dashed var(--or-clair); box-shadow: none; animation: none; }
+.legende { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 12px; color: var(--muted); }
+.legende i { display: inline-block; width: 16px; height: 9px; margin-right: 5px; border-radius: 2px; vertical-align: -1px; }
+.legende .moi { background: var(--or); }
+.legende .lui { background: var(--lapis); }
+.pose { display: grid; }
+
+/* La solution, pas à pas : chaque étape s'écrit sous la précédente. */
+.etapes { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; counter-reset: pas; }
+.etapes li { counter-increment: pas; display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: baseline; padding: 8px 10px; background: rgba(0, 0, 0, 0.25); border-radius: 8px; font: 500 14px/1.35 var(--f-texte); animation: paraitre 0.4s ease both; }
+.etapes li::before { content: counter(pas); font: 600 13px/1 var(--f-pixel); color: var(--or); text-align: center; }
+.etapes li.reponse-finale { border: 1px solid var(--or); color: var(--or-clair); }
+
+/* Le mot qu'une salle rend, et la fin de l'étage. */
+.gain { display: grid; justify-items: center; gap: 10px; text-align: center; }
+.gain svg { color: var(--or-clair); filter: drop-shadow(0 0 16px rgba(var(--sable), 0.8)); }
+.gain .mot { margin: 0; padding: 10px 24px; border-radius: 999px; background: radial-gradient(circle at 50% 40%, rgba(var(--sable), 0.35), rgba(var(--sable), 0.08) 70%); border: 1px solid rgba(var(--sable), 0.8); box-shadow: 0 0 40px rgba(var(--sable), 0.45); font: 600 30px/1 var(--f-titre); color: #fff4d6; letter-spacing: 0.04em; }
+.gain.de-sable svg { color: var(--muted); filter: none; }
+.gain.de-sable .mot { background: none; border: 1px dashed rgba(168, 155, 138, 0.6); box-shadow: none; color: var(--muted); font-style: italic; }
+.gain small { font-size: 12px; color: var(--muted); }
+.tablettes { display: grid; gap: 6px; width: 100%; margin: 4px 0 12px; }
+.tablettes .rang span { width: calc((100% - 14px) / 3); padding: 8px 2px 7px; background: #120d0b; border: 1px solid rgba(217, 181, 106, 0.45); border-radius: 4px; font: 600 17px/1 var(--f-titre); color: var(--or-clair); text-align: center; }
+.tablettes .rang span.inconnu { color: #5d5148; border-style: dashed; border-color: rgba(168, 155, 138, 0.35); }
+.tablettes .rang span.de-sable { color: var(--muted); font-style: italic; border-color: rgba(168, 155, 138, 0.45); }
+.fin h2 { font: 600 44px/1 var(--f-titre); color: #fff4d6; margin: 2px 0 0; text-shadow: 0 0 30px rgba(var(--sable), 0.7); }
+.fin p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--muted); max-width: 30ch; text-wrap: balance; }
+.fin p b { color: var(--or-clair); font-weight: 600; }
+.fin .bouton { margin-top: 6px; }
+
+/* Les outils de la maquette. */
+/* Sur l'étage seulement : dans une salle, ils couvriraient ses essais. */
+.outils { position: absolute; top: 6px; right: calc(var(--gr) - 8px); z-index: 12; display: none; }
+.a-l-etage .outils { display: block; }
+.outils > button { min-height: 32px; padding: 0 10px; background: rgba(5, 3, 3, 0.7); border: 1px solid rgba(168, 155, 138, 0.35); border-radius: 999px; font: 500 11px var(--f-texte); color: var(--muted); }
+.outils menu { position: absolute; top: 38px; right: 0; width: 232px; margin: 0; padding: 6px; list-style: none; display: grid; background: var(--boite); border: 1px solid var(--or); border-radius: 10px; box-shadow: 0 14px 34px rgba(0, 0, 0, 0.7); }
+.outils menu button { width: 100%; min-height: 42px; padding: 0 10px; background: none; border: 0; text-align: left; font: 500 13.5px var(--f-texte); color: var(--ink); border-radius: 6px; }
+.outils menu button:hover { background: rgba(217, 181, 106, 0.12); }
+
+.calme *, .calme *::before { animation: none !important; transition: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before { animation: none !important; transition: none !important; }
+}
+</style>
+
+<div class="scene" id="scene">
+  <div class="haut" id="haut"></div>
+
+  <div class="sphinx" id="sphinx" aria-hidden="true">
+    <div class="rayons"></div>
+    <canvas id="sphinx-toile" width="356" height="240"></canvas>
+  </div>
+
+  <div class="choix" id="choix" hidden></div>
+
+  <div class="boite" id="boite">
+    <i class="coin"></i><i class="coin"></i><i class="coin"></i><i class="coin"></i>
+    <button class="son" id="son" type="button" aria-pressed="false" aria-label="La voix du Sphinx"><span id="son-dessin"></span></button>
+    <span class="nom">Le Sphinx</span>
+    <p class="texte" id="texte" aria-hidden="true"></p>
+    <p class="sr" id="texte-lu" aria-live="polite"></p>
+    <i class="suite"></i>
+  </div>
+
+  <div class="flash" id="flash"></div>
+
+  <div class="outils">
+    <button type="button" id="outils-bouton" aria-expanded="false" aria-controls="outils-menu">Maquette</button>
+    <menu id="outils-menu" hidden>
+      <li><button type="button" data-outil="quatre">Avoir quatre glyphes d’or</button></li>
+      <li><button type="button" data-outil="calme" id="outil-calme">Moins de mouvement</button></li>
+      <li><button type="button" data-outil="recommencer">Tout recommencer</button></li>
+    </menu>
+  </div>
+</div>
+
+<script>
+'use strict'
+/* La Pyramide du Sphinx : la maquette d'un étage. Une page sans dépendance,
+   hors de l'application. Tout ce qu'elle pose est écrit pour elle : rien ne
+   vient de la réserve du Sphinx (server/content/sphinx/), que le propriétaire
+   joue aussi. Ici les réponses vivent dans la page ; dans l'application, elles
+   ne quitteraient pas le serveur avant la fin de la salle (invariant 1). */
+
+const $ = id => document.getElementById(id)
+const scene = $('scene'), haut = $('haut'), boite = $('boite'), texte = $('texte'), choix = $('choix')
+const attendre = ms => new Promise(r => setTimeout(r, ms))
+
+/* ------------------------------------------------------------------ */
+/* Le contenu de l'étage                                              */
+/* ------------------------------------------------------------------ */
+
+// Les initiales des six mots, dans l'ordre des salles, font la réponse du
+// gardien : c'est la raison de chaque mot, et de leur ordre.
+const SALLES = [
+  {
+    cle: 'vers', nom: 'Les vers', glyphe: 'plume', sorte: 'texte', essais: 3,
+    sourcil: 'L’énigme',
+    vers: [
+      'Île sans mer, au cœur du sable,',
+      'J’abreuve enfin le voyageur ;',
+      'Sous mes palmiers il met la table ;',
+      'Mais, vu de loin, je semble un leurre.',
+    ],
+    note: 'Écrite pour la maquette, à la manière du recueil de 1858.',
+    mot: 'Oasis', dit: 'l’oasis',
+    acceptees: ['oasis'], brulent: ['mirage', 'leurre', 'palmeraie', 'puits', 'source', 'ile'],
+    entree: 'La salle des vers. Trois essais. Écoute…',
+    juste: '*L’oasis*. Garde ce mot : la porte s’en souviendra.',
+    perdu: 'C’était *l’oasis*. La salle s’ensable : son mot te reste, sans son or.',
+  },
+  {
+    cle: 'mots', nom: 'Les mots', glyphe: 'cartouche', sorte: 'texte', essais: 3,
+    sourcil: 'Le logogriphe',
+    vers: [
+      'Sur mes six pieds, je luis la nuit ;',
+      'Le berger me suit vers l’étable.',
+      'Ôtez ma tête : je ne suis',
+      'Qu’un drap, du peintre inséparable.',
+    ],
+    note: 'Un logogriphe joue avec les lettres d’un mot : chaque « pied » en est une. Écrit pour la maquette.',
+    mot: 'Étoile', dit: 'l’étoile',
+    acceptees: ['etoile', 'etoileduberger'], brulent: ['toile', 'astre', 'venus', 'lune'],
+    entree: 'La salle des mots. Un logogriphe : chaque pied est une lettre.',
+    juste: '*L’étoile*… et sans sa tête, la toile. Garde ce mot.',
+    perdu: 'C’était *l’étoile* : sans sa tête, la toile. La salle s’ensable.',
+  },
+  {
+    cle: 'probleme', nom: 'Les problèmes', glyphe: 'balance', sorte: 'nombre', essais: 3,
+    sourcil: 'Le problème',
+    titre: 'Le problème des deux scribes',
+    figure: '📜 ✍️ ✍️',
+    recit: [
+      'Le grand scribe recopie le Livre des portes en 15 jours.',
+      'Son apprenti, moins vif, y met 30 jours quand il est seul.',
+      'Pharaon est pressé : ils s’y mettent à deux, chacun à son rythme, sur le même exemplaire.',
+    ],
+    question: 'En combien de jours le Livre est-il recopié ?',
+    valeur: 10, mot: 'Dix', dit: 'dix',
+    entree: 'Cette fois, un *problème*. Lis bien… et prends ton temps.',
+    juste: '*Dix* jours. Garde ce nombre : il ouvre plus d’une porte.',
+    perdu: 'Il fallait *dix* jours. Regarde comment on le résout.',
+    solution: [
+      ['En un jour, le grand scribe recopie un quinzième du Livre.', 'Le grand scribe : 1/15 du Livre par jour'],
+      ['L’apprenti, lui, un trentième.', 'L’apprenti : 1/30 par jour'],
+      ['À deux, un quinzième et un trentième : trois trentièmes. Un dixième par jour.', 'À deux : 1/15 + 1/30 = 3/30 = 1/10 par jour'],
+      ['Un dixième par jour : le Livre est fini en dix jours.', '10 jours'],
+    ],
+  },
+  {
+    cle: 'menteurs', nom: 'Les menteurs', glyphe: 'masque', sorte: 'choix', essais: 1,
+    sourcil: 'Les menteurs',
+    titre: 'Qui a soufflé la lampe ?',
+    recit: ['Cette nuit, quelqu’un a soufflé la lampe du couloir. Trois scribes veillaient. Chacun dit deux choses : une vérité, et un mensonge.'],
+    dires: [
+      ['Imhotep', '« Ce n’est pas Khéti. C’est Ouni. »'],
+      ['Khéti', '« Ce n’est pas moi. C’est Ouni. »'],
+      ['Ouni', '« Ce n’est pas Imhotep. Ce n’est pas moi. »'],
+    ],
+    question: 'Un seul essai. Qui accuses-tu ?',
+    propositions: ['Imhotep', 'Khéti', 'Ouni'], bonne: 0,
+    mot: 'Imhotep', dit: 'Imhotep',
+    entree: 'La salle des menteurs. Un seul essai : n’accuse pas à la légère.',
+    juste: '*Imhotep*. Tu as l’oreille fine. Garde ce nom.',
+    perdu: 'Non. C’était *Imhotep*. La salle s’ensable. Regarde.',
+    solution: [
+      ['Suppose Khéti coupable. Imhotep mentirait deux fois : impossible.', 'Khéti ? Imhotep dirait deux mensonges'],
+      ['Suppose Ouni coupable. Imhotep dirait vrai deux fois : impossible.', 'Ouni ? Imhotep dirait deux vérités'],
+      ['Reste Imhotep : chacun dit alors une vérité et un mensonge.', 'Imhotep'],
+    ],
+  },
+  {
+    cle: 'codes', nom: 'Les codes', glyphe: 'cle', sorte: 'code', essais: 3,
+    sourcil: 'Le code',
+    titre: 'La tablette chiffrée',
+    clair: 'LE MOT QUE JE GARDE EST PAPYRUS', decalage: 10,
+    note: 'Chaque lettre a glissé dans l’alphabet, toutes du même nombre de crans. Ce nombre, une autre salle te le donne.',
+    mot: 'Papyrus', dit: 'papyrus',
+    acceptees: ['papyrus'], brulent: [],
+    entree: 'La salle des codes. La clé de ce message dort dans une autre salle.',
+    juste: '*Papyrus*. Bien lu. Garde ce mot.',
+    perdu: 'Le mot était *papyrus*, à dix crans de là. La salle s’ensable.',
+  },
+  {
+    cle: 'machines', nom: 'Les machines', glyphe: 'dalles', sorte: 'dalles', essais: 0,
+    sourcil: 'La machine',
+    titre: 'Le jeu des dalles',
+    regles: [
+      'Chacun son tour, on pose une stèle sur deux dalles voisines encore libres.',
+      'Qui ne peut plus poser a perdu. Tu commences.',
+    ],
+    mot: 'Écho', dit: 'l’écho',
+    entree: 'La salle des machines. Ici, tu joues *contre moi*. Tu commences.',
+    juste: 'Coup pour coup, tu m’as renvoyé mon propre jeu… comme un *écho*. Garde ce mot.',
+    perdu: 'Soit. Le mot était *écho*. Regarde comment on me bat.',
+    solution: [
+      ['Pose ta première stèle au milieu : il reste quatre dalles de chaque côté.', 'D’abord, le milieu : 4 dalles à gauche, 4 à droite'],
+      ['Ensuite, imite-moi : là où je pose d’un côté, pose en face, en miroir.', 'Puis chaque coup du Sphinx, en miroir'],
+      ['Tant que je peux poser, tu le peux aussi. Le dernier coup est donc pour toi.', 'Le dernier coup est le tien'],
+    ],
+  },
+]
+const GARDIEN = {
+  mot: 'Œdipe',
+  acceptees: ['oedipe', 'edipe'], brulent: ['thebes', 'laios', 'jocaste', 'antigone', 'homme'],
+  dit: [
+    'Six salles, six réponses, rangées comme je les ai bâties.',
+    'De chacune, ne garde que la *tête*.',
+    'Qui, jadis, a su me répondre ?',
+  ],
+}
+const RANGS = [[0], [1, 2], [3, 4, 5]]
+const OR_POUR_LA_PORTE = 4
+
+// Des glyphes de neuf pixels de côté, un par famille d'énigmes.
+const GLYPHES = {
+  plume: ['......##.', '.....###.', '....####.', '...####..', '..####...', '..###....', '.#.#.....', '#........', '.........'],
+  cartouche: ['..#####..', '.#.....#.', '.#.#.#.#.', '.#.....#.', '.#.###.#.', '.#.....#.', '.#.#.#.#.', '.#.....#.', '..#####..'],
+  balance: ['....#....', '.#######.', '.#..#..#.', '###.#.###', '.#..#..#.', '....#....', '....#....', '..#####..', '.........'],
+  masque: ['.#######.', '#.......#', '#.##.##.#', '#.......#', '#...#...#', '#.#...#.#', '#..###..#', '.#.....#.', '..#####..'],
+  cle: ['.........', '.###.....', '#...#....', '#...#####', '#...#.#.#', '.###.....', '.........', '.........', '.........'],
+  dalles: ['.........', '##.##.##.', '##.##.##.', '.........', '.##.##.##', '.##.##.##', '.........', '##.##.##.', '##.##.##.'],
+  ankh: ['...###...', '..#...#..', '..#...#..', '...###...', '.#######.', '....#....', '....#....', '....#....', '....#....'],
+  voix: ['....#....', '...##..#.', '.####...#', '.####.#.#', '.####...#', '...##..#.', '....#....', '.........', '.........'],
+  muet: ['....#....', '...##....', '.####.#.#', '.####..#.', '.####.#.#', '...##....', '....#....', '.........', '.........'],
+}
+function glyphe(nom, taille) {
+  let r = ''
+  GLYPHES[nom].forEach((ligne, y) => [...ligne].forEach((c, x) => { if (c === '#') r += `<rect x="${x}" y="${y}" width="1.03" height="1.03"/>` }))
+  return `<svg viewBox="0 0 9 9" width="${taille}" height="${taille}" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true">${r}</svg>`
+}
+
+// Les espaces du français : une ponctuation haute ne passe jamais seule à la ligne.
+const fr = s => s.replace(/ ([;:!?])/g, '\u202f$1').replace(/« /g, '«\u00a0').replace(/ »/g, '\u00a0»').replace(/n° /g, 'n°\u00a0')
+
+function h(tag, attrs, ...enfants) {
+  const el = document.createElement(tag)
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === false || v == null) continue
+    if (k === 'class') el.className = v
+    else if (k === 'html') el.innerHTML = v
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v)
+    else el.setAttribute(k, v === true ? '' : k === 'placeholder' || k === 'aria-label' ? fr(v) : v)
+  }
+  for (const e of enfants.flat()) if (e != null && e !== false) el.append(typeof e === 'string' ? fr(e) : e)
+  return el
+}
+
+/* ------------------------------------------------------------------ */
+/* Ce que la maquette retient, sur ce téléphone                        */
+/* ------------------------------------------------------------------ */
+
+const CLE = 'fiestapp.maquette.pyramide.v1'
+function etatNeuf() {
+  return {
+    intro: false,
+    salles: Object.fromEntries(SALLES.map(s => [s.cle, { e: 'neuve', essais: s.essais, dits: [] }])),
+    gardien: { e: 'ferme', essais: 3, dits: [], vu: false },
+    parties: 0,
+    son: false,
+    calme: false,
+  }
+}
+function etatLu() {
+  try {
+    const lu = JSON.parse(localStorage.getItem(CLE) || 'null')
+    if (lu && lu.salles && SALLES.every(s => lu.salles[s.cle]) && lu.gardien) return lu
+  } catch { /* des cookies bloqués : on repart de zéro, sans rien casser */ }
+  return etatNeuf()
+}
+let etat = etatLu()
+function garder() { try { localStorage.setItem(CLE, JSON.stringify(etat)) } catch { /* rien à garder */ } }
+const de = s => etat.salles[s.cle]
+const enOr = () => SALLES.filter(s => de(s).e === 'or').length
+const enSable = () => SALLES.filter(s => de(s).e === 'sable').length
+const calme = () => etat.calme || matchMedia('(prefers-reduced-motion: reduce)').matches
+
+/* ------------------------------------------------------------------ */
+/* Lire une réponse                                                    */
+/* ------------------------------------------------------------------ */
+
+// Sans accents, sans majuscules, sans article, sans « c'est » : la même
+// réponse écrite de deux façons reste la même.
+const ARTICLES = new Set(['l', 'le', 'la', 'les', 'un', 'une', 'des', 'du', 'de', 'd', 'mon', 'ma', 'mes'])
+function normaliser(s) {
+  const mots = String(s).toLowerCase().replace(/œ/g, 'oe').normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[^a-z0-9]+/).filter(Boolean)
+  if (mots[0] === 'c' && mots[1] === 'est') mots.splice(0, 2)
+  while (mots.length > 1 && ARTICLES.has(mots[0])) mots.shift()
+  return mots.join('')
+}
+const EN_LETTRES = ['zero', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dixsept', 'dixhuit', 'dixneuf', 'vingt']
+function nombreTape(s) {
+  // Pas par `normaliser` : « un » y est un article, et « un jour » ne vaudrait plus rien.
+  const t = String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '').replace(/jours?$/, '')
+  if (/^\d{1,6}$/.test(t)) return Number(t)
+  const i = EN_LETTRES.indexOf(t)
+  return i >= 0 ? i : null
+}
+const reste = n => (n >= 2 ? 'Non. Il te reste *deux* essais.' : 'Non. Plus qu’*un* essai.')
+
+/* ------------------------------------------------------------------ */
+/* Les sons : de petits bips d'autrefois, muets tant qu'on ne les veut pas */
+/* ------------------------------------------------------------------ */
+
+const sons = {
+  ctx: null,
+  note(f, d, quand = 0, g = 0.035) {
+    if (!etat.son) return
+    try {
+      this.ctx = this.ctx || new (window.AudioContext || window.webkitAudioContext)()
+      const o = this.ctx.createOscillator(), a = this.ctx.createGain()
+      o.type = 'square'
+      o.frequency.value = f
+      a.gain.value = g
+      o.connect(a).connect(this.ctx.destination)
+      const t = this.ctx.currentTime + quand
+      o.start(t)
+      a.gain.setValueAtTime(g, t + d * 0.7)
+      a.gain.linearRampToValueAtTime(0, t + d)
+      o.stop(t + d)
+    } catch { /* pas de son sur ce téléphone : la maquette reste muette */ }
+  },
+  bip() { this.note(880, 0.022) },
+  menu() { this.note(660, 0.05) },
+  pose() { this.note(330, 0.07) },
+  non() { this.note(196, 0.12); this.note(147, 0.18, 0.1) },
+  oui() { [523, 659, 784, 1047].forEach((f, i) => this.note(f, 0.11, i * 0.09)) },
+}
+function dessinerLeSon() {
+  $('son').setAttribute('aria-pressed', String(etat.son))
+  $('son-dessin').innerHTML = glyphe(etat.son ? 'voix' : 'muet', 14)
+}
+$('son').addEventListener('click', e => {
+  e.stopPropagation()
+  etat.son = !etat.son
+  garder()
+  dessinerLeSon()
+  sons.menu()
+})
+
+/* ------------------------------------------------------------------ */
+/* Le Sphinx, qui naît en mosaïque                                     */
+/* ------------------------------------------------------------------ */
+
+const imageSphinx = new Image()
+imageSphinx.src = 'images/sphinx-perso.webp'
+const imagePrete = new Promise(r => { imageSphinx.onload = r; imageSphinx.onerror = r })
+const toile = $('sphinx-toile')
+const DECOUPE = [0, 0, 256, 172]
+function peindreSphinx(pas) {
+  const ctx = toile.getContext('2d')
+  const W = toile.width, H = toile.height
+  ctx.clearRect(0, 0, W, H)
+  if (pas === null || !imageSphinx.naturalWidth) return
+  if (pas >= 1) {
+    ctx.imageSmoothingEnabled = true
+    ctx.drawImage(imageSphinx, ...DECOUPE, 0, 0, W, H)
+    return
+  }
+  // Une mosaïque de plus en plus fine : le dessin réduit, puis agrandi sans lissage.
+  const w = Math.max(3, Math.round(4 + pas * pas * 90))
+  const hh = Math.max(2, Math.round(w * 172 / 256))
+  const petit = document.createElement('canvas')
+  petit.width = w
+  petit.height = hh
+  petit.getContext('2d').drawImage(imageSphinx, ...DECOUPE, 0, 0, w, hh)
+  ctx.imageSmoothingEnabled = false
+  ctx.globalAlpha = Math.min(1, 0.35 + pas)
+  ctx.drawImage(petit, 0, 0, w, hh, 0, 0, W, H)
+  ctx.globalAlpha = 1
+}
+async function materialiser(j) {
+  await imagePrete
+  if (!calme()) {
+    for (let i = 0; i <= 10; i++) {
+      peindreSphinx(i / 11)
+      sons.note(220 + i * 40, 0.04)
+      await attendre(90)
+      verifier(j)
+    }
+    eclair()
+  }
+  peindreSphinx(1)
+  scene.classList.add('glorieux')
+}
+function eclair() {
+  const f = $('flash')
+  f.classList.remove('part')
+  void f.offsetWidth
+  f.classList.add('part')
+}
+function secouer() {
+  scene.classList.remove('non')
+  void scene.offsetWidth
+  scene.classList.add('non')
+}
+
+/* ------------------------------------------------------------------ */
+/* Le Sphinx parle : lettre par lettre, un toucher finit la réplique    */
+/* ------------------------------------------------------------------ */
+
+// Chaque scène porte un jeton : en changer coupe ce que l'ancienne attendait.
+class Coupe extends Error {}
+let jeton = 0, frappe = 0, finirLaFrappe = null, toucher = null
+const verifier = j => { if (j !== jeton) throw new Coupe() }
+function jouer(scenario) {
+  const j = ++jeton
+  frappe++
+  finirLaFrappe = null
+  toucher = null
+  choix.hidden = true
+  boite.classList.remove('attend')
+  Promise.resolve().then(() => scenario(j)).catch(e => { if (!(e instanceof Coupe)) throw e })
+}
+async function ecrire(j, brut) {
+  verifier(j)
+  const phrase = fr(brut)
+  const moi = ++frappe
+  $('texte-lu').textContent = phrase.replace(/\*/g, '')
+  boite.classList.remove('attend')
+  // Chaque lettre a sa place dès le départ : un mot ne saute pas de ligne en s'écrivant.
+  texte.innerHTML = ''
+  const lettres = []
+  let enValeur = false
+  for (const c of phrase) {
+    if (c === '*') { enValeur = !enValeur; continue }
+    const s = document.createElement('span')
+    s.className = 'c'
+    s.textContent = c
+    if (enValeur) { const em = document.createElement('em'); em.append(s); texte.append(em) } else texte.append(s)
+    lettres.push(s)
+  }
+  let fini = false
+  const tout = () => { fini = true; lettres.forEach(s => s.classList.add('v')) }
+  finirLaFrappe = tout
+  if (calme()) tout()
+  for (let i = 0; i < lettres.length && !fini; i++) {
+    lettres[i].classList.add('v')
+    const c = lettres[i].textContent
+    if (i % 2 === 0 && c.trim()) sons.bip()
+    await attendre(c === '…' ? 260 : /[.!?]/.test(c) ? 160 : /[,;:]/.test(c) ? 90 : 24)
+    verifier(j)
+    if (moi !== frappe) return
+  }
+  if (moi !== frappe) return
+  tout()
+  finirLaFrappe = null
+}
+async function dire(j, phrase) {
+  await ecrire(j, phrase)
+  verifier(j)
+  boite.classList.add('attend')
+  await new Promise(r => { toucher = r })
+  toucher = null
+  boite.classList.remove('attend')
+  sons.menu()
+  verifier(j)
+}
+async function demander(j, phrase, options) {
+  await ecrire(j, phrase)
+  verifier(j)
+  choix.innerHTML = ''
+  const choisi = new Promise(r => {
+    for (const [valeur, libelle] of options) {
+      const b = h('button', { type: 'button', onclick: e => { e.stopPropagation(); sons.menu(); r(valeur) } }, libelle)
+      b.addEventListener('pointerenter', () => choix.querySelectorAll('button').forEach(x => x.classList.toggle('vise', x === b)))
+      choix.append(b)
+    }
+  })
+  choix.hidden = false
+  choix.querySelector('button').classList.add('vise')
+  const valeur = await choisi
+  choix.hidden = true
+  verifier(j)
+  return valeur
+}
+// Une réaction du Sphinx, sans rien attendre : la salle reste jouable pendant qu'il parle.
+function parler(phrase) {
+  const j = jeton
+  ecrire(j, phrase).catch(e => { if (!(e instanceof Coupe)) throw e })
+}
+scene.addEventListener('click', e => {
+  if (e.target.closest('button, input, form, a, .plateau, .outils')) return
+  if (finirLaFrappe) finirLaFrappe()
+  else if (toucher) toucher()
+})
+document.addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('input, button, .plateau')) return
+  if (e.key === 'Enter' || e.key === ' ') {
+    if (finirLaFrappe) { e.preventDefault(); finirLaFrappe() } else if (toucher) { e.preventDefault(); toucher() }
+  }
+})
+
+function montrer(...enfants) {
+  scene.classList.remove('a-l-etage')
+  haut.classList.remove('centre')
+  haut.replaceChildren(...enfants)
+  haut.scrollTop = 0
+}
+function montrerAuCentre(...enfants) {
+  montrer(...enfants)
+  haut.classList.add('centre')
+}
+const grandir = oui => scene.classList.toggle('grand', oui)
+
+/* ------------------------------------------------------------------ */
+/* L'étage                                                             */
+/* ------------------------------------------------------------------ */
+
+function phraseDeLEtage() {
+  const or = enOr(), sable = enSable()
+  if (etat.gardien.e === 'franchie') return 'La porte est ouverte, *Œdipe*. L’étage suivant t’attend.'
+  if (SALLES.length - sable < OR_POUR_LA_PORTE) return 'Trop de sable : l’étage s’effondre. Il renaîtra, avec d’autres énigmes.'
+  if (or >= SALLES.length) return 'Six glyphes d’or. La *porte* t’écoute.'
+  if (or >= OR_POUR_LA_PORTE) return 'La *porte* t’écoute. Mais six mots valent mieux que quatre.'
+  if (or === 0 && sable === 0) return 'Six salles, une porte. Entre où tu veux.'
+  const manque = OR_POUR_LA_PORTE - or
+  return manque === 1 ? 'Encore *un* glyphe d’or, et la porte t’écoute.' : `Encore *${['', '', 'deux', 'trois', 'quatre'][manque]}* glyphes d’or, et la porte t’écoute.`
+}
+function tuile(s) {
+  const st = de(s)
+  const sous = st.e === 'or' || st.e === 'sable' ? s.mot : st.e === 'ouverte' ? 'en cours' : 'à ouvrir'
+  return h('button', {
+    type: 'button',
+    class: `salle ${st.e}`,
+    'aria-label': `${s.nom} : ${st.e === 'or' ? 'résolue, ' + s.mot : st.e === 'sable' ? 'ensablée, ' + s.mot : sous}`,
+    onclick: () => entrer(s),
+  }, h('span', { html: glyphe(s.glyphe, 27) }), h('span', { class: 'n' }, s.nom), h('span', { class: 'e' }, sous))
+}
+function losanges() {
+  return h('span', { class: 'losanges' }, SALLES.map(s => h('i', { class: `losange ${de(s).e === 'or' ? '' : de(s).e === 'sable' ? 'de-sable' : 'vide'}` })))
+}
+function dessinerLEtage() {
+  const or = enOr()
+  const g = etat.gardien
+  const effondre = SALLES.length - enSable() < OR_POUR_LA_PORTE && g.e !== 'franchie'
+  const ecoute = or >= OR_POUR_LA_PORTE && g.e !== 'franchie'
+  const porte = h('button', {
+    type: 'button',
+    class: `porte ${g.e === 'franchie' ? 'franchie' : ecoute ? 'ecoute' : ''}`,
+    onclick: () => jouer(j => gardien(j)),
+  },
+  h('span', { html: glyphe('ankh', 26) }),
+  h('span', null,
+    h('span', { class: 'n' }, 'La porte du gardien'),
+    h('span', { class: 'e' }, g.e === 'franchie' ? 'franchie' : ecoute ? 'elle t’écoute' : `${OR_POUR_LA_PORTE} glyphes d’or pour qu’elle écoute`)))
+  montrer(h('div', { class: 'carte vue' },
+    h('p', { class: 'sourcil' }, 'La Pyramide du Sphinx'),
+    h('h1', null, 'Étage I · Le Vestibule'),
+    h('p', { class: 'compte' }, losanges(), h('span', null, h('b', null, String(or)), ` glyphe${or > 1 ? 's' : ''} d’or sur ${SALLES.length}`)),
+    h('div', { class: 'pyramide' }, RANGS.map(r => h('div', { class: 'rang' }, r.map(i => tuile(SALLES[i]))))),
+    porte,
+    effondre && h('button', { type: 'button', class: 'lien', onclick: () => { etat.salles = etatNeuf().salles; garder(); jouer(j => etage(j)) } }, 'Rebâtir l’étage (maquette)'),
+  ))
+  scene.classList.add('a-l-etage')
+}
+async function etage(j, phrase) {
+  grandir(false)
+  scene.classList.remove('glorieux')
+  dessinerLEtage()
+  await ecrire(j, phrase || phraseDeLEtage())
+}
+function entrer(s) {
+  const st = de(s)
+  if (st.e === 'or') return parler(`*${s.mot}*. Tu as déjà l’or de cette salle.`)
+  if (st.e === 'sable') return parler(`Ensablée. Son mot : *${s.mot.toLowerCase()}*.`)
+  jouer(j => salle(j, s))
+}
+
+/* ------------------------------------------------------------------ */
+/* Une salle                                                           */
+/* ------------------------------------------------------------------ */
+
+const SORTES = { texte: salleDeTexte, nombre: salleDeNombre, choix: salleDeChoix, code: salleDeCode, dalles: salleDesDalles }
+async function salle(j, s) {
+  const st = de(s)
+  if (st.e === 'neuve') { st.e = 'ouverte'; garder() }
+  grandir(false)
+  scene.classList.remove('glorieux')
+  SORTES[s.sorte](j, s)
+  await ecrire(j, s.entree)
+}
+function tete(s) {
+  const st = de(s)
+  return h('div', { class: 'tete' },
+    h('p', { class: 'sourcil' }, s.sourcil),
+    s.essais > 0 && h('span', { class: 'essais', role: 'img', 'aria-label': `${st.essais} essai${st.essais > 1 ? 's' : ''}` },
+      Array.from({ length: s.essais }, (_, i) => h('i', { class: `losange ${i < st.essais ? '' : 'perdu'}` }))))
+}
+function issues(s, chat = true) {
+  return h('div', { class: 'issues' },
+    h('button', { type: 'button', class: 'lien', onclick: () => jouer(j => etage(j, 'Prends ton temps. Mon énigme t’attendra, et tes essais aussi.')) }, 'Plus tard'),
+    chat && h('button', { type: 'button', class: 'lien', onclick: () => jouer(j => defaite(j, s, true)) }, 'Je donne ma langue au chat'))
+}
+function champ(s, attrs, envoyer) {
+  const input = h('input', { id: `reponse-${s.cle}`, type: 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', 'aria-label': 'Ta réponse', ...attrs })
+  const form = h('form', { class: 'reponse', onsubmit: e => {
+    e.preventDefault()
+    const verdict = envoyer(input.value)
+    if (verdict === 'faux') {
+      form.classList.remove('faux')
+      void form.offsetWidth
+      form.classList.add('faux')
+      input.select()
+    }
+  } }, input, h('button', { type: 'submit', class: 'bouton' }, 'Répondre'))
+  return form
+}
+// Un essai de moins, et ce que le Sphinx en dit ; au dernier, la salle s'ensable.
+function fauxEssai(s, r) {
+  const st = de(s)
+  st.dits.push(r)
+  st.essais--
+  garder()
+  sons.non()
+  secouer()
+  if (st.essais <= 0) { jouer(j => defaite(j, s)); return 'perdu' }
+  const vieux = haut.querySelector('.tete')
+  if (vieux) vieux.replaceWith(tete(s))
+  parler(reste(st.essais))
+  return 'faux'
+}
+function repondreUnMot(s, saisie) {
+  const r = normaliser(saisie)
+  if (!r) return 'vide'
+  if (s.acceptees.includes(r)) { jouer(j => victoire(j, s)); return 'juste' }
+  if (de(s).dits.includes(r)) { parler('Tu me l’as déjà dit.'); return 'deja' }
+  if (s.brulent.includes(r)) { parler('Tu brûles…'); return 'brule' }
+  return fauxEssai(s, r)
+}
+function paraitreUnAUn(elements, pas = 620) {
+  elements.forEach((el, i) => setTimeout(() => el.classList.add('la'), calme() ? 0 : 250 + i * pas))
+}
+
+function salleDeTexte(j, s) {
+  const vers = s.vers.map(v => h('span', null, v))
+  montrer(h('section', { class: 'parchemin vue' },
+    tete(s),
+    h('p', { class: 'vers' }, vers),
+    h('p', { class: 'note' }, s.note),
+    champ(s, { placeholder: 'Qui suis-je ?' }, v => repondreUnMot(s, v)),
+    issues(s)))
+  paraitreUnAUn(vers)
+}
+
+function salleDeNombre(j, s) {
+  const recit = s.recit.map(p => h('p', { class: 'recit' }, p))
+  montrer(h('section', { class: 'parchemin vue' },
+    tete(s),
+    h('h2', { class: 'titre' }, s.titre),
+    h('p', { class: 'figure', 'aria-hidden': 'true' }, s.figure),
+    recit,
+    h('p', { class: 'question' }, s.question),
+    champ(s, { inputmode: 'numeric', placeholder: 'Un nombre de jours' }, v => {
+      if (!v.trim()) return 'vide'
+      const n = nombreTape(v)
+      // Un mot qui n'est pas un nombre se redemande sans coûter d'essai.
+      if (n === null) { parler('Un nombre, en chiffres. Je ne te compte pas cet essai.'); return 'illisible' }
+      if (n === s.valeur) { jouer(k => victoire(k, s)); return 'juste' }
+      if (de(s).dits.includes(String(n))) { parler('Tu me l’as déjà dit.'); return 'deja' }
+      return fauxEssai(s, String(n))
+    }),
+    issues(s)))
+  paraitreUnAUn(recit, 900)
+}
+
+function salleDeChoix(j, s) {
+  montrer(h('section', { class: 'parchemin vue' },
+    tete(s),
+    h('h2', { class: 'titre' }, s.titre),
+    s.recit.map(p => h('p', { class: 'recit la' }, p)),
+    h('ul', { class: 'dires' }, s.dires.map(([qui, quoi]) => h('li', null, h('b', null, qui), h('span', null, quoi)))),
+    h('p', { class: 'question' }, s.question),
+    h('div', { class: 'accuses' }, s.propositions.map((p, i) => h('button', { type: 'button', onclick: () => {
+      if (i === s.bonne) return jouer(k => victoire(k, s))
+      de(s).dits.push(p)
+      de(s).essais = 0
+      garder()
+      sons.non()
+      secouer()
+      jouer(k => defaite(k, s))
+    } }, p))),
+    issues(s, false)))
+}
+
+function chiffrer(clair, n) {
+  return [...clair].map(c => (c >= 'A' && c <= 'Z' ? String.fromCharCode((c.charCodeAt(0) - 65 + n + 26) % 26 + 65) : c)).join('')
+}
+function salleDeCode(j, s) {
+  const grave = chiffrer(s.clair, s.decalage)
+  let crans = 0
+  const lu = h('p', { class: 'tablette', 'aria-live': 'polite' })
+  const sortie = h('output', null)
+  const dessiner = () => {
+    lu.textContent = chiffrer(grave, -crans)
+    lu.classList.toggle('lue', crans === s.decalage)
+    sortie.replaceChildren(h('b', null, String(crans)), crans > 1 ? 'crans en arrière' : 'cran en arrière')
+  }
+  const tourner = d => { crans = (crans + d + 26) % 26; sons.bip(); dessiner() }
+  dessiner()
+  montrer(h('section', { class: 'parchemin vue' },
+    tete(s),
+    h('h2', { class: 'titre' }, s.titre),
+    h('p', { class: 'note', style: 'margin-top:0' }, s.note),
+    lu,
+    h('div', { class: 'molette' },
+      h('button', { type: 'button', 'aria-label': 'Un cran de moins', onclick: () => tourner(-1) }, '−'),
+      sortie,
+      h('button', { type: 'button', 'aria-label': 'Un cran de plus', onclick: () => tourner(1) }, '+')),
+    champ(s, { placeholder: 'Le mot gardé' }, v => repondreUnMot(s, v)),
+    issues(s)))
+}
+
+/* Le jeu des dalles. Une bande de dix dalles, des stèles de deux : qui ne peut
+   plus poser a perdu. Le Sphinx ne se trompe jamais (il lit la valeur de
+   chaque tronçon libre, comme au Nim) ; on ne le bat qu'en ouvrant au milieu,
+   puis en l'imitant en miroir. Dix dalles : c'est la seule ouverture gagnante. */
+const DALLES = 10
+const VALEUR = (() => {
+  const g = [0, 0]
+  for (let n = 2; n <= DALLES; n++) {
+    const vus = new Set()
+    for (let a = 0; a <= n - 2; a++) vus.add(g[a] ^ g[n - 2 - a])
+    let m = 0
+    while (vus.has(m)) m++
+    g[n] = m
+  }
+  return g
+})()
+const coupsLibres = d => d.flatMap((c, i) => (i < d.length - 1 && !c && !d[i + 1] ? [i] : []))
+function valeurDe(d) {
+  let v = 0, long = 0
+  for (let i = 0; i <= d.length; i++) {
+    if (i < d.length && !d[i]) long++
+    else { v ^= VALEUR[long]; long = 0 }
+  }
+  return v
+}
+function coupDuSphinx(d) {
+  const libres = coupsLibres(d)
+  const gagnants = libres.filter(i => { const e = d.slice(); e[i] = e[i + 1] = 2; return valeurDe(e) === 0 })
+  const parmi = gagnants.length ? gagnants : libres
+  return parmi[Math.floor(Math.random() * parmi.length)]
+}
+function salleDesDalles(j, s) {
+  let dalles = new Array(DALLES).fill(0)
+  let steles = []
+  let vise = null
+  let aMoi = true
+  const plateau = h('div', { class: 'plateau', tabindex: '0', role: 'group', 'aria-label': 'Dix dalles. Flèches pour viser, Entrée pour poser.' })
+  const poser = h('button', { type: 'button', class: 'bouton', disabled: true }, 'Poser la stèle')
+  const partie = h('span', null)
+  const dessiner = () => {
+    plateau.replaceChildren(
+      ...dalles.map((_, i) => h('i', { class: 'dalle', style: `grid-column:${i + 1}` })),
+      ...steles.map(([i, qui]) => h('i', { class: `stele ${qui}`, style: `grid-column:${i + 1} / span 2` })),
+      ...(vise !== null ? [h('i', { class: 'stele vise', style: `grid-column:${vise + 1} / span 2` })] : []))
+    poser.disabled = vise === null || !aMoi
+    partie.textContent = fr(`Partie n° ${etat.parties + 1}`)
+  }
+  const viser = i => {
+    if (!aMoi) return
+    if (i < 0 || i > DALLES - 2 || dalles[i] || dalles[i + 1]) { sons.non(); parler('Pas là : il faut deux dalles voisines encore libres.'); return }
+    vise = i
+    sons.bip()
+    dessiner()
+  }
+  const recommencer = () => {
+    dalles = new Array(DALLES).fill(0)
+    steles = []
+    vise = null
+    aMoi = true
+    dessiner()
+  }
+  const jouerMonCoup = async () => {
+    if (vise === null || !aMoi) return
+    const k = jeton
+    dalles[vise] = dalles[vise + 1] = 1
+    steles.push([vise, 'moi'])
+    vise = null
+    aMoi = false
+    sons.pose()
+    dessiner()
+    if (!coupsLibres(dalles).length) return jouer(n => victoire(n, s))
+    await attendre(calme() ? 150 : 750)
+    if (k !== jeton) return
+    const i = coupDuSphinx(dalles)
+    dalles[i] = dalles[i + 1] = 2
+    steles.push([i, 'lui'])
+    sons.pose()
+    dessiner()
+    if (coupsLibres(dalles).length) { aMoi = true; dessiner(); return }
+    // Plus de place pour le joueur : la machine se remonte, autant de fois qu'il le veut.
+    etat.parties++
+    garder()
+    sons.non()
+    secouer()
+    parler(etat.parties === 3 ? 'Encore perdu. Tu as vu ? Je ne joue *jamais* au hasard.' : 'Plus de place pour toi. Les dalles se relèvent.')
+    await attendre(calme() ? 600 : 1700)
+    if (k !== jeton) return
+    recommencer()
+    parler('Les dalles sont relevées. À toi.')
+  }
+  plateau.addEventListener('click', e => {
+    const r = plateau.getBoundingClientRect()
+    // Le joint le plus proche du doigt : la stèle se pose à cheval dessus.
+    const joint = Math.round((e.clientX - r.left) / (r.width / DALLES))
+    viser(Math.min(DALLES - 1, Math.max(1, joint)) - 1)
+  })
+  plateau.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Enter') return
+    e.preventDefault()
+    if (e.key === 'Enter') return jouerMonCoup()
+    const libres = coupsLibres(dalles)
+    if (!libres.length) return
+    const pas = e.key === 'ArrowLeft' ? -1 : 1
+    const ou = vise === null ? (pas > 0 ? -1 : libres.length) : libres.indexOf(vise)
+    viser(libres[(ou + pas + libres.length) % libres.length])
+  })
+  poser.addEventListener('click', jouerMonCoup)
+  dessiner()
+  montrer(h('section', { class: 'parchemin vue' },
+    tete(s),
+    h('h2', { class: 'titre' }, s.titre),
+    s.regles.map(r => h('p', { class: 'regle' }, r)),
+    plateau,
+    h('p', { class: 'legende' }, h('span', null, h('i', { class: 'moi' }), 'toi'), partie, h('span', null, h('i', { class: 'lui' }), 'le Sphinx')),
+    h('div', { class: 'pose' }, poser),
+    issues(s)))
+}
+
+/* ------------------------------------------------------------------ */
+/* La fin d'une salle                                                  */
+/* ------------------------------------------------------------------ */
+
+function montrerLeMot(s, sable) {
+  montrerAuCentre(h('div', { class: `gain vue ${sable ? 'de-sable' : ''}` },
+    h('span', { html: glyphe(s.glyphe, 64) }),
+    h('p', { class: 'sourcil' }, sable ? 'Le mot de la salle, sans son or' : 'Le mot de la salle'),
+    h('p', { class: 'mot' }, s.mot),
+    h('small', null, sable ? 'Il compte pour l’énigme du gardien, pas pour ouvrir sa porte.' : 'Un glyphe d’or de plus.')))
+}
+async function solution(j, s) {
+  const liste = h('ol', { class: 'etapes' })
+  montrer(h('section', { class: 'parchemin vue' }, h('div', { class: 'tete' }, h('p', { class: 'sourcil' }, 'La solution, pas à pas')), liste))
+  for (const [i, [dit, ecrit]] of s.solution.entries()) {
+    liste.append(h('li', { class: i === s.solution.length - 1 ? 'reponse-finale' : '' }, ecrit))
+    haut.scrollTop = haut.scrollHeight
+    await dire(j, dit)
+  }
+}
+async function victoire(j, s) {
+  de(s).e = 'or'
+  garder()
+  montrerLeMot(s, false)
+  eclair()
+  sons.oui()
+  await dire(j, s.juste)
+  if (s.solution) {
+    const veut = await demander(j, 'Tu veux voir comment on le résout ?', [['oui', 'Montre-moi'], ['non', 'Pas la peine']])
+    if (veut === 'oui') await solution(j, s)
+  }
+  await etage(j)
+}
+async function defaite(j, s, chat) {
+  de(s).e = 'sable'
+  de(s).essais = 0
+  garder()
+  montrerLeMot(s, true)
+  await dire(j, chat && s.sorte !== 'dalles' ? 'Soit. ' + s.perdu : s.perdu)
+  if (s.solution) await solution(j, s)
+  await etage(j)
+}
+
+/* ------------------------------------------------------------------ */
+/* Le gardien                                                          */
+/* ------------------------------------------------------------------ */
+
+function tablettes() {
+  return h('div', { class: 'tablettes' }, RANGS.map(r => h('div', { class: 'rang' }, r.map(i => {
+    const s = SALLES[i], e = de(s).e
+    return h('span', { class: e === 'or' ? '' : e === 'sable' ? 'de-sable' : 'inconnu' }, e === 'or' || e === 'sable' ? s.mot : '?')
+  }))))
+}
+function dessinerLeGardien() {
+  const g = etat.gardien
+  const fermee = g.essais <= 0
+  montrer(h('section', { class: 'parchemin vue' },
+    h('div', { class: 'tete' },
+      h('p', { class: 'sourcil' }, 'La porte du gardien'),
+      h('span', { class: 'essais', role: 'img', 'aria-label': `${g.essais} essais` }, [0, 1, 2].map(i => h('i', { class: `losange ${i < g.essais ? '' : 'perdu'}` })))),
+    tablettes(),
+    fermee
+      ? h('div', { class: 'pose' }, h('button', { type: 'button', class: 'bouton', onclick: () => { g.essais = 3; g.dits = []; garder(); jouer(j => gardien(j)) } }, 'Passer au lendemain (maquette)'))
+      : champ({ cle: 'gardien' }, { placeholder: 'Un nom' }, v => {
+        const r = normaliser(v)
+        if (!r) return 'vide'
+        if (GARDIEN.acceptees.includes(r)) { jouer(j => fin(j, true)); return 'juste' }
+        if (g.dits.includes(r)) { parler('Tu me l’as déjà dit.'); return 'deja' }
+        if (GARDIEN.brulent.includes(r)) { parler('Tu brûles…'); return 'brule' }
+        g.dits.push(r)
+        g.essais--
+        garder()
+        sons.non()
+        secouer()
+        if (g.essais <= 0) { jouer(j => gardien(j, 'La porte se referme. Elle se rouvrira demain, et tes essais avec.')); return 'perdu' }
+        haut.querySelector('.essais').replaceChildren(...[0, 1, 2].map(i => h('i', { class: `losange ${i < g.essais ? '' : 'perdu'}` })))
+        parler(reste(g.essais))
+        return 'faux'
+      }),
+    h('div', { class: 'issues' }, h('button', { type: 'button', class: 'lien', onclick: () => jouer(j => etage(j)) }, 'Revenir à l’étage'))))
+}
+async function gardien(j, phrase) {
+  const g = etat.gardien
+  if (g.e === 'franchie') return fin(j, false)
+  const or = enOr()
+  if (or < OR_POUR_LA_PORTE) {
+    sons.non()
+    return ecrire(j, `*${OR_POUR_LA_PORTE}* glyphes d’or, et la porte t’écoute. Tu en as ${or === 0 ? 'aucun' : `*${or}*`}.`)
+  }
+  grandir(true)
+  scene.classList.add('glorieux')
+  dessinerLeGardien()
+  if (phrase) return ecrire(j, phrase)
+  if (!g.vu) {
+    await dire(j, GARDIEN.dit[0])
+    await dire(j, GARDIEN.dit[1])
+    g.vu = true
+    garder()
+  }
+  await ecrire(j, GARDIEN.dit[2])
+}
+async function fin(j, neuve) {
+  etat.gardien.e = 'franchie'
+  garder()
+  grandir(true)
+  scene.classList.add('glorieux')
+  const or = enOr()
+  montrerAuCentre(h('div', { class: 'gain fin vue' },
+    h('span', { html: glyphe('ankh', 54) }),
+    h('p', { class: 'sourcil' }, 'Étage I franchi'),
+    h('h2', null, GARDIEN.mot),
+    h('p', null, 'Ton titre : il se porte sous ton prénom, comme le nom d’un haut fait.'),
+    h('p', null, h('b', null, `${or} glyphe${or > 1 ? 's' : ''} d’or sur ${SALLES.length}`)),
+    h('p', null, 'Étage II, Le Puits : bientôt.'),
+    h('button', { type: 'button', class: 'bouton', onclick: () => jouer(k => etage(k)) }, 'Revoir l’étage')))
+  if (neuve) {
+    eclair()
+    sons.oui()
+    await dire(j, `*${GARDIEN.mot}*. Voilà longtemps qu’on ne m’avait pas répondu.`)
+    await dire(j, 'Ce nom est à toi. Porte-le.')
+  }
+  await ecrire(j, 'L’étage suivant t’attend, plus bas. Bientôt.')
+}
+
+/* ------------------------------------------------------------------ */
+/* L'arrivée, et les outils de la maquette                             */
+/* ------------------------------------------------------------------ */
+
+async function arrivee(j) {
+  grandir(true)
+  montrer()
+  await attendre(calme() ? 0 : 350)
+  verifier(j)
+  boite.classList.add('la')
+  await attendre(calme() ? 0 : 420)
+  verifier(j)
+  await materialiser(j)
+  if (!etat.intro) {
+    await dire(j, 'Tu m’as répondu cinq fois, Léa.')
+    await dire(j, 'Alors entre. Voici *ma pyramide*.')
+    await dire(j, 'Six salles, une porte. Chaque salle garde un *mot*.')
+    await dire(j, 'Prends ton temps : ici, une énigme attend des jours s’il le faut.')
+    etat.intro = true
+    garder()
+  }
+  await etage(j)
+}
+
+const outilsBouton = $('outils-bouton'), outilsMenu = $('outils-menu')
+const fermerLesOutils = () => { outilsMenu.hidden = true; outilsBouton.setAttribute('aria-expanded', 'false') }
+outilsBouton.addEventListener('click', () => {
+  outilsMenu.hidden = !outilsMenu.hidden
+  outilsBouton.setAttribute('aria-expanded', String(!outilsMenu.hidden))
+})
+function dessinerLeCalme() {
+  scene.classList.toggle('calme', etat.calme)
+  $('outil-calme').textContent = etat.calme ? 'Remettre le mouvement' : 'Moins de mouvement'
+}
+outilsMenu.addEventListener('click', e => {
+  const outil = e.target.closest('button')?.dataset.outil
+  if (!outil) return
+  fermerLesOutils()
+  if (outil === 'calme') { etat.calme = !etat.calme; garder(); dessinerLeCalme(); return }
+  if (outil === 'recommencer') {
+    const { son, calme: c } = etat
+    etat = { ...etatNeuf(), son, calme: c }
+    garder()
+    scene.classList.remove('glorieux')
+    peindreSphinx(null)
+    return jouer(j => arrivee(j))
+  }
+  // Quatre salles d'or d'un coup, pour aller voir la porte : les quatre premières qui ne le sont pas.
+  for (const s of SALLES) {
+    if (enOr() >= OR_POUR_LA_PORTE) break
+    if (de(s).e !== 'or') de(s).e = 'or'
+  }
+  etat.intro = true
+  garder()
+  jouer(j => etage(j))
+})
+document.addEventListener('click', e => { if (!e.target.closest('.outils')) fermerLesOutils() })
+
+dessinerLeSon()
+dessinerLeCalme()
+jouer(j => arrivee(j))
+</script>

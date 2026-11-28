@@ -1,0 +1,43 @@
+<title>Le Puits du Sphinx</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,500&family=Figtree:wght@400;500;600;700&family=Pixelify+Sans:wght@400;500;600&display=swap">
+<style>
+/*STYLE*/
+</style>
+
+<div class="scene" id="scene">
+  <div class="haut" id="haut"></div>
+
+  <div class="sphinx" id="sphinx" aria-hidden="true">
+    <div class="rayons"></div>
+    <canvas id="sphinx-toile" width="356" height="240"></canvas>
+  </div>
+
+  <div class="choix" id="choix" hidden></div>
+
+  <div class="boite" id="boite">
+    <i class="coin"></i><i class="coin"></i><i class="coin"></i><i class="coin"></i>
+    <button class="son" id="son" type="button" aria-pressed="false" aria-label="La voix du Sphinx"><span id="son-dessin"></span></button>
+    <span class="nom">Le Sphinx</span>
+    <p class="texte" id="texte" aria-hidden="true"></p>
+    <p class="sr" id="texte-lu" aria-live="polite"></p>
+    <i class="suite"></i>
+  </div>
+
+  <div class="flash" id="flash"></div>
+
+  <div class="outils">
+    <button type="button" id="outils-bouton" aria-expanded="false" aria-controls="outils-menu">Maquette</button>
+    <menu id="outils-menu" hidden>
+      <li><button type="button" data-outil="descendre">Descendre de dix paliers</button></li>
+      <li><button type="button" data-outil="calme" id="outil-calme">Moins de mouvement</button></li>
+      <li><button type="button" data-outil="recommencer">Tout recommencer</button></li>
+    </menu>
+  </div>
+</div>
+
+<script>
+/*SCRIPT*/
+</script>
