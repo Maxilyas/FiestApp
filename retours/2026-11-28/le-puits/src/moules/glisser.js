@@ -72,14 +72,13 @@
   const loin = new Map([[RANGE, 0]])
   let bord = [RANGE]
   let fond = 0
+  const AUTOUR = voisines({ large: 3, cases: [...RANGE] })
   const pousser = (s, i) => { const a = [...s]; a[s.indexOf('0')] = a[i]; a[i] = '0'; return a.join('') }
-  let autour = null
   function creuser(jusque) {
-    autour = autour || voisines({ large: 3, cases: [...RANGE] })
     while (fond < jusque && bord.length) {
       const suivant = []
       for (const s of bord) {
-        for (const i of autour[s.indexOf('0')]) {
+        for (const i of AUTOUR[s.indexOf('0')]) {
           const t = pousser(s, i)
           if (!loin.has(t)) { loin.set(t, fond + 1); suivant.push(t) }
         }
@@ -113,13 +112,16 @@
       return { etat: { g, glisse: [i, v], renonce: false } }
     },
     fini: (f, e) => ((f.impossible && e.renonce) || f.but.every((v, i) => v === null || v === e.g[i]) ? { gagne: true } : null),
-    // Une fiche impossible se prouve : par le parcours tant qu'il peut tout visiter (neuf cases au plus), par la parité au-delà.
     verifier(f) {
-      const petite = f.cases.length <= 9
-      if (!f.impossible || petite) {
+      if (!f.impossible) {
         const r = P.plusCourt(moule, f)
-        if (f.impossible) return r ? { ok: false, note: `elle se résout, en ${r.coups}` } : { ok: true, note: 'impossible, prouvé par le parcours' }
         return r ? { ok: true, coups: r.coups, solution: r.solution } : { ok: false, note: 'aucune solution' }
+      }
+      // Une fiche impossible se prouve. Neuf cases font 362 880 rangements : le parcours les voit tous, et son
+      // silence est une preuve. Au-delà il s'arrête avant le bout, et se taire ne prouve plus rien : c'est la parité qui tranche.
+      if (f.cases.length <= 9) {
+        const r = P.plusCourt(moule, f)
+        return r ? { ok: false, note: `elle se résout, en ${r.coups}` } : { ok: true, note: 'impossible, prouvé par le parcours' }
       }
       if (f.but.includes(null)) return { ok: false, note: 'trop grande pour le parcours, et la parité veut un but complet' }
       return pariteInterdit(f) ? { ok: true, note: 'impossible, prouvé par la parité' } : { ok: false, note: 'la parité ne l’interdit pas' }
@@ -155,14 +157,16 @@
       const alea = P.alea(graine)
       const voulu = P.entier(alea, ...[[6, 8], [9, 12], [13, 16], [17, 19], [20, 22]][Math.min(4, Math.max(0, niveau - 1))])
       creuser(voulu)
-      // La promenade s'arrête dès qu'elle est à `voulu` glissements du rangement, au plus court : elle n'a donc jamais quitté ce qu'on a creusé.
+      // La promenade s'arrête dès qu'elle est à `voulu` glissements du rangement, au plus court : elle n'a donc
+      // jamais quitté ce qu'on a creusé. Si elle s'essouffle avant, on garde le plus loin qu'elle soit allée —
+      // jamais sa dernière case, qui peut être le rangement lui-même.
       let s = RANGE
       let avant = -1
       let record = s
       for (let pas = 0; pas < 5000 && loin.get(s) < voulu; pas++) {
         const v = s.indexOf('0')
         // Sans jamais défaire le glissement d'avant : la promenade piétinerait.
-        s = pousser(s, P.parmi(alea, autour[v].filter(i => i !== avant)))
+        s = pousser(s, P.parmi(alea, AUTOUR[v].filter(i => i !== avant)))
         avant = v
         if (loin.get(s) > loin.get(record)) record = s
       }
@@ -171,7 +175,7 @@
       return {
         id: 'glisser-3-' + record, moule: 'glisser', niveau, tiree: true,
         titre: `Le taquin : ${P.pluriel(cases.filter((c, i) => c && c !== but[i]).length, 'pièce')} à ranger`,
-        source: 'Tirée par le programme, sur le modèle du taquin, 1880',
+        source: 'Tirée par le programme, sur le modèle du taquin de Noyes Chapman (1880)',
         recit: ['Huit pièces dans une boîte de neuf cases. Je les ai mêlées, en les glissant.', 'Glisse-les à ton tour : de 1 à 8 dans l’ordre, la case vide en dernier.'],
         regle: 'Touche une pièce voisine de la case vide : elle y glisse.',
         large: 3, cases, but, objectif: 'Le but : de 1 à 8, la case vide en dernier.',
@@ -221,9 +225,9 @@
     objectif: 'Le but : de 1 à 15, la case vide en dernier.',
     impossible: true,
     explication: [
-      'Chaque glissement échange une pièce et la case vide : c’est un échange, un seul.',
-      'Pour que la case vide retrouve son coin, il faut autant de glissements vers le haut que vers le bas, autant vers la gauche que vers la droite : toujours un nombre pair d’échanges.',
-      'Or entre ce départ et le but, il y a un seul échange, le 14 et le 15 : un nombre impair. Les mille dollars de Sam Loyd n’ont jamais été payés.',
+      'Chaque glissement échange une pièce avec la case vide : un échange, jamais deux.',
+      'Pour que la case vide retrouve son coin, il faut autant de glissements vers le haut que vers le bas, autant vers la gauche que vers la droite : en tout, un nombre pair d’échanges.',
+      'Or le 14 et le 15 ne sont qu’à un échange de leur place, et jamais un nombre pair d’échanges n’en vaut un seul. Les mille dollars de Sam Loyd n’ont jamais été payés.',
     ],
   })
 }

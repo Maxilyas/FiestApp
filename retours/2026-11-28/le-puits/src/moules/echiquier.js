@@ -29,14 +29,13 @@
 .ec-case svg { position: relative; z-index: 1; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.45)); }
 .ec-case.conflit svg { color: #ffd9d9; }
 .ec-compte { margin: 0; min-height: 18px; font-size: 12.5px; line-height: 18px; color: var(--muted); text-align: center; }
-.ec-compte b { color: var(--ink); font-weight: 600; }
 .ec-compte .faux { color: var(--faux); }
 `)
 
   // `pas` : les directions où la pièce glisse. La première sert au programme pour ranger les cases en lignes.
   const PIECES = {
-    reine: { nom: 'reine', noms: 'reines', posees: 'Reines posées', une: 'une', deplacer: 'ôtes-en une pour la déplacer', pas: [[0, 1], [1, 0], [1, 1], [1, -1]] },
-    fou: { nom: 'fou', noms: 'fous', posees: 'Fous posés', une: 'un', deplacer: 'ôtes-en un pour le déplacer', pas: [[1, 1], [1, -1]] },
+    reine: { nom: 'reine', noms: 'reines', une: 'une', deplacer: 'ôtes-en une pour la déplacer', pas: [[0, 1], [1, 0], [1, 1], [1, -1]] },
+    fou: { nom: 'fou', noms: 'fous', une: 'un', deplacer: 'ôtes-en un pour le déplacer', pas: [[1, 1], [1, -1]] },
   }
   // Ce qui ne change pas le long d'une direction : deux cases de même clé sont sur la même ligne.
   const cle = (n, i, [dr, dc]) => Math.floor(i / n) * dc - (i % n) * dr
@@ -155,8 +154,9 @@
     unite: ['pose', 'poses'],
     // `poses` garde l'ordre des poses : la solution se rejoue pièce après pièce.
     depart: () => ({ poses: [] }),
-    // Ôter ne coûte rien : on ne compte que les pièces posées.
+    // Ôter ne coûte rien : on ne compte que les poses. Et l'écran dit les pièces en place, pas les gestes : une reine ôtée puis reposée en ferait neuf sur huit.
     compte: coup => coup.pose !== undefined,
+    jauge: (f, e) => `${e.poses.length} ${PIECES[f.piece][e.poses.length > 1 ? 'noms' : 'nom']} sur ${f.combien}`,
     coups(f, e) {
       const libres = e.poses.length < f.combien ? [...Array(f.cote * f.cote).keys()].filter(i => !e.poses.includes(i)) : []
       return [...libres.map(i => ({ pose: i })), ...e.poses.map(i => ({ ote: i }))]
@@ -203,14 +203,15 @@
           onclick: () => agir(la ? { ote: i } : { pose: i }),
         })
       })
+      // Sous le damier, ce que l'œil cherche mal : la dernière case sans garde, la paire qui se menace d'un bout à l'autre.
       const enConflit = e.poses.filter(i => m[i]).length
       const sansGarde = m.filter((x, i) => !x && !e.poses.includes(i)).length
-      const suite = f.but === 'garde'
-        ? h('span', null, sansGarde ? ` · ${P.pluriel(sansGarde, 'case')} sans garde` : ' · tout est gardé')
-        : enConflit ? h('span', { class: 'faux' }, ` · ${enConflit} se menacent`) : null
+      const etat = f.but === 'garde'
+        ? (sansGarde ? `${P.pluriel(sansGarde, 'case')} sans garde` : 'Tout est gardé.')
+        : enConflit ? h('span', { class: 'faux' }, `${enConflit} ${p.noms} se menacent`) : e.poses.length ? `Aucun${p.une === 'une' ? 'e' : ''} ne se menace.` : ''
       return h('div', { class: 'ec' },
         h('div', { class: 'ec-plateau', style: `--n:${n};--c:${cote}px`, role: 'group', 'aria-label': `Un damier de ${n} cases de côté` }, cases),
-        h('p', { class: 'ec-compte' }, `${p.posees} : `, h('b', null, `${e.poses.length} sur ${f.combien}`), suite))
+        h('p', { class: 'ec-compte' }, etat))
     },
   })
 

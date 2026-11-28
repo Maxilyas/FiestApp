@@ -26,8 +26,8 @@
 .sb-sablier .sb-geste { font: 600 12px/1 var(--f-texte); color: var(--or-clair); }
 .sb-verre { display: grid; grid-template-columns: 62px 34px; align-items: center; column-gap: 6px; }
 .sb-bulbe { position: relative; width: 62px; background: rgba(243, 236, 226, 0.16); overflow: hidden; }
-.sb-bulbe.haut { clip-path: polygon(0 0, 100% 0, 58% 100%, 42% 100%); border-top: 3px solid rgba(243, 236, 226, 0.6); }
-.sb-bulbe.bas { clip-path: polygon(42% 0, 58% 0, 100% 100%, 0 100%); border-bottom: 3px solid rgba(243, 236, 226, 0.6); }
+.sb-bulbe.sb-haut { clip-path: polygon(0 0, 100% 0, 58% 100%, 42% 100%); border-top: 3px solid rgba(243, 236, 226, 0.6); }
+.sb-bulbe.sb-bas { clip-path: polygon(42% 0, 58% 0, 100% 100%, 0 100%); border-bottom: 3px solid rgba(243, 236, 226, 0.6); }
 .sb-sable { position: absolute; left: 0; right: 0; bottom: 0; background: linear-gradient(180deg, var(--or-clair), var(--or)); transition: height 0.35s ease; }
 .sb-filet { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--or-clair); }
 .sb-verre b { font: 600 17px/1 var(--f-pixel); color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -85,7 +85,7 @@
       const grand = Math.max(...f.sabliers)
       const sablier = (cap, i) => {
         const haut = Math.round(22 + 34 * cap / grand)
-        const bulbe = (ou, n) => h('span', { class: `sb-bulbe ${ou}`, style: `height:${haut}px` },
+        const bulbe = (ou, n) => h('span', { class: `sb-bulbe sb-${ou}`, style: `height:${haut}px` },
           h('i', { class: 'sb-sable', style: `height:${100 * n / cap}%` }),
           ou === 'bas' && e.haut[i] > 0 && h('i', { class: 'sb-filet' }))
         return h('button', {
@@ -117,7 +117,7 @@
 
   const fiche = (a, b, cible, niveau, titre, source, recit) => P.fiche({
     id: `sabliers-${a}-${b}-${cible}`, moule: 'sabliers', niveau, titre, source,
-    recit: [...recit, 'Retourne-les quand tu veux, autant que tu veux. Dis « Je commence », puis « C’est maintenant ! » : je compterai ce qui a coulé entre les deux.'],
+    recit: [...recit, 'Retourne-les quand tu veux, autant que tu veux.', 'Dis « Je commence », puis « C’est maintenant ! » : je compterai le temps passé entre les deux.'],
     regle: 'Touche un sablier pour le retourner. Le temps ne passe que lorsque tu laisses couler.',
     sabliers: [a, b], cible,
   })

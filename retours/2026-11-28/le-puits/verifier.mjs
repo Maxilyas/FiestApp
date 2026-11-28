@@ -10,11 +10,15 @@ import vm from 'node:vm'
 const ici = dirname(fileURLToPath(import.meta.url))
 const charger = chemin => vm.runInThisContext(readFileSync(chemin, 'utf8'), { filename: chemin })
 charger(join(ici, 'src/socle.js'))
-for (const f of readdirSync(join(ici, 'src/moules')).filter(x => x.endsWith('.js')).sort()) charger(join(ici, 'src/moules', f))
 const P = globalThis.P
-
 const seul = process.argv[2]
 let echecs = 0
+// Un moule qui lève en se chargeant (en cours d'écriture, ou cassé) est un refus : il ne fait pas taire les autres.
+for (const f of readdirSync(join(ici, 'src/moules')).filter(x => x.endsWith('.js')).sort()) {
+  try { charger(join(ici, 'src/moules', f)) } catch (e) {
+    if (!seul || f === seul + '.js') { echecs++; console.log(`REFUS  le moule ${f} ne se charge pas : ${e.message}`) }
+  }
+}
 const ligne = (f, tiree) => {
   const t0 = Date.now()
   let v

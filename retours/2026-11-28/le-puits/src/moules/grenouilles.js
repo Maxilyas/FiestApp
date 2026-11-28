@@ -35,7 +35,7 @@
 .gr-pierre[disabled] { cursor: default; }
 .gr-bete { width: 100%; display: grid; place-items: center; margin-bottom: -2px; z-index: 1; }
 .gr-socle { width: calc(100% - 6px); height: 18px; border-radius: 50%; background: linear-gradient(180deg, #d8cfbd, #9c917d); box-shadow: 0 3px 0 rgba(0, 0, 0, 0.25); font: normal 700 15px/16px var(--f-texte); text-align: center; color: #4a4136; }
-.table .gr-socle { height: 30px; border-radius: 0; clip-path: polygon(14% 0, 86% 0, 100% 100%, 0 100%); background: linear-gradient(180deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.3)); box-shadow: none; }
+.gr-mare.table .gr-socle { height: 30px; border-radius: 0; clip-path: polygon(14% 0, 86% 0, 100% 100%, 0 100%); background: linear-gradient(180deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.3)); box-shadow: none; }
 .gr-pierre.blanche .gr-bete { color: #fff4d6; }
 .gr-pierre.noire .gr-bete { color: #0d0908; }
 .gr-pierre.saute .gr-bete { animation: gr-saut 0.3s ease-out 1; }

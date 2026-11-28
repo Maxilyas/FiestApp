@@ -2,7 +2,8 @@
 /* La tablette empoisonnée : un duel. Une tablette de chocolat, dont le carré
    d'en bas à gauche est empoisonné ; on croque un carré, et tout ce qui est
    au-dessus et à sa droite part avec lui. Fred Schuh le joue en 1952 avec des
-   diviseurs, David Gale lui donne sa tablette en 1974, et on l'appelle « Chomp ».
+   diviseurs, David Gale lui donne sa tablette en 1974, et Martin Gardner son
+   nom : « Chomp ».
    Son paradoxe : on sait prouver que celui qui commence gagne — s'il existait
    une bonne réponse à son premier coup, il n'avait qu'à la jouer lui-même —,
    sans que personne sache dire quel coup. Le Sphinx, lui, a compté.
@@ -124,7 +125,7 @@
     const f = { id: `tablette-${rangs}x${colonnes}`, moule: 'tablette', niveau, titre, rangs, colonnes }
     return P.fiche({
       ...f,
-      source: 'Fred Schuh, 1952, et David Gale, 1974 : le jeu qu’on appelle « Chomp »',
+      source: 'Fred Schuh, 1952, et David Gale, 1974 : le jeu que Martin Gardner a nommé « Chomp »',
       recit: [phrase, 'Chacun son tour, on choisit un carré : on le croque, avec tout ce qui est au-dessus de lui et à sa droite.', 'Qui n’a plus que le carré empoisonné a perdu. Tu commences.'],
       regle: 'Un carré, et tout ce qui est au-dessus et à droite. Le carré empoisonné reste au perdant.',
       explication: explication(f),

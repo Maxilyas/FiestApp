@@ -269,7 +269,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .salle-tete .sourcil { font-size: 9.5px; letter-spacing: 0.16em; }
 .salle-tete .titre { font-size: 19px; }
 .compteur { margin: 0; text-align: right; font-size: 10.5px; line-height: 1.2; color: var(--muted); }
-.compteur b { display: block; font: 600 20px/1 var(--f-pixel); color: var(--ink); font-variant-numeric: tabular-nums; }
+.compteur b { display: block; font: 700 20px/1 var(--f-texte); color: var(--ink); font-variant-numeric: tabular-nums; }
+/* La police pixel est la voix du Sphinx, pas celle des plateaux : son 5 s'y lit « S » et son 2 un « S » à l'envers,
+   et un carré magique ne se lisait plus. Un moule qui la demande reçoit ici la police du texte. */
+.plateau { --f-pixel: var(--f-texte); font-variant-numeric: tabular-nums; }
+.faux { color: var(--faux); }
 .regle { margin: 0; font-size: 12.5px; line-height: 1.35; color: var(--muted); }
 .issues { display: flex; justify-content: center; flex-wrap: wrap; gap: 0 4px; }
 .recit { display: grid; gap: 10px; text-align: center; justify-items: center; }
