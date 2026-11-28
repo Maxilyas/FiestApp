@@ -73,7 +73,8 @@
       const k = cle(n, i, PIECES[f.piece].pas[0])
       rangs.set(k, [...(rangs.get(k) || []), i])
     }
-    const lignes = [...rangs.values()]
+    // Les lignes courtes d'abord : un coin n'a qu'une case, et son choix ferme aussitôt les grandes diagonales.
+    const lignes = [...rangs.values()].sort((a, b) => a.length - b.length)
     if (combien > lignes.length) return { n: 0 }
     const sous = new Array(n * n).fill(0)
     const prises = []
@@ -99,44 +100,50 @@
      qu'on vient d'essayer est écartée pour les suivantes : sans cela, la même
      disposition se compterait autant de fois qu'elle a d'ordres de pose. On
      prend la case sans garde qui a le moins de secours : une impasse se voit
-     tout de suite, et les huit fous passent de 400 ms à quelques-unes. Les
-     cases tiennent dans deux entiers de 32 bits — un damier de 64 cases au plus. */
+     tout de suite. Les cases tiennent dans deux entiers de 32 bits — un damier
+     de 64 cases au plus —, parce que ce compte se refait à chaque visite. */
   function enGarde(f, combien) {
     const n2 = f.cote * f.cote
     const lignes = portees(f)
-    const bit = i => (i < 32 ? [1 << i, 0] : [0, 1 << (i - 32)])
-    // Une case garde celles de ses lignes et elle-même — et c'est aussi la liste de celles qui la gardent.
-    const garde = lignes.map((l, i) => [i, ...l].reduce(([lo, hi], j) => [lo | bit(j)[0], hi | bit(j)[1]], [0, 0]))
-    const TOUT = [n2 >= 32 ? -1 : (1 << n2) - 1, n2 >= 64 ? -1 : n2 > 32 ? (1 << (n2 - 32)) - 1 : 0]
-    const large = Math.max(...lignes.map(l => l.length + 1))
+    const LO = lignes.map((_, i) => (i < 32 ? 1 << i : 0))
+    const HI = lignes.map((_, i) => (i < 32 ? 0 : 1 << (i - 32)))
+    // Une case garde celles de ses lignes et elle-même — et ce sont aussi celles qui la gardent.
+    const autour = lignes.map((l, i) => [i, ...l])
+    const GLO = autour.map(l => l.reduce((m, j) => m | LO[j], 0))
+    const GHI = autour.map(l => l.reduce((m, j) => m | HI[j], 0))
+    const TLO = n2 >= 32 ? -1 : (1 << n2) - 1
+    const THI = n2 >= 64 ? -1 : n2 > 32 ? (1 << (n2 - 32)) - 1 : 0
+    const large = Math.max(...autour.map(l => l.length))
     const compte = x => { x -= (x >>> 1) & 0x55555555; x = (x & 0x33333333) + ((x >>> 2) & 0x33333333); return Math.imul((x + (x >>> 4)) & 0x0f0f0f0f, 0x01010101) >>> 24 }
     const choix = (m, k) => { let r = 1; for (let i = 1; i <= k; i++) r = r * (m - k + i) / i; return k > m ? 0 : Math.round(r) }
+    const prises = []
     let total = 0, solution = null
     // `xlo`, `xhi` : les cases où l'on ne posera plus — prises, ou écartées.
-    const descend = (k, lo, hi, xlo, xhi, prises) => {
-      if (lo === TOUT[0] && hi === TOUT[1]) {
+    const descend = (k, lo, hi, xlo, xhi) => {
+      if (lo === TLO && hi === THI) {
         // Tout est gardé : les pièces qui restent vont n'importe où ailleurs.
-        const libres = [...Array(n2).keys()].filter(i => !(xlo & bit(i)[0]) && !(xhi & bit(i)[1]))
-        total += choix(libres.length, k)
-        if (!solution && libres.length >= k) solution = [...prises, ...libres.slice(0, k)]
+        const libres = n2 - compte(xlo) - compte(xhi)
+        total += choix(libres, k)
+        if (!solution && libres >= k) solution = [...prises, ...autour.map(l => l[0]).filter(i => !(xlo & LO[i]) && !(xhi & HI[i])).slice(0, k)]
         return
       }
       if (n2 - compte(lo) - compte(hi) > k * large) return
       let s = -1, secours = 99
       for (let i = 0; i < n2 && secours; i++) {
-        if (i < 32 ? lo & (1 << i) : hi & (1 << (i - 32))) continue
-        const c = compte(garde[i][0] & ~xlo) + compte(garde[i][1] & ~xhi)
+        if ((lo & LO[i]) || (hi & HI[i])) continue
+        const c = compte(GLO[i] & ~xlo) + compte(GHI[i] & ~xhi)
         if (c < secours) { s = i; secours = c }
       }
-      for (const c of [s, ...lignes[s]]) {
-        const [a, b] = bit(c)
-        if ((xlo & a) || (xhi & b)) continue
-        descend(k - 1, lo | garde[c][0], hi | garde[c][1], xlo | a, xhi | b, [...prises, c])
-        xlo |= a
-        xhi |= b
+      for (const c of autour[s]) {
+        if ((xlo & LO[c]) || (xhi & HI[c])) continue
+        xlo |= LO[c]
+        xhi |= HI[c]
+        prises.push(c)
+        descend(k - 1, lo | GLO[c], hi | GHI[c], xlo, xhi)
+        prises.pop()
       }
     }
-    descend(combien, 0, 0, 0, 0, [])
+    descend(combien, 0, 0, 0, 0)
     return { n: total, solution }
   }
 
